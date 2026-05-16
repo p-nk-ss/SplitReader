@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "PowerShell(head *)",
+      "PowerShell(tree \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\\\\app\\\\src\\\\main\\\\java\\\\com\\\\example\\\\splitreader\" -L 5)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\\\\app\\\\src\\\\main\\\\java\\\\com\\\\example\\\\splitreader\" -Recurse -File | Where-Object {$_.Name -match '\\\\.\\(kt|java\\)$'} | Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(ConvertTo-Csv -NoTypeInformation)",
+      "Bash(Select-Object -Skip 1)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\" -Recurse -ErrorAction SilentlyContinue)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\" -Recurse -File)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\" -Force)",
+      "Bash(Select-Object Name, FullName)",
+      "PowerShell(python -c \"import json; d=json.loads\\(open\\('.graphify_detect.json'\\).read\\(\\)\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if k != 'files'}, indent=2\\)\\); files=d.get\\('files',{}\\); [print\\(f'  {k}: {len\\(v\\)} files'\\) for k,v in files.items\\(\\) if v]\")",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(./gradlew assembleDebug)",
+      "WebSearch",
+      "WebFetch(domain:developers.google.com)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\pankass\\\\AndroidStudioProjects\\\\SplitReader\" -Recurse -Directory | Select-Object -First 40 | ForEach-Object { $_.FullName })",
+      "mcp__github__get_me"
+    ]
+  }
+}

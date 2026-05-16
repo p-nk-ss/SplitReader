@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Split Reader</string>
+    <string name="label_original_text">Original Text</string>
+    <string name="label_ai_translation">AI Translation</string>
+    <string name="badge_english">🇬🇧 English</string>
+    <string name="downloading_model">Downloading language model…</string>
+</resources>
