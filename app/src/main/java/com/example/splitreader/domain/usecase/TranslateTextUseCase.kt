@@ -1,6 +1,5 @@
 package com.example.splitreader.domain.usecase
 
-import android.util.Log
 import com.example.splitreader.data.local.TranslationCacheEntity
 import com.example.splitreader.data.local.TranslationDao
 import com.example.splitreader.domain.model.Language
@@ -20,14 +19,17 @@ import javax.inject.Inject
 class TranslateTextUseCase @Inject constructor(
     private val dao: TranslationDao,
 ) {
+    /**
+     * Translates paragraphs in the given index range.
+     * When endIndex < 0 the full list is translated (startIndex first, then wrapping around).
+     */
     operator fun invoke(
         paragraphs: List<String>,
         sourceLanguage: Language,
         targetLanguage: Language,
         startIndex: Int = 0,
+        endIndex: Int = -1,
     ): Flow<TranslationState> = flow {
-        Log.d("TRANSLATE", "Starting translation: ${paragraphs.size} paragraphs $sourceLanguage→$targetLanguage startIndex=$startIndex")
-
         val options = TranslatorOptions.Builder()
             .setSourceLanguage(sourceLanguage.toTranslateLanguage())
             .setTargetLanguage(targetLanguage.toTranslateLanguage())
@@ -44,7 +46,12 @@ class TranslateTextUseCase @Inject constructor(
             }
 
             val clampedStart = startIndex.coerceIn(0, (paragraphs.size - 1).coerceAtLeast(0))
-            val order = (clampedStart until paragraphs.size) + (0 until clampedStart)
+            val order: Iterable<Int> = if (endIndex >= 0) {
+                clampedStart..endIndex.coerceIn(clampedStart, (paragraphs.size - 1).coerceAtLeast(0))
+            } else {
+                (clampedStart until paragraphs.size) + (0 until clampedStart)
+            }
+
             for (index in order) {
                 val paragraph = paragraphs[index]
                 val cacheKey = "${paragraph.hashCode()}_${sourceLanguage.code}_${targetLanguage.code}"
@@ -56,7 +63,6 @@ class TranslateTextUseCase @Inject constructor(
                 emit(TranslationState.Partial(index, translated))
             }
         } catch (e: Exception) {
-            Log.e("TRANSLATE", "Error: ${e.message}", e)
             emit(TranslationState.Error(e.message ?: "Translation failed"))
         } finally {
             translator.close()

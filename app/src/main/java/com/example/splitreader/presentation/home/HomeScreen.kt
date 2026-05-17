@@ -328,15 +328,30 @@ private fun BookGridItem(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
+
     ElevatedCard(onClick = onClick, modifier = modifier) {
         Column {
-            BookCoverImage(
-                coverPath = book.coverPath,
-                title = book.title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(2f / 3f),
-            )
+            Box {
+                BookCoverImage(
+                    coverPath = book.coverPath,
+                    title = book.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(2f / 3f),
+                )
+                if (progress > 0f) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .align(Alignment.BottomCenter),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.Black.copy(alpha = 0.3f),
+                    )
+                }
+            }
             Row(
                 modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,

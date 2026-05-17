@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
+import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationState
@@ -21,6 +22,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 @HiltViewModel
@@ -32,6 +35,10 @@ class ReaderViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
+    private companion object {
+        const val TRANSLATE_WINDOW = 25
+    }
+
     private data class InternalState(
         val book: Book? = null,
         val currentChapterIndex: Int = 0,
@@ -40,8 +47,14 @@ class ReaderViewModel @Inject constructor(
         val translationState: TranslationState = TranslationState.Idle,
         val translatedParagraphs: List<String> = emptyList(),
         val pendingScrollPosition: Int = -1,
+        val pendingScrollOffset: Int = 0,
         val textSize: Float = 16f,
+        val lineHeightMultiplier: Float = 1.5f,
+        val splitRatio: Float = 0.5f,
+        val showTranslation: Boolean = true,
+        val readerTheme: ReaderTheme = ReaderTheme.DEFAULT,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
+        val horizontalMargin: Float = 12f,
         val isLoading: Boolean = false,
         val error: String? = null,
     )
@@ -50,8 +63,17 @@ class ReaderViewModel @Inject constructor(
         InternalState(
             targetLanguage = progressManager.getTargetLanguage(),
             navigationSide = if (progressManager.isNavigationLeft()) NavigationSide.LEFT else NavigationSide.RIGHT,
+            readerTheme = ReaderTheme.entries.find { it.name == progressManager.getReaderThemeName() }
+                ?: ReaderTheme.DEFAULT,
+            lineHeightMultiplier = progressManager.getLineHeightMultiplier(),
+            splitRatio = progressManager.getSplitRatio(),
+            showTranslation = progressManager.getShowTranslation(),
+            horizontalMargin = progressManager.getHorizontalMargin(),
         )
     )
+
+    // Guards concurrent state mutations inside the translation coroutine
+    private val stateMutex = Mutex()
 
     val uiState = _state
         .map { s ->
@@ -66,8 +88,14 @@ class ReaderViewModel @Inject constructor(
                     translationState = s.translationState,
                     translatedParagraphs = s.translatedParagraphs,
                     pendingScrollPosition = s.pendingScrollPosition,
+                    pendingScrollOffset = s.pendingScrollOffset,
                     textSize = s.textSize,
+                    lineHeightMultiplier = s.lineHeightMultiplier,
+                    splitRatio = s.splitRatio,
+                    showTranslation = s.showTranslation,
+                    readerTheme = s.readerTheme,
                     navigationSide = s.navigationSide,
+                    horizontalMargin = s.horizontalMargin,
                 )
             }
         }
@@ -79,6 +107,7 @@ class ReaderViewModel @Inject constructor(
 
     private var translationJob: Job? = null
     private var lastScrollPosition = 0
+    private var lastScrollOffset = 0
 
     fun loadBook(uri: Uri) {
         viewModelScope.launch {
@@ -95,7 +124,9 @@ class ReaderViewModel @Inject constructor(
 
     private suspend fun handleBookLoaded(book: Book) {
         val lastChapterIndex = progressManager.getLastChapter(book.filePath)
+            .coerceIn(0, (book.chapters.size - 1).coerceAtLeast(0))
         val lastScroll = progressManager.getLastScrollPosition(book.filePath, lastChapterIndex)
+        val lastOffset = progressManager.getLastScrollOffset(book.filePath, lastChapterIndex)
         val detectedLang = languageDetector.detectLanguage(buildLanguageSample(book))
         val savedTarget = _state.value.targetLanguage
         val targetLang = if (detectedLang == savedTarget) {
@@ -106,6 +137,7 @@ class ReaderViewModel @Inject constructor(
         progressManager.saveTargetLanguage(targetLang)
 
         lastScrollPosition = lastScroll
+        lastScrollOffset = lastOffset
         _state.update {
             it.copy(
                 book = book,
@@ -114,6 +146,7 @@ class ReaderViewModel @Inject constructor(
                 sourceLanguage = detectedLang,
                 targetLanguage = targetLang,
                 pendingScrollPosition = if (lastScroll > 0) lastScroll else -1,
+                pendingScrollOffset = if (lastScroll > 0) lastOffset else 0,
             )
         }
         translateChapter(lastChapterIndex)
@@ -123,8 +156,9 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
 
-        progressManager.saveProgress(book.filePath, _state.value.currentChapterIndex, lastScrollPosition)
+        progressManager.saveProgress(book.filePath, _state.value.currentChapterIndex, lastScrollPosition, lastScrollOffset)
         lastScrollPosition = 0
+        lastScrollOffset = 0
         translationJob?.cancel()
         _state.update {
             it.copy(
@@ -148,21 +182,46 @@ class ReaderViewModel @Inject constructor(
         if (s.currentChapterIndex > 0) selectChapter(s.currentChapterIndex - 1)
     }
 
+    fun previousChapterFromEnd() {
+        val s = _state.value
+        val book = s.book ?: return
+        if (s.currentChapterIndex <= 0) return
+        val prevIndex = s.currentChapterIndex - 1
+        val prevChapter = book.chapters.getOrNull(prevIndex) ?: return
+        val lastIndex = (prevChapter.paragraphs.size - 1).coerceAtLeast(0)
+
+        progressManager.saveProgress(book.filePath, s.currentChapterIndex, lastScrollPosition, lastScrollOffset)
+        lastScrollPosition = lastIndex
+        lastScrollOffset = 0
+        translationJob?.cancel()
+        _state.update {
+            it.copy(
+                currentChapterIndex = prevIndex,
+                translatedParagraphs = emptyList(),
+                translationState = TranslationState.Idle,
+                pendingScrollPosition = lastIndex,
+                pendingScrollOffset = 0,
+            )
+        }
+        translateChapter(prevIndex)
+    }
+
     fun setTargetLanguage(lang: Language) {
         progressManager.saveTargetLanguage(lang)
         _state.update { it.copy(targetLanguage = lang) }
         translateChapter(_state.value.currentChapterIndex)
     }
 
-    fun updateScrollPosition(position: Int) {
+    fun updateScrollPosition(position: Int, offset: Int = 0) {
         lastScrollPosition = position
+        lastScrollOffset = offset
         val s = _state.value
         val book = s.book ?: return
-        progressManager.saveProgress(book.filePath, s.currentChapterIndex, position)
+        progressManager.saveProgress(book.filePath, s.currentChapterIndex, position, offset)
     }
 
     fun consumeScrollRestore() {
-        _state.update { it.copy(pendingScrollPosition = -1) }
+        _state.update { it.copy(pendingScrollPosition = -1, pendingScrollOffset = 0) }
     }
 
     fun adjustTextSize(delta: Float) {
@@ -174,6 +233,35 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(navigationSide = side) }
     }
 
+    fun setReaderTheme(theme: ReaderTheme) {
+        progressManager.saveReaderTheme(theme.name)
+        _state.update { it.copy(readerTheme = theme) }
+    }
+
+    fun adjustLineHeight(delta: Float) {
+        val newMultiplier = (_state.value.lineHeightMultiplier + delta).coerceIn(1.1f, 2.5f)
+        progressManager.saveLineHeightMultiplier(newMultiplier)
+        _state.update { it.copy(lineHeightMultiplier = newMultiplier) }
+    }
+
+    fun setSplitRatio(ratio: Float) {
+        val clamped = ratio.coerceIn(0.3f, 0.7f)
+        progressManager.saveSplitRatio(clamped)
+        _state.update { it.copy(splitRatio = clamped) }
+    }
+
+    fun toggleTranslation() {
+        val newValue = !_state.value.showTranslation
+        progressManager.saveShowTranslation(newValue)
+        _state.update { it.copy(showTranslation = newValue) }
+    }
+
+    fun setHorizontalMargin(margin: Float) {
+        val clamped = margin.coerceIn(4f, 32f)
+        progressManager.saveHorizontalMargin(clamped)
+        _state.update { it.copy(horizontalMargin = clamped) }
+    }
+
     private fun translateChapter(index: Int) {
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
@@ -182,18 +270,53 @@ class ReaderViewModel @Inject constructor(
 
         translationJob?.cancel()
         translationJob = viewModelScope.launch {
-            _state.update { it.copy(translatedParagraphs = results.toList()) }
+            stateMutex.withLock {
+                _state.update { it.copy(translatedParagraphs = results.toList()) }
+            }
 
-            translateTextUseCase(
-                chapter.paragraphs,
-                _state.value.sourceLanguage,
-                _state.value.targetLanguage,
-                startIndex = lastScrollPosition.coerceIn(0, (chapter.paragraphs.size - 1).coerceAtLeast(0)),
-            ).collect { state ->
-                when (state) {
-                    is TranslationState.Partial -> {
-                        results[state.index] = state.text
-                        val progress = ((state.index + 1) * 100) / chapter.paragraphs.size
+            val startIdx = lastScrollPosition.coerceIn(0, (chapter.paragraphs.size - 1).coerceAtLeast(0))
+            val windowEnd = (startIdx + TRANSLATE_WINDOW - 1).coerceAtMost(chapter.paragraphs.size - 1)
+
+            // Phase 1: translate the visible window immediately
+            collectTranslations(chapter, results, startIdx, windowEnd)
+            if (_state.value.translationState is TranslationState.Error) return@launch
+
+            // Phase 2: translate from the end of the window to the chapter end
+            if (windowEnd < chapter.paragraphs.size - 1) {
+                collectTranslations(chapter, results, windowEnd + 1, chapter.paragraphs.size - 1)
+                if (_state.value.translationState is TranslationState.Error) return@launch
+            }
+
+            // Phase 3: translate paragraphs before the starting position
+            if (startIdx > 0) {
+                collectTranslations(chapter, results, 0, startIdx - 1)
+                if (_state.value.translationState is TranslationState.Error) return@launch
+            }
+
+            stateMutex.withLock {
+                _state.update { it.copy(translationState = TranslationState.Idle) }
+            }
+        }
+    }
+
+    private suspend fun collectTranslations(
+        chapter: Chapter,
+        results: MutableList<String>,
+        startIdx: Int,
+        endIdx: Int,
+    ) {
+        translateTextUseCase(
+            chapter.paragraphs,
+            _state.value.sourceLanguage,
+            _state.value.targetLanguage,
+            startIndex = startIdx,
+            endIndex = endIdx,
+        ).collect { state ->
+            when (state) {
+                is TranslationState.Partial -> {
+                    results[state.index] = state.text
+                    val progress = ((state.index + 1) * 100) / chapter.paragraphs.size
+                    stateMutex.withLock {
                         _state.update {
                             it.copy(
                                 translatedParagraphs = results.toList(),
@@ -201,12 +324,10 @@ class ReaderViewModel @Inject constructor(
                             )
                         }
                     }
-                    else -> _state.update { it.copy(translationState = state) }
                 }
-            }
-
-            if (_state.value.translationState !is TranslationState.Error) {
-                _state.update { it.copy(translationState = TranslationState.Idle) }
+                else -> stateMutex.withLock {
+                    _state.update { it.copy(translationState = state) }
+                }
             }
         }
     }

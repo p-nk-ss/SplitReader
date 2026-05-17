@@ -40,6 +40,15 @@ class Fb2Parser constructor() : BookParser {
         var insideParagraph = false
         var currentText = StringBuilder()
 
+        // Body-level epigraph (before first section)
+        val preambleParagraphs = mutableListOf<String>()
+        var insidePreambleEpigraph = false
+
+        // Section-level epigraph (inside a chapter section)
+        val currentEpigraphParagraphs = mutableListOf<String>()
+        var insideEpigraph = false
+        var insideTextAuthor = false
+
         // Cover tracking
         var insideCoverPage = false
         var coverImageId: String? = null
@@ -76,18 +85,30 @@ class Fb2Parser constructor() : BookParser {
                         }
                     }
                     tagName == "body" -> insideBody = true
+                    tagName == "epigraph" && insideBody && sectionDepth == 0 -> insidePreambleEpigraph = true
+                    tagName == "epigraph" && insideBody && sectionDepth > 0 -> insideEpigraph = true
+                    tagName == "text-author" && insideEpigraph -> {
+                        insideTextAuthor = true
+                        currentText = StringBuilder()
+                    }
                     tagName == "section" && insideBody -> {
                         sectionDepth++
                         if (sectionDepth == 1) {
                             currentChapterTitle = "Chapter ${chapterIndex + 1}"
                             currentParagraphs.clear()
+                            currentEpigraphParagraphs.clear()
+                            insideEpigraph = false
+                            if (preambleParagraphs.isNotEmpty()) {
+                                currentParagraphs.addAll(preambleParagraphs)
+                                preambleParagraphs.clear()
+                            }
                         }
                     }
                     tagName == "title" && sectionDepth > 0 -> {
                         insideTitle = true
                         currentText = StringBuilder()
                     }
-                    tagName == "p" && sectionDepth > 0 && !insideTitle -> {
+                    tagName == "p" && (sectionDepth > 0 || insidePreambleEpigraph) && !insideTitle -> {
                         insideParagraph = true
                         currentText = StringBuilder()
                     }
@@ -98,6 +119,13 @@ class Fb2Parser constructor() : BookParser {
                     tagName == "first-name" -> firstName = currentText.toString().trim()
                     tagName == "last-name" -> lastName = currentText.toString().trim()
                     tagName == "coverpage" -> insideCoverPage = false
+                    tagName == "epigraph" && insidePreambleEpigraph -> insidePreambleEpigraph = false
+                    tagName == "epigraph" && insideEpigraph -> insideEpigraph = false
+                    tagName == "text-author" && insideTextAuthor -> {
+                        insideTextAuthor = false
+                        val text = currentText.toString().trim()
+                        if (text.isNotBlank()) currentEpigraphParagraphs.add(text)
+                    }
                     tagName == "binary" -> insideCoverBinary = false
                     tagName == "title" && sectionDepth > 0 -> {
                         insideTitle = false
@@ -107,14 +135,29 @@ class Fb2Parser constructor() : BookParser {
                     tagName == "p" && insideParagraph -> {
                         insideParagraph = false
                         val text = currentText.toString().trim()
-                        if (text.isNotBlank() && text.length < 5000) currentParagraphs.add(text)
+                        if (text.isNotBlank() && text.length < 5000) {
+                            when {
+                                insidePreambleEpigraph -> preambleParagraphs.add(text)
+                                insideEpigraph -> currentEpigraphParagraphs.add(text)
+                                else -> currentParagraphs.add(text)
+                            }
+                        }
                     }
                     tagName == "section" && sectionDepth > 0 -> {
                         sectionDepth--
-                        if (sectionDepth == 0 && currentParagraphs.isNotEmpty()) {
-                            chapters.add(Chapter(chapterIndex, currentChapterTitle, currentParagraphs.toList()))
-                            chapterIndex++
+                        if (sectionDepth == 0) {
+                            val allParagraphs = currentEpigraphParagraphs.toList() + currentParagraphs.toList()
+                            if (allParagraphs.isNotEmpty()) {
+                                chapters.add(Chapter(
+                                    index = chapterIndex,
+                                    title = currentChapterTitle,
+                                    paragraphs = allParagraphs,
+                                    epigraphCount = currentEpigraphParagraphs.size,
+                                ))
+                                chapterIndex++
+                            }
                             currentParagraphs.clear()
+                            currentEpigraphParagraphs.clear()
                         }
                     }
                     tagName == "body" -> insideBody = false
@@ -123,7 +166,7 @@ class Fb2Parser constructor() : BookParser {
                 XmlPullParser.TEXT -> {
                     when {
                         insideCoverBinary -> coverBinaryData?.append(parser.text ?: "")
-                        insideParagraph || insideTitle || !insideBody ->
+                        insideParagraph || insideTitle || insideTextAuthor || !insideBody ->
                             currentText.append(parser.text ?: "")
                     }
                 }

@@ -17,6 +17,7 @@ class EpubParser constructor() : BookParser {
         val spineIds: List<String>,
         val manifestMap: Map<String, String>,
         val coverHref: String?,
+        val navItemIds: Set<String>,
     )
 
     override suspend fun parse(uri: Uri, context: Context): Book {
@@ -52,18 +53,32 @@ class EpubParser constructor() : BookParser {
             if (it.isEmpty()) "" else "$it/"
         }
 
-        val chapters = opf.spineIds.mapIndexedNotNull { spineIndex, id ->
-            val href = opf.manifestMap[id] ?: return@mapIndexedNotNull null
+        val chapters = mutableListOf<Chapter>()
+        opf.spineIds.filter { id -> id !in opf.navItemIds }.forEach { id ->
+            val href = opf.manifestMap[id] ?: return@forEach
             val fullPath = "$opfDir$href"
-            val htmlContent = entryMap[fullPath] ?: entryMap[href]
-                ?: return@mapIndexedNotNull null
-            parseHtmlChapter(spineIndex, htmlContent)
-        }.mapIndexed { finalIndex, (headingTitle, paragraphs) ->
-            Chapter(
-                index = finalIndex,
-                title = headingTitle ?: "Chapter ${finalIndex + 1}",
-                paragraphs = paragraphs
-            )
+            val htmlContent = entryMap[fullPath] ?: entryMap[href] ?: return@forEach
+            val result = parseHtmlChapter(htmlContent)
+
+            // Content before the chapter heading → standalone chapter (no title)
+            if (result.preHeadingParagraphs.isNotEmpty()) {
+                chapters.add(Chapter(
+                    index = chapters.size,
+                    title = "",
+                    paragraphs = result.preHeadingParagraphs,
+                ))
+            }
+
+            // Main chapter: epigraph paragraphs first, then body paragraphs
+            val allParagraphs = result.epigraphParagraphs + result.mainParagraphs
+            if (result.headingTitle != null || allParagraphs.isNotEmpty()) {
+                chapters.add(Chapter(
+                    index = chapters.size,
+                    title = result.headingTitle ?: "Chapter ${chapters.size + 1}",
+                    paragraphs = allParagraphs,
+                    epigraphCount = result.epigraphParagraphs.size,
+                ))
+            }
         }
 
         val coverPath = opf.coverHref?.let { href ->
@@ -89,7 +104,10 @@ class EpubParser constructor() : BookParser {
             ?: doc.selectFirst("creator")?.text()
             ?: "Unknown"
         val manifestMap = doc.select("item").associate { it.attr("id") to it.attr("href") }
-        val spineIds = doc.select("itemref").map { it.attr("idref") }
+        val navItemIds = doc.select("item").filter { "nav" in it.attr("properties") }.map { it.attr("id") }.toSet()
+        val spineIds = doc.select("itemref")
+            .filter { it.attr("linear").lowercase() != "no" }
+            .map { it.attr("idref") }
 
         // Cover detection: EPUB 3 properties, then EPUB 2 meta, then id fallback
         val coverHref = doc.selectFirst("item[properties~=cover-image]")?.attr("href")
@@ -101,17 +119,80 @@ class EpubParser constructor() : BookParser {
             }
             ?: doc.selectFirst("item[id=cover], item[id=cover-image]")?.attr("href")
 
-        return OpfData(title, author, spineIds, manifestMap, coverHref)
+        return OpfData(title, author, spineIds, manifestMap, coverHref, navItemIds)
     }
 
-    private fun parseHtmlChapter(
-        spineIndex: Int,
-        content: ByteArray
-    ): Pair<String?, List<String>>? {
+    private data class HtmlParseResult(
+        val headingTitle: String?,
+        val preHeadingParagraphs: List<String>,
+        val epigraphParagraphs: List<String>,
+        val mainParagraphs: List<String>,
+    )
+
+    private fun parseHtmlChapter(content: ByteArray): HtmlParseResult {
         val doc = Jsoup.parse(content.inputStream(), "UTF-8", "")
-        val headingTitle = doc.selectFirst("h1, h2")?.text()
-        val paragraphs = doc.select("p").map { it.text() }.filter { it.isNotBlank() }
-        return if (paragraphs.isEmpty()) null else Pair(headingTitle, paragraphs)
+        val body = doc.body()
+            ?: return HtmlParseResult(null, emptyList(), emptyList(), emptyList())
+        val headingEl = body.selectFirst("h1, h2, h3")
+        val headingTitle = headingEl?.text()?.takeIf { it.isNotBlank() }
+
+        if (headingEl == null) {
+            val paras = body.select("p").map { it.text().trim() }.filter { it.isNotBlank() }
+                .ifEmpty {
+                    body.select("div, section, blockquote")
+                        .map { it.ownText().trim() }.filter { it.length > 20 }
+                }
+            return HtmlParseResult(null, emptyList(), emptyList(), paras)
+        }
+
+        val preHeading = mutableListOf<String>()
+        val epigraph = mutableListOf<String>()
+        val main = mutableListOf<String>()
+        var foundHeading = false
+
+        for (el in body.select("h1, h2, h3, blockquote, p")) {
+            val tag = el.tagName()
+            when {
+                tag in listOf("h1", "h2", "h3") -> foundHeading = true
+                !foundHeading && tag == "p" && el.closest("blockquote") == null -> {
+                    val text = el.text().trim()
+                    if (text.isNotBlank()) preHeading.add(text)
+                }
+                tag == "blockquote" && foundHeading -> {
+                    val texts = el.select("p").map { it.text().trim() }.filter { it.isNotBlank() }
+                        .ifEmpty { listOf(el.text().trim()).filter { it.isNotBlank() } }
+                    epigraph.addAll(texts)
+                }
+                tag == "p" && foundHeading && el.closest("blockquote") == null -> {
+                    val text = el.text().trim()
+                    if (text.isBlank()) continue
+                    if (looksLikeEpigraph(el)) epigraph.add(text) else main.add(text)
+                }
+            }
+        }
+
+        return HtmlParseResult(headingTitle, preHeading, epigraph, main)
+    }
+
+    private fun looksLikeEpigraph(el: org.jsoup.nodes.Element): Boolean {
+        val epigraphKeywords = listOf(
+            "epigraph", "epigraf",
+            "poem", "stih", "verse", "stanza",
+            "quote", "cite", "citation",
+            "litany", "poetry",
+        )
+        fun org.jsoup.nodes.Element.hasEpigraphClass() =
+            classNames().any { c -> epigraphKeywords.any { k -> c.lowercase().contains(k) } }
+
+        if (el.hasEpigraphClass()) return true
+        val style = el.attr("style").lowercase()
+        if ("italic" in style) return true
+        // Check ancestor containers up to but not including body
+        for (parent in el.parents()) {
+            if (parent.tagName() in listOf("body", "html")) break
+            if (parent.hasEpigraphClass()) return true
+        }
+        return false
     }
 
     private fun extractCoverFromZip(uri: Uri, context: Context, coverEntryPath: String): String? {
