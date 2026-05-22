@@ -13,6 +13,7 @@ import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
+import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -45,14 +46,14 @@ class ReaderViewModel @Inject constructor(
         val sourceLanguage: Language = Language.ENGLISH,
         val targetLanguage: Language = Language.ENGLISH,
         val translationState: TranslationState = TranslationState.Idle,
-        val translatedParagraphs: List<String> = emptyList(),
+        val chapterTranslations: Map<Int, List<String>> = emptyMap(),
         val pendingScrollPosition: Int = -1,
         val pendingScrollOffset: Int = 0,
         val textSize: Float = 16f,
         val lineHeightMultiplier: Float = 1.5f,
         val splitRatio: Float = 0.5f,
         val showTranslation: Boolean = true,
-        val readerTheme: ReaderTheme = ReaderTheme.DEFAULT,
+        val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = 12f,
         val isLoading: Boolean = false,
@@ -63,8 +64,11 @@ class ReaderViewModel @Inject constructor(
         InternalState(
             targetLanguage = progressManager.getTargetLanguage(),
             navigationSide = if (progressManager.isNavigationLeft()) NavigationSide.LEFT else NavigationSide.RIGHT,
-            readerTheme = ReaderTheme.entries.find { it.name == progressManager.getReaderThemeName() }
-                ?: ReaderTheme.DEFAULT,
+            readerTheme = when (progressManager.getReaderThemeName()) {
+                "DEFAULT" -> ReaderThemeKey.PAPER // migrate old persisted value
+                else -> ReaderThemeKey.entries.find { it.name == progressManager.getReaderThemeName() }
+                    ?: ReaderThemeKey.PAPER
+            },
             lineHeightMultiplier = progressManager.getLineHeightMultiplier(),
             splitRatio = progressManager.getSplitRatio(),
             showTranslation = progressManager.getShowTranslation(),
@@ -86,7 +90,7 @@ class ReaderViewModel @Inject constructor(
                     sourceLanguage = s.sourceLanguage,
                     targetLanguage = s.targetLanguage,
                     translationState = s.translationState,
-                    translatedParagraphs = s.translatedParagraphs,
+                    chapterTranslations = s.chapterTranslations,
                     pendingScrollPosition = s.pendingScrollPosition,
                     pendingScrollOffset = s.pendingScrollOffset,
                     textSize = s.textSize,
@@ -105,7 +109,7 @@ class ReaderViewModel @Inject constructor(
             initialValue = ReaderUiState.Loading,
         )
 
-    private var translationJob: Job? = null
+    private val translationJobs = mutableMapOf<Int, Job>()
     private var lastScrollPosition = 0
     private var lastScrollOffset = 0
 
@@ -149,75 +153,35 @@ class ReaderViewModel @Inject constructor(
                 pendingScrollOffset = if (lastScroll > 0) lastOffset else 0,
             )
         }
-        translateChapter(lastChapterIndex)
+        ensureChapterTranslated(0)
+        if (lastChapterIndex != 0) ensureChapterTranslated(lastChapterIndex)
     }
 
     fun selectChapter(index: Int) {
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
-
-        progressManager.saveProgress(book.filePath, _state.value.currentChapterIndex, lastScrollPosition, lastScrollOffset)
-        lastScrollPosition = 0
-        lastScrollOffset = 0
-        translationJob?.cancel()
-        _state.update {
-            it.copy(
-                currentChapterIndex = index,
-                translatedParagraphs = emptyList(),
-                translationState = TranslationState.Idle,
-            )
-        }
-        translateChapter(index)
-    }
-
-    fun nextChapter() {
-        val s = _state.value
-        if (s.currentChapterIndex < (s.book?.chapters?.size ?: 0) - 1) {
-            selectChapter(s.currentChapterIndex + 1)
-        }
-    }
-
-    fun previousChapter() {
-        val s = _state.value
-        if (s.currentChapterIndex > 0) selectChapter(s.currentChapterIndex - 1)
-    }
-
-    fun previousChapterFromEnd() {
-        val s = _state.value
-        val book = s.book ?: return
-        if (s.currentChapterIndex <= 0) return
-        val prevIndex = s.currentChapterIndex - 1
-        val prevChapter = book.chapters.getOrNull(prevIndex) ?: return
-        val lastIndex = (prevChapter.paragraphs.size - 1).coerceAtLeast(0)
-
-        progressManager.saveProgress(book.filePath, s.currentChapterIndex, lastScrollPosition, lastScrollOffset)
-        lastScrollPosition = lastIndex
-        lastScrollOffset = 0
-        translationJob?.cancel()
-        _state.update {
-            it.copy(
-                currentChapterIndex = prevIndex,
-                translatedParagraphs = emptyList(),
-                translationState = TranslationState.Idle,
-                pendingScrollPosition = lastIndex,
-                pendingScrollOffset = 0,
-            )
-        }
-        translateChapter(prevIndex)
+        _state.update { it.copy(currentChapterIndex = index) }
+        ensureChapterTranslated(index)
+        val next = (index + 1).coerceAtMost(book.chapters.size - 1)
+        if (next != index) ensureChapterTranslated(next)
     }
 
     fun setTargetLanguage(lang: Language) {
         progressManager.saveTargetLanguage(lang)
-        _state.update { it.copy(targetLanguage = lang) }
-        translateChapter(_state.value.currentChapterIndex)
+        translationJobs.values.forEach { it.cancel() }
+        translationJobs.clear()
+        _state.update { it.copy(targetLanguage = lang, chapterTranslations = emptyMap()) }
+        val book = _state.value.book ?: return
+        // Preload only the first two chapters; scroll tracking handles the rest
+        ensureChapterTranslated(0)
+        if (book.chapters.size > 1) ensureChapterTranslated(1)
     }
 
-    fun updateScrollPosition(position: Int, offset: Int = 0) {
+    fun updateScrollPosition(chapterIndex: Int, position: Int, offset: Int = 0) {
         lastScrollPosition = position
         lastScrollOffset = offset
-        val s = _state.value
-        val book = s.book ?: return
-        progressManager.saveProgress(book.filePath, s.currentChapterIndex, position, offset)
+        val book = _state.value.book ?: return
+        progressManager.saveProgress(book.filePath, chapterIndex, position, offset)
     }
 
     fun consumeScrollRestore() {
@@ -233,7 +197,7 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(navigationSide = side) }
     }
 
-    fun setReaderTheme(theme: ReaderTheme) {
+    fun setReaderTheme(theme: ReaderThemeKey) {
         progressManager.saveReaderTheme(theme.name)
         _state.update { it.copy(readerTheme = theme) }
     }
@@ -262,44 +226,50 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(horizontalMargin = clamped) }
     }
 
-    private fun translateChapter(index: Int) {
+    fun ensureChapterTranslated(index: Int) {
+        if (_state.value.chapterTranslations.containsKey(index)) return
+        if (translationJobs[index]?.isActive == true) return
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
+
+        translationJobs[index] = viewModelScope.launch {
+            translateChapter(index)
+        }
+    }
+
+    private suspend fun translateChapter(index: Int) {
+        val book = _state.value.book ?: return
         val chapter = book.chapters[index]
         val results = MutableList(chapter.paragraphs.size) { "" }
 
-        translationJob?.cancel()
-        translationJob = viewModelScope.launch {
-            stateMutex.withLock {
-                _state.update { it.copy(translatedParagraphs = results.toList()) }
-            }
+        stateMutex.withLock {
+            _state.update { it.copy(chapterTranslations = it.chapterTranslations + (index to results.toList())) }
+        }
 
-            val startIdx = lastScrollPosition.coerceIn(0, (chapter.paragraphs.size - 1).coerceAtLeast(0))
-            val windowEnd = (startIdx + TRANSLATE_WINDOW - 1).coerceAtMost(chapter.paragraphs.size - 1)
+        val startIdx = if (index == _state.value.currentChapterIndex)
+            lastScrollPosition.coerceIn(0, (chapter.paragraphs.size - 1).coerceAtLeast(0)) else 0
+        val windowEnd = (startIdx + TRANSLATE_WINDOW - 1).coerceAtMost(chapter.paragraphs.size - 1)
 
-            // Phase 1: translate the visible window immediately
-            collectTranslations(chapter, results, startIdx, windowEnd)
-            if (_state.value.translationState is TranslationState.Error) return@launch
+        collectTranslations(index, chapter, results, startIdx, windowEnd)
+        if (_state.value.translationState is TranslationState.Error) return
 
-            // Phase 2: translate from the end of the window to the chapter end
-            if (windowEnd < chapter.paragraphs.size - 1) {
-                collectTranslations(chapter, results, windowEnd + 1, chapter.paragraphs.size - 1)
-                if (_state.value.translationState is TranslationState.Error) return@launch
-            }
+        if (windowEnd < chapter.paragraphs.size - 1) {
+            collectTranslations(index, chapter, results, windowEnd + 1, chapter.paragraphs.size - 1)
+            if (_state.value.translationState is TranslationState.Error) return
+        }
 
-            // Phase 3: translate paragraphs before the starting position
-            if (startIdx > 0) {
-                collectTranslations(chapter, results, 0, startIdx - 1)
-                if (_state.value.translationState is TranslationState.Error) return@launch
-            }
+        if (startIdx > 0) {
+            collectTranslations(index, chapter, results, 0, startIdx - 1)
+            if (_state.value.translationState is TranslationState.Error) return
+        }
 
-            stateMutex.withLock {
-                _state.update { it.copy(translationState = TranslationState.Idle) }
-            }
+        stateMutex.withLock {
+            _state.update { it.copy(translationState = TranslationState.Idle) }
         }
     }
 
     private suspend fun collectTranslations(
+        chapterIndex: Int,
         chapter: Chapter,
         results: MutableList<String>,
         startIdx: Int,
@@ -319,7 +289,7 @@ class ReaderViewModel @Inject constructor(
                     stateMutex.withLock {
                         _state.update {
                             it.copy(
-                                translatedParagraphs = results.toList(),
+                                chapterTranslations = it.chapterTranslations + (chapterIndex to results.toList()),
                                 translationState = TranslationState.Translating(progress),
                             )
                         }

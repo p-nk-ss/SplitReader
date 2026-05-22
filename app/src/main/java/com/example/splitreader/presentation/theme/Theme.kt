@@ -1,32 +1,47 @@
 package com.example.splitreader.presentation.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
+
+// Outer-chrome ColorScheme (Library, NavRail, Almanac, Vocabulaire).
+// The Reader uses LocalReaderPalette separately and is decoupled from this.
+private val SplitReaderColorScheme = lightColorScheme(
+    primary             = PaperAccent,
+    onPrimary           = PaperBg,
+    primaryContainer    = PaperAccentSoft,
+    onPrimaryContainer  = PaperInk,
+    secondary           = PaperInk2,
+    onSecondary         = PaperBg,
+    background          = PaperBg,
+    onBackground        = PaperInk,
+    surface             = PaperBg,
+    onSurface           = PaperInk,
+    surfaceVariant      = PaperBg2,
+    onSurfaceVariant    = PaperInk2,
+    surfaceTint         = PaperAccent,
+    outline             = PaperEdge,
+    outlineVariant      = PaperRule,
+    inverseSurface      = PaperInk,
+    inverseOnSurface    = PaperBg,
+    error               = PaperAccent,
+)
 
 @Composable
 fun SplitReaderTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    readerThemeKey: ReaderThemeKey = ReaderThemeKey.PAPER,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> darkColorScheme()
-        else -> lightColorScheme()
+    CompositionLocalProvider(
+        LocalSpacing       provides Spacing(),
+        LocalRadii         provides Radii(),
+        LocalReaderPalette provides readerPalette(readerThemeKey),
+    ) {
+        MaterialTheme(
+            colorScheme = SplitReaderColorScheme,
+            typography  = SplitReaderTypography,
+            content     = content,
+        )
     }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content,
-    )
 }

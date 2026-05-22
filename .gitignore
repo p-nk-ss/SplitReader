@@ -17,3 +17,4 @@ local.properties
 graphify-out/
 .graphify_python
 Screenshot*.png
+/design_handoff_splitreader/

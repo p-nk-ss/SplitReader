@@ -1,3 +1,3 @@
 package com.example.splitreader.presentation.reader
 
-enum class ReaderTheme { DEFAULT, SEPIA, NIGHT, AMOLED }
+// ReaderTheme enum moved to presentation/theme/ReaderTheme.kt as ReaderThemeKey.

@@ -6,6 +6,10 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.splitreader.data.local.AppDatabase
 import com.example.splitreader.data.local.BookDao
+import com.example.splitreader.data.local.BookmarkDao
+import com.example.splitreader.data.local.NoteDao
+import com.example.splitreader.data.local.ReadingSessionDao
+import com.example.splitreader.data.local.SavedWordDao
 import com.example.splitreader.data.local.TranslationDao
 import dagger.Module
 import dagger.Provides
@@ -41,13 +45,24 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "splitreader.db")
             .addMigrations(MIGRATION_1_2)
+            .fallbackToDestructiveMigration()
             .build()
 
-    @Provides
-    @Singleton
+    @Provides @Singleton
     fun provideTranslationDao(db: AppDatabase): TranslationDao = db.translationDao()
 
-    @Provides
-    @Singleton
+    @Provides @Singleton
     fun provideBookDao(db: AppDatabase): BookDao = db.bookDao()
+
+    @Provides @Singleton
+    fun provideBookmarkDao(db: AppDatabase): BookmarkDao = db.bookmarkDao()
+
+    @Provides @Singleton
+    fun provideNoteDao(db: AppDatabase): NoteDao = db.noteDao()
+
+    @Provides @Singleton
+    fun provideSavedWordDao(db: AppDatabase): SavedWordDao = db.savedWordDao()
+
+    @Provides @Singleton
+    fun provideReadingSessionDao(db: AppDatabase): ReadingSessionDao = db.readingSessionDao()
 }
