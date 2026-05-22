@@ -145,7 +145,7 @@ internal fun HomeRoute(
     HomeScreen(
         uiState = uiState,
         onOpenFilePicker = { fileLauncher.launch(arrayOf("*/*")) },
-        onNavigateToReader = onNavigateToReader,
+        onOpenFromLibrary = viewModel::openBookFromLibrary,
         onDeleteBook = viewModel::deleteBook,
         onDismissError = viewModel::dismissError,
     )
@@ -155,7 +155,7 @@ internal fun HomeRoute(
 private fun HomeScreen(
     uiState: HomeUiState,
     onOpenFilePicker: () -> Unit,
-    onNavigateToReader: (String) -> Unit,
+    onOpenFromLibrary: (String) -> Unit,
     onDeleteBook: (String) -> Unit,
     onDismissError: () -> Unit,
 ) {
@@ -204,7 +204,7 @@ private fun HomeScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 ContinueReadingHero(
                     book = uiState.lastBook!!,
-                    onContinue = { onNavigateToReader(uiState.lastBook!!.uri) },
+                    onContinue = { onOpenFromLibrary(uiState.lastBook!!.uri) },
                 )
             }
         }
@@ -231,7 +231,7 @@ private fun HomeScreen(
             items(filteredBooks) { book ->
                 BookCoverCard(
                     book = book,
-                    onClick = { onNavigateToReader(book.uri) },
+                    onClick = { onOpenFromLibrary(book.uri) },
                 )
             }
         }
@@ -275,23 +275,13 @@ private fun LibraryHeader(
                 color = PaperInk3,
             )
             Spacer(Modifier.height(4.dp))
-            Row {
-                Text(
-                    text = "$greeting, ",
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 28.sp,
-                    color = PaperInk,
-                )
-                Text(
-                    text = "Анна.",
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Medium,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 28.sp,
-                    color = PaperAccent,
-                )
-            }
+            Text(
+                text = greeting,
+                fontFamily = Newsreader,
+                fontWeight = FontWeight.Medium,
+                fontSize = 28.sp,
+                color = PaperInk,
+            )
             if (weeklyMinutes > 0 || savedWords > 0) {
                 Spacer(Modifier.height(2.dp))
                 Text(

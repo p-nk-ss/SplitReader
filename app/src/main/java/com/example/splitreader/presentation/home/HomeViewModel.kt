@@ -1,7 +1,10 @@
 package com.example.splitreader.presentation.home
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.domain.model.ParseResult
@@ -21,6 +24,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val parseBookUseCase: ParseBookUseCase,
     private val bookLibraryRepository: BookLibraryRepository,
     private val progressManager: ReadingProgressManager,
@@ -60,6 +64,11 @@ class HomeViewModel @Inject constructor(
     private var parseJob: Job? = null
 
     fun openBook(uri: Uri) {
+        // Persist read permission so the URI stays accessible across app restarts
+        try {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) { }
+
         parseJob?.cancel()
         parseJob = viewModelScope.launch {
             parseBookUseCase(uri).collect { result ->
@@ -84,7 +93,14 @@ class HomeViewModel @Inject constructor(
     }
 
     fun openBookFromLibrary(uri: String) {
-        openBook(Uri.parse(uri))
+        val parsedUri = Uri.parse(uri)
+        val hasPermission = context.contentResolver.persistedUriPermissions
+            .any { it.uri == parsedUri && it.isReadPermission }
+        if (!hasPermission) {
+            _errorMessage.value = "Нет доступа к файлу — переоткройте его через «Open book»."
+            return
+        }
+        viewModelScope.launch { _navigationEvent.trySend(uri) }
     }
 
     fun openLastBook() {

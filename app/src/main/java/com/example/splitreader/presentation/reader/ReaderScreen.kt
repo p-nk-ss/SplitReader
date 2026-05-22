@@ -66,7 +66,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -404,26 +403,14 @@ private fun LangChip(source: String, target: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        LangPill(source)
-        Text("→", fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink4)
-        LangPill(target)
+        Text(source, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 0.5.sp, color = palette.ink)
+        Text("→", fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink3)
+        Text(target, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 0.5.sp, color = palette.ink)
         Spacer(Modifier.width(2.dp))
         Icon(Icons.Outlined.ExpandMore, null, tint = palette.ink3, modifier = Modifier.size(14.dp))
     }
 }
 
-@Composable
-private fun LangPill(code: String) {
-    val palette = LocalReaderPalette.current
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(3.dp))
-            .background(palette.bg3)
-            .padding(horizontal = 5.dp, vertical = 2.dp),
-    ) {
-        Text(code, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 9.sp, color = palette.ink)
-    }
-}
 
 // ── Chapter masthead (compact) ────────────────────────────────────────────
 
@@ -543,25 +530,6 @@ private fun BookSpread(
                 ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex)
             }
 
-            // Page header row
-            item(key = "header_$chapterIndex") {
-                if (showTranslation) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-                        Box(Modifier.weight(splitRatio).padding(start = 32.dp, end = 12.dp)) {
-                            PageHeader(langCode = sourceLang.code.uppercase(), nativeName = sourceLang.displayName, isOriginal = true)
-                        }
-                        Spacer(Modifier.width(28.dp))
-                        Box(Modifier.weight(1f - splitRatio).padding(start = 12.dp, end = 32.dp)) {
-                            PageHeader(langCode = targetLang.code.uppercase(), nativeName = targetLang.displayName, isOriginal = false)
-                        }
-                    }
-                } else {
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 4.dp)) {
-                        PageHeader(langCode = sourceLang.code.uppercase(), nativeName = sourceLang.displayName, isOriginal = true)
-                    }
-                }
-            }
-
             // Paragraph rows
             itemsIndexed(chapter.paragraphs, key = { idx, _ -> "p_${chapterIndex}_$idx" }) { idx, original ->
                 val translated = if (showTranslation)
@@ -625,105 +593,6 @@ private fun BookSpread(
         // End padding
         item(key = "end_padding") {
             Spacer(Modifier.height(48.dp))
-        }
-    }
-}
-
-// ── Reader page ───────────────────────────────────────────────────────────
-
-@Composable
-private fun ReaderPage(
-    modifier: Modifier,
-    paragraphs: List<String>,
-    isOriginal: Boolean,
-    textSize: Float,
-    lineHeightMultiplier: Float,
-    activeParagraph: Int,
-    listState: LazyListState,
-    onLongPress: (Int) -> Unit,
-    onTap: () -> Unit,
-    langLabel: String = "",
-    langNativeName: String = "",
-) {
-    val palette = LocalReaderPalette.current
-    val edgeColor = palette.edge
-
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .background(palette.bg)
-            .padding(
-                start = if (isOriginal) 64.dp else 56.dp,
-                end = if (isOriginal) 56.dp else 64.dp,
-                top = 20.dp,
-                bottom = 24.dp,
-            ),
-    ) {
-        // Page header
-        item {
-            PageHeader(
-                langCode = if (isOriginal) "FR" else langLabel,
-                nativeName = if (isOriginal) "Français" else langNativeName,
-                isOriginal = isOriginal,
-            )
-            Spacer(Modifier.height(22.dp))
-        }
-
-        itemsIndexed(paragraphs) { index, paragraph ->
-            val isActive = activeParagraph == index
-            ParagraphItem(
-                text = paragraph,
-                index = index,
-                isFirstOfChapter = index == 0 && isOriginal,
-                isOriginal = isOriginal,
-                isActive = isActive,
-                textSize = textSize,
-                lineHeightMultiplier = lineHeightMultiplier,
-                onLongPress = onLongPress,
-                onTap = onTap,
-            )
-            Spacer(Modifier.height(18.dp))
-        }
-
-        // Page footer (folio)
-        item {
-            PageFooter(isOriginal = isOriginal)
-        }
-    }
-}
-
-@Composable
-private fun PageHeader(langCode: String, nativeName: String, isOriginal: Boolean) {
-    val palette = LocalReaderPalette.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isOriginal) Arrangement.Start else Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (!isOriginal) {
-            Text(
-                text = "· TRANSLATION",
-                fontFamily = JetBrainsMono,
-                fontSize = 9.sp,
-                letterSpacing = 0.5.sp,
-                color = palette.ink3,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(nativeName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 13.sp, color = palette.ink2)
-            Spacer(Modifier.width(6.dp))
-            LangPill(langCode)
-        } else {
-            LangPill(langCode)
-            Spacer(Modifier.width(6.dp))
-            Text(nativeName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 13.sp, color = palette.ink2)
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "· ORIGINAL",
-                fontFamily = JetBrainsMono,
-                fontSize = 9.sp,
-                letterSpacing = 0.5.sp,
-                color = palette.ink3,
-            )
         }
     }
 }
@@ -794,30 +663,6 @@ private fun ParagraphItem(
                 textAlign = TextAlign.Justify,
             )
         }
-    }
-}
-
-@Composable
-private fun PageFooter(isOriginal: Boolean) {
-    val palette = LocalReaderPalette.current
-    val edgeColor = palette.edge
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp)
-            .drawBehind {
-                drawLine(edgeColor, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
-            }
-            .padding(top = 14.dp),
-        horizontalArrangement = if (isOriginal) Arrangement.Start else Arrangement.End,
-    ) {
-        Text(
-            text = if (isOriginal) "fr · reader" else "translation · reader",
-            fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
-            letterSpacing = 0.3.sp,
-            color = palette.ink4,
-        )
     }
 }
 
@@ -1040,8 +885,7 @@ private fun EditorialDialog(
                 .fillMaxWidth(0.85f)
                 .clip(RoundedCornerShape(radii.xl))
                 .background(palette.bg)
-                .border(1.dp, palette.edge, RoundedCornerShape(radii.xl))
-                .shadow(elevation = 30.dp, shape = RoundedCornerShape(radii.xl)),
+                .border(1.dp, palette.edge, RoundedCornerShape(radii.xl)),
         ) {
             // Header
             Row(
