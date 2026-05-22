@@ -561,7 +561,7 @@ private fun BookSpread(
                             ParagraphItem(
                                 text = translated,
                                 index = idx,
-                                isFirstOfChapter = false,
+                                isFirstOfChapter = idx == 0,
                                 isOriginal = false,
                                 isActive = isActive,
                                 textSize = textSize,
@@ -629,29 +629,25 @@ private fun ParagraphItem(
             },
     ) {
         if (isFirstOfChapter && text.isNotEmpty()) {
-            // Drop cap on first paragraph original side
-            Row {
-                Text(
-                    text = text.first().toString(),
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = (textSize * 3.6f).sp,
-                    color = palette.accent,
-                    lineHeight = (textSize * 3.6f).sp,
-                    modifier = Modifier.alignBy { it.measuredHeight - it.measuredHeight / 4 },
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = text.drop(1),
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = textSize.sp,
-                    lineHeight = (textSize * lineHeightMultiplier).sp,
-                    color = if (isOriginal) palette.ink else palette.ink2,
-                    textAlign = TextAlign.Justify,
-                    modifier = Modifier.alignByBaseline(),
-                )
-            }
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(
+                        fontFamily = Newsreader,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = (textSize * 3.6f).sp,
+                        color = palette.accent,
+                    )) {
+                        append(text.first())
+                    }
+                    append(text.drop(1))
+                },
+                fontFamily = Newsreader,
+                fontWeight = FontWeight.Normal,
+                fontSize = textSize.sp,
+                lineHeight = (textSize * lineHeightMultiplier).sp,
+                color = if (isOriginal) palette.ink else palette.ink2,
+                textAlign = TextAlign.Justify,
+            )
         } else {
             Text(
                 text = text,
