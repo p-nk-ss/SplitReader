@@ -83,6 +83,9 @@ import com.example.splitreader.presentation.theme.PaperInk2
 import com.example.splitreader.presentation.theme.PaperInk3
 import com.example.splitreader.presentation.theme.PaperInk4
 import com.example.splitreader.presentation.theme.PaperMoss
+import com.example.splitreader.presentation.ui.BookplateButton
+import com.example.splitreader.presentation.ui.BrandIcon
+import com.example.splitreader.presentation.ui.LibraryTagButton
 import java.time.LocalDate
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
@@ -299,32 +302,11 @@ private fun LibraryHeader(
             IconButton(onClick = {}) {
                 Icon(Icons.Outlined.Search, contentDescription = "Search", tint = PaperInk2)
             }
-            OpenBookButton(onClick = onOpenFilePicker)
+            LibraryTagButton(text = "Open book", onClick = onOpenFilePicker)
         }
     }
 }
 
-@Composable
-private fun OpenBookButton(onClick: () -> Unit) {
-    val radii = LocalRadii.current
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(radii.sm))
-            .background(PaperInk)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "Open book",
-            fontFamily = Newsreader,
-            fontWeight = FontWeight.Medium,
-            fontStyle = FontStyle.Italic,
-            fontSize = 14.sp,
-            color = PaperBg,
-        )
-    }
-}
 
 // ── Streak ribbon ────────────────────────────────────────────────────────
 
@@ -530,35 +512,11 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 )
             }
             // Continue button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(radii.md))
-                    .background(PaperInk)
-                    .clickable(onClick = onContinue)
-                    .padding(sp.sm),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = "Continue",
-                        fontFamily = Newsreader,
-                        fontWeight = FontWeight.Medium,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 15.sp,
-                        color = PaperBg,
-                    )
-                    Icon(
-                        Icons.Outlined.ArrowForward,
-                        contentDescription = null,
-                        tint = PaperBg,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
+            BookplateButton(
+                text = "Continue reading",
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -766,7 +724,7 @@ private fun EmptyLibrary(onOpenFilePicker: () -> Unit) {
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(sp.sm))
-        OpenBookButton(onClick = onOpenFilePicker)
+        LibraryTagButton(text = "Open book", onClick = onOpenFilePicker)
     }
 }
 

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,6 +75,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -142,6 +144,9 @@ internal fun ReaderRoute(
             onUpdateScrollPosition = viewModel::updateScrollPosition,
             onConsumeScrollRestore = viewModel::consumeScrollRestore,
             onEnsureChapterTranslated = viewModel::ensureChapterTranslated,
+            onSaveWord = viewModel::saveWord,
+            onSelectWord = viewModel::selectWord,
+            onClearWordSelection = viewModel::clearWordSelection,
         )
     }
 }
@@ -184,13 +189,15 @@ private fun ReaderContent(
     onUpdateScrollPosition: (Int, Int, Int) -> Unit,
     onConsumeScrollRestore: () -> Unit,
     onEnsureChapterTranslated: (Int) -> Unit,
+    onSaveWord: (String, Int, Int) -> Unit,
+    onSelectWord: (String, Int, Int, Int, Int) -> Unit,
+    onClearWordSelection: () -> Unit,
 ) {
     val palette = readerPalette(state.readerTheme)
 
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showDisplaySettings by remember { mutableStateOf(false) }
     var showChapterPicker by remember { mutableStateOf(false) }
-    var activeParagraph by remember { mutableStateOf(-1 to -1) }  // (chapterIndex, paragraphIndex)
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -258,20 +265,19 @@ private fun ReaderContent(
                     splitRatio = state.splitRatio,
                     textSize = state.textSize,
                     lineHeightMultiplier = state.lineHeightMultiplier,
-                    activeParagraph = activeParagraph,
+                    wordSelection = state.wordSelection,
                     listState = listState,
-                    onLongPress = { chIdx, pIdx -> activeParagraph = chIdx to pIdx },
+                    onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
                     sourceLang = state.sourceLanguage,
                     targetLang = state.targetLanguage,
                 )
 
-                val (activeChapter, activePIdx) = activeParagraph
-                if (activeChapter >= 0) {
+                val ws = state.wordSelection
+                if (ws != null) {
                     ParagraphActionsOverlay(
-                        paragraphIndex = activePIdx,
-                        originalText = state.book.chapters.getOrNull(activeChapter)
-                            ?.paragraphs?.getOrElse(activePIdx) { "" } ?: "",
-                        onDismiss = { activeParagraph = -1 to -1 },
+                        wordSelection = ws,
+                        onDismiss = onClearWordSelection,
+                        onSaveWord = { word -> onSaveWord(word, ws.chapterIndex, ws.paragraphIndex) },
                     )
                 }
 
@@ -513,9 +519,9 @@ private fun BookSpread(
     splitRatio: Float,
     textSize: Float,
     lineHeightMultiplier: Float,
-    activeParagraph: Pair<Int, Int>,
+    wordSelection: WordSelection?,
     listState: LazyListState,
-    onLongPress: (Int, Int) -> Unit,
+    onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
     sourceLang: Language,
     targetLang: Language,
 ) {
@@ -535,7 +541,9 @@ private fun BookSpread(
                 val translated = if (showTranslation)
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
                 else ""
-                val isActive = activeParagraph == (chapterIndex to idx)
+                val isSelected = wordSelection?.chapterIndex == chapterIndex && wordSelection.paragraphIndex == idx
+                val selectedStart = if (isSelected) wordSelection!!.startChar else -1
+                val selectedEnd = if (isSelected) wordSelection!!.endChar else -1
 
                 if (showTranslation) {
                     Row(
@@ -550,10 +558,12 @@ private fun BookSpread(
                                 index = idx,
                                 isFirstOfChapter = idx == 0,
                                 isOriginal = true,
-                                isActive = isActive,
+                                isActive = isSelected,
+                                selectedWordStart = selectedStart,
+                                selectedWordEnd = selectedEnd,
                                 textSize = textSize,
                                 lineHeightMultiplier = lineHeightMultiplier,
-                                onLongPress = { onLongPress(chapterIndex, idx) },
+                                onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                                 onTap = {},
                             )
                         }
@@ -563,10 +573,12 @@ private fun BookSpread(
                                 index = idx,
                                 isFirstOfChapter = idx == 0,
                                 isOriginal = false,
-                                isActive = isActive,
+                                isActive = isSelected,
+                                selectedWordStart = -1,
+                                selectedWordEnd = -1,
                                 textSize = textSize,
                                 lineHeightMultiplier = lineHeightMultiplier,
-                                onLongPress = { onLongPress(chapterIndex, idx) },
+                                onWordSelected = { _, _, _ -> },
                                 onTap = {},
                             )
                         }
@@ -578,10 +590,12 @@ private fun BookSpread(
                             index = idx,
                             isFirstOfChapter = idx == 0,
                             isOriginal = true,
-                            isActive = isActive,
+                            isActive = isSelected,
+                            selectedWordStart = selectedStart,
+                            selectedWordEnd = selectedEnd,
                             textSize = textSize,
                             lineHeightMultiplier = lineHeightMultiplier,
-                            onLongPress = { onLongPress(chapterIndex, idx) },
+                            onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                             onTap = {},
                         )
                     }
@@ -604,30 +618,43 @@ private fun ParagraphItem(
     isFirstOfChapter: Boolean,
     isOriginal: Boolean,
     isActive: Boolean,
+    selectedWordStart: Int,
+    selectedWordEnd: Int,
     textSize: Float,
     lineHeightMultiplier: Float,
-    onLongPress: (Int) -> Unit,
+    onWordSelected: (word: String, start: Int, end: Int) -> Unit,
     onTap: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
-    val bgColor = when {
-        isActive -> palette.accentSoft.copy(alpha = 0.55f)
-        else     -> Color.Transparent
-    }
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    val hasSelection = isOriginal && selectedWordStart >= 0 && selectedWordEnd > selectedWordStart
+    val bgColor = Color.Transparent
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(4.dp))
             .background(bgColor)
-            .padding(horizontal = if (isActive || bgColor != Color.Transparent) 6.dp else 0.dp)
             .pointerInput(index) {
                 detectTapGestures(
                     onTap = { onTap() },
-                    onLongPress = { onLongPress(index) },
+                    onLongPress = { offset ->
+                        val layout = textLayoutResult ?: return@detectTapGestures
+                        if (text.isEmpty()) return@detectTapGestures
+                        val charOffset = layout.getOffsetForPosition(offset).coerceIn(0, text.length - 1)
+                        var start = charOffset
+                        while (start > 0 && !text[start - 1].isWhitespace()) start--
+                        var end = charOffset
+                        while (end < text.length && !text[end].isWhitespace()) end++
+                        while (start < end && !text[start].isLetterOrDigit()) start++
+                        while (end > start && !text[end - 1].isLetterOrDigit()) end--
+                        if (start < end) onWordSelected(text.substring(start, end), start, end)
+                    },
                 )
             },
     ) {
+        val baseColor = if (isOriginal) palette.ink else palette.ink2
         if (isFirstOfChapter && text.isNotEmpty()) {
             Text(
                 text = buildAnnotatedString {
@@ -636,27 +663,46 @@ private fun ParagraphItem(
                         fontWeight = FontWeight.Medium,
                         fontSize = (textSize * 3.6f).sp,
                         color = palette.accent,
-                    )) {
-                        append(text.first())
+                    )) { append(text.first()) }
+                    val rest = text.drop(1)
+                    if (hasSelection) {
+                        val s = (selectedWordStart - 1).coerceAtLeast(0)
+                        val e = (selectedWordEnd - 1).coerceAtMost(rest.length)
+                        if (s > 0) append(rest.substring(0, s))
+                        if (s < e) withStyle(SpanStyle(background = palette.accentSoft, color = palette.accent)) { append(rest.substring(s, e)) }
+                        if (e < rest.length) append(rest.substring(e))
+                    } else {
+                        append(rest)
                     }
-                    append(text.drop(1))
                 },
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.Normal,
                 fontSize = textSize.sp,
                 lineHeight = (textSize * lineHeightMultiplier).sp,
-                color = if (isOriginal) palette.ink else palette.ink2,
+                color = baseColor,
                 textAlign = TextAlign.Justify,
+                onTextLayout = { textLayoutResult = it },
             )
         } else {
             Text(
-                text = text,
+                text = buildAnnotatedString {
+                    if (hasSelection && selectedWordEnd <= text.length) {
+                        if (selectedWordStart > 0) append(text.substring(0, selectedWordStart))
+                        withStyle(SpanStyle(background = palette.accentSoft, color = palette.accent)) {
+                            append(text.substring(selectedWordStart, selectedWordEnd))
+                        }
+                        if (selectedWordEnd < text.length) append(text.substring(selectedWordEnd))
+                    } else {
+                        append(text)
+                    }
+                },
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.Normal,
                 fontSize = textSize.sp,
                 lineHeight = (textSize * lineHeightMultiplier).sp,
-                color = if (isOriginal) palette.ink else palette.ink2,
+                color = baseColor,
                 textAlign = TextAlign.Justify,
+                onTextLayout = { textLayoutResult = it },
             )
         }
     }
@@ -744,14 +790,14 @@ private fun TranslationBanner(progress: Int, modifier: Modifier = Modifier) {
 
 @Composable
 private fun ParagraphActionsOverlay(
-    paragraphIndex: Int,
-    originalText: String,
+    wordSelection: WordSelection,
     onDismiss: () -> Unit,
+    onSaveWord: (String) -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
-    val word = originalText.split(" ").firstOrNull() ?: ""
+    var wordInput by remember(wordSelection.word) { mutableStateOf(wordSelection.word) }
 
     Box(
         modifier = Modifier
@@ -785,19 +831,29 @@ private fun ParagraphActionsOverlay(
                         color = palette.accent,
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = word,
-                        fontFamily = Newsreader,
-                        fontWeight = FontWeight.Medium,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 26.sp,
-                        color = palette.ink,
-                    )
-                    Text(
-                        text = "N. · definition",
-                        fontFamily = JetBrainsMono,
-                        fontSize = 9.sp,
-                        color = palette.ink3,
+                    // Editable word/phrase field
+                    BasicTextField(
+                        value = wordInput,
+                        onValueChange = { wordInput = it },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = Newsreader,
+                            fontWeight = FontWeight.Medium,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 26.sp,
+                            color = palette.ink,
+                        ),
+                        singleLine = false,
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .drawBehind {
+                                drawLine(
+                                    color = palette.edge,
+                                    start = Offset(0f, size.height),
+                                    end = Offset(size.width, size.height),
+                                    strokeWidth = 1.dp.toPx(),
+                                )
+                            }
+                            .padding(bottom = 3.dp),
                     )
                 }
                 Box(
@@ -816,16 +872,49 @@ private fun ParagraphActionsOverlay(
             Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
             Spacer(Modifier.height(sp.sm))
 
+            // Translation section
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "TRANSLATION",
+                    fontFamily = JetBrainsMono,
+                    fontSize = 9.sp,
+                    letterSpacing = 0.5.sp,
+                    color = palette.ink3,
+                )
+                if (wordSelection.translation == null) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 1.5.dp,
+                        color = palette.ink3,
+                    )
+                } else {
+                    Text(
+                        text = wordSelection.translation,
+                        fontFamily = Newsreader,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 20.sp,
+                        color = palette.ink,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(sp.sm))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+            Spacer(Modifier.height(sp.sm))
+
             // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val actions = listOf(
-                    Triple(Icons.Outlined.Style, "Save word", {}),
-                    Triple(Icons.Outlined.BorderColor, "Highlight", {}),
-                    Triple(Icons.Outlined.BookmarkBorder, "Bookmark", {}),
-                    Triple(Icons.Outlined.EditNote, "Add note", {}),
+                    Triple(Icons.Outlined.Style, "Save word", { onSaveWord(wordInput); onDismiss() }),
+                    Triple(Icons.Outlined.BorderColor, "Highlight", null as (() -> Unit)?),
+                    Triple(Icons.Outlined.BookmarkBorder, "Bookmark", null as (() -> Unit)?),
+                    Triple(Icons.Outlined.EditNote, "Add note", null as (() -> Unit)?),
                     Triple(Icons.Outlined.Headphones, "Listen", null as (() -> Unit)?),
                 )
                 actions.forEach { (icon, label, action) ->
@@ -834,7 +923,7 @@ private fun ParagraphActionsOverlay(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, palette.edge, RoundedCornerShape(8.dp))
+                            .border(1.dp, if (enabled) palette.edge else palette.edge.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                             .then(if (enabled) Modifier.clickable { action?.invoke() } else Modifier)
                             .padding(horizontal = 6.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center,

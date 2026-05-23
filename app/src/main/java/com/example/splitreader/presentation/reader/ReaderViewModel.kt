@@ -12,6 +12,7 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.ParseBookUseCase
+import com.example.splitreader.domain.usecase.SaveWordUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +32,7 @@ import javax.inject.Inject
 class ReaderViewModel @Inject constructor(
     private val translateTextUseCase: TranslateTextUseCase,
     private val parseBookUseCase: ParseBookUseCase,
+    private val saveWordUseCase: SaveWordUseCase,
     private val progressManager: ReadingProgressManager,
     private val languageDetector: LanguageDetector,
     @ApplicationContext private val context: Context,
@@ -58,6 +60,7 @@ class ReaderViewModel @Inject constructor(
         val horizontalMargin: Float = 12f,
         val isLoading: Boolean = false,
         val error: String? = null,
+        val wordSelection: WordSelection? = null,
     )
 
     private val _state = MutableStateFlow(
@@ -100,6 +103,7 @@ class ReaderViewModel @Inject constructor(
                     readerTheme = s.readerTheme,
                     navigationSide = s.navigationSide,
                     horizontalMargin = s.horizontalMargin,
+                    wordSelection = s.wordSelection,
                 )
             }
         }
@@ -224,6 +228,47 @@ class ReaderViewModel @Inject constructor(
         val clamped = margin.coerceIn(4f, 32f)
         progressManager.saveHorizontalMargin(clamped)
         _state.update { it.copy(horizontalMargin = clamped) }
+    }
+
+    fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
+        _state.update { it.copy(wordSelection = WordSelection(word, chapterIndex, paragraphIndex, startChar, endChar)) }
+        viewModelScope.launch {
+            var translation = ""
+            translateTextUseCase(
+                paragraphs = listOf(word),
+                sourceLanguage = _state.value.sourceLanguage,
+                targetLanguage = _state.value.targetLanguage,
+                startIndex = 0,
+                endIndex = 0,
+            ).collect { state ->
+                if (state is TranslationState.Partial) translation = state.text
+            }
+            _state.update { s -> s.copy(wordSelection = s.wordSelection?.copy(translation = translation)) }
+        }
+    }
+
+    fun clearWordSelection() {
+        _state.update { it.copy(wordSelection = null) }
+    }
+
+    fun saveWord(word: String, chapterIndex: Int, paragraphIndex: Int) {
+        val s = _state.value
+        val book = s.book ?: return
+        val context = book.chapters
+            .getOrNull(chapterIndex)?.paragraphs?.getOrElse(paragraphIndex) { "" }
+            ?.take(120) ?: ""
+        viewModelScope.launch {
+            saveWordUseCase(
+                word = word.trim(),
+                contextSnippet = context,
+                sourceLang = s.sourceLanguage,
+                targetLang = s.targetLanguage,
+                bookUri = book.filePath,
+                bookTitle = book.title,
+                chapterIndex = chapterIndex,
+                paragraphIndex = paragraphIndex,
+            )
+        }
     }
 
     fun ensureChapterTranslated(index: Int) {
