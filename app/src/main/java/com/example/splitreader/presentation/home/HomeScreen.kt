@@ -689,7 +689,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                     DropdownMenuItem(
                         text = {
                             Text(
-                                text = "Удалить",
+                                text = "Delete",
                                 fontFamily = Newsreader,
                                 fontStyle = FontStyle.Italic,
                                 fontSize = 14.sp,
