@@ -2,6 +2,13 @@ package com.example.splitreader.presentation.home
 
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -33,15 +40,14 @@ import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.UploadFile
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -426,6 +432,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
             motif = spec.motif,
             width = 120.dp,
             height = 176.dp,
+            coverFilePath = book.coverPath,
         )
 
         // Title block
@@ -612,7 +619,59 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
     val spec = coverSpec(book.title, book.uri)
     val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
     val finished = book.lastChapterIndex >= book.chapterCount - 1 && book.chapterCount > 0
-    var showMenu by remember { mutableStateOf(false) }
+    var showConfirmDelete by remember { mutableStateOf(false) }
+
+    if (showConfirmDelete) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDelete = false },
+            title = {
+                Text(
+                    text = "Delete book",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 18.sp,
+                    color = PaperInk,
+                )
+            },
+            text = {
+                Text(
+                    text = "\"${book.title}\" will be removed from your library.",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Normal,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
+                    color = PaperInk2,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirmDelete = false
+                    onDelete()
+                }) {
+                    Text(
+                        text = "Delete",
+                        fontFamily = Newsreader,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = Color(0xFFB04040),
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDelete = false }) {
+                    Text(
+                        text = "Cancel",
+                        fontFamily = Newsreader,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 14.sp,
+                        color = PaperInk2,
+                    )
+                }
+            },
+            containerColor = PaperBg2,
+            tonalElevation = 0.dp,
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -628,6 +687,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                 motif = spec.motif,
                 width = 140.dp,
                 height = 206.dp,
+                coverFilePath = book.coverPath,
                 modifier = Modifier.fillMaxWidth(),
             )
             // Progress overlay at bottom
@@ -672,42 +732,14 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                         .size(24.dp)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.35f))
-                        .clickable { showMenu = true },
+                        .clickable { showConfirmDelete = true },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Outlined.MoreVert,
-                        contentDescription = null,
+                        Icons.Outlined.Delete,
+                        contentDescription = "Delete book",
                         tint = Color.White,
                         modifier = Modifier.size(14.dp),
-                    )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = "Delete",
-                                fontFamily = Newsreader,
-                                fontStyle = FontStyle.Italic,
-                                fontSize = 14.sp,
-                                color = Color(0xFFB04040),
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Outlined.Delete,
-                                contentDescription = null,
-                                tint = Color(0xFFB04040),
-                                modifier = Modifier.size(16.dp),
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            onDelete()
-                        },
                     )
                 }
             }
@@ -796,8 +828,17 @@ fun BookCover(
     width: Dp,
     height: Dp,
     radius: Dp = 4.dp,
+    coverFilePath: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val coverBitmap by produceState<ImageBitmap?>(null, coverFilePath) {
+        value = if (coverFilePath != null) {
+            withContext(Dispatchers.IO) {
+                runCatching { BitmapFactory.decodeFile(coverFilePath)?.asImageBitmap() }.getOrNull()
+            }
+        } else null
+    }
+
     Box(
         modifier = modifier
             .width(width)
@@ -806,61 +847,70 @@ fun BookCover(
             .clip(RoundedCornerShape(radius))
             .background(bgColor),
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
+        if (coverBitmap != null) {
+            Image(
+                bitmap = coverBitmap!!,
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
 
-            // Spine highlight gradient
-            drawRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        inkColor.copy(alpha = 0.28f),
-                        Color.Transparent,
+                // Spine highlight gradient
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            inkColor.copy(alpha = 0.28f),
+                            Color.Transparent,
+                        ),
+                        startX = 0f,
+                        endX = w * 0.3f,
                     ),
-                    startX = 0f,
-                    endX = w * 0.3f,
-                ),
-                size = size,
-            )
+                    size = size,
+                )
 
-            // Top hairlines
-            val hairColor = inkColor.copy(alpha = 0.32f)
-            val sideMargin = 8.dp.toPx()
-            drawLine(hairColor, Offset(sideMargin, 14.dp.toPx()), Offset(w - sideMargin, 14.dp.toPx()), 1.dp.toPx())
-            drawLine(inkColor.copy(alpha = 0.18f), Offset(sideMargin, 18.dp.toPx()), Offset(w - sideMargin, 18.dp.toPx()), 1.dp.toPx())
+                // Top hairlines
+                val hairColor = inkColor.copy(alpha = 0.32f)
+                val sideMargin = 8.dp.toPx()
+                drawLine(hairColor, Offset(sideMargin, 14.dp.toPx()), Offset(w - sideMargin, 14.dp.toPx()), 1.dp.toPx())
+                drawLine(inkColor.copy(alpha = 0.18f), Offset(sideMargin, 18.dp.toPx()), Offset(w - sideMargin, 18.dp.toPx()), 1.dp.toPx())
 
-            // Motif
-            val motifTop = 26.dp.toPx()
-            val motifHeight = 64.dp.toPx()
-            drawMotif(motif, inkColor, w, motifTop, motifHeight)
-        }
+                // Motif
+                val motifTop = 26.dp.toPx()
+                val motifHeight = 64.dp.toPx()
+                drawMotif(motif, inkColor, w, motifTop, motifHeight)
+            }
 
-        // Title / author overlay at bottom
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(horizontal = 6.dp, vertical = 8.dp),
-        ) {
-            Text(
-                text = title.uppercase(),
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = (width.value * 0.115f).sp,
-                color = inkColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = (width.value * 0.115f * 1.2f).sp,
-            )
-            Text(
-                text = author,
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.Normal,
-                fontStyle = FontStyle.Italic,
-                fontSize = (width.value * 0.08f).sp,
-                color = inkColor.copy(alpha = 0.75f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // Title / author overlay at bottom
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = title.uppercase(),
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = (width.value * 0.115f).sp,
+                    color = inkColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = (width.value * 0.115f * 1.2f).sp,
+                )
+                Text(
+                    text = author,
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Normal,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = (width.value * 0.08f).sp,
+                    color = inkColor.copy(alpha = 0.75f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
