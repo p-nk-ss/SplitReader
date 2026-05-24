@@ -100,7 +100,10 @@ class HomeViewModel @Inject constructor(
             _errorMessage.value = "Нет доступа к файлу — переоткройте его через «Open book»."
             return
         }
-        viewModelScope.launch { _navigationEvent.trySend(uri) }
+        viewModelScope.launch {
+            bookLibraryRepository.touchBook(uri)
+            _navigationEvent.trySend(uri)
+        }
     }
 
     fun openLastBook() {

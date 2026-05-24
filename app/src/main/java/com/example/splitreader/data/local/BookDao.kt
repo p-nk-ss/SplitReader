@@ -14,6 +14,9 @@ interface BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(book: BookEntity)
 
+    @Query("UPDATE books SET lastOpenedAt = :timestamp WHERE uri = :uri")
+    suspend fun updateLastOpenedAt(uri: String, timestamp: Long)
+
     @Query("DELETE FROM books WHERE uri = :uri")
     suspend fun deleteByUri(uri: String)
 }

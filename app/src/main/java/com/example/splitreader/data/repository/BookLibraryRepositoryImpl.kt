@@ -27,5 +27,8 @@ class BookLibraryRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun touchBook(uri: String) =
+        bookDao.updateLastOpenedAt(uri, System.currentTimeMillis())
+
     override suspend fun deleteBook(uri: String) = bookDao.deleteByUri(uri)
 }
