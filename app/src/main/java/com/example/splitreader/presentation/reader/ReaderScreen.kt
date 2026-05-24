@@ -202,6 +202,7 @@ private fun ReaderContent(
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showDisplaySettings by remember { mutableStateOf(false) }
     var showChapterPicker by remember { mutableStateOf(false) }
+    var wordHighlightEnabled by remember { mutableStateOf(true) }
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -270,6 +271,7 @@ private fun ReaderContent(
                     textSize = state.textSize,
                     lineHeightMultiplier = state.lineHeightMultiplier,
                     wordSelection = state.wordSelection,
+                    wordHighlightEnabled = wordHighlightEnabled,
                     listState = listState,
                     onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
                     onExpandToSentence = onExpandToSentence,
@@ -308,6 +310,8 @@ private fun ReaderContent(
                 onAdjustLineHeight = onAdjustLineHeight,
                 onSetSplitRatio = onSetSplitRatio,
                 onToggleTranslation = onToggleTranslation,
+                wordHighlightEnabled = wordHighlightEnabled,
+                onToggleWordHighlight = { wordHighlightEnabled = !wordHighlightEnabled },
                 onDismiss = { showDisplaySettings = false },
             )
         }
@@ -651,6 +655,7 @@ private fun BookSpread(
     textSize: Float,
     lineHeightMultiplier: Float,
     wordSelection: WordSelection?,
+    wordHighlightEnabled: Boolean,
     listState: LazyListState,
     onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onExpandToSentence: () -> Unit,
@@ -697,6 +702,7 @@ private fun BookSpread(
                                 selectedWordEnd = selectedEnd,
                                 textSize = textSize,
                                 lineHeightMultiplier = lineHeightMultiplier,
+                                wordHighlightEnabled = wordHighlightEnabled,
                                 onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                                 onTap = { if (wordSelection != null) onDismiss() },
                             )
@@ -746,6 +752,7 @@ private fun BookSpread(
                             selectedWordEnd = selectedEnd,
                             textSize = textSize,
                             lineHeightMultiplier = lineHeightMultiplier,
+                            wordHighlightEnabled = wordHighlightEnabled,
                             onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                             onTap = {},
                         )
@@ -773,12 +780,14 @@ private fun ParagraphItem(
     selectedWordEnd: Int,
     textSize: Float,
     lineHeightMultiplier: Float,
+    wordHighlightEnabled: Boolean = false,
     onWordSelected: (word: String, start: Int, end: Int) -> Unit,
     onTap: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentOnTap by rememberUpdatedState(newValue = onTap)
+    val currentWordHighlightEnabled by rememberUpdatedState(newValue = wordHighlightEnabled)
     val baseColor = if (isOriginal) palette.ink else palette.ink2
 
     val hasSelection = isOriginal && selectedWordStart >= 0 && selectedWordEnd > selectedWordStart
@@ -791,6 +800,7 @@ private fun ParagraphItem(
                 detectTapGestures(
                     onTap = { currentOnTap() },
                     onLongPress = { offset ->
+                        if (!currentWordHighlightEnabled) return@detectTapGestures
                         val layout = textLayoutResult ?: return@detectTapGestures
                         if (text.isEmpty()) return@detectTapGestures
                         val charOffset = layout.getOffsetForPosition(offset)
@@ -1235,6 +1245,8 @@ private fun DisplaySettingsDialog(
     onAdjustLineHeight: (Float) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
+    wordHighlightEnabled: Boolean,
+    onToggleWordHighlight: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
@@ -1305,8 +1317,8 @@ private fun DisplaySettingsDialog(
         ToggleRow(
             label = "Word highlight on tap",
             sub = "Show definition popover when long-pressing a word",
-            checked = true,
-            onToggle = {},
+            checked = wordHighlightEnabled,
+            onToggle = onToggleWordHighlight,
         )
         Spacer(Modifier.height(sp.sm))
     }
