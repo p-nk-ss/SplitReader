@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -667,7 +668,8 @@ private fun BookSpread(
     val palette = LocalReaderPalette.current
     val ruleColor = palette.rule
 
-    LazyColumn(state = listState, modifier = modifier.background(palette.bg)) {
+    Box(modifier = modifier) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(palette.bg)) {
         book.chapters.forEachIndexed { chapterIndex, chapter ->
 
             // Compact chapter masthead
@@ -754,7 +756,7 @@ private fun BookSpread(
                             lineHeightMultiplier = lineHeightMultiplier,
                             wordHighlightEnabled = wordHighlightEnabled,
                             onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
-                            onTap = {},
+                            onTap = { if (wordSelection != null) onDismiss() },
                         )
                     }
                 }
@@ -766,6 +768,22 @@ private fun BookSpread(
         item(key = "end_padding") {
             Spacer(Modifier.height(48.dp))
         }
+    }
+
+    if (!showTranslation && wordSelection != null) {
+        TranslationBubble(
+            wordSelection = wordSelection,
+            onExpandToSentence = onExpandToSentence,
+            onSave = { onSaveWord(wordSelection.word, wordSelection.chapterIndex, wordSelection.paragraphIndex) },
+            onDismiss = onDismiss,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .widthIn(max = 380.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .navigationBarsPadding(),
+        )
+    }
     }
 }
 
