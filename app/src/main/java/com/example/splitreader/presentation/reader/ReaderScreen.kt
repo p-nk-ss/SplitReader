@@ -532,8 +532,8 @@ private fun TranslationBubble(
             .background(palette.bg2)
             .border(1.dp, palette.edge, RoundedCornerShape(radii.lg))
             .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {}
-            .padding(sp.sm),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(sp.md),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -566,7 +566,7 @@ private fun TranslationBubble(
             fontStyle = FontStyle.Italic,
             fontSize = 15.sp,
             color = palette.ink,
-            maxLines = 4,
+            maxLines = 6,
             overflow = TextOverflow.Ellipsis,
         )
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
@@ -594,7 +594,7 @@ private fun TranslationBubble(
                 fontStyle = FontStyle.Italic,
                 fontSize = 14.sp,
                 color = palette.ink2,
-                maxLines = 5,
+                maxLines = 8,
                 overflow = TextOverflow.Ellipsis,
             )
         }
@@ -631,7 +631,7 @@ private fun BubbleChip(
             .clip(RoundedCornerShape(6.dp))
             .border(1.dp, palette.edge, RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -731,15 +731,6 @@ private fun BookSpread(
                                     onTap = { if (wordSelection != null) onDismiss() },
                                 )
                             }
-                            // Bubble overlaid on top for selected paragraph
-                            if (isSelected && wordSelection != null) {
-                                TranslationBubble(
-                                    wordSelection = wordSelection,
-                                    onExpandToSentence = onExpandToSentence,
-                                    onSave = { onSaveWord(wordSelection.word, chapterIndex, idx) },
-                                    onDismiss = onDismiss,
-                                )
-                            }
                         }
                     }
                 } else {
@@ -770,7 +761,7 @@ private fun BookSpread(
         }
     }
 
-    if (!showTranslation && wordSelection != null) {
+    if (wordSelection != null) {
         TranslationBubble(
             wordSelection = wordSelection,
             onExpandToSentence = onExpandToSentence,
@@ -778,7 +769,7 @@ private fun BookSpread(
             onDismiss = onDismiss,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .widthIn(max = 380.dp)
+                .widthIn(max = 520.dp)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 16.dp)
                 .navigationBarsPadding(),
