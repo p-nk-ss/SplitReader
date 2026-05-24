@@ -30,11 +30,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -235,6 +239,7 @@ private fun HomeScreen(
                 BookCoverCard(
                     book = book,
                     onClick = { onOpenFromLibrary(book.uri) },
+                    onDelete = { onDeleteBook(book.uri) },
                 )
             }
         }
@@ -603,10 +608,11 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
 // ── Book grid card ────────────────────────────────────────────────────────
 
 @Composable
-private fun BookCoverCard(book: BookItem, onClick: () -> Unit) {
+private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> Unit) {
     val spec = coverSpec(book.title, book.uri)
     val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
     val finished = book.lastChapterIndex >= book.chapterCount - 1 && book.chapterCount > 0
+    var showMenu by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -653,6 +659,56 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("✓", color = PaperBg, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            // 3-dot context menu at bottom-right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.35f))
+                        .clickable { showMenu = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.MoreVert,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "Удалить",
+                                fontFamily = Newsreader,
+                                fontStyle = FontStyle.Italic,
+                                fontSize = 14.sp,
+                                color = Color(0xFFB04040),
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = null,
+                                tint = Color(0xFFB04040),
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                    )
                 }
             }
         }
