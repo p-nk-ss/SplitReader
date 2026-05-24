@@ -61,10 +61,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -147,6 +149,7 @@ internal fun ReaderRoute(
             onSaveWord = viewModel::saveWord,
             onSelectWord = viewModel::selectWord,
             onClearWordSelection = viewModel::clearWordSelection,
+            onExpandToSentence = viewModel::expandToSentence,
         )
     }
 }
@@ -192,6 +195,7 @@ private fun ReaderContent(
     onSaveWord: (String, Int, Int) -> Unit,
     onSelectWord: (String, Int, Int, Int, Int) -> Unit,
     onClearWordSelection: () -> Unit,
+    onExpandToSentence: () -> Unit,
 ) {
     val palette = readerPalette(state.readerTheme)
 
@@ -268,18 +272,12 @@ private fun ReaderContent(
                     wordSelection = state.wordSelection,
                     listState = listState,
                     onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
+                    onExpandToSentence = onExpandToSentence,
+                    onSaveWord = onSaveWord,
+                    onDismiss = onClearWordSelection,
                     sourceLang = state.sourceLanguage,
                     targetLang = state.targetLanguage,
                 )
-
-                val ws = state.wordSelection
-                if (ws != null) {
-                    ParagraphActionsOverlay(
-                        wordSelection = ws,
-                        onDismiss = onClearWordSelection,
-                        onSaveWord = { word -> onSaveWord(word, ws.chapterIndex, ws.paragraphIndex) },
-                    )
-                }
 
                 if (state.translationState is TranslationState.Translating) {
                     TranslationBanner(
@@ -508,6 +506,139 @@ private fun PageGutter(modifier: Modifier = Modifier.width(28.dp).fillMaxHeight(
     }
 }
 
+// ── Translation bubble (inline on translation side of selected paragraph) ──
+
+@Composable
+private fun TranslationBubble(
+    wordSelection: WordSelection,
+    onExpandToSentence: () -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    val radii = LocalRadii.current
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(radii.lg))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(radii.lg))
+            .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {}
+            .padding(sp.sm),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (wordSelection.selectionType == SelectionType.WORD) "СЛОВО" else "ПРЕДЛОЖЕНИЕ",
+                fontFamily = JetBrainsMono,
+                fontSize = 9.sp,
+                letterSpacing = 0.5.sp,
+                color = palette.accent,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(20.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = null,
+                    tint = palette.ink3,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+        Text(
+            text = wordSelection.word,
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Medium,
+            fontStyle = FontStyle.Italic,
+            fontSize = 15.sp,
+            color = palette.ink,
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+        if (wordSelection.translation == null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    strokeWidth = 1.5.dp,
+                    color = palette.ink3,
+                )
+                Text(
+                    text = "Перевод…",
+                    fontFamily = JetBrainsMono,
+                    fontSize = 9.sp,
+                    color = palette.ink3,
+                )
+            }
+        } else {
+            Text(
+                text = wordSelection.translation,
+                fontFamily = Newsreader,
+                fontStyle = FontStyle.Italic,
+                fontSize = 14.sp,
+                color = palette.ink2,
+                maxLines = 5,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+        if (wordSelection.selectionType == SelectionType.WORD) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                BubbleChip(
+                    label = "Предложение",
+                    onClick = onExpandToSentence,
+                    modifier = Modifier.weight(1f),
+                )
+                BubbleChip(
+                    label = "Сохранить",
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BubbleChip(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalReaderPalette.current
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .border(1.dp, palette.edge, RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontFamily = Newsreader,
+            fontStyle = FontStyle.Italic,
+            fontSize = 11.sp,
+            color = palette.ink2,
+        )
+    }
+}
+
 // ── Book spread (continuous scroll — all chapters in one LazyColumn) ──────
 
 @Composable
@@ -522,6 +653,9 @@ private fun BookSpread(
     wordSelection: WordSelection?,
     listState: LazyListState,
     onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
+    onExpandToSentence: () -> Unit,
+    onSaveWord: (word: String, chapterIndex: Int, paragraphIndex: Int) -> Unit,
+    onDismiss: () -> Unit,
     sourceLang: Language,
     targetLang: Language,
 ) {
@@ -564,23 +698,40 @@ private fun BookSpread(
                                 textSize = textSize,
                                 lineHeightMultiplier = lineHeightMultiplier,
                                 onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
-                                onTap = {},
+                                onTap = { if (wordSelection != null) onDismiss() },
                             )
                         }
-                        Box(Modifier.weight(1f - splitRatio).padding(start = 12.dp, end = 32.dp)) {
-                            ParagraphItem(
-                                text = translated,
-                                index = idx,
-                                isFirstOfChapter = idx == 0,
-                                isOriginal = false,
-                                isActive = isSelected,
-                                selectedWordStart = -1,
-                                selectedWordEnd = -1,
-                                textSize = textSize,
-                                lineHeightMultiplier = lineHeightMultiplier,
-                                onWordSelected = { _, _, _ -> },
-                                onTap = {},
-                            )
+                        Box(
+                            Modifier
+                                .weight(1f - splitRatio)
+                                .padding(start = 12.dp, end = 32.dp)
+                                .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
+                        ) {
+                            // Translation text always visible (dimmed when bubble is active)
+                            Box(Modifier.alpha(if (isSelected && wordSelection != null) 0.25f else 1f)) {
+                                ParagraphItem(
+                                    text = translated,
+                                    index = idx,
+                                    isFirstOfChapter = idx == 0,
+                                    isOriginal = false,
+                                    isActive = false,
+                                    selectedWordStart = -1,
+                                    selectedWordEnd = -1,
+                                    textSize = textSize,
+                                    lineHeightMultiplier = lineHeightMultiplier,
+                                    onWordSelected = { _, _, _ -> },
+                                    onTap = { if (wordSelection != null) onDismiss() },
+                                )
+                            }
+                            // Bubble overlaid on top for selected paragraph
+                            if (isSelected && wordSelection != null) {
+                                TranslationBubble(
+                                    wordSelection = wordSelection,
+                                    onExpandToSentence = onExpandToSentence,
+                                    onSave = { onSaveWord(wordSelection.word, chapterIndex, idx) },
+                                    onDismiss = onDismiss,
+                                )
+                            }
                         }
                     }
                 } else {
@@ -627,22 +778,23 @@ private fun ParagraphItem(
 ) {
     val palette = LocalReaderPalette.current
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val currentOnTap by rememberUpdatedState(newValue = onTap)
+    val baseColor = if (isOriginal) palette.ink else palette.ink2
 
     val hasSelection = isOriginal && selectedWordStart >= 0 && selectedWordEnd > selectedWordStart
-    val bgColor = Color.Transparent
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(4.dp))
-            .background(bgColor)
+            .background(Color.Transparent)
             .pointerInput(index) {
                 detectTapGestures(
-                    onTap = { onTap() },
+                    onTap = { currentOnTap() },
                     onLongPress = { offset ->
                         val layout = textLayoutResult ?: return@detectTapGestures
                         if (text.isEmpty()) return@detectTapGestures
-                        val charOffset = layout.getOffsetForPosition(offset).coerceIn(0, text.length - 1)
+                        val charOffset = layout.getOffsetForPosition(offset)
+                            .coerceIn(0, text.length - 1)
                         var start = charOffset
                         while (start > 0 && !text[start - 1].isWhitespace()) start--
                         var end = charOffset
@@ -654,57 +806,26 @@ private fun ParagraphItem(
                 )
             },
     ) {
-        val baseColor = if (isOriginal) palette.ink else palette.ink2
-        if (isFirstOfChapter && text.isNotEmpty()) {
-            Text(
-                text = buildAnnotatedString {
-                    withStyle(SpanStyle(
-                        fontFamily = Newsreader,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = (textSize * 3.6f).sp,
-                        color = palette.accent,
-                    )) { append(text.first()) }
-                    val rest = text.drop(1)
-                    if (hasSelection) {
-                        val s = (selectedWordStart - 1).coerceAtLeast(0)
-                        val e = (selectedWordEnd - 1).coerceAtMost(rest.length)
-                        if (s > 0) append(rest.substring(0, s))
-                        if (s < e) withStyle(SpanStyle(background = palette.accentSoft, color = palette.accent)) { append(rest.substring(s, e)) }
-                        if (e < rest.length) append(rest.substring(e))
-                    } else {
-                        append(rest)
+        Text(
+            text = buildAnnotatedString {
+                if (hasSelection && selectedWordEnd <= text.length) {
+                    if (selectedWordStart > 0) append(text.substring(0, selectedWordStart))
+                    withStyle(SpanStyle(background = palette.accentSoft, color = palette.accent)) {
+                        append(text.substring(selectedWordStart, selectedWordEnd))
                     }
-                },
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.Normal,
-                fontSize = textSize.sp,
-                lineHeight = (textSize * lineHeightMultiplier).sp,
-                color = baseColor,
-                textAlign = TextAlign.Justify,
-                onTextLayout = { textLayoutResult = it },
-            )
-        } else {
-            Text(
-                text = buildAnnotatedString {
-                    if (hasSelection && selectedWordEnd <= text.length) {
-                        if (selectedWordStart > 0) append(text.substring(0, selectedWordStart))
-                        withStyle(SpanStyle(background = palette.accentSoft, color = palette.accent)) {
-                            append(text.substring(selectedWordStart, selectedWordEnd))
-                        }
-                        if (selectedWordEnd < text.length) append(text.substring(selectedWordEnd))
-                    } else {
-                        append(text)
-                    }
-                },
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.Normal,
-                fontSize = textSize.sp,
-                lineHeight = (textSize * lineHeightMultiplier).sp,
-                color = baseColor,
-                textAlign = TextAlign.Justify,
-                onTextLayout = { textLayoutResult = it },
-            )
-        }
+                    if (selectedWordEnd < text.length) append(text.substring(selectedWordEnd))
+                } else {
+                    append(text)
+                }
+            },
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Normal,
+            fontSize = textSize.sp,
+            lineHeight = (textSize * lineHeightMultiplier).sp,
+            color = baseColor,
+            textAlign = TextAlign.Justify,
+            onTextLayout = { textLayoutResult = it },
+        )
     }
 }
 

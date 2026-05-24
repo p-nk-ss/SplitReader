@@ -251,6 +251,42 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(wordSelection = null) }
     }
 
+    fun expandToSentence() {
+        val current = _state.value.wordSelection ?: return
+        val paragraphText = _state.value.book?.chapters
+            ?.getOrNull(current.chapterIndex)?.paragraphs
+            ?.getOrNull(current.paragraphIndex) ?: return
+
+        val (sentStart, sentEnd) = sentenceBoundsAt(paragraphText, current.startChar, current.endChar)
+        val sentence = paragraphText.substring(sentStart, sentEnd).trim()
+        if (sentence.isEmpty()) return
+
+        _state.update {
+            it.copy(wordSelection = WordSelection(
+                word = sentence,
+                chapterIndex = current.chapterIndex,
+                paragraphIndex = current.paragraphIndex,
+                startChar = sentStart,
+                endChar = sentEnd,
+                translation = null,
+                selectionType = SelectionType.SENTENCE,
+            ))
+        }
+        viewModelScope.launch {
+            var translation = ""
+            translateTextUseCase(
+                paragraphs = listOf(sentence),
+                sourceLanguage = _state.value.sourceLanguage,
+                targetLanguage = _state.value.targetLanguage,
+                startIndex = 0,
+                endIndex = 0,
+            ).collect { state ->
+                if (state is TranslationState.Partial) translation = state.text
+            }
+            _state.update { s -> s.copy(wordSelection = s.wordSelection?.copy(translation = translation)) }
+        }
+    }
+
     fun saveWord(word: String, chapterIndex: Int, paragraphIndex: Int) {
         val s = _state.value
         val book = s.book ?: return

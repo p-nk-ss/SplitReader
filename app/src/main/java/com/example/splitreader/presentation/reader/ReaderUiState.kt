@@ -6,6 +6,8 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 
+enum class SelectionType { WORD, SENTENCE }
+
 data class WordSelection(
     val word: String,
     val chapterIndex: Int,
@@ -13,6 +15,7 @@ data class WordSelection(
     val startChar: Int,
     val endChar: Int,
     val translation: String? = null,
+    val selectionType: SelectionType = SelectionType.WORD,
 )
 
 sealed interface ReaderUiState {
