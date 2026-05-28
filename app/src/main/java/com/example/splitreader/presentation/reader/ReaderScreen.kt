@@ -8,6 +8,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +23,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -70,6 +75,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -77,6 +83,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -84,8 +91,10 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -111,9 +120,12 @@ import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.NightPalette
 import com.example.splitreader.presentation.theme.PaperPalette
 import com.example.splitreader.presentation.theme.SepiaPalette
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import java.text.BreakIterator
 
 // ── Entry point ───────────────────────────────────────────────────────────
 
@@ -150,7 +162,7 @@ internal fun ReaderRoute(
             onSaveWord = viewModel::saveWord,
             onSelectWord = viewModel::selectWord,
             onClearWordSelection = viewModel::clearWordSelection,
-            onExpandToSentence = viewModel::expandToSentence,
+            onSelectionDragged = viewModel::updateWordSelectionRange,
         )
     }
 }
@@ -196,7 +208,7 @@ private fun ReaderContent(
     onSaveWord: (String, Int, Int) -> Unit,
     onSelectWord: (String, Int, Int, Int, Int) -> Unit,
     onClearWordSelection: () -> Unit,
-    onExpandToSentence: () -> Unit,
+    onSelectionDragged: (Int, Int) -> Unit,
 ) {
     val palette = readerPalette(state.readerTheme)
 
@@ -275,7 +287,7 @@ private fun ReaderContent(
                     wordHighlightEnabled = wordHighlightEnabled,
                     listState = listState,
                     onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
-                    onExpandToSentence = onExpandToSentence,
+                    onSelectionDragged = onSelectionDragged,
                     onSaveWord = onSaveWord,
                     onDismiss = onClearWordSelection,
                     sourceLang = state.sourceLanguage,
@@ -516,7 +528,6 @@ private fun PageGutter(modifier: Modifier = Modifier.width(28.dp).fillMaxHeight(
 @Composable
 private fun TranslationBubble(
     wordSelection: WordSelection,
-    onExpandToSentence: () -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -598,23 +609,13 @@ private fun TranslationBubble(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
         if (wordSelection.selectionType == SelectionType.WORD) {
-            Row(
+            Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+            BubbleChip(
+                label = "Сохранить",
+                onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                BubbleChip(
-                    label = "Предложение",
-                    onClick = onExpandToSentence,
-                    modifier = Modifier.weight(1f),
-                )
-                BubbleChip(
-                    label = "Сохранить",
-                    onClick = onSave,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            )
         }
     }
 }
@@ -659,7 +660,7 @@ private fun BookSpread(
     wordHighlightEnabled: Boolean,
     listState: LazyListState,
     onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
-    onExpandToSentence: () -> Unit,
+    onSelectionDragged: (start: Int, end: Int) -> Unit,
     onSaveWord: (word: String, chapterIndex: Int, paragraphIndex: Int) -> Unit,
     onDismiss: () -> Unit,
     sourceLang: Language,
@@ -706,6 +707,7 @@ private fun BookSpread(
                                 lineHeightMultiplier = lineHeightMultiplier,
                                 wordHighlightEnabled = wordHighlightEnabled,
                                 onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
+                                onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
                                 onTap = { if (wordSelection != null) onDismiss() },
                             )
                         }
@@ -747,6 +749,7 @@ private fun BookSpread(
                             lineHeightMultiplier = lineHeightMultiplier,
                             wordHighlightEnabled = wordHighlightEnabled,
                             onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
+                            onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
                             onTap = { if (wordSelection != null) onDismiss() },
                         )
                     }
@@ -764,7 +767,6 @@ private fun BookSpread(
     if (wordSelection != null) {
         TranslationBubble(
             wordSelection = wordSelection,
-            onExpandToSentence = onExpandToSentence,
             onSave = { onSaveWord(wordSelection.word, wordSelection.chapterIndex, wordSelection.paragraphIndex) },
             onDismiss = onDismiss,
             modifier = Modifier
@@ -791,6 +793,7 @@ private fun ParagraphItem(
     lineHeightMultiplier: Float,
     wordHighlightEnabled: Boolean = false,
     onWordSelected: (word: String, start: Int, end: Int) -> Unit,
+    onSelectionDragged: (start: Int, end: Int) -> Unit = { _, _ -> },
     onTap: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
@@ -800,11 +803,90 @@ private fun ParagraphItem(
     val baseColor = if (isOriginal) palette.ink else palette.ink2
 
     val hasSelection = isOriginal && selectedWordStart >= 0 && selectedWordEnd > selectedWordStart
+
+    val wordIterator = remember(text) {
+        if (text.isEmpty()) null else BreakIterator.getWordInstance().apply { setText(text) }
+    }
+
+    val currentSelStart by rememberUpdatedState(newValue = selectedWordStart)
+    val currentSelEnd by rememberUpdatedState(newValue = selectedWordEnd)
+    val currentOnDragged by rememberUpdatedState(newValue = onSelectionDragged)
+    val currentOnWordSelected by rememberUpdatedState(newValue = onWordSelected)
+    val currentLayoutForGesture by rememberUpdatedState(newValue = textLayoutResult)
+    val currentIterForGesture by rememberUpdatedState(newValue = wordIterator)
+    val handlesEnabled = isOriginal && isActive && hasSelection
+
+    val handleColor = palette.accent
+    val markerLineHeightPx: Float
+    val markerCircleRadiusPx: Float
+    val markerLineStrokePx: Float
+    val markerHitRadiusPx: Float
+    with(LocalDensity.current) {
+        markerLineHeightPx = 12.dp.toPx()
+        markerCircleRadiusPx = 6.dp.toPx()
+        markerLineStrokePx = 2.dp.toPx()
+        markerHitRadiusPx = 28.dp.toPx()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
             .background(Color.Transparent)
+            .pointerInput(isOriginal, text) {
+                if (!isOriginal) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val downPos = down.position
+                    val downId = down.id
+
+                    val layout = currentLayoutForGesture ?: return@awaitEachGesture
+                    val selStart = currentSelStart
+                    val selEnd = currentSelEnd
+                    if (selStart < 0 || selEnd <= selStart || text.isEmpty()) return@awaitEachGesture
+
+                    val (startAnchorX, startAnchorY) = handleAnchor(layout, text, selStart, isStart = true)
+                    val startCenter = Offset(startAnchorX, startAnchorY + markerCircleRadiusPx + markerLineHeightPx / 2f)
+
+                    val (endAnchorX, endAnchorY) = handleAnchor(layout, text, selEnd, isStart = false)
+                    val endCenter = Offset(endAnchorX, endAnchorY + markerCircleRadiusPx + markerLineHeightPx / 2f)
+
+                    val distStart = (downPos - startCenter).getDistance()
+                    val distEnd = (downPos - endCenter).getDistance()
+                    val side = when {
+                        distStart < markerHitRadiusPx && distStart <= distEnd -> HandleSide.START
+                        distEnd < markerHitRadiusPx -> HandleSide.END
+                        else -> return@awaitEachGesture
+                    }
+                    down.consume()
+
+                    var lastBoundary = if (side == HandleSide.START) selStart else selEnd
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == downId } ?: break
+                        if (!change.pressed) break
+                        change.consume()
+
+                        val curLayout = currentLayoutForGesture ?: continue
+                        val iter = currentIterForGesture ?: continue
+                        val charIdx = curLayout.getOffsetForPosition(change.position).coerceIn(0, text.length)
+                        val snapped = when (side) {
+                            HandleSide.START -> snapToWordStart(charIdx, text, iter)
+                            HandleSide.END -> snapToWordEnd(charIdx, text, iter)
+                        }
+                        val curOther = if (side == HandleSide.START) currentSelEnd else currentSelStart
+                        val clamped = when (side) {
+                            HandleSide.START -> snapped.coerceIn(0, (curOther - 1).coerceAtLeast(0))
+                            HandleSide.END -> snapped.coerceIn((curOther + 1).coerceAtMost(text.length), text.length)
+                        }
+                        if (clamped != lastBoundary) {
+                            lastBoundary = clamped
+                            if (side == HandleSide.START) currentOnDragged(clamped, currentSelEnd)
+                            else currentOnDragged(currentSelStart, clamped)
+                        }
+                    }
+                }
+            }
             .pointerInput(index) {
                 detectTapGestures(
                     onTap = { currentOnTap() },
@@ -820,7 +902,7 @@ private fun ParagraphItem(
                         while (end < text.length && !text[end].isWhitespace()) end++
                         while (start < end && !text[start].isLetterOrDigit()) start++
                         while (end > start && !text[end - 1].isLetterOrDigit()) end--
-                        if (start < end) onWordSelected(text.substring(start, end), start, end)
+                        if (start < end) currentOnWordSelected(text.substring(start, end), start, end)
                     },
                 )
             },
@@ -829,8 +911,33 @@ private fun ParagraphItem(
             text = buildAnnotatedString {
                 if (hasSelection && selectedWordEnd <= text.length) {
                     if (selectedWordStart > 0) append(text.substring(0, selectedWordStart))
-                    withStyle(SpanStyle(background = palette.accentSoft, color = palette.accent)) {
-                        append(text.substring(selectedWordStart, selectedWordEnd))
+                    val midStyle = SpanStyle(background = palette.accentSoft, color = palette.accent)
+                    val edgeStyle = midStyle.copy(textDecoration = TextDecoration.Underline)
+                    val len = selectedWordEnd - selectedWordStart
+                    when {
+                        len <= 0 -> Unit
+                        len == 1 -> withStyle(edgeStyle) {
+                            append(text.substring(selectedWordStart, selectedWordEnd))
+                        }
+                        len == 2 -> {
+                            withStyle(edgeStyle) {
+                                append(text.substring(selectedWordStart, selectedWordStart + 1))
+                            }
+                            withStyle(edgeStyle) {
+                                append(text.substring(selectedWordEnd - 1, selectedWordEnd))
+                            }
+                        }
+                        else -> {
+                            withStyle(edgeStyle) {
+                                append(text.substring(selectedWordStart, selectedWordStart + 1))
+                            }
+                            withStyle(midStyle) {
+                                append(text.substring(selectedWordStart + 1, selectedWordEnd - 1))
+                            }
+                            withStyle(edgeStyle) {
+                                append(text.substring(selectedWordEnd - 1, selectedWordEnd))
+                            }
+                        }
                     }
                     if (selectedWordEnd < text.length) append(text.substring(selectedWordEnd))
                 } else {
@@ -846,6 +953,79 @@ private fun ParagraphItem(
             onTextLayout = { textLayoutResult = it },
         )
     }
+}
+
+private enum class HandleSide { START, END }
+
+/**
+ * Returns the visual (x, y) anchor for a selection handle at the given offset.
+ *
+ * Uses [TextLayoutResult.getPathForRange] (the same API the highlight uses, backed by
+ * `Layout.getSelectionPath`) instead of [TextLayoutResult.getBoundingBox], because the
+ * latter is backed by `Layout.getPrimaryHorizontal` which in Compose returns un-justified
+ * char positions even when `textAlign = TextAlign.Justify`. The selection path always
+ * matches the visually rendered glyph positions.
+ *
+ * - For [isStart] = true: returns (left edge of the char at [offset], bottom of its line).
+ * - For [isStart] = false: returns (right edge of the char at [offset] - 1, bottom of its line).
+ */
+private fun handleAnchor(
+    layout: TextLayoutResult,
+    text: String,
+    offset: Int,
+    isStart: Boolean,
+): Pair<Float, Float> {
+    if (text.isEmpty()) return 0f to 0f
+    return if (isStart) {
+        val rangeStart = offset.coerceIn(0, text.length - 1)
+        val rangeEnd = (rangeStart + 1).coerceAtMost(text.length)
+        val bounds = layout.getPathForRange(rangeStart, rangeEnd).getBounds()
+        bounds.left to bounds.bottom
+    } else {
+        val rangeEnd = offset.coerceIn(1, text.length)
+        val rangeStart = (rangeEnd - 1).coerceAtLeast(0)
+        val bounds = layout.getPathForRange(rangeStart, rangeEnd).getBounds()
+        bounds.right to bounds.bottom
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMarker(
+    color: Color,
+    anchorX: Float,
+    anchorY: Float,
+    lineHeightPx: Float,
+    circleRadiusPx: Float,
+    lineStrokePx: Float,
+) {
+    drawLine(
+        color = color,
+        start = Offset(anchorX, anchorY),
+        end = Offset(anchorX, anchorY + lineHeightPx),
+        strokeWidth = lineStrokePx,
+    )
+    drawCircle(
+        color = color,
+        radius = circleRadiusPx,
+        center = Offset(anchorX, anchorY + lineHeightPx + circleRadiusPx),
+    )
+}
+
+private fun snapToWordStart(charIndex: Int, text: String, iter: BreakIterator): Int {
+    if (text.isEmpty()) return 0
+    val safe = charIndex.coerceIn(0, text.length)
+    if (safe == 0) return 0
+    if (iter.isBoundary(safe)) return safe
+    val prec = iter.preceding(safe)
+    return if (prec == BreakIterator.DONE) 0 else prec
+}
+
+private fun snapToWordEnd(charIndex: Int, text: String, iter: BreakIterator): Int {
+    if (text.isEmpty()) return 0
+    val safe = charIndex.coerceIn(0, text.length)
+    if (safe == text.length) return text.length
+    if (iter.isBoundary(safe)) return safe
+    val fol = iter.following(safe)
+    return if (fol == BreakIterator.DONE) text.length else fol
 }
 
 // ── Status footer ─────────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
@@ -114,6 +115,7 @@ class ReaderViewModel @Inject constructor(
         )
 
     private val translationJobs = mutableMapOf<Int, Job>()
+    private var selectionTranslateJob: Job? = null
     private var lastScrollPosition = 0
     private var lastScrollOffset = 0
 
@@ -231,51 +233,60 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
-        _state.update { it.copy(wordSelection = WordSelection(word, chapterIndex, paragraphIndex, startChar, endChar)) }
-        viewModelScope.launch {
-            var translation = ""
-            translateTextUseCase(
-                paragraphs = listOf(word),
-                sourceLanguage = _state.value.sourceLanguage,
-                targetLanguage = _state.value.targetLanguage,
-                startIndex = 0,
-                endIndex = 0,
-            ).collect { state ->
-                if (state is TranslationState.Partial) translation = state.text
-            }
-            _state.update { s -> s.copy(wordSelection = s.wordSelection?.copy(translation = translation)) }
+        _state.update {
+            it.copy(wordSelection = WordSelection(word, chapterIndex, paragraphIndex, startChar, endChar))
         }
+        translateSelection(textToTranslate = word, expectedStart = startChar, expectedEnd = endChar, debounceMs = 0L)
     }
 
     fun clearWordSelection() {
+        selectionTranslateJob?.cancel()
+        selectionTranslateJob = null
         _state.update { it.copy(wordSelection = null) }
     }
 
-    fun expandToSentence() {
+    fun updateWordSelectionRange(startChar: Int, endChar: Int) {
         val current = _state.value.wordSelection ?: return
         val paragraphText = _state.value.book?.chapters
             ?.getOrNull(current.chapterIndex)?.paragraphs
             ?.getOrNull(current.paragraphIndex) ?: return
 
-        val (sentStart, sentEnd) = sentenceBoundsAt(paragraphText, current.startChar, current.endChar)
-        val sentence = paragraphText.substring(sentStart, sentEnd).trim()
-        if (sentence.isEmpty()) return
+        val safeStart = startChar.coerceIn(0, paragraphText.length)
+        val safeEnd = endChar.coerceIn(safeStart, paragraphText.length)
+        if (safeEnd <= safeStart) return
+        if (safeStart == current.startChar && safeEnd == current.endChar) return
+
+        val substring = paragraphText.substring(safeStart, safeEnd).trim()
+        if (substring.isEmpty()) return
+
+        val newType = if (substring.contains(Regex("\\s"))) SelectionType.SENTENCE else SelectionType.WORD
 
         _state.update {
-            it.copy(wordSelection = WordSelection(
-                word = sentence,
-                chapterIndex = current.chapterIndex,
-                paragraphIndex = current.paragraphIndex,
-                startChar = sentStart,
-                endChar = sentEnd,
-                translation = null,
-                selectionType = SelectionType.SENTENCE,
-            ))
+            it.copy(
+                wordSelection = current.copy(
+                    word = substring,
+                    startChar = safeStart,
+                    endChar = safeEnd,
+                    translation = null,
+                    selectionType = newType,
+                ),
+            )
         }
-        viewModelScope.launch {
+        translateSelection(textToTranslate = substring, expectedStart = safeStart, expectedEnd = safeEnd, debounceMs = 200L)
+    }
+
+    private fun translateSelection(
+        textToTranslate: String,
+        expectedStart: Int,
+        expectedEnd: Int,
+        debounceMs: Long,
+    ) {
+        selectionTranslateJob?.cancel()
+        selectionTranslateJob = viewModelScope.launch {
+            if (debounceMs > 0) delay(debounceMs)
             var translation = ""
             translateTextUseCase(
-                paragraphs = listOf(sentence),
+                paragraphs = listOf(textToTranslate),
                 sourceLanguage = _state.value.sourceLanguage,
                 targetLanguage = _state.value.targetLanguage,
                 startIndex = 0,
@@ -283,7 +294,12 @@ class ReaderViewModel @Inject constructor(
             ).collect { state ->
                 if (state is TranslationState.Partial) translation = state.text
             }
-            _state.update { s -> s.copy(wordSelection = s.wordSelection?.copy(translation = translation)) }
+            _state.update { s ->
+                val sel = s.wordSelection
+                if (sel != null && sel.startChar == expectedStart && sel.endChar == expectedEnd) {
+                    s.copy(wordSelection = sel.copy(translation = translation))
+                } else s
+            }
         }
     }
 
