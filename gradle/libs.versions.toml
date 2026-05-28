@@ -20,6 +20,9 @@ jsoup = "1.17.2"
 mlkitTranslate = "17.0.3"
 mlkitLangid = "17.0.6"
 gson = "2.10.1"
+retrofit = "2.11.0"
+okhttp = "4.12.0"
+securityCrypto = "1.1.0-alpha06"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -63,6 +66,13 @@ mlkit-langid = { group = "com.google.mlkit", name = "language-id", version.ref =
 
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+retrofit-converter-scalars = { group = "com.squareup.retrofit2", name = "converter-scalars", version.ref = "retrofit" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
