@@ -47,6 +47,7 @@ import com.example.splitreader.presentation.theme.PaperEdge
 import com.example.splitreader.presentation.theme.PaperInk
 import com.example.splitreader.presentation.theme.PaperInk2
 import com.example.splitreader.presentation.theme.PaperInk3
+import com.example.splitreader.presentation.ui.BrandIcon
 
 @Composable
 fun AppShell(
@@ -203,35 +204,7 @@ private fun EditorialNavigationRail(
 
 @Composable
 private fun RailWordmark() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(PaperInk),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "Sr",
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.Medium,
-                fontStyle = FontStyle.Italic,
-                fontSize = 16.sp,
-                color = PaperBg,
-            )
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = "SPLIT\nREADER",
-            fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.Medium,
-            fontSize = 7.sp,
-            letterSpacing = 0.5.sp,
-            color = PaperInk3,
-            textAlign = TextAlign.Center,
-            lineHeight = 10.sp,
-        )
-    }
+    BrandIcon(modifier = Modifier.size(44.dp))
 }
 
 @Composable

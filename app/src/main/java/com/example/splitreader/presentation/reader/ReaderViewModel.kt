@@ -12,11 +12,13 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.ParseBookUseCase
+import com.example.splitreader.domain.usecase.SaveWordUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
@@ -31,6 +33,7 @@ import javax.inject.Inject
 class ReaderViewModel @Inject constructor(
     private val translateTextUseCase: TranslateTextUseCase,
     private val parseBookUseCase: ParseBookUseCase,
+    private val saveWordUseCase: SaveWordUseCase,
     private val progressManager: ReadingProgressManager,
     private val languageDetector: LanguageDetector,
     @ApplicationContext private val context: Context,
@@ -58,6 +61,7 @@ class ReaderViewModel @Inject constructor(
         val horizontalMargin: Float = 12f,
         val isLoading: Boolean = false,
         val error: String? = null,
+        val wordSelection: WordSelection? = null,
     )
 
     private val _state = MutableStateFlow(
@@ -100,6 +104,7 @@ class ReaderViewModel @Inject constructor(
                     readerTheme = s.readerTheme,
                     navigationSide = s.navigationSide,
                     horizontalMargin = s.horizontalMargin,
+                    wordSelection = s.wordSelection,
                 )
             }
         }
@@ -110,6 +115,7 @@ class ReaderViewModel @Inject constructor(
         )
 
     private val translationJobs = mutableMapOf<Int, Job>()
+    private var selectionTranslateJob: Job? = null
     private var lastScrollPosition = 0
     private var lastScrollOffset = 0
 
@@ -224,6 +230,97 @@ class ReaderViewModel @Inject constructor(
         val clamped = margin.coerceIn(4f, 32f)
         progressManager.saveHorizontalMargin(clamped)
         _state.update { it.copy(horizontalMargin = clamped) }
+    }
+
+    fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
+        _state.update {
+            it.copy(wordSelection = WordSelection(word, chapterIndex, paragraphIndex, startChar, endChar))
+        }
+        translateSelection(textToTranslate = word, expectedStart = startChar, expectedEnd = endChar, debounceMs = 0L)
+    }
+
+    fun clearWordSelection() {
+        selectionTranslateJob?.cancel()
+        selectionTranslateJob = null
+        _state.update { it.copy(wordSelection = null) }
+    }
+
+    fun updateWordSelectionRange(startChar: Int, endChar: Int) {
+        val current = _state.value.wordSelection ?: return
+        val paragraphText = _state.value.book?.chapters
+            ?.getOrNull(current.chapterIndex)?.paragraphs
+            ?.getOrNull(current.paragraphIndex) ?: return
+
+        val safeStart = startChar.coerceIn(0, paragraphText.length)
+        val safeEnd = endChar.coerceIn(safeStart, paragraphText.length)
+        if (safeEnd <= safeStart) return
+        if (safeStart == current.startChar && safeEnd == current.endChar) return
+
+        val substring = paragraphText.substring(safeStart, safeEnd).trim()
+        if (substring.isEmpty()) return
+
+        val newType = if (substring.contains(Regex("\\s"))) SelectionType.SENTENCE else SelectionType.WORD
+
+        _state.update {
+            it.copy(
+                wordSelection = current.copy(
+                    word = substring,
+                    startChar = safeStart,
+                    endChar = safeEnd,
+                    translation = null,
+                    selectionType = newType,
+                ),
+            )
+        }
+        translateSelection(textToTranslate = substring, expectedStart = safeStart, expectedEnd = safeEnd, debounceMs = 200L)
+    }
+
+    private fun translateSelection(
+        textToTranslate: String,
+        expectedStart: Int,
+        expectedEnd: Int,
+        debounceMs: Long,
+    ) {
+        selectionTranslateJob?.cancel()
+        selectionTranslateJob = viewModelScope.launch {
+            if (debounceMs > 0) delay(debounceMs)
+            var translation = ""
+            translateTextUseCase(
+                paragraphs = listOf(textToTranslate),
+                sourceLanguage = _state.value.sourceLanguage,
+                targetLanguage = _state.value.targetLanguage,
+                startIndex = 0,
+                endIndex = 0,
+            ).collect { state ->
+                if (state is TranslationState.Partial) translation = state.text
+            }
+            _state.update { s ->
+                val sel = s.wordSelection
+                if (sel != null && sel.startChar == expectedStart && sel.endChar == expectedEnd) {
+                    s.copy(wordSelection = sel.copy(translation = translation))
+                } else s
+            }
+        }
+    }
+
+    fun saveWord(word: String, chapterIndex: Int, paragraphIndex: Int) {
+        val s = _state.value
+        val book = s.book ?: return
+        val context = book.chapters
+            .getOrNull(chapterIndex)?.paragraphs?.getOrElse(paragraphIndex) { "" }
+            ?.take(120) ?: ""
+        viewModelScope.launch {
+            saveWordUseCase(
+                word = word.trim(),
+                contextSnippet = context,
+                sourceLang = s.sourceLanguage,
+                targetLang = s.targetLanguage,
+                bookUri = book.filePath,
+                bookTitle = book.title,
+                chapterIndex = chapterIndex,
+                paragraphIndex = paragraphIndex,
+            )
+        }
     }
 
     fun ensureChapterTranslated(index: Int) {

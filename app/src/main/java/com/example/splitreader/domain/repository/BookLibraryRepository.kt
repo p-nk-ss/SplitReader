@@ -7,5 +7,6 @@ import kotlinx.coroutines.flow.Flow
 interface BookLibraryRepository {
     fun getAllBooks(): Flow<List<BookEntity>>
     suspend fun saveBook(book: Book)
+    suspend fun touchBook(uri: String)
     suspend fun deleteBook(uri: String)
 }

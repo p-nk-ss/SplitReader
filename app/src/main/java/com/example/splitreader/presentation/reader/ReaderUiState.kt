@@ -6,6 +6,18 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 
+enum class SelectionType { WORD, SENTENCE }
+
+data class WordSelection(
+    val word: String,
+    val chapterIndex: Int,
+    val paragraphIndex: Int,
+    val startChar: Int,
+    val endChar: Int,
+    val translation: String? = null,
+    val selectionType: SelectionType = SelectionType.WORD,
+)
+
 sealed interface ReaderUiState {
     data object Loading : ReaderUiState
     data class Error(val message: String) : ReaderUiState
@@ -25,6 +37,7 @@ sealed interface ReaderUiState {
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = 12f,
+        val wordSelection: WordSelection? = null,
     ) : ReaderUiState {
         val currentChapter: Chapter
             get() = book.chapters[currentChapterIndex.coerceIn(0, book.chapters.size - 1)]
