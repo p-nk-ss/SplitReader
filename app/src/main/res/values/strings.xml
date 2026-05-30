@@ -2,6 +2,29 @@
     <string name="app_name">Split Reader</string>
     <string name="label_original_text">Original Text</string>
     <string name="label_ai_translation">AI Translation</string>
-    <string name="badge_english">🇬🇧 English</string>
+    <string name="badge_english">English</string>
     <string name="downloading_model">Downloading language model…</string>
+
+    <!-- Words (dictionary) screen -->
+    <string name="words_title">Words</string>
+    <string name="words_empty_hint">Long-press any word in the reader\nto save it to your words.</string>
+    <string name="word_delete_title">Delete word</string>
+    <string name="word_delete_body">\"%1$s\" will be removed from your dictionary.</string>
+    <string name="word_deleted">Word deleted</string>
+    <string name="note_saved">Note saved</string>
+
+    <!-- Reader translation bubble + word-save feedback -->
+    <string name="saved_to_dictionary">Saved to dictionary</string>
+    <string name="already_in_dictionary">Already in your dictionary</string>
+    <string name="nothing_to_save">Nothing to save</string>
+    <string name="bubble_word">WORD</string>
+    <string name="bubble_sentence">SENTENCE</string>
+    <string name="translating">Translating…</string>
+    <string name="action_listen">Listen</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+
+    <!-- Errors -->
+    <string name="error_file_access">Can\'t access this file — reopen it via \"Open book\".</string>
 </resources>

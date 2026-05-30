@@ -15,8 +15,8 @@ val PaperEdge      = Color(0xFFD2C5AB)
 val PaperRule      = Color(0xFFBBAB8E)
 val PaperInk       = Color(0xFF2A2218)
 val PaperInk2      = Color(0xFF544531)
-val PaperInk3      = Color(0xFF867862)
-val PaperInk4      = Color(0xFFB3A790)
+val PaperInk3      = Color(0xFF6B5C44) // AA-safe small-label ink on PaperBg (≈4.7:1)
+val PaperInk4      = Color(0xFFB3A790) // decorative only (dividers, ticks) — never readable text
 val PaperAccent    = Color(0xFFB85D2D) // terracotta
 val PaperAccentSoft= Color(0xFFF0D2BB)
 val PaperMoss      = Color(0xFF5B7A52)
@@ -30,8 +30,8 @@ val SepiaEdge      = Color(0xFFC8AD7D)
 val SepiaRule      = Color(0xFFB59B6A)
 val SepiaInk       = Color(0xFF3A2A1B)
 val SepiaInk2      = Color(0xFF624A30)
-val SepiaInk3      = Color(0xFF8A7156)
-val SepiaInk4      = Color(0xFFAE957A)
+val SepiaInk3      = Color(0xFF6E5839) // AA-safe small-label ink on SepiaBg (≥4.5:1)
+val SepiaInk4      = Color(0xFFAE957A) // decorative only — never readable text
 val SepiaAccent    = Color(0xFFA34A1F)
 val SepiaAccentSoft= Color(0xFFE5BFA3)
 val SepiaMoss      = Color(0xFF587047)
@@ -51,6 +51,11 @@ val NightAccent    = Color(0xFFE08B5A)
 val NightAccentSoft= Color(0xFF50321E)
 val NightMoss      = Color(0xFFA1C397)
 val NightMossSoft  = Color(0xFF3A4A36)
+
+// ── Semantic (cross-palette) ────────────────────────────────────────────
+// Muted brick red for destructive/error UI. Deliberately distinct from the
+// terracotta accent so an error never reads as a normal accent.
+val ErrorTone      = Color(0xFF9E3B2A)
 
 // ── AMOLED (true black) ─────────────────────────────────────────────────
 val AmoledBg        = Color(0xFF000000)

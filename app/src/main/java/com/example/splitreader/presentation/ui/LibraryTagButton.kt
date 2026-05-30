@@ -22,9 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.presentation.theme.JetBrainsMono
-import com.example.splitreader.presentation.theme.PaperAccent
-import com.example.splitreader.presentation.theme.PaperBg2
-import com.example.splitreader.presentation.theme.PaperInk
+import com.example.splitreader.presentation.theme.LocalReaderPalette
 
 /**
  * Library tag — primary button for system actions.
@@ -53,12 +51,13 @@ fun LibraryTagButton(
     val verticalPad   = if (dense) 7.dp else 9.dp
     val labelSize     = if (dense) 10.sp else 11.sp
     val plusSize      = if (dense) 12.dp else 13.dp
+    val palette       = LocalReaderPalette.current
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(4.dp),
-        color = PaperBg2,
-        border = BorderStroke(1.dp, PaperInk),
+        color = palette.bg2,
+        border = BorderStroke(1.dp, palette.ink),
         modifier = modifier,
     ) {
         Row(
@@ -72,11 +71,11 @@ fun LibraryTagButton(
                 modifier = Modifier
                     .size(6.dp)
                     .rotate(45f)
-                    .background(PaperAccent),
+                    .background(palette.accent),
             )
             Text(
                 text = text.uppercase(),
-                color = PaperInk,
+                color = palette.ink,
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = labelSize,
@@ -86,7 +85,7 @@ fun LibraryTagButton(
                 Icon(
                     imageVector = Icons.Outlined.Add,
                     contentDescription = null,
-                    tint = PaperInk,
+                    tint = palette.ink,
                     modifier = Modifier.size(plusSize),
                 )
             }

@@ -1,4 +1,4 @@
-package com.example.splitreader.presentation.dictionary
+package com.example.splitreader.presentation.words
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,7 +23,7 @@ sealed interface LangFilter {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class VocabulaireViewModel @Inject constructor(
+class WordsViewModel @Inject constructor(
     private val repository: SavedWordRepository,
     private val textToSpeechManager: TextToSpeechManager,
 ) : ViewModel() {

@@ -2,19 +2,21 @@ package com.example.splitreader.domain.model
 
 import com.google.mlkit.nl.translate.TranslateLanguage
 
-enum class Language(val code: String, val displayName: String, val flag: String) {
-    ENGLISH("en", "English", "🇬🇧"),
-    RUSSIAN("ru", "Русский", "🇷🇺"),
-    GERMAN("de", "Deutsch", "🇩🇪"),
-    FRENCH("fr", "Français", "🇫🇷"),
-    SPANISH("es", "Español", "🇪🇸"),
-    ITALIAN("it", "Italiano", "🇮🇹"),
-    CHINESE("zh", "中文", "🇨🇳"),
-    JAPANESE("ja", "日本語", "🇯🇵"),
-    PORTUGUESE("pt", "Português", "🇵🇹"),
-    ARABIC("ar", "العربية", "🇸🇦"),
-    KOREAN("ko", "한국어", "🇰🇷"),
-    TURKISH("tr", "Türkçe", "🇹🇷");
+// Endonyms (the language's own name) are intentional in the language picker;
+// flag emoji were removed because a flag denotes a country, not a language.
+enum class Language(val code: String, val displayName: String) {
+    ENGLISH("en", "English"),
+    RUSSIAN("ru", "Русский"),
+    GERMAN("de", "Deutsch"),
+    FRENCH("fr", "Français"),
+    SPANISH("es", "Español"),
+    ITALIAN("it", "Italiano"),
+    CHINESE("zh", "中文"),
+    JAPANESE("ja", "日本語"),
+    PORTUGUESE("pt", "Português"),
+    ARABIC("ar", "العربية"),
+    KOREAN("ko", "한국어"),
+    TURKISH("tr", "Türkçe");
 
     companion object {
         fun fromCode(code: String): Language = entries.find { it.code == code } ?: ENGLISH

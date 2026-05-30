@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -97,6 +98,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -106,9 +108,6 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.PaperAccent
-import com.example.splitreader.presentation.theme.PaperBg
-import com.example.splitreader.presentation.theme.PaperInk
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.readerPalette
 import com.example.splitreader.presentation.theme.AmoledPalette
@@ -158,9 +157,9 @@ internal fun ReaderRoute(
     LaunchedEffect(Unit) {
         viewModel.wordSaveEvent.collect { result ->
             val message = when (result) {
-                SaveWordResult.SAVED -> "Сохранено в словарь"
-                SaveWordResult.DUPLICATE -> "Слово уже в словаре"
-                SaveWordResult.EMPTY -> "Нечего сохранять"
+                SaveWordResult.SAVED -> context.getString(R.string.saved_to_dictionary)
+                SaveWordResult.DUPLICATE -> context.getString(R.string.already_in_dictionary)
+                SaveWordResult.EMPTY -> context.getString(R.string.nothing_to_save)
             }
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
@@ -204,19 +203,21 @@ internal fun ReaderRoute(
 
 @Composable
 private fun ReaderLoadingScreen() {
-    Box(Modifier.fillMaxSize().background(PaperBg), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = PaperAccent)
+    val palette = LocalReaderPalette.current
+    Box(Modifier.fillMaxSize().background(palette.bg), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = palette.accent)
     }
 }
 
 @Composable
 private fun ReaderErrorScreen(message: String, onBack: () -> Unit) {
-    Box(Modifier.fillMaxSize().background(PaperBg).padding(32.dp), contentAlignment = Alignment.Center) {
+    val palette = LocalReaderPalette.current
+    Box(Modifier.fillMaxSize().background(palette.bg).padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(message, fontFamily = Newsreader, fontSize = 16.sp, color = PaperInk, textAlign = TextAlign.Center)
+            Text(message, fontFamily = Newsreader, fontSize = 16.sp, color = palette.ink, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(PaperInk).clickable(onClick = onBack).padding(12.dp, 8.dp)) {
-                Text("Go back", fontFamily = Newsreader, fontStyle = FontStyle.Italic, color = PaperBg)
+            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(palette.ink).clickable(onClick = onBack).padding(12.dp, 8.dp)) {
+                Text("Go back", fontFamily = Newsreader, fontStyle = FontStyle.Italic, color = palette.bg)
             }
         }
     }
@@ -473,7 +474,7 @@ private fun ReaderTopBar(
                 withStyle(SpanStyle(fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)) {
                     append(state.book.author)
                 }
-                withStyle(SpanStyle(fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink3)) {
+                withStyle(SpanStyle(fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)) {
                     append(" · CH ${state.currentChapterIndex + 1}")
                 }
             },
@@ -514,9 +515,9 @@ private fun LangChip(source: String, target: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(source, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 0.5.sp, color = palette.ink)
-        Text("→", fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink3)
-        Text(target, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 0.5.sp, color = palette.ink)
+        Text(source, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink)
+        Text("→", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)
+        Text(target, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink)
         Spacer(Modifier.width(2.dp))
         Icon(Icons.Outlined.ExpandMore, null, tint = palette.ink3, modifier = Modifier.size(14.dp))
     }
@@ -540,7 +541,7 @@ private fun ChapterMasthead(
         Text(
             text = "— ${chapterIndex + 1} —",
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.6.sp,
             color = palette.ink4,
         )
@@ -567,7 +568,7 @@ private fun PageEdgeTap(side: NavigationSide, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
-            .width(28.dp)
+            .width(48.dp)
             .fillMaxHeight()
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -576,7 +577,7 @@ private fun PageEdgeTap(side: NavigationSide, onClick: () -> Unit) {
             text = if (side == NavigationSide.LEFT) "‹" else "›",
             fontFamily = Newsreader,
             fontSize = 22.sp,
-            color = palette.ink4,
+            color = palette.ink3,
         )
     }
 }
@@ -642,20 +643,20 @@ private fun TranslationBubble(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = if (wordSelection.selectionType == SelectionType.WORD) "СЛОВО" else "ПРЕДЛОЖЕНИЕ",
+                text = stringResource(
+                    if (wordSelection.selectionType == SelectionType.WORD) R.string.bubble_word
+                    else R.string.bubble_sentence
+                ),
                 fontFamily = JetBrainsMono,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 0.5.sp,
                 color = palette.accent,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(20.dp),
-            ) {
+            IconButton(onClick = onDismiss) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = null,
+                    contentDescription = "Close",
                     tint = palette.ink3,
                     modifier = Modifier.size(14.dp),
                 )
@@ -683,9 +684,9 @@ private fun TranslationBubble(
                     color = palette.ink3,
                 )
                 Text(
-                    text = "Перевод…",
+                    text = stringResource(R.string.translating),
                     fontFamily = JetBrainsMono,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     color = palette.ink3,
                 )
             }
@@ -703,13 +704,13 @@ private fun TranslationBubble(
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BubbleChip(
-                label = "Прослушать",
+                label = stringResource(R.string.action_listen),
                 onClick = onSpeak,
                 modifier = Modifier.weight(1f),
             )
             if (wordSelection.selectionType == SelectionType.WORD) {
                 BubbleChip(
-                    label = "Сохранить",
+                    label = stringResource(R.string.action_save),
                     onClick = onSave,
                     modifier = Modifier.weight(1f),
                 )
@@ -1184,15 +1185,15 @@ private fun ReaderStatusFooter(state: ReaderUiState.Success) {
         Text(
             text = "CH ${state.currentChapterIndex + 1} OF ${state.book.chapters.size}",
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
-        Text("·", fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink4)
+        Text("·", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink4)
         Text(
             text = "${state.sourceLanguage.code.uppercase()} → ${state.targetLanguage.code.uppercase()}",
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
@@ -1207,7 +1208,7 @@ private fun ReaderStatusFooter(state: ReaderUiState.Success) {
             Text(
                 text = "${(progress * 100).toInt()}%",
                 fontFamily = JetBrainsMono,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 letterSpacing = 0.5.sp,
                 color = palette.ink3,
             )
@@ -1231,7 +1232,7 @@ private fun TranslationBanner(label: String, modifier: Modifier = Modifier) {
         Text(
             text = label,
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
@@ -1258,7 +1259,7 @@ private fun TranslationErrorBanner(
         Text(
             text = "Translation failed".uppercase(),
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
@@ -1320,7 +1321,7 @@ private fun ParagraphActionsOverlay(
                     Text(
                         text = "SELECTED · ${palette.key.name}",
                         fontFamily = JetBrainsMono,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         letterSpacing = 0.5.sp,
                         color = palette.accent,
                     )
@@ -1350,15 +1351,22 @@ private fun ParagraphActionsOverlay(
                             .padding(bottom = 3.dp),
                     )
                 }
+                // 48dp touch target around the 30dp visual close circle
                 Box(
                     modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, palette.edge, CircleShape)
+                        .size(48.dp)
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Close, null, tint = palette.ink2, modifier = Modifier.size(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, palette.edge, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Close, "Close", tint = palette.ink2, modifier = Modifier.size(14.dp))
+                    }
                 }
             }
 
@@ -1374,7 +1382,7 @@ private fun ParagraphActionsOverlay(
                 Text(
                     text = "TRANSLATION",
                     fontFamily = JetBrainsMono,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     letterSpacing = 0.5.sp,
                     color = palette.ink3,
                 )
@@ -1478,7 +1486,7 @@ internal fun EditorialDialog(
                     Text(
                         text = eyebrow.uppercase(),
                         fontFamily = JetBrainsMono,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         letterSpacing = 0.5.sp,
                         color = palette.ink3,
                     )
@@ -1490,15 +1498,22 @@ internal fun EditorialDialog(
                         color = palette.ink,
                     )
                 }
+                // 48dp touch target around the 32dp visual close circle
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, palette.edge, CircleShape)
+                        .size(48.dp)
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Close, null, tint = palette.ink2, modifier = Modifier.size(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, palette.edge, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Close, "Close", tint = palette.ink2, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
 
@@ -1561,7 +1576,7 @@ private fun LanguagePickerDialog(
                                         Text(lang.code.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = if (selected) palette.bg else palette.ink)
                                     }
                                     Text(lang.displayName, fontFamily = Newsreader, fontSize = 14.sp, color = if (selected) palette.bg else palette.ink)
-                                    Text(lang.displayName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 10.sp, color = if (selected) palette.bg.copy(alpha = 0.8f) else palette.ink3)
+                                    Text(lang.displayName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 11.sp, color = if (selected) palette.bg.copy(alpha = 0.8f) else palette.ink3)
                                 }
                             }
                         } else {
@@ -1591,7 +1606,7 @@ private fun LanguagePickerDialog(
                     Text("On-device translation · ", fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
                     Text("no cloud calls", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
                 }
-                Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+                Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
             }
         }
         Spacer(Modifier.height(sp.sm))
@@ -1635,7 +1650,7 @@ private fun DisplaySettingsDialog(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Aa", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 16.sp, color = p.ink)
-                        Text(p.displayName.uppercase(), fontFamily = JetBrainsMono, fontSize = 8.sp, color = p.ink2)
+                        Text(p.displayName.uppercase(), fontFamily = JetBrainsMono, fontSize = 11.sp, color = p.ink2)
                     }
                 }
             }
@@ -1650,7 +1665,7 @@ private fun DisplaySettingsDialog(
             label = "Font size",
             value = state.textSize,
             valueLabel = "${state.textSize.toInt()}sp",
-            valueRange = 12f..24f,
+            valueRange = 14f..24f,
             onValueChange = { onAdjustTextSize(it - state.textSize) },
         )
 
@@ -1693,7 +1708,7 @@ private fun SectionEyebrow(text: String) {
     Text(
         text = text.uppercase(),
         fontFamily = JetBrainsMono,
-        fontSize = 9.sp,
+        fontSize = 11.sp,
         letterSpacing = 0.5.sp,
         color = palette.ink3,
     )
@@ -1705,7 +1720,7 @@ private fun SliderRow(label: String, value: Float, valueLabel: String, valueRang
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink)
-            Text(valueLabel, fontFamily = JetBrainsMono, fontSize = 10.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+            Text(valueLabel, fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
         }
         Slider(
             value = value,
@@ -1801,7 +1816,7 @@ private fun ChapterPickerDialog(
                             .background(palette.accentSoft)
                             .padding(horizontal = 6.dp, vertical = 3.dp)
                     ) {
-                        Text("READING", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.accent, letterSpacing = 0.3.sp)
+                        Text("READING", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.accent, letterSpacing = 0.3.sp)
                     }
                     index < currentChapterIndex -> Icon(Icons.Outlined.Check, null, tint = palette.moss, modifier = Modifier.size(16.dp))
                     else -> Spacer(Modifier.width(24.dp))

@@ -1,4 +1,4 @@
-package com.example.splitreader.presentation.dictionary
+package com.example.splitreader.presentation.words
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -35,6 +35,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.splitreader.R
 import com.example.splitreader.data.local.SavedWordEntity
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -69,13 +72,13 @@ import java.util.Locale
 //  dialogs/cards. Consider splitting the master pane, detail pane, and dialogs into separate files.
 //  No behavior change required.
 @Composable
-fun VocabulaireRoute(viewModel: VocabulaireViewModel = hiltViewModel()) {
+fun WordsRoute(viewModel: WordsViewModel = hiltViewModel()) {
     val words by viewModel.words.collectAsState()
     val selectedWord by viewModel.selectedWord.collectAsState()
     val langFilter by viewModel.langFilter.collectAsState()
     val query by viewModel.query.collectAsState()
 
-    VocabulaireScreen(
+    WordsScreen(
         words = words,
         selectedWord = selectedWord,
         langFilter = langFilter,
@@ -90,7 +93,7 @@ fun VocabulaireRoute(viewModel: VocabulaireViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun VocabulaireScreen(
+fun WordsScreen(
     words: List<SavedWordEntity>,
     selectedWord: SavedWordEntity?,
     langFilter: LangFilter,
@@ -146,7 +149,7 @@ fun VocabulaireScreen(
             onDismissRequest = { wordPendingDelete = null },
             title = {
                 Text(
-                    text = "Удалить слово",
+                    text = stringResource(R.string.word_delete_title),
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Medium,
                     fontSize = 18.sp,
@@ -155,7 +158,7 @@ fun VocabulaireScreen(
             },
             text = {
                 Text(
-                    text = "«${word.word}» будет удалено из словаря.",
+                    text = stringResource(R.string.word_delete_body, word.word),
                     fontFamily = Newsreader,
                     fontStyle = FontStyle.Italic,
                     fontSize = 14.sp,
@@ -163,24 +166,25 @@ fun VocabulaireScreen(
                 )
             },
             confirmButton = {
+                val deletedMsg = stringResource(R.string.word_deleted)
                 TextButton(onClick = {
                     onDelete(word)
                     wordPendingDelete = null
-                    Toast.makeText(context, "Слово удалено", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, deletedMsg, Toast.LENGTH_SHORT).show()
                 }) {
                     Text(
-                        text = "Удалить",
+                        text = stringResource(R.string.action_delete),
                         fontFamily = Newsreader,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
-                        color = Color(0xFFB04040),
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { wordPendingDelete = null }) {
                     Text(
-                        text = "Отмена",
+                        text = stringResource(R.string.action_cancel),
                         fontFamily = Newsreader,
                         fontSize = 14.sp,
                         color = palette.ink2,
@@ -222,12 +226,12 @@ private fun MasterPane(
                 text = "Your",
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.Normal,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 1.5.sp,
                 color = palette.ink3,
             )
             Text(
-                text = "Vocabulaire",
+                text = stringResource(R.string.words_title),
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.SemiBold,
                 fontStyle = FontStyle.Italic,
@@ -239,7 +243,7 @@ private fun MasterPane(
             Text(
                 text = "${words.size} saved words",
                 fontFamily = JetBrainsMono,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 color = palette.ink3,
             )
         }
@@ -327,7 +331,7 @@ private fun LangPill(label: String, selected: Boolean, onClick: () -> Unit) {
             text = label,
             fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Medium,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = fg,
         )
     }
@@ -392,7 +396,7 @@ private fun DateGroupHeader(label: String) {
         text = label.uppercase(),
         fontFamily = JetBrainsMono,
         fontWeight = FontWeight.Medium,
-        fontSize = 9.sp,
+        fontSize = 11.sp,
         letterSpacing = 1.2.sp,
         color = palette.ink3,
         modifier = Modifier
@@ -453,19 +457,19 @@ private fun WordListItem(
                     Text(
                         text = word.sourceLang.uppercase(),
                         fontFamily = JetBrainsMono,
-                        fontSize = 8.sp,
+                        fontSize = 11.sp,
                         color = palette.ink3,
                     )
                 }
             }
         }
 
-        // Delete swipe-alt: icon button
-        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+        // Delete swipe-alt: icon button (default 48dp touch target)
+        IconButton(onClick = onDelete) {
             Icon(
                 Icons.Outlined.Delete,
                 contentDescription = "Delete",
-                tint = palette.ink4,
+                tint = palette.ink3,
                 modifier = Modifier.size(16.dp),
             )
         }
@@ -503,9 +507,9 @@ private fun EmptyMaster(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Long-press any word in the reader\nto save it to your vocabulaire.",
+            stringResource(R.string.words_empty_hint),
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = palette.ink4,
             textAlign = TextAlign.Center,
             lineHeight = 16.sp,
@@ -573,6 +577,7 @@ private fun WordDetail(
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
     val context = LocalContext.current
+    val noteSavedMsg = stringResource(R.string.note_saved)
     var showNoteDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -598,7 +603,7 @@ private fun WordDetail(
                             text = word.sourceLang.uppercase(),
                             fontFamily = JetBrainsMono,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             color = palette.bg,
                         )
                     }
@@ -606,7 +611,7 @@ private fun WordDetail(
                         Text(
                             text = pos,
                             fontFamily = JetBrainsMono,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             color = palette.ink3,
                         )
                     }
@@ -639,7 +644,7 @@ private fun WordDetail(
                         Text(
                             text = word.targetLang.uppercase(),
                             fontFamily = JetBrainsMono,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             letterSpacing = 1.sp,
                             color = palette.ink3,
                         )
@@ -700,7 +705,7 @@ private fun WordDetail(
             onSave = { noteText ->
                 onUpdateNote(word, noteText)
                 showNoteDialog = false
-                Toast.makeText(context, "Заметка сохранена", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, noteSavedMsg, Toast.LENGTH_SHORT).show()
             },
         )
     }
@@ -727,7 +732,7 @@ private fun ContextQuoteCard(word: SavedWordEntity) {
             Text(
                 text = "context",
                 fontFamily = JetBrainsMono,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 1.sp,
                 color = palette.ink3,
             )
@@ -762,7 +767,7 @@ private fun BookInfoRow(word: SavedWordEntity) {
         Text(
             text = word.bookTitle,
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = palette.ink3,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -770,7 +775,7 @@ private fun BookInfoRow(word: SavedWordEntity) {
         Text(
             text = "· ch. ${word.chapterIndex + 1}",
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = palette.ink4,
         )
     }
@@ -821,7 +826,7 @@ private fun ActionChip(
     val palette = LocalReaderPalette.current
     val fg = when {
         !enabled -> palette.ink4
-        destructive -> Color(0xFFB85D2D)
+        destructive -> MaterialTheme.colorScheme.error
         else -> palette.ink2
     }
     Column(
@@ -837,7 +842,7 @@ private fun ActionChip(
         Text(
             text = label,
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             color = fg,
         )
     }
@@ -858,7 +863,7 @@ private fun NotesCard(note: String, onEdit: () -> Unit) {
         Text(
             text = "note",
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             letterSpacing = 1.sp,
             color = palette.ink3,
         )

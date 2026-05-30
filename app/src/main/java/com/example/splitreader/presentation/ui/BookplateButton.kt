@@ -21,10 +21,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.PaperAccent
-import com.example.splitreader.presentation.theme.PaperBg
-import com.example.splitreader.presentation.theme.PaperInk
 
 /**
  * Bookplate — primary button for reading CTAs.
@@ -55,20 +53,21 @@ fun BookplateButton(
     val horizontalPad = if (dense) 16.dp else 22.dp
     val verticalPad   = if (dense) 9.dp else 12.dp
     val labelSize = if (dense) 13.sp else 15.sp
+    val palette = LocalReaderPalette.current
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(outerRadius),
-        color = PaperBg,
-        border = BorderStroke(1.dp, PaperInk),
+        color = palette.bg,
+        border = BorderStroke(1.dp, palette.ink),
         modifier = modifier,
     ) {
         Box(
             modifier = Modifier
                 .padding(2.dp)
                 .clip(RoundedCornerShape(innerRadius))
-                .background(PaperInk)
-                .border(1.dp, PaperBg.copy(alpha = 0.18f), RoundedCornerShape(innerRadius))
+                .background(palette.ink)
+                .border(1.dp, palette.bg.copy(alpha = 0.18f), RoundedCornerShape(innerRadius))
                 .padding(PaddingValues(horizontal = horizontalPad, vertical = verticalPad)),
         ) {
             Row(
@@ -77,7 +76,7 @@ fun BookplateButton(
             ) {
                 Text(
                     text = text,
-                    color = PaperBg,
+                    color = palette.bg,
                     fontFamily = Newsreader,
                     fontStyle = FontStyle.Italic,
                     fontWeight = FontWeight.Medium,
@@ -87,7 +86,7 @@ fun BookplateButton(
                     modifier = Modifier
                         .size(6.dp)
                         .rotate(45f)
-                        .background(PaperAccent),
+                        .background(palette.accent),
                 )
             }
         }

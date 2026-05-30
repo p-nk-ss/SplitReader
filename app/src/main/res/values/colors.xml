@@ -4,4 +4,10 @@
     <color name="white">#FFFFFFFF</color>
     <color name="purple_selected">#6200EE</color>
     <color name="purple_selected_bg">#1A6200EE</color>
+
+    <!-- Pre-Compose window backgrounds (splash / surface before draw). Mirror
+         the Paper (light) and Night (dark) palette backgrounds in Color.kt so
+         the system-themed window doesn't flash a mismatched colour. -->
+    <color name="window_bg">#FFF5EFE3</color>
+    <color name="window_bg_night">#FF15171F</color>
 </resources>

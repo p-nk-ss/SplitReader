@@ -284,7 +284,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun adjustTextSize(delta: Float) {
-        _state.update { it.copy(textSize = (it.textSize + delta).coerceIn(10f, 30f)) }
+        _state.update { it.copy(textSize = (it.textSize + delta).coerceIn(14f, 30f)) }
     }
 
     fun setNavigationSide(side: NavigationSide) {

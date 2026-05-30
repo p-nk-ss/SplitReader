@@ -93,17 +93,18 @@ val SplitReaderTypography = Typography(
     ),
     // Label — JetBrains Mono uppercase for chrome eyebrows / chapter codes /
     // page numbers / percentages. Always uppercase at the call site.
+    // Label sizes respect the 11sp legibility floor (smallest readable label).
     labelLarge = TextStyle(
         fontFamily = JetBrainsMono, fontWeight = FontWeight.Medium,
-        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp,
+        fontSize = 13.sp, lineHeight = 17.sp, letterSpacing = 0.5.sp,
     ),
     labelMedium = TextStyle(
         fontFamily = JetBrainsMono, fontWeight = FontWeight.Medium,
-        fontSize = 10.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
+        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp,
     ),
     labelSmall = TextStyle(
         fontFamily = JetBrainsMono, fontWeight = FontWeight.Medium,
-        fontSize = 9.sp, lineHeight = 12.sp, letterSpacing = 0.5.sp,
+        fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
     ),
 )
 
