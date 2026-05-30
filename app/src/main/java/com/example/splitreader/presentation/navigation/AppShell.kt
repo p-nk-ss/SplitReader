@@ -1,7 +1,6 @@
 package com.example.splitreader.presentation.navigation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,7 +44,6 @@ import com.example.splitreader.presentation.theme.PaperBg2
 import com.example.splitreader.presentation.theme.PaperBg3
 import com.example.splitreader.presentation.theme.PaperEdge
 import com.example.splitreader.presentation.theme.PaperInk
-import com.example.splitreader.presentation.theme.PaperInk2
 import com.example.splitreader.presentation.theme.PaperInk3
 import com.example.splitreader.presentation.ui.BrandIcon
 

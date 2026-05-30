@@ -40,7 +40,7 @@ class TextToSpeechManager @Inject constructor(
     }
 
     private fun play(text: String, langCode: String) {
-        val locale = Locale(langCode)
+        val locale = Locale.forLanguageTag(langCode)
         val result = tts.setLanguage(locale)
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
             tts.setLanguage(Locale.ENGLISH)

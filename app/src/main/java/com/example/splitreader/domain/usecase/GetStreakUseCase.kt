@@ -7,8 +7,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
+/** Current consecutive-day reading streak and the longest streak ever recorded. */
 data class StreakResult(val current: Int, val longest: Int)
 
+/** Computes the current and longest daily reading streaks from recorded reading sessions. */
 class GetStreakUseCase @Inject constructor(
     private val repository: ReadingSessionRepository,
 ) {
@@ -29,7 +31,7 @@ class GetStreakUseCase @Inject constructor(
             val sorted = activeDays.sorted()
             var prev: LocalDate? = null
             for (d in sorted) {
-                run = if (prev == null || d == prev!!.plusDays(1)) run + 1 else 1
+                run = if (prev == null || d == prev.plusDays(1)) run + 1 else 1
                 if (run > longest) longest = run
                 prev = d
             }

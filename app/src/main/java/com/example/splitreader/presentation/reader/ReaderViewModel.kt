@@ -39,6 +39,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
+// TODO(architecture): this ViewModel has several responsibilities (book loading, translation +
+//  prefetch orchestration, word selection/translation, saved-word handling, TTS, reading-session
+//  tracking, settings persistence). Consider extracting the chapter-translation/prefetch engine and
+//  the word-selection logic into separate collaborators to reduce its size and surface area.
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     private val translateTextUseCase: TranslateTextUseCase,
@@ -404,7 +408,7 @@ class ReaderViewModel @Inject constructor(
         val substring = paragraphText.substring(safeStart, safeEnd).trim()
         if (substring.isEmpty()) return
 
-        val newType = if (substring.contains(Regex("\\s"))) SelectionType.SENTENCE else SelectionType.WORD
+        val newType = if (substring.any { it.isWhitespace() }) SelectionType.SENTENCE else SelectionType.WORD
 
         _state.update {
             it.copy(

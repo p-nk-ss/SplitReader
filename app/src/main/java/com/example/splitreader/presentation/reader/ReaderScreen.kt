@@ -2,9 +2,6 @@ package com.example.splitreader.presentation.reader
 
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,10 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -78,13 +73,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -98,10 +89,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -119,25 +108,24 @@ import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.PaperAccent
 import com.example.splitreader.presentation.theme.PaperBg
-import com.example.splitreader.presentation.theme.PaperEdge
 import com.example.splitreader.presentation.theme.PaperInk
-import com.example.splitreader.presentation.theme.PaperInk2
-import com.example.splitreader.presentation.theme.PaperInk3
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.readerPalette
 import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.NightPalette
 import com.example.splitreader.presentation.theme.PaperPalette
 import com.example.splitreader.presentation.theme.SepiaPalette
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 import java.text.BreakIterator
 
 // ── Entry point ───────────────────────────────────────────────────────────
 
+// TODO(architecture): this file is very large (~1.7k lines) and mixes the reader scaffold, the
+//  book-spread renderer, the translation bubble, paragraph rendering, and several dialogs/overlays.
+//  Consider splitting into focused files (e.g. ReaderTopBar, BookSpread, TranslationBubble,
+//  ReaderDialogs) to improve navigability. No behavior change required.
 @Composable
 internal fun ReaderRoute(
     filePath: String,
@@ -788,8 +776,10 @@ private fun BookSpread(
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
                 else ""
                 val isSelected = wordSelection?.chapterIndex == chapterIndex && wordSelection.paragraphIndex == idx
-                val selectedStart = if (isSelected) wordSelection!!.startChar else -1
-                val selectedEnd = if (isSelected) wordSelection!!.endChar else -1
+                val (selectedStart, selectedEnd) = wordSelection
+                    ?.takeIf { isSelected }
+                    ?.let { it.startChar to it.endChar }
+                    ?: (-1 to -1)
 
                 if (showTranslation) {
                     Row(
@@ -822,7 +812,7 @@ private fun BookSpread(
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
                         ) {
                             // Translation text always visible (dimmed when bubble is active)
-                            Box(Modifier.alpha(if (isSelected && wordSelection != null) 0.25f else 1f)) {
+                            Box(Modifier.alpha(if (isSelected) 0.25f else 1f)) {
                                 ParagraphItem(
                                     text = translated,
                                     index = idx,
@@ -1786,12 +1776,15 @@ private fun ChapterPickerDialog(
 }
 
 private fun toRoman(num: Int): String {
-    val values = listOf(1000,900,500,400,100,90,50,40,10,9,5,4,1)
-    val symbols = listOf("M","CM","D","CD","C","XC","L","XL","X","IX","V","IV","I")
+    val numerals = listOf(
+        1000 to "M", 900 to "CM", 500 to "D", 400 to "CD", 100 to "C",
+        90 to "XC", 50 to "L", 40 to "XL", 10 to "X", 9 to "IX",
+        5 to "V", 4 to "IV", 1 to "I",
+    )
     var n = num
     return buildString {
-        for (i in values.indices) {
-            while (n >= values[i]) { append(symbols[i]); n -= values[i] }
+        for ((value, symbol) in numerals) {
+            while (n >= value) { append(symbol); n -= value }
         }
     }
 }

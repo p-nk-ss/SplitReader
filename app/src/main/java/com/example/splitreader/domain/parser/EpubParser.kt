@@ -9,7 +9,15 @@ import org.jsoup.parser.Parser
 import java.io.File
 import java.util.zip.ZipInputStream
 
-class EpubParser constructor() : BookParser {
+/** Substring markers used to heuristically detect epigraph/verse blocks by CSS class name. */
+private val EPIGRAPH_KEYWORDS = listOf(
+    "epigraph", "epigraf",
+    "poem", "stih", "verse", "stanza",
+    "quote", "cite", "citation",
+    "litany", "poetry",
+)
+
+class EpubParser : BookParser {
 
     private data class OpfData(
         val title: String,
@@ -175,14 +183,8 @@ class EpubParser constructor() : BookParser {
     }
 
     private fun looksLikeEpigraph(el: org.jsoup.nodes.Element): Boolean {
-        val epigraphKeywords = listOf(
-            "epigraph", "epigraf",
-            "poem", "stih", "verse", "stanza",
-            "quote", "cite", "citation",
-            "litany", "poetry",
-        )
         fun org.jsoup.nodes.Element.hasEpigraphClass() =
-            classNames().any { c -> epigraphKeywords.any { k -> c.lowercase().contains(k) } }
+            classNames().any { c -> EPIGRAPH_KEYWORDS.any { k -> c.lowercase().contains(k) } }
 
         if (el.hasEpigraphClass()) return true
         val style = el.attr("style").lowercase()
