@@ -65,6 +65,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// TODO(architecture): this file (~900 lines) holds the master list, the detail pane, and several
+//  dialogs/cards. Consider splitting the master pane, detail pane, and dialogs into separate files.
+//  No behavior change required.
 @Composable
 fun VocabulaireRoute(viewModel: VocabulaireViewModel = hiltViewModel()) {
     val words by viewModel.words.collectAsState()

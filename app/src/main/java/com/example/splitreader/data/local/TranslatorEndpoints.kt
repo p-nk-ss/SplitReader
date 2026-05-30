@@ -5,6 +5,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Persists the user-configurable LibreTranslate base URL (falls back to a default). */
 @Singleton
 class TranslatorEndpoints @Inject constructor(
     @ApplicationContext context: Context,

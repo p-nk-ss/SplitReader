@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Persists per-book reading position and reader display/translation preferences via SharedPreferences. */
 @Singleton
 class ReadingProgressManager @Inject constructor(
     @ApplicationContext context: Context

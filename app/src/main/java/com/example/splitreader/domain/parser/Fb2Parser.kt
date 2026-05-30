@@ -146,7 +146,7 @@ class Fb2Parser constructor() : BookParser {
                     tagName == "section" && sectionDepth > 0 -> {
                         sectionDepth--
                         if (sectionDepth == 0) {
-                            val allParagraphs = currentEpigraphParagraphs.toList() + currentParagraphs.toList()
+                            val allParagraphs = currentEpigraphParagraphs + currentParagraphs
                             if (allParagraphs.isNotEmpty()) {
                                 chapters.add(Chapter(
                                     index = chapterIndex,

@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,13 +34,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -58,9 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -68,7 +62,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -94,7 +87,6 @@ import com.example.splitreader.presentation.theme.PaperInk3
 import com.example.splitreader.presentation.theme.PaperInk4
 import com.example.splitreader.presentation.theme.PaperMoss
 import com.example.splitreader.presentation.ui.BookplateButton
-import com.example.splitreader.presentation.ui.BrandIcon
 import com.example.splitreader.presentation.ui.LibraryTagButton
 import java.time.LocalDate
 import java.time.format.TextStyle as JTextStyle
@@ -140,6 +132,9 @@ private fun coverSpec(title: String, uri: String): CoverSpec {
 
 // ── Entry point ─────────────────────────────────────────────────────────
 
+// TODO(architecture): this file (~1k lines) mixes the library grid, header/streak ribbon, the
+//  continue-reading hero, book-cover rendering, and cover-motif drawing. Consider extracting the
+//  cover rendering/motifs and the header/streak section into separate files. No behavior change.
 @Composable
 internal fun HomeRoute(
     onNavigateToReader: (String) -> Unit,

@@ -8,11 +8,13 @@ import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Characters translated in the current UTC month and the provider's monthly limit (if any). */
 data class TranslationUsage(
     val charactersThisMonth: Long,
     val monthlyLimit: Long?,
 )
 
+/** Tracks per-provider monthly character usage (UTC month boundaries) for quota display. */
 @Singleton
 class TranslationUsageTracker @Inject constructor(
     @ApplicationContext context: Context,

@@ -4,6 +4,10 @@ import com.example.splitreader.data.local.ReadingSessionEntity
 import com.example.splitreader.domain.repository.ReadingSessionRepository
 import javax.inject.Inject
 
+/**
+ * Persists a finished reading session. Sessions shorter than [MIN_SESSION_SECONDS] are ignored
+ * to avoid recording incidental opens.
+ */
 class EndReadingSessionUseCase @Inject constructor(
     private val repository: ReadingSessionRepository,
 ) {
@@ -16,7 +20,7 @@ class EndReadingSessionUseCase @Inject constructor(
     ) {
         val now = System.currentTimeMillis()
         val duration = ((now - startedAt) / 1000).toInt()
-        if (duration < 15) return
+        if (duration < MIN_SESSION_SECONDS) return
         repository.record(
             ReadingSessionEntity(
                 bookUri = bookUri,
@@ -28,5 +32,9 @@ class EndReadingSessionUseCase @Inject constructor(
                 paragraphsRead = paragraphsRead,
             )
         )
+    }
+
+    private companion object {
+        const val MIN_SESSION_SECONDS = 15
     }
 }

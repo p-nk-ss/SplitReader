@@ -12,6 +12,10 @@ enum class SaveWordResult { SAVED, DUPLICATE, EMPTY }
 fun normalizeWord(raw: String): String =
     raw.trim().trim { !it.isLetterOrDigit() }.lowercase()
 
+/**
+ * Saves a word to the vocabulary: normalizes it (see [normalizeWord]), skips duplicates for the
+ * same source language, translates it, and persists the entry. Returns a [SaveWordResult].
+ */
 class SaveWordUseCase @Inject constructor(
     private val savedWordRepository: SavedWordRepository,
     private val translateTextUseCase: TranslateTextUseCase,
