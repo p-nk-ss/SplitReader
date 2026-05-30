@@ -193,7 +193,7 @@ private fun SectionLabel(text: String) {
     Text(
         text = text.uppercase(),
         fontFamily = JetBrainsMono,
-        fontSize = 9.sp,
+        fontSize = 11.sp,
         letterSpacing = 0.5.sp,
         color = palette.ink3,
     )
@@ -242,7 +242,7 @@ private fun ProviderRow(
                 Text(
                     text = statusText.uppercase(),
                     fontFamily = JetBrainsMono,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     letterSpacing = 0.4.sp,
                     color = if (selected) palette.bg.copy(alpha = 0.85f) else palette.ink2,
                 )
@@ -440,7 +440,7 @@ private fun UsageBar(usage: TranslationUsage, onDark: Boolean, onReset: () -> Un
         Text(
             text = label.uppercase(),
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.4.sp,
             color = tone,
             modifier = Modifier.weight(1f, fill = false),

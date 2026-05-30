@@ -275,7 +275,7 @@ private fun LibraryHeader(
                 text = eyebrow,
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.Medium,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 letterSpacing = 0.5.sp,
                 color = palette.ink3,
             )
@@ -367,7 +367,7 @@ private fun StreakRibbon(streakDays: Int, weeklyMinutes: Int, weeklyGoal: Int) {
             text = "$weeklyMinutes/${weeklyGoal}m",
             fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Medium,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
@@ -435,7 +435,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 text = "CONTINUE READING",
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 0.5.sp,
                 color = palette.accent,
             )
@@ -471,7 +471,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                     text = "CH ${book.lastChapterIndex + 1} · PAGE —/${book.chapterCount}",
                     fontFamily = JetBrainsMono,
                     fontWeight = FontWeight.Normal,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     letterSpacing = 0.5.sp,
                     color = palette.ink3,
                 )
@@ -479,7 +479,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                     text = "${(progress * 100).toInt()}%",
                     fontFamily = JetBrainsMono,
                     fontWeight = FontWeight.Normal,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     letterSpacing = 0.5.sp,
                     color = palette.ink3,
                 )
@@ -503,7 +503,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                     text = "LAST OPENED",
                     fontFamily = JetBrainsMono,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 8.sp,
+                    fontSize = 11.sp,
                     letterSpacing = 0.5.sp,
                     color = palette.ink3,
                 )
@@ -562,7 +562,7 @@ private fun ShelfHeader(
                     text = "· $totalCount VOLUMES",
                     fontFamily = JetBrainsMono,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     letterSpacing = 0.5.sp,
                     color = palette.ink3,
                 )
@@ -715,7 +715,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                         .background(palette.moss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("✓", color = palette.bg, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    Text("✓", color = palette.bg, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             // 3-dot context menu at bottom-right
@@ -766,7 +766,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                 text = "${(progress * 100).toInt()}% · CH ${book.lastChapterIndex + 1}/${book.chapterCount}",
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.Normal,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 0.3.sp,
                 color = palette.ink3,
             )

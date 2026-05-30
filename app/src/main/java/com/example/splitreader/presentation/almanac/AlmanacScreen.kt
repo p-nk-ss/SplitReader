@@ -83,7 +83,7 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
             verticalAlignment = Alignment.Bottom,
         ) {
             Column {
-                Text("READING", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+                Text("READING", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("Your ", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 20.sp, color = palette.ink)
                     Text("almanac", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontStyle = FontStyle.Italic, fontSize = 20.sp, color = palette.accent)
@@ -156,7 +156,7 @@ private fun EmptyAlmanac() {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("BEGIN", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+            Text("BEGIN", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
             Text("Open a book to start tracking your reading.", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = palette.ink)
             Text("Your streak, minutes, and word counts will appear here.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
         }
@@ -205,7 +205,7 @@ private fun StatBlock(value: String, unit: String, sub: String, modifier: Modifi
         Text(value, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 44.sp, letterSpacing = (-0.6).sp, lineHeight = 48.sp, color = palette.ink)
         Spacer(Modifier.height(6.dp))
         Text(unit, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 15.sp, color = palette.ink2)
-        Text(sub, fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+        Text(sub, fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
     }
 }
 
@@ -219,7 +219,7 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
         val maxMinutes = days.maxOfOrNull { it.minutes } ?: 1
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("THIS WEEK", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+            Text("THIS WEEK", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
@@ -229,7 +229,7 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
                 val isToday = date == today
                 val barH = if (maxMinutes > 0) (mins.toFloat() / maxMinutes * 100).coerceAtLeast(3f) else 3f
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                    if (mins > 0) Text("${mins}m", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.ink3)
+                    if (mins > 0) Text("${mins}m", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)
                     Spacer(Modifier.height(2.dp))
                     Box(
                         Modifier
@@ -253,7 +253,7 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
                     date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.ENGLISH),
                     modifier = Modifier.weight(1f),
                     fontFamily = JetBrainsMono,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     color = if (isToday) palette.accent else palette.ink3,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
@@ -274,8 +274,8 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
         val totalMins = days.sumOf { it.minutes }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("LAST 26 WEEKS", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
-            Text("$activeDays ACTIVE DAYS · ${totalMins} MIN", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+            Text("LAST 26 WEEKS", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+            Text("$activeDays ACTIVE DAYS · ${totalMins} MIN", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
         }
         Spacer(Modifier.height(8.dp))
         Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
@@ -315,13 +315,13 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
         }
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            Text("LESS", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.ink4)
+            Text("LESS", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink4)
             Spacer(Modifier.width(4.dp))
             listOf(palette.bg3, palette.accentSoft, palette.accent.copy(alpha = 0.6f), palette.accent.copy(alpha = 0.85f), palette.ink).forEach { color ->
                 Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(color))
                 Spacer(Modifier.width(2.dp))
             }
-            Text("MORE", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.ink4)
+            Text("MORE", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink4)
         }
     }
 }
@@ -330,14 +330,14 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
 private fun TimeByBookCard(books: List<com.example.splitreader.data.local.BookMinutes>, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
-        Text("TIME BY BOOK", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+        Text("TIME BY BOOK", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
         Spacer(Modifier.height(8.dp))
         val maxMins = books.maxOfOrNull { it.minutes } ?: 1
         books.forEach { book ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(book.title, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = palette.ink,
                     modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                Text("${book.minutes}M", fontFamily = JetBrainsMono, fontSize = 9.sp, color = palette.ink3)
+                Text("${book.minutes}M", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)
             }
             Box(Modifier.fillMaxWidth().height(1.dp).clip(RoundedCornerShape(1.dp)).background(palette.bg3)) {
                 Box(Modifier.fillMaxHeight().fillMaxWidth(book.minutes.toFloat() / maxMins).background(palette.accent))
@@ -354,16 +354,16 @@ private fun TimeByBookCard(books: List<com.example.splitreader.data.local.BookMi
 private fun LanguagesCard(langs: List<com.example.splitreader.data.local.LangMinutes>, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
-        Text("LANGUAGES", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+        Text("LANGUAGES", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
         Spacer(Modifier.height(8.dp))
         langs.forEach { lang ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Box(
                     Modifier.clip(RoundedCornerShape(3.dp)).background(palette.bg3).padding(4.dp, 2.dp),
                 ) {
-                    Text(lang.lang.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 9.sp, color = palette.ink)
+                    Text(lang.lang.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = palette.ink)
                 }
-                Text("${lang.minutes} MIN", fontFamily = JetBrainsMono, fontSize = 9.sp, color = palette.ink3)
+                Text("${lang.minutes} MIN", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)
             }
             Spacer(Modifier.height(6.dp))
         }

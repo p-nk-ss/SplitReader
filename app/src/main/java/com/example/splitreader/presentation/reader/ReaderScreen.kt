@@ -474,7 +474,7 @@ private fun ReaderTopBar(
                 withStyle(SpanStyle(fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)) {
                     append(state.book.author)
                 }
-                withStyle(SpanStyle(fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink3)) {
+                withStyle(SpanStyle(fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)) {
                     append(" · CH ${state.currentChapterIndex + 1}")
                 }
             },
@@ -515,9 +515,9 @@ private fun LangChip(source: String, target: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(source, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 0.5.sp, color = palette.ink)
-        Text("→", fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink3)
-        Text(target, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 0.5.sp, color = palette.ink)
+        Text(source, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink)
+        Text("→", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)
+        Text(target, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink)
         Spacer(Modifier.width(2.dp))
         Icon(Icons.Outlined.ExpandMore, null, tint = palette.ink3, modifier = Modifier.size(14.dp))
     }
@@ -541,7 +541,7 @@ private fun ChapterMasthead(
         Text(
             text = "— ${chapterIndex + 1} —",
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.6.sp,
             color = palette.ink4,
         )
@@ -648,7 +648,7 @@ private fun TranslationBubble(
                     else R.string.bubble_sentence
                 ),
                 fontFamily = JetBrainsMono,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 0.5.sp,
                 color = palette.accent,
                 modifier = Modifier.weight(1f),
@@ -689,7 +689,7 @@ private fun TranslationBubble(
                 Text(
                     text = stringResource(R.string.translating),
                     fontFamily = JetBrainsMono,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     color = palette.ink3,
                 )
             }
@@ -1188,15 +1188,15 @@ private fun ReaderStatusFooter(state: ReaderUiState.Success) {
         Text(
             text = "CH ${state.currentChapterIndex + 1} OF ${state.book.chapters.size}",
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
-        Text("·", fontFamily = JetBrainsMono, fontSize = 10.sp, color = palette.ink4)
+        Text("·", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink4)
         Text(
             text = "${state.sourceLanguage.code.uppercase()} → ${state.targetLanguage.code.uppercase()}",
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
@@ -1211,7 +1211,7 @@ private fun ReaderStatusFooter(state: ReaderUiState.Success) {
             Text(
                 text = "${(progress * 100).toInt()}%",
                 fontFamily = JetBrainsMono,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 letterSpacing = 0.5.sp,
                 color = palette.ink3,
             )
@@ -1235,7 +1235,7 @@ private fun TranslationBanner(label: String, modifier: Modifier = Modifier) {
         Text(
             text = label,
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
@@ -1262,7 +1262,7 @@ private fun TranslationErrorBanner(
         Text(
             text = "Translation failed".uppercase(),
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
@@ -1324,7 +1324,7 @@ private fun ParagraphActionsOverlay(
                     Text(
                         text = "SELECTED · ${palette.key.name}",
                         fontFamily = JetBrainsMono,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         letterSpacing = 0.5.sp,
                         color = palette.accent,
                     )
@@ -1378,7 +1378,7 @@ private fun ParagraphActionsOverlay(
                 Text(
                     text = "TRANSLATION",
                     fontFamily = JetBrainsMono,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     letterSpacing = 0.5.sp,
                     color = palette.ink3,
                 )
@@ -1482,7 +1482,7 @@ internal fun EditorialDialog(
                     Text(
                         text = eyebrow.uppercase(),
                         fontFamily = JetBrainsMono,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         letterSpacing = 0.5.sp,
                         color = palette.ink3,
                     )
@@ -1565,7 +1565,7 @@ private fun LanguagePickerDialog(
                                         Text(lang.code.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = if (selected) palette.bg else palette.ink)
                                     }
                                     Text(lang.displayName, fontFamily = Newsreader, fontSize = 14.sp, color = if (selected) palette.bg else palette.ink)
-                                    Text(lang.displayName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 10.sp, color = if (selected) palette.bg.copy(alpha = 0.8f) else palette.ink3)
+                                    Text(lang.displayName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 11.sp, color = if (selected) palette.bg.copy(alpha = 0.8f) else palette.ink3)
                                 }
                             }
                         } else {
@@ -1595,7 +1595,7 @@ private fun LanguagePickerDialog(
                     Text("On-device translation · ", fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
                     Text("no cloud calls", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
                 }
-                Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+                Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
             }
         }
         Spacer(Modifier.height(sp.sm))
@@ -1639,7 +1639,7 @@ private fun DisplaySettingsDialog(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Aa", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 16.sp, color = p.ink)
-                        Text(p.displayName.uppercase(), fontFamily = JetBrainsMono, fontSize = 8.sp, color = p.ink2)
+                        Text(p.displayName.uppercase(), fontFamily = JetBrainsMono, fontSize = 11.sp, color = p.ink2)
                     }
                 }
             }
@@ -1654,7 +1654,7 @@ private fun DisplaySettingsDialog(
             label = "Font size",
             value = state.textSize,
             valueLabel = "${state.textSize.toInt()}sp",
-            valueRange = 12f..24f,
+            valueRange = 14f..24f,
             onValueChange = { onAdjustTextSize(it - state.textSize) },
         )
 
@@ -1697,7 +1697,7 @@ private fun SectionEyebrow(text: String) {
     Text(
         text = text.uppercase(),
         fontFamily = JetBrainsMono,
-        fontSize = 9.sp,
+        fontSize = 11.sp,
         letterSpacing = 0.5.sp,
         color = palette.ink3,
     )
@@ -1709,7 +1709,7 @@ private fun SliderRow(label: String, value: Float, valueLabel: String, valueRang
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink)
-            Text(valueLabel, fontFamily = JetBrainsMono, fontSize = 10.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+            Text(valueLabel, fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
         }
         Slider(
             value = value,
@@ -1805,7 +1805,7 @@ private fun ChapterPickerDialog(
                             .background(palette.accentSoft)
                             .padding(horizontal = 6.dp, vertical = 3.dp)
                     ) {
-                        Text("READING", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.accent, letterSpacing = 0.3.sp)
+                        Text("READING", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.accent, letterSpacing = 0.3.sp)
                     }
                     index < currentChapterIndex -> Icon(Icons.Outlined.Check, null, tint = palette.moss, modifier = Modifier.size(16.dp))
                     else -> Spacer(Modifier.width(24.dp))

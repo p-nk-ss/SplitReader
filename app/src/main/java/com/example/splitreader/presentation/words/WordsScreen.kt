@@ -225,7 +225,7 @@ private fun MasterPane(
                 text = "Your",
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.Normal,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 1.5.sp,
                 color = palette.ink3,
             )
@@ -242,7 +242,7 @@ private fun MasterPane(
             Text(
                 text = "${words.size} saved words",
                 fontFamily = JetBrainsMono,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 color = palette.ink3,
             )
         }
@@ -330,7 +330,7 @@ private fun LangPill(label: String, selected: Boolean, onClick: () -> Unit) {
             text = label,
             fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Medium,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = fg,
         )
     }
@@ -395,7 +395,7 @@ private fun DateGroupHeader(label: String) {
         text = label.uppercase(),
         fontFamily = JetBrainsMono,
         fontWeight = FontWeight.Medium,
-        fontSize = 9.sp,
+        fontSize = 11.sp,
         letterSpacing = 1.2.sp,
         color = palette.ink3,
         modifier = Modifier
@@ -456,7 +456,7 @@ private fun WordListItem(
                     Text(
                         text = word.sourceLang.uppercase(),
                         fontFamily = JetBrainsMono,
-                        fontSize = 8.sp,
+                        fontSize = 11.sp,
                         color = palette.ink3,
                     )
                 }
@@ -508,7 +508,7 @@ private fun EmptyMaster(modifier: Modifier = Modifier) {
         Text(
             stringResource(R.string.words_empty_hint),
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = palette.ink4,
             textAlign = TextAlign.Center,
             lineHeight = 16.sp,
@@ -602,7 +602,7 @@ private fun WordDetail(
                             text = word.sourceLang.uppercase(),
                             fontFamily = JetBrainsMono,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             color = palette.bg,
                         )
                     }
@@ -610,7 +610,7 @@ private fun WordDetail(
                         Text(
                             text = pos,
                             fontFamily = JetBrainsMono,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             color = palette.ink3,
                         )
                     }
@@ -643,7 +643,7 @@ private fun WordDetail(
                         Text(
                             text = word.targetLang.uppercase(),
                             fontFamily = JetBrainsMono,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             letterSpacing = 1.sp,
                             color = palette.ink3,
                         )
@@ -731,7 +731,7 @@ private fun ContextQuoteCard(word: SavedWordEntity) {
             Text(
                 text = "context",
                 fontFamily = JetBrainsMono,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 letterSpacing = 1.sp,
                 color = palette.ink3,
             )
@@ -766,7 +766,7 @@ private fun BookInfoRow(word: SavedWordEntity) {
         Text(
             text = word.bookTitle,
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = palette.ink3,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -774,7 +774,7 @@ private fun BookInfoRow(word: SavedWordEntity) {
         Text(
             text = "· ch. ${word.chapterIndex + 1}",
             fontFamily = JetBrainsMono,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = palette.ink4,
         )
     }
@@ -841,7 +841,7 @@ private fun ActionChip(
         Text(
             text = label,
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             color = fg,
         )
     }
@@ -862,7 +862,7 @@ private fun NotesCard(note: String, onEdit: () -> Unit) {
         Text(
             text = "note",
             fontFamily = JetBrainsMono,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             letterSpacing = 1.sp,
             color = palette.ink3,
         )
