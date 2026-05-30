@@ -25,7 +25,7 @@ private val SplitReaderColorScheme = lightColorScheme(
     outlineVariant      = PaperRule,
     inverseSurface      = PaperInk,
     inverseOnSurface    = PaperBg,
-    error               = PaperAccent,
+    error               = ErrorTone,
 )
 
 @Composable
