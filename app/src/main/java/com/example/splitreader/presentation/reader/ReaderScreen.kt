@@ -343,9 +343,16 @@ private fun ReaderContent(
                     targetLang = state.targetLanguage,
                 )
 
-                if (state.translationState is TranslationState.Translating) {
+                if (state.translationState is TranslationState.DownloadingModel) {
                     TranslationBanner(
-                        progress = (state.translationState as TranslationState.Translating).progress,
+                        label = "Preparing translation…",
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
+                if (state.translationState is TranslationState.Translating) {
+                    val progress = (state.translationState as TranslationState.Translating).progress
+                    TranslationBanner(
+                        label = if (progress <= 0) "Translating…" else "Translating… $progress%",
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }
@@ -775,6 +782,7 @@ private fun BookSpread(
                 val translated = if (showTranslation)
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
                 else ""
+                val awaitingTranslation = showTranslation && original.isNotBlank() && translated.isEmpty()
                 val isSelected = wordSelection?.chapterIndex == chapterIndex && wordSelection.paragraphIndex == idx
                 val (selectedStart, selectedEnd) = wordSelection
                     ?.takeIf { isSelected }
@@ -813,19 +821,26 @@ private fun BookSpread(
                         ) {
                             // Translation text always visible (dimmed when bubble is active)
                             Box(Modifier.alpha(if (isSelected) 0.25f else 1f)) {
-                                ParagraphItem(
-                                    text = translated,
-                                    index = idx,
-                                    isFirstOfChapter = idx == 0,
-                                    isOriginal = false,
-                                    isActive = false,
-                                    selectedWordStart = -1,
-                                    selectedWordEnd = -1,
-                                    textSize = textSize,
-                                    lineHeightMultiplier = lineHeightMultiplier,
-                                    onWordSelected = { _, _, _ -> },
-                                    onTap = { if (wordSelection != null) onDismiss() },
-                                )
+                                if (awaitingTranslation) {
+                                    TranslationPlaceholder(
+                                        textSize = textSize,
+                                        lineHeightMultiplier = lineHeightMultiplier,
+                                    )
+                                } else {
+                                    ParagraphItem(
+                                        text = translated,
+                                        index = idx,
+                                        isFirstOfChapter = idx == 0,
+                                        isOriginal = false,
+                                        isActive = false,
+                                        selectedWordStart = -1,
+                                        selectedWordEnd = -1,
+                                        textSize = textSize,
+                                        lineHeightMultiplier = lineHeightMultiplier,
+                                        onWordSelected = { _, _, _ -> },
+                                        onTap = { if (wordSelection != null) onDismiss() },
+                                    )
+                                }
                             }
                         }
                     }
@@ -873,6 +888,28 @@ private fun BookSpread(
         )
     }
     }
+}
+
+/**
+ * Lightweight stand-in shown in the translation column while a paragraph's
+ * translation is still being fetched, so the pane never appears blank on open.
+ */
+@Composable
+private fun TranslationPlaceholder(
+    textSize: Float,
+    lineHeightMultiplier: Float,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalReaderPalette.current
+    Text(
+        text = "…",
+        modifier = modifier.alpha(0.4f),
+        fontFamily = Newsreader,
+        fontWeight = FontWeight.Normal,
+        fontSize = textSize.sp,
+        lineHeight = (textSize * lineHeightMultiplier).sp,
+        color = palette.ink3,
+    )
 }
 
 @Composable
@@ -1181,7 +1218,7 @@ private fun ReaderStatusFooter(state: ReaderUiState.Success) {
 // ── Translation banner ────────────────────────────────────────────────────
 
 @Composable
-private fun TranslationBanner(progress: Int, modifier: Modifier = Modifier) {
+private fun TranslationBanner(label: String, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     Box(
         modifier = modifier
@@ -1192,7 +1229,7 @@ private fun TranslationBanner(progress: Int, modifier: Modifier = Modifier) {
             .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
         Text(
-            text = "Translating… $progress%",
+            text = label,
             fontFamily = JetBrainsMono,
             fontSize = 10.sp,
             letterSpacing = 0.5.sp,

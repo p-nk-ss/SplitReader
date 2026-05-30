@@ -493,7 +493,12 @@ class ReaderViewModel @Inject constructor(
         val isMlKit = progressManager.getTranslatorProvider() == TranslationProvider.MLKIT
 
         stateMutex.withLock {
-            _state.update { it.copy(chapterTranslations = it.chapterTranslations + (index to results.toList())) }
+            _state.update {
+                it.copy(
+                    chapterTranslations = it.chapterTranslations + (index to results.toList()),
+                    translationState = TranslationState.Translating(0),
+                )
+            }
         }
 
         val startIdx = if (index == _state.value.currentChapterIndex)
