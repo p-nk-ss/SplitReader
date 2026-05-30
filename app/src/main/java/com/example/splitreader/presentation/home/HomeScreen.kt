@@ -42,6 +42,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -650,7 +651,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                         fontFamily = Newsreader,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
-                        color = Color(0xFFB04040),
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             },
@@ -719,17 +720,19 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                 }
             }
             // 3-dot context menu at bottom-right
+            // 48dp touch target around the 24dp visual delete dot
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp),
+                    .size(48.dp)
+                    .clickable { showConfirmDelete = true },
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .clickable { showConfirmDelete = true },
+                        .background(Color.Black.copy(alpha = 0.35f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

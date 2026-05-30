@@ -35,6 +35,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -176,7 +177,7 @@ fun WordsScreen(
                         fontFamily = Newsreader,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
-                        color = Color(0xFFB04040),
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             },
@@ -463,12 +464,12 @@ private fun WordListItem(
             }
         }
 
-        // Delete swipe-alt: icon button
-        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+        // Delete swipe-alt: icon button (default 48dp touch target)
+        IconButton(onClick = onDelete) {
             Icon(
                 Icons.Outlined.Delete,
                 contentDescription = "Delete",
-                tint = palette.ink4,
+                tint = palette.ink3,
                 modifier = Modifier.size(16.dp),
             )
         }
@@ -825,7 +826,7 @@ private fun ActionChip(
     val palette = LocalReaderPalette.current
     val fg = when {
         !enabled -> palette.ink4
-        destructive -> Color(0xFFB85D2D)
+        destructive -> MaterialTheme.colorScheme.error
         else -> palette.ink2
     }
     Column(

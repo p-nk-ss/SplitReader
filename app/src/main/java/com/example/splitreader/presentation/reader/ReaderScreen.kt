@@ -568,7 +568,7 @@ private fun PageEdgeTap(side: NavigationSide, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
-            .width(28.dp)
+            .width(48.dp)
             .fillMaxHeight()
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -577,7 +577,7 @@ private fun PageEdgeTap(side: NavigationSide, onClick: () -> Unit) {
             text = if (side == NavigationSide.LEFT) "‹" else "›",
             fontFamily = Newsreader,
             fontSize = 22.sp,
-            color = palette.ink4,
+            color = palette.ink3,
         )
     }
 }
@@ -653,13 +653,10 @@ private fun TranslationBubble(
                 color = palette.accent,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(20.dp),
-            ) {
+            IconButton(onClick = onDismiss) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
-                    contentDescription = null,
+                    contentDescription = "Close",
                     tint = palette.ink3,
                     modifier = Modifier.size(14.dp),
                 )
@@ -1354,15 +1351,22 @@ private fun ParagraphActionsOverlay(
                             .padding(bottom = 3.dp),
                     )
                 }
+                // 48dp touch target around the 30dp visual close circle
                 Box(
                     modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, palette.edge, CircleShape)
+                        .size(48.dp)
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Close, null, tint = palette.ink2, modifier = Modifier.size(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, palette.edge, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Close, "Close", tint = palette.ink2, modifier = Modifier.size(14.dp))
+                    }
                 }
             }
 
@@ -1494,15 +1498,22 @@ internal fun EditorialDialog(
                         color = palette.ink,
                     )
                 }
+                // 48dp touch target around the 32dp visual close circle
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, palette.edge, CircleShape)
+                        .size(48.dp)
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Close, null, tint = palette.ink2, modifier = Modifier.size(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, palette.edge, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Close, "Close", tint = palette.ink2, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
 
