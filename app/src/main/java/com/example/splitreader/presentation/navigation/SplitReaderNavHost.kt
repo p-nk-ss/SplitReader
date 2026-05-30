@@ -12,7 +12,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.splitreader.presentation.almanac.AlmanacRoute
-import com.example.splitreader.presentation.dictionary.VocabulaireRoute
+import com.example.splitreader.presentation.words.WordsRoute
 import com.example.splitreader.presentation.home.HomeRoute
 import com.example.splitreader.presentation.reader.ReaderRoute
 
@@ -62,7 +62,7 @@ fun SplitReaderNavHost(
                 AlmanacRoute()
             }
             composable(WORDS_ROUTE) {
-                VocabulaireRoute()
+                WordsRoute()
             }
         }
     }

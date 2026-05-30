@@ -1,4 +1,4 @@
-package com.example.splitreader.presentation.dictionary
+package com.example.splitreader.presentation.words
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.splitreader.R
 import com.example.splitreader.data.local.SavedWordEntity
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -69,13 +71,13 @@ import java.util.Locale
 //  dialogs/cards. Consider splitting the master pane, detail pane, and dialogs into separate files.
 //  No behavior change required.
 @Composable
-fun VocabulaireRoute(viewModel: VocabulaireViewModel = hiltViewModel()) {
+fun WordsRoute(viewModel: WordsViewModel = hiltViewModel()) {
     val words by viewModel.words.collectAsState()
     val selectedWord by viewModel.selectedWord.collectAsState()
     val langFilter by viewModel.langFilter.collectAsState()
     val query by viewModel.query.collectAsState()
 
-    VocabulaireScreen(
+    WordsScreen(
         words = words,
         selectedWord = selectedWord,
         langFilter = langFilter,
@@ -90,7 +92,7 @@ fun VocabulaireRoute(viewModel: VocabulaireViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun VocabulaireScreen(
+fun WordsScreen(
     words: List<SavedWordEntity>,
     selectedWord: SavedWordEntity?,
     langFilter: LangFilter,
@@ -146,7 +148,7 @@ fun VocabulaireScreen(
             onDismissRequest = { wordPendingDelete = null },
             title = {
                 Text(
-                    text = "Удалить слово",
+                    text = stringResource(R.string.word_delete_title),
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Medium,
                     fontSize = 18.sp,
@@ -155,7 +157,7 @@ fun VocabulaireScreen(
             },
             text = {
                 Text(
-                    text = "«${word.word}» будет удалено из словаря.",
+                    text = stringResource(R.string.word_delete_body, word.word),
                     fontFamily = Newsreader,
                     fontStyle = FontStyle.Italic,
                     fontSize = 14.sp,
@@ -163,13 +165,14 @@ fun VocabulaireScreen(
                 )
             },
             confirmButton = {
+                val deletedMsg = stringResource(R.string.word_deleted)
                 TextButton(onClick = {
                     onDelete(word)
                     wordPendingDelete = null
-                    Toast.makeText(context, "Слово удалено", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, deletedMsg, Toast.LENGTH_SHORT).show()
                 }) {
                     Text(
-                        text = "Удалить",
+                        text = stringResource(R.string.action_delete),
                         fontFamily = Newsreader,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
@@ -180,7 +183,7 @@ fun VocabulaireScreen(
             dismissButton = {
                 TextButton(onClick = { wordPendingDelete = null }) {
                     Text(
-                        text = "Отмена",
+                        text = stringResource(R.string.action_cancel),
                         fontFamily = Newsreader,
                         fontSize = 14.sp,
                         color = palette.ink2,
@@ -227,7 +230,7 @@ private fun MasterPane(
                 color = palette.ink3,
             )
             Text(
-                text = "Vocabulaire",
+                text = stringResource(R.string.words_title),
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.SemiBold,
                 fontStyle = FontStyle.Italic,
@@ -503,7 +506,7 @@ private fun EmptyMaster(modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Long-press any word in the reader\nto save it to your vocabulaire.",
+            stringResource(R.string.words_empty_hint),
             fontFamily = JetBrainsMono,
             fontSize = 10.sp,
             color = palette.ink4,
@@ -573,6 +576,7 @@ private fun WordDetail(
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
     val context = LocalContext.current
+    val noteSavedMsg = stringResource(R.string.note_saved)
     var showNoteDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -700,7 +704,7 @@ private fun WordDetail(
             onSave = { noteText ->
                 onUpdateNote(word, noteText)
                 showNoteDialog = false
-                Toast.makeText(context, "Заметка сохранена", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, noteSavedMsg, Toast.LENGTH_SHORT).show()
             },
         )
     }

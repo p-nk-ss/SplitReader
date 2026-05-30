@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -97,6 +98,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -155,9 +157,9 @@ internal fun ReaderRoute(
     LaunchedEffect(Unit) {
         viewModel.wordSaveEvent.collect { result ->
             val message = when (result) {
-                SaveWordResult.SAVED -> "Сохранено в словарь"
-                SaveWordResult.DUPLICATE -> "Слово уже в словаре"
-                SaveWordResult.EMPTY -> "Нечего сохранять"
+                SaveWordResult.SAVED -> context.getString(R.string.saved_to_dictionary)
+                SaveWordResult.DUPLICATE -> context.getString(R.string.already_in_dictionary)
+                SaveWordResult.EMPTY -> context.getString(R.string.nothing_to_save)
             }
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
@@ -641,7 +643,10 @@ private fun TranslationBubble(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = if (wordSelection.selectionType == SelectionType.WORD) "СЛОВО" else "ПРЕДЛОЖЕНИЕ",
+                text = stringResource(
+                    if (wordSelection.selectionType == SelectionType.WORD) R.string.bubble_word
+                    else R.string.bubble_sentence
+                ),
                 fontFamily = JetBrainsMono,
                 fontSize = 9.sp,
                 letterSpacing = 0.5.sp,
@@ -682,7 +687,7 @@ private fun TranslationBubble(
                     color = palette.ink3,
                 )
                 Text(
-                    text = "Перевод…",
+                    text = stringResource(R.string.translating),
                     fontFamily = JetBrainsMono,
                     fontSize = 9.sp,
                     color = palette.ink3,
@@ -702,13 +707,13 @@ private fun TranslationBubble(
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BubbleChip(
-                label = "Прослушать",
+                label = stringResource(R.string.action_listen),
                 onClick = onSpeak,
                 modifier = Modifier.weight(1f),
             )
             if (wordSelection.selectionType == SelectionType.WORD) {
                 BubbleChip(
-                    label = "Сохранить",
+                    label = stringResource(R.string.action_save),
                     onClick = onSave,
                     modifier = Modifier.weight(1f),
                 )

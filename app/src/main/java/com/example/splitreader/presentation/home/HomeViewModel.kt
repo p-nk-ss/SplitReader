@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.viewModelScope
+import com.example.splitreader.R
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.repository.BookLibraryRepository
@@ -127,7 +128,7 @@ class HomeViewModel @Inject constructor(
         val hasPermission = context.contentResolver.persistedUriPermissions
             .any { it.uri == parsedUri && it.isReadPermission }
         if (!hasPermission) {
-            _errorMessage.value = "Нет доступа к файлу — переоткройте его через «Open book»."
+            _errorMessage.value = context.getString(R.string.error_file_access)
             return
         }
         viewModelScope.launch {
