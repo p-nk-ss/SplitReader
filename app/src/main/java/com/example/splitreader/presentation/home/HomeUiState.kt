@@ -13,6 +13,10 @@ data class HomeUiState(
     val books: List<BookItem> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val streakDays: Int = 0,
+    val weeklyMinutes: Int = 0,
+    val savedWordsThisWeek: Int = 0,
+    val weeklyGoal: Int = 180,
 ) {
     val lastBook: BookItem? get() = books.firstOrNull()
 }

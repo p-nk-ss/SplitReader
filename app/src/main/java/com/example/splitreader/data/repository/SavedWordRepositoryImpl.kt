@@ -15,6 +15,8 @@ class SavedWordRepositoryImpl @Inject constructor(
     override fun observeByLang(code: String): Flow<List<SavedWordEntity>> = dao.observeByLang(code)
     override fun search(q: String): Flow<List<SavedWordEntity>> = dao.search(q)
     override fun countByLang(code: String): Flow<Int> = dao.countByLang(code)
+    override suspend fun findByWordAndLang(word: String, lang: String): SavedWordEntity? =
+        dao.findByWordAndLang(word, lang)
     override suspend fun save(word: SavedWordEntity): Long = dao.insert(word)
     override suspend fun update(word: SavedWordEntity) = dao.update(word)
     override suspend fun delete(word: SavedWordEntity) = dao.delete(word)

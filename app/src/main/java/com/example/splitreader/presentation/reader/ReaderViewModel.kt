@@ -8,6 +8,7 @@ import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TranslationUsage
 import com.example.splitreader.data.local.TranslationUsageTracker
+import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
@@ -16,17 +17,21 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
+import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.domain.usecase.SaveWordUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -39,11 +44,13 @@ class ReaderViewModel @Inject constructor(
     private val translateTextUseCase: TranslateTextUseCase,
     private val parseBookUseCase: ParseBookUseCase,
     private val saveWordUseCase: SaveWordUseCase,
+    private val endReadingSessionUseCase: EndReadingSessionUseCase,
     private val progressManager: ReadingProgressManager,
     private val languageDetector: LanguageDetector,
     private val apiKeyManager: ApiKeyManager,
     private val translatorEndpoints: TranslatorEndpoints,
     private val usageTracker: TranslationUsageTracker,
+    private val textToSpeechManager: TextToSpeechManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -104,6 +111,10 @@ class ReaderViewModel @Inject constructor(
         )
     )
 
+    // One-shot events for transient UI feedback (e.g. Toast after saving a word)
+    private val _wordSaveEvent = Channel<SaveWordResult>(Channel.BUFFERED)
+    val wordSaveEvent = _wordSaveEvent.receiveAsFlow()
+
     // Guards concurrent state mutations inside the translation coroutine
     private val stateMutex = Mutex()
 
@@ -151,6 +162,9 @@ class ReaderViewModel @Inject constructor(
     private var lastScrollPosition = 0
     private var lastScrollOffset = 0
 
+    // Timestamp of the current foreground reading stint; 0 means no active session.
+    private var sessionStartedAt = 0L
+
     fun loadBook(uri: Uri) {
         viewModelScope.launch {
             parseBookUseCase(uri).collect { result ->
@@ -195,6 +209,34 @@ class ReaderViewModel @Inject constructor(
         // Only preload chapter 0 on top of last-opened when free on-device translation is selected
         if (lastChapterIndex != 0 && progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) {
             ensureChapterTranslated(0)
+        }
+        // Begin tracking reading time now that the book is on screen
+        resumeSession()
+    }
+
+    /** Start a reading-time session if a book is loaded and none is already running. */
+    fun resumeSession() {
+        if (_state.value.book != null && sessionStartedAt == 0L) {
+            sessionStartedAt = System.currentTimeMillis()
+        }
+    }
+
+    /** End the current reading session (if any) and persist it via [EndReadingSessionUseCase]. */
+    fun pauseSession() {
+        val startedAt = sessionStartedAt
+        val book = _state.value.book
+        if (startedAt == 0L || book == null) return
+        sessionStartedAt = 0L
+        val sourceLang = _state.value.sourceLanguage.code
+        val paragraphsRead = lastScrollPosition
+        viewModelScope.launch {
+            endReadingSessionUseCase(
+                startedAt = startedAt,
+                bookUri = book.filePath,
+                bookTitle = book.title,
+                sourceLang = sourceLang,
+                paragraphsRead = paragraphsRead,
+            )
         }
     }
 
@@ -413,8 +455,8 @@ class ReaderViewModel @Inject constructor(
             .getOrNull(chapterIndex)?.paragraphs?.getOrElse(paragraphIndex) { "" }
             ?.take(120) ?: ""
         viewModelScope.launch {
-            saveWordUseCase(
-                word = word.trim(),
+            val result = saveWordUseCase(
+                word = word,
                 contextSnippet = context,
                 sourceLang = s.sourceLanguage,
                 targetLang = s.targetLanguage,
@@ -423,8 +465,11 @@ class ReaderViewModel @Inject constructor(
                 chapterIndex = chapterIndex,
                 paragraphIndex = paragraphIndex,
             )
+            _wordSaveEvent.trySend(result)
         }
     }
+
+    fun speak(text: String, langCode: String) = textToSpeechManager.speak(text, langCode)
 
     fun ensureChapterTranslated(index: Int) {
         if (_state.value.chapterTranslations.containsKey(index)) return

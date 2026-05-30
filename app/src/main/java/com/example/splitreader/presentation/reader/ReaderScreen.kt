@@ -1,6 +1,7 @@
 package com.example.splitreader.presentation.reader
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -63,6 +64,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +86,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -101,10 +104,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -141,6 +148,36 @@ internal fun ReaderRoute(
         viewModel.loadBook(Uri.parse(filePath))
     }
 
+    // Track reading time: resume on foreground, persist the session on pause/navigate-away.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> viewModel.resumeSession()
+                Lifecycle.Event.ON_PAUSE -> viewModel.pauseSession()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.pauseSession()
+        }
+    }
+
+    // Toast feedback after a save attempt from the translation bubble
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.wordSaveEvent.collect { result ->
+            val message = when (result) {
+                SaveWordResult.SAVED -> "Сохранено в словарь"
+                SaveWordResult.DUPLICATE -> "Слово уже в словаре"
+                SaveWordResult.EMPTY -> "Нечего сохранять"
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val s = uiState) {
@@ -162,6 +199,7 @@ internal fun ReaderRoute(
             onConsumeScrollRestore = viewModel::consumeScrollRestore,
             onEnsureChapterTranslated = viewModel::ensureChapterTranslated,
             onSaveWord = viewModel::saveWord,
+            onSpeak = viewModel::speak,
             onSelectWord = viewModel::selectWord,
             onClearWordSelection = viewModel::clearWordSelection,
             onSelectionDragged = viewModel::updateWordSelectionRange,
@@ -215,6 +253,7 @@ private fun ReaderContent(
     onConsumeScrollRestore: () -> Unit,
     onEnsureChapterTranslated: (Int) -> Unit,
     onSaveWord: (String, Int, Int) -> Unit,
+    onSpeak: (String, String) -> Unit,
     onSelectWord: (String, Int, Int, Int, Int) -> Unit,
     onClearWordSelection: () -> Unit,
     onSelectionDragged: (Int, Int) -> Unit,
@@ -310,6 +349,7 @@ private fun ReaderContent(
                     onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
                     onSelectionDragged = onSelectionDragged,
                     onSaveWord = onSaveWord,
+                    onSpeak = onSpeak,
                     onDismiss = onClearWordSelection,
                     sourceLang = state.sourceLanguage,
                     targetLang = state.targetLanguage,
@@ -584,6 +624,7 @@ private fun PageGutter(modifier: Modifier = Modifier.width(28.dp).fillMaxHeight(
 private fun TranslationBubble(
     wordSelection: WordSelection,
     onSave: () -> Unit,
+    onSpeak: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -664,13 +705,20 @@ private fun TranslationBubble(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (wordSelection.selectionType == SelectionType.WORD) {
-            Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BubbleChip(
-                label = "Сохранить",
-                onClick = onSave,
-                modifier = Modifier.fillMaxWidth(),
+                label = "Прослушать",
+                onClick = onSpeak,
+                modifier = Modifier.weight(1f),
             )
+            if (wordSelection.selectionType == SelectionType.WORD) {
+                BubbleChip(
+                    label = "Сохранить",
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -717,6 +765,7 @@ private fun BookSpread(
     onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onSelectionDragged: (start: Int, end: Int) -> Unit,
     onSaveWord: (word: String, chapterIndex: Int, paragraphIndex: Int) -> Unit,
+    onSpeak: (text: String, langCode: String) -> Unit,
     onDismiss: () -> Unit,
     sourceLang: Language,
     targetLang: Language,
@@ -823,6 +872,7 @@ private fun BookSpread(
         TranslationBubble(
             wordSelection = wordSelection,
             onSave = { onSaveWord(wordSelection.word, wordSelection.chapterIndex, wordSelection.paragraphIndex) },
+            onSpeak = { onSpeak(wordSelection.word, sourceLang.code) },
             onDismiss = onDismiss,
             modifier = Modifier
                 .align(Alignment.BottomCenter)

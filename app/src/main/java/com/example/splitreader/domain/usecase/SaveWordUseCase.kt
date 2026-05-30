@@ -2,8 +2,15 @@ package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.data.local.SavedWordEntity
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.SavedWordRepository
 import javax.inject.Inject
+
+enum class SaveWordResult { SAVED, DUPLICATE, EMPTY }
+
+/** Strips leading/trailing punctuation and lowercases, keeping inner apostrophes/hyphens. */
+fun normalizeWord(raw: String): String =
+    raw.trim().trim { !it.isLetterOrDigit() }.lowercase()
 
 class SaveWordUseCase @Inject constructor(
     private val savedWordRepository: SavedWordRepository,
@@ -18,22 +25,30 @@ class SaveWordUseCase @Inject constructor(
         bookTitle: String,
         chapterIndex: Int,
         paragraphIndex: Int,
-    ) {
+    ): SaveWordResult {
+        val normalized = normalizeWord(word)
+        if (normalized.isEmpty()) return SaveWordResult.EMPTY
+
+        // Avoid duplicates: one entry per (word, source language)
+        if (savedWordRepository.findByWordAndLang(normalized, sourceLang.code) != null) {
+            return SaveWordResult.DUPLICATE
+        }
+
         var translation = ""
         translateTextUseCase(
-            paragraphs = listOf(word),
+            paragraphs = listOf(normalized),
             sourceLanguage = sourceLang,
             targetLanguage = targetLang,
             startIndex = 0,
             endIndex = 0,
         ).collect { state ->
-            if (state is com.example.splitreader.domain.model.TranslationState.Partial) {
+            if (state is TranslationState.Partial) {
                 translation = state.text
             }
         }
         savedWordRepository.save(
             SavedWordEntity(
-                word = word,
+                word = normalized,
                 sourceLang = sourceLang.code,
                 targetLang = targetLang.code,
                 translation = translation,
@@ -44,5 +59,6 @@ class SaveWordUseCase @Inject constructor(
                 contextSnippet = contextSnippet.take(120),
             )
         )
+        return SaveWordResult.SAVED
     }
 }

@@ -21,6 +21,9 @@ interface SavedWordDao {
     @Query("SELECT COUNT(*) FROM saved_words WHERE sourceLang = :lang")
     fun countByLang(lang: String): Flow<Int>
 
+    @Query("SELECT * FROM saved_words WHERE word = :word AND sourceLang = :lang LIMIT 1")
+    suspend fun findByWordAndLang(word: String, lang: String): SavedWordEntity?
+
     @Insert suspend fun insert(w: SavedWordEntity): Long
     @Update suspend fun update(w: SavedWordEntity)
     @Delete suspend fun delete(w: SavedWordEntity)
