@@ -3,6 +3,7 @@ package com.example.splitreader.domain.repository
 import com.example.splitreader.data.local.SavedWordEntity
 import kotlinx.coroutines.flow.Flow
 
+/** Stores and queries the user's saved vocabulary words. */
 interface SavedWordRepository {
     fun observeAll(): Flow<List<SavedWordEntity>>
     fun observeByLang(code: String): Flow<List<SavedWordEntity>>

@@ -3,6 +3,7 @@ package com.example.splitreader.domain.repository
 import com.example.splitreader.data.local.BookmarkEntity
 import kotlinx.coroutines.flow.Flow
 
+/** Manages paragraph-level bookmarks within a book. */
 interface BookmarkRepository {
     fun observeForBook(uri: String): Flow<List<BookmarkEntity>>
     suspend fun add(bookUri: String, chapterIndex: Int, paragraphIndex: Int, label: String? = null)

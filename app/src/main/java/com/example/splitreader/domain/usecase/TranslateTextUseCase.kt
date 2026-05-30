@@ -13,6 +13,10 @@ import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
 
+/**
+ * Translates a range of paragraphs using the currently selected provider, emitting
+ * [TranslationState] updates (model download, per-paragraph partials, or a friendly error).
+ */
 class TranslateTextUseCase @Inject constructor(
     private val repository: TranslationRepository,
     private val settings: ReadingProgressManager,

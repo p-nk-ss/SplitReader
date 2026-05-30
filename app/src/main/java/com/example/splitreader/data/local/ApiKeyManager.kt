@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Stores translation-provider API keys at rest using [EncryptedSharedPreferences]. */
 @Singleton
 class ApiKeyManager @Inject constructor(
     @ApplicationContext private val context: Context,

@@ -14,11 +14,16 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 
+/**
+ * Resolves the book format from the file name, MIME type, or content sniffing, then delegates
+ * to the matching [EpubParser]/[Fb2Parser]. Emits [ParseResult] (loading, success, or error).
+ */
 class ParseBookUseCase @Inject constructor(
     private val fb2Parser: Fb2Parser,
     private val epubParser: EpubParser,
     @ApplicationContext private val context: Context,
 ) {
+    /** Parses the book at [uri], emitting loading → success/error. Runs on [Dispatchers.IO]. */
     operator fun invoke(uri: Uri): Flow<ParseResult> = flow {
         emit(ParseResult.Loading)
         try {

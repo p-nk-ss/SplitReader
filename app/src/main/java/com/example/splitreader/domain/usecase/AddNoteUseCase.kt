@@ -4,6 +4,7 @@ import com.example.splitreader.data.local.NoteEntity
 import com.example.splitreader.domain.repository.NoteRepository
 import javax.inject.Inject
 
+/** Creates or updates a note (or highlight) anchored to a specific paragraph in a book. */
 class AddNoteUseCase @Inject constructor(
     private val repository: NoteRepository,
 ) {
