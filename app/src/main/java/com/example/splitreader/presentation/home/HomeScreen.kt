@@ -73,19 +73,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
+import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.PaperAccent
-import com.example.splitreader.presentation.theme.PaperAccentSoft
-import com.example.splitreader.presentation.theme.PaperBg
-import com.example.splitreader.presentation.theme.PaperBg2
-import com.example.splitreader.presentation.theme.PaperBg3
-import com.example.splitreader.presentation.theme.PaperEdge
-import com.example.splitreader.presentation.theme.PaperInk
-import com.example.splitreader.presentation.theme.PaperInk2
-import com.example.splitreader.presentation.theme.PaperInk3
-import com.example.splitreader.presentation.theme.PaperInk4
-import com.example.splitreader.presentation.theme.PaperMoss
 import com.example.splitreader.presentation.ui.BookplateButton
 import com.example.splitreader.presentation.ui.LibraryTagButton
 import java.time.LocalDate
@@ -168,6 +158,7 @@ private fun HomeScreen(
     onDismissError: () -> Unit,
 ) {
     val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
     var shelfFilter by remember { mutableIntStateOf(0) } // 0=All,1=Reading,2=Finished,3=Unread
 
     val filteredBooks = remember(uiState.books, shelfFilter) {
@@ -180,15 +171,15 @@ private fun HomeScreen(
     }
 
     if (uiState.isLoading) {
-        Box(Modifier.fillMaxSize().background(PaperBg), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = PaperAccent)
+        Box(Modifier.fillMaxSize().background(palette.bg), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = palette.accent)
         }
         return
     }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(7),
-        modifier = Modifier.fillMaxSize().background(PaperBg),
+        modifier = Modifier.fillMaxSize().background(palette.bg),
         contentPadding = PaddingValues(sp.xxl),
         verticalArrangement = Arrangement.spacedBy(sp.lg),
         horizontalArrangement = Arrangement.spacedBy(sp.lg),
@@ -260,6 +251,7 @@ private fun LibraryHeader(
     onOpenFilePicker: () -> Unit,
 ) {
     val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
     val today = LocalDate.now()
     val dayName = today.dayOfWeek.getDisplayName(JTextStyle.FULL, Locale.ENGLISH).uppercase()
     val monthName = today.month.getDisplayName(JTextStyle.SHORT, Locale.ENGLISH).uppercase()
@@ -285,7 +277,7 @@ private fun LibraryHeader(
                 fontWeight = FontWeight.Medium,
                 fontSize = 10.sp,
                 letterSpacing = 0.5.sp,
-                color = PaperInk3,
+                color = palette.ink3,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -293,7 +285,7 @@ private fun LibraryHeader(
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.Medium,
                 fontSize = 28.sp,
-                color = PaperInk,
+                color = palette.ink,
             )
             if (weeklyMinutes > 0 || savedWords > 0) {
                 Spacer(Modifier.height(2.dp))
@@ -303,14 +295,14 @@ private fun LibraryHeader(
                     fontWeight = FontWeight.Normal,
                     fontStyle = FontStyle.Italic,
                     fontSize = 14.sp,
-                    color = PaperInk2,
+                    color = palette.ink2,
                 )
             }
         }
         Spacer(Modifier.width(sp.md))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
             IconButton(onClick = {}) {
-                Icon(Icons.Outlined.Search, contentDescription = "Search", tint = PaperInk2)
+                Icon(Icons.Outlined.Search, contentDescription = "Search", tint = palette.ink2)
             }
             LibraryTagButton(text = "Open book", onClick = onOpenFilePicker)
         }
@@ -324,13 +316,14 @@ private fun LibraryHeader(
 private fun StreakRibbon(streakDays: Int, weeklyMinutes: Int, weeklyGoal: Int) {
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
+    val palette = LocalReaderPalette.current
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(radii.md))
-            .background(PaperBg2)
-            .border(1.dp, PaperEdge, RoundedCornerShape(radii.md))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
             .padding(horizontal = sp.md, vertical = sp.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(sp.sm),
@@ -340,11 +333,11 @@ private fun StreakRibbon(streakDays: Int, weeklyMinutes: Int, weeklyGoal: Int) {
             modifier = Modifier
                 .size(30.dp)
                 .clip(CircleShape)
-                .background(PaperAccentSoft),
+                .background(palette.accentSoft),
             contentAlignment = Alignment.Center,
         ) {
             Icon(Icons.Outlined.LocalFireDepartment, contentDescription = null,
-                tint = PaperAccent, modifier = Modifier.size(18.dp))
+                tint = palette.accent, modifier = Modifier.size(18.dp))
         }
         Column(Modifier.weight(1f)) {
             Row {
@@ -353,7 +346,7 @@ private fun StreakRibbon(streakDays: Int, weeklyMinutes: Int, weeklyGoal: Int) {
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Medium,
                     fontSize = 15.sp,
-                    color = PaperInk,
+                    color = palette.ink,
                 )
                 if (streakDays > 0) {
                     Text(
@@ -362,7 +355,7 @@ private fun StreakRibbon(streakDays: Int, weeklyMinutes: Int, weeklyGoal: Int) {
                         fontWeight = FontWeight.Normal,
                         fontStyle = FontStyle.Italic,
                         fontSize = 12.sp,
-                        color = PaperInk3,
+                        color = palette.ink3,
                     )
                 }
             }
@@ -376,13 +369,14 @@ private fun StreakRibbon(streakDays: Int, weeklyMinutes: Int, weeklyGoal: Int) {
             fontWeight = FontWeight.Medium,
             fontSize = 10.sp,
             letterSpacing = 0.5.sp,
-            color = PaperInk3,
+            color = palette.ink3,
         )
     }
 }
 
 @Composable
 private fun StreakBar(streakDays: Int) {
+    val palette = LocalReaderPalette.current
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         val today = LocalDate.now()
         (6 downTo 0).forEach { daysAgo ->
@@ -393,9 +387,9 @@ private fun StreakBar(streakDays: Int) {
                     .width(18.dp)
                     .height(6.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(if (active || isToday) PaperAccent else PaperBg3)
+                    .background(if (active || isToday) palette.accent else palette.bg3)
                     .then(
-                        if (isToday) Modifier.border(1.dp, PaperAccent, RoundedCornerShape(2.dp))
+                        if (isToday) Modifier.border(1.dp, palette.accent, RoundedCornerShape(2.dp))
                         else Modifier
                     )
             )
@@ -409,6 +403,7 @@ private fun StreakBar(streakDays: Int) {
 private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
+    val palette = LocalReaderPalette.current
     val spec = coverSpec(book.title, book.uri)
     val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
 
@@ -416,8 +411,8 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(radii.lg))
-            .background(PaperBg2)
-            .border(1.dp, PaperEdge, RoundedCornerShape(radii.lg))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(radii.lg))
             .padding(sp.lg),
         horizontalArrangement = Arrangement.spacedBy(sp.md),
         verticalAlignment = Alignment.Top,
@@ -442,7 +437,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 9.sp,
                 letterSpacing = 0.5.sp,
-                color = PaperAccent,
+                color = palette.accent,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -452,7 +447,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 fontSize = 28.sp,
                 letterSpacing = (-0.3).sp,
                 lineHeight = 32.sp,
-                color = PaperInk,
+                color = palette.ink,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -462,7 +457,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 fontWeight = FontWeight.Normal,
                 fontStyle = FontStyle.Italic,
                 fontSize = 14.sp,
-                color = PaperInk2,
+                color = palette.ink2,
             )
             Spacer(Modifier.height(sp.md))
             // Progress bar
@@ -478,7 +473,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                     fontWeight = FontWeight.Normal,
                     fontSize = 9.sp,
                     letterSpacing = 0.5.sp,
-                    color = PaperInk3,
+                    color = palette.ink3,
                 )
                 Text(
                     text = "${(progress * 100).toInt()}%",
@@ -486,7 +481,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                     fontWeight = FontWeight.Normal,
                     fontSize = 9.sp,
                     letterSpacing = 0.5.sp,
-                    color = PaperInk3,
+                    color = palette.ink3,
                 )
             }
         }
@@ -501,7 +496,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(radii.md))
-                    .background(PaperBg3)
+                    .background(palette.bg3)
                     .padding(sp.sm),
             ) {
                 Text(
@@ -510,7 +505,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                     fontWeight = FontWeight.Medium,
                     fontSize = 8.sp,
                     letterSpacing = 0.5.sp,
-                    color = PaperInk3,
+                    color = palette.ink3,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
@@ -519,7 +514,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                     fontWeight = FontWeight.Normal,
                     fontStyle = FontStyle.Italic,
                     fontSize = 14.sp,
-                    color = PaperInk,
+                    color = palette.ink,
                 )
             }
             // Continue button
@@ -545,6 +540,7 @@ private fun ShelfHeader(
 ) {
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
+    val palette = LocalReaderPalette.current
 
     Column {
         Row(
@@ -560,7 +556,7 @@ private fun ShelfHeader(
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Medium,
                     fontSize = 24.sp,
-                    color = PaperInk,
+                    color = palette.ink,
                 )
                 Text(
                     text = "· $totalCount VOLUMES",
@@ -568,7 +564,7 @@ private fun ShelfHeader(
                     fontWeight = FontWeight.Medium,
                     fontSize = 10.sp,
                     letterSpacing = 0.5.sp,
-                    color = PaperInk3,
+                    color = palette.ink3,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
@@ -583,7 +579,7 @@ private fun ShelfHeader(
             }
         }
         // Hairline divider
-        Box(Modifier.fillMaxWidth().height(1.dp).background(PaperEdge))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
         Spacer(Modifier.height(sp.sm))
     }
 }
@@ -591,11 +587,12 @@ private fun ShelfHeader(
 @Composable
 private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
     val radii = LocalRadii.current
+    val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(radii.md))
-            .background(if (selected) PaperInk else PaperBg)
-            .border(1.dp, if (selected) PaperInk else PaperEdge, RoundedCornerShape(radii.md))
+            .background(if (selected) palette.ink else palette.bg)
+            .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
@@ -606,7 +603,7 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
             fontStyle = if (selected) FontStyle.Italic else FontStyle.Normal,
             fontSize = 11.sp,
             letterSpacing = if (selected) 0.sp else 0.3.sp,
-            color = if (selected) PaperBg else PaperInk2,
+            color = if (selected) palette.bg else palette.ink2,
         )
     }
 }
@@ -615,6 +612,7 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> Unit) {
+    val palette = LocalReaderPalette.current
     val spec = coverSpec(book.title, book.uri)
     val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
     val finished = book.lastChapterIndex >= book.chapterCount - 1 && book.chapterCount > 0
@@ -629,7 +627,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Medium,
                     fontSize = 18.sp,
-                    color = PaperInk,
+                    color = palette.ink,
                 )
             },
             text = {
@@ -639,7 +637,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                     fontWeight = FontWeight.Normal,
                     fontStyle = FontStyle.Italic,
                     fontSize = 14.sp,
-                    color = PaperInk2,
+                    color = palette.ink2,
                 )
             },
             confirmButton = {
@@ -663,11 +661,11 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                         fontFamily = Newsreader,
                         fontWeight = FontWeight.Normal,
                         fontSize = 14.sp,
-                        color = PaperInk2,
+                        color = palette.ink2,
                     )
                 }
             },
-            containerColor = PaperBg2,
+            containerColor = palette.bg2,
             tonalElevation = 0.dp,
         )
     }
@@ -696,13 +694,13 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .height(3.dp)
-                        .background(PaperBg2.copy(alpha = 0.7f))
+                        .background(palette.bg2.copy(alpha = 0.7f))
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
                             .fillMaxWidth(progress)
-                            .background(PaperAccent)
+                            .background(palette.accent)
                     )
                 }
             }
@@ -714,10 +712,10 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                         .padding(4.dp)
                         .size(22.dp)
                         .clip(CircleShape)
-                        .background(PaperMoss),
+                        .background(palette.moss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("✓", color = PaperBg, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    Text("✓", color = palette.bg, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             // 3-dot context menu at bottom-right
@@ -749,7 +747,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
             fontFamily = Newsreader,
             fontWeight = FontWeight.Medium,
             fontSize = 13.sp,
-            color = PaperInk,
+            color = palette.ink,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
@@ -759,7 +757,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
             fontWeight = FontWeight.Normal,
             fontStyle = FontStyle.Italic,
             fontSize = 11.sp,
-            color = PaperInk3,
+            color = palette.ink3,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -770,7 +768,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                 fontWeight = FontWeight.Normal,
                 fontSize = 9.sp,
                 letterSpacing = 0.3.sp,
-                color = PaperInk3,
+                color = palette.ink3,
             )
         }
     }
@@ -781,6 +779,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
 @Composable
 private fun EmptyLibrary(onOpenFilePicker: () -> Unit) {
     val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -791,7 +790,7 @@ private fun EmptyLibrary(onOpenFilePicker: () -> Unit) {
         Icon(
             Icons.Outlined.MenuBook,
             contentDescription = null,
-            tint = PaperInk4,
+            tint = palette.ink4,
             modifier = Modifier.size(72.dp),
         )
         Text(
@@ -799,7 +798,7 @@ private fun EmptyLibrary(onOpenFilePicker: () -> Unit) {
             fontFamily = Newsreader,
             fontWeight = FontWeight.Medium,
             fontSize = 17.sp,
-            color = PaperInk,
+            color = palette.ink,
         )
         Text(
             text = "Tap “Open book” to add an EPUB or FB2.",
@@ -807,7 +806,7 @@ private fun EmptyLibrary(onOpenFilePicker: () -> Unit) {
             fontWeight = FontWeight.Normal,
             fontStyle = FontStyle.Italic,
             fontSize = 14.sp,
-            color = PaperInk3,
+            color = palette.ink3,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(sp.sm))
@@ -998,17 +997,18 @@ private fun DrawScope.drawMotif(motif: CoverMotif, color: Color, w: Float, topY:
 @Composable
 fun ProgressRule(progress: Float, modifier: Modifier = Modifier) {
     val radii = LocalRadii.current
+    val palette = LocalReaderPalette.current
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(2.dp))
-            .background(PaperBg3),
+            .background(palette.bg3),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .clip(RoundedCornerShape(2.dp))
-                .background(PaperAccent)
+                .background(palette.accent)
         )
     }
 }

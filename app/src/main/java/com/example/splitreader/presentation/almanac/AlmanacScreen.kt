@@ -41,18 +41,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.data.local.DailyMinutes
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
+import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.PaperAccent
-import com.example.splitreader.presentation.theme.PaperAccentSoft
-import com.example.splitreader.presentation.theme.PaperBg
-import com.example.splitreader.presentation.theme.PaperBg2
-import com.example.splitreader.presentation.theme.PaperBg3
-import com.example.splitreader.presentation.theme.PaperEdge
-import com.example.splitreader.presentation.theme.PaperInk
-import com.example.splitreader.presentation.theme.PaperInk2
-import com.example.splitreader.presentation.theme.PaperInk3
-import com.example.splitreader.presentation.theme.PaperInk4
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -75,11 +66,12 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
     val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
+    val palette = LocalReaderPalette.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(PaperBg)
+            .background(palette.bg)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = sp.xxl, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(sp.md),
@@ -91,18 +83,18 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
             verticalAlignment = Alignment.Bottom,
         ) {
             Column {
-                Text("READING", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = PaperInk3)
+                Text("READING", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("Your ", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 20.sp, color = PaperInk)
-                    Text("almanac", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontStyle = FontStyle.Italic, fontSize = 20.sp, color = PaperAccent)
+                    Text("Your ", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 20.sp, color = palette.ink)
+                    Text("almanac", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontStyle = FontStyle.Italic, fontSize = 20.sp, color = palette.accent)
                 }
             }
             // Range selector
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(radii.md))
-                    .background(PaperBg2)
-                    .border(1.dp, PaperEdge, RoundedCornerShape(radii.md))
+                    .background(palette.bg2)
+                    .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -111,12 +103,12 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (selected) PaperInk else PaperBg2)
+                            .background(if (selected) palette.ink else palette.bg2)
                             .clickable { viewModel.selectRange(range) }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     ) {
                         Text(range.label, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp,
-                            color = if (selected) PaperBg else PaperInk2)
+                            color = if (selected) palette.bg else palette.ink2)
                     }
                 }
             }
@@ -153,50 +145,53 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
 
 @Composable
 private fun EmptyAlmanac() {
+    val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(LocalRadii.current.lg))
-            .background(PaperBg2)
-            .border(1.dp, PaperEdge, RoundedCornerShape(LocalRadii.current.lg))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(LocalRadii.current.lg))
             .padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("BEGIN", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = PaperInk3)
-            Text("Open a book to start tracking your reading.", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = PaperInk)
-            Text("Your streak, minutes, and word counts will appear here.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = PaperInk3)
+            Text("BEGIN", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+            Text("Open a book to start tracking your reading.", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = palette.ink)
+            Text("Your streak, minutes, and word counts will appear here.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
         }
     }
 }
 
 @Composable
 private fun AlmanacCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val palette = LocalReaderPalette.current
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(LocalRadii.current.lg))
-            .background(PaperBg2)
-            .border(1.dp, PaperEdge, RoundedCornerShape(LocalRadii.current.lg))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(LocalRadii.current.lg))
             .padding(14.dp, 18.dp),
     ) { content() }
 }
 
 @Composable
 private fun StreakHeroCard(current: Int, longest: Int, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            Box(Modifier.size(64.dp).clip(CircleShape).background(PaperAccentSoft), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.LocalFireDepartment, null, tint = PaperAccent, modifier = Modifier.size(32.dp))
+            Box(Modifier.size(64.dp).clip(CircleShape).background(palette.accentSoft), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.LocalFireDepartment, null, tint = palette.accent, modifier = Modifier.size(32.dp))
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("$current", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 32.sp, letterSpacing = (-0.5).sp, color = PaperInk)
-                    Text("day streak", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 13.sp, color = PaperInk2)
+                    Text("$current", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 32.sp, letterSpacing = (-0.5).sp, color = palette.ink)
+                    Text("day streak", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 13.sp, color = palette.ink2)
                 }
                 Row {
-                    Text("Longest: ", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = PaperInk3)
-                    Text("$longest days", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = PaperInk2)
-                    Text(" · keep going to beat it.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = PaperInk3)
+                    Text("Longest: ", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
+                    Text("$longest days", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                    Text(" · keep going to beat it.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
                 }
             }
         }
@@ -205,16 +200,18 @@ private fun StreakHeroCard(current: Int, longest: Int, modifier: Modifier = Modi
 
 @Composable
 private fun StatBlock(value: String, unit: String, sub: String, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
-        Text(value, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 44.sp, letterSpacing = (-0.6).sp, lineHeight = 48.sp, color = PaperInk)
+        Text(value, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 44.sp, letterSpacing = (-0.6).sp, lineHeight = 48.sp, color = palette.ink)
         Spacer(Modifier.height(6.dp))
-        Text(unit, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 15.sp, color = PaperInk2)
-        Text(sub, fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = PaperInk3)
+        Text(unit, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 15.sp, color = palette.ink2)
+        Text(sub, fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = palette.ink3)
     }
 }
 
 @Composable
 private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
         val today = LocalDate.now()
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -222,7 +219,7 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
         val maxMinutes = days.maxOfOrNull { it.minutes } ?: 1
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("THIS WEEK", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = PaperInk3)
+            Text("THIS WEEK", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
@@ -232,7 +229,7 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
                 val isToday = date == today
                 val barH = if (maxMinutes > 0) (mins.toFloat() / maxMinutes * 100).coerceAtLeast(3f) else 3f
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                    if (mins > 0) Text("${mins}m", fontFamily = JetBrainsMono, fontSize = 8.sp, color = PaperInk3)
+                    if (mins > 0) Text("${mins}m", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.ink3)
                     Spacer(Modifier.height(2.dp))
                     Box(
                         Modifier
@@ -240,9 +237,9 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
                             .height(barH.dp)
                             .clip(RoundedCornerShape(3.dp))
                             .background(when {
-                                isToday -> PaperAccent
-                                mins > 0 -> PaperInk2
-                                else -> PaperBg3
+                                isToday -> palette.accent
+                                mins > 0 -> palette.ink2
+                                else -> palette.bg3
                             })
                     )
                 }
@@ -257,7 +254,7 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
                     modifier = Modifier.weight(1f),
                     fontFamily = JetBrainsMono,
                     fontSize = 9.sp,
-                    color = if (isToday) PaperAccent else PaperInk3,
+                    color = if (isToday) palette.accent else palette.ink3,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
             }
@@ -267,6 +264,7 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
 
 @Composable
 private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val today = LocalDate.now()
@@ -276,8 +274,8 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
         val totalMins = days.sumOf { it.minutes }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("LAST 26 WEEKS", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = PaperInk3)
-            Text("$activeDays ACTIVE DAYS · ${totalMins} MIN", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = PaperInk3)
+            Text("LAST 26 WEEKS", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+            Text("$activeDays ACTIVE DAYS · ${totalMins} MIN", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.3.sp, color = palette.ink3)
         }
         Spacer(Modifier.height(8.dp))
         Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
@@ -303,11 +301,11 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
                         else -> 4
                     }
                     val color = when (level) {
-                        0 -> PaperBg3
-                        1 -> PaperAccentSoft
-                        2 -> PaperAccent.copy(alpha = 0.6f)
-                        3 -> PaperAccent.copy(alpha = 0.85f)
-                        else -> PaperInk
+                        0 -> palette.bg3
+                        1 -> palette.accentSoft
+                        2 -> palette.accent.copy(alpha = 0.6f)
+                        3 -> palette.accent.copy(alpha = 0.85f)
+                        else -> palette.ink
                     }
                     val x = col * (cellW + gap)
                     val y = row * (cellH + gap)
@@ -317,58 +315,60 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
         }
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            Text("LESS", fontFamily = JetBrainsMono, fontSize = 8.sp, color = PaperInk4)
+            Text("LESS", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.ink4)
             Spacer(Modifier.width(4.dp))
-            listOf(PaperBg3, PaperAccentSoft, PaperAccent.copy(alpha = 0.6f), PaperAccent.copy(alpha = 0.85f), PaperInk).forEach { color ->
+            listOf(palette.bg3, palette.accentSoft, palette.accent.copy(alpha = 0.6f), palette.accent.copy(alpha = 0.85f), palette.ink).forEach { color ->
                 Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(color))
                 Spacer(Modifier.width(2.dp))
             }
-            Text("MORE", fontFamily = JetBrainsMono, fontSize = 8.sp, color = PaperInk4)
+            Text("MORE", fontFamily = JetBrainsMono, fontSize = 8.sp, color = palette.ink4)
         }
     }
 }
 
 @Composable
 private fun TimeByBookCard(books: List<com.example.splitreader.data.local.BookMinutes>, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
-        Text("TIME BY BOOK", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = PaperInk3)
+        Text("TIME BY BOOK", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
         Spacer(Modifier.height(8.dp))
         val maxMins = books.maxOfOrNull { it.minutes } ?: 1
         books.forEach { book ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(book.title, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = PaperInk,
+                Text(book.title, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = palette.ink,
                     modifier = Modifier.weight(1f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                Text("${book.minutes}M", fontFamily = JetBrainsMono, fontSize = 9.sp, color = PaperInk3)
+                Text("${book.minutes}M", fontFamily = JetBrainsMono, fontSize = 9.sp, color = palette.ink3)
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).clip(RoundedCornerShape(1.dp)).background(PaperBg3)) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth(book.minutes.toFloat() / maxMins).background(PaperAccent))
+            Box(Modifier.fillMaxWidth().height(1.dp).clip(RoundedCornerShape(1.dp)).background(palette.bg3)) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(book.minutes.toFloat() / maxMins).background(palette.accent))
             }
             Spacer(Modifier.height(8.dp))
         }
         if (books.isEmpty()) {
-            Text("No reading sessions yet.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = PaperInk3)
+            Text("No reading sessions yet.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
         }
     }
 }
 
 @Composable
 private fun LanguagesCard(langs: List<com.example.splitreader.data.local.LangMinutes>, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
-        Text("LANGUAGES", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = PaperInk3)
+        Text("LANGUAGES", fontFamily = JetBrainsMono, fontSize = 9.sp, letterSpacing = 0.5.sp, color = palette.ink3)
         Spacer(Modifier.height(8.dp))
         langs.forEach { lang ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Box(
-                    Modifier.clip(RoundedCornerShape(3.dp)).background(PaperBg3).padding(4.dp, 2.dp),
+                    Modifier.clip(RoundedCornerShape(3.dp)).background(palette.bg3).padding(4.dp, 2.dp),
                 ) {
-                    Text(lang.lang.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 9.sp, color = PaperInk)
+                    Text(lang.lang.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 9.sp, color = palette.ink)
                 }
-                Text("${lang.minutes} MIN", fontFamily = JetBrainsMono, fontSize = 9.sp, color = PaperInk3)
+                Text("${lang.minutes} MIN", fontFamily = JetBrainsMono, fontSize = 9.sp, color = palette.ink3)
             }
             Spacer(Modifier.height(6.dp))
         }
         if (langs.isEmpty()) {
-            Text("No data yet.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = PaperInk3)
+            Text("No data yet.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
         }
     }
 }

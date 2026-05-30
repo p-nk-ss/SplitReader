@@ -106,9 +106,6 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.PaperAccent
-import com.example.splitreader.presentation.theme.PaperBg
-import com.example.splitreader.presentation.theme.PaperInk
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.readerPalette
 import com.example.splitreader.presentation.theme.AmoledPalette
@@ -204,19 +201,21 @@ internal fun ReaderRoute(
 
 @Composable
 private fun ReaderLoadingScreen() {
-    Box(Modifier.fillMaxSize().background(PaperBg), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = PaperAccent)
+    val palette = LocalReaderPalette.current
+    Box(Modifier.fillMaxSize().background(palette.bg), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = palette.accent)
     }
 }
 
 @Composable
 private fun ReaderErrorScreen(message: String, onBack: () -> Unit) {
-    Box(Modifier.fillMaxSize().background(PaperBg).padding(32.dp), contentAlignment = Alignment.Center) {
+    val palette = LocalReaderPalette.current
+    Box(Modifier.fillMaxSize().background(palette.bg).padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(message, fontFamily = Newsreader, fontSize = 16.sp, color = PaperInk, textAlign = TextAlign.Center)
+            Text(message, fontFamily = Newsreader, fontSize = 16.sp, color = palette.ink, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(PaperInk).clickable(onClick = onBack).padding(12.dp, 8.dp)) {
-                Text("Go back", fontFamily = Newsreader, fontStyle = FontStyle.Italic, color = PaperBg)
+            Box(Modifier.clip(RoundedCornerShape(8.dp)).background(palette.ink).clickable(onClick = onBack).padding(12.dp, 8.dp)) {
+                Text("Go back", fontFamily = Newsreader, fontStyle = FontStyle.Italic, color = palette.bg)
             }
         }
     }

@@ -4,6 +4,9 @@ import android.content.Context
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,8 +60,15 @@ class ReadingProgressManager @Inject constructor(
 
     fun isNavigationLeft(): Boolean = prefs.getBoolean("navigation_side_left", false)
 
+    private val _readerThemeName = MutableStateFlow(getReaderThemeName())
+
+    /** Reactive stream of the persisted reader-theme name, so the whole app
+     *  (not just the reading pane) can follow the selected theme. */
+    val readerThemeName: StateFlow<String> = _readerThemeName.asStateFlow()
+
     fun saveReaderTheme(themeName: String) {
         prefs.edit().putString("reader_theme", themeName).apply()
+        _readerThemeName.value = themeName
     }
 
     fun getReaderThemeName(): String = prefs.getString("reader_theme", "DEFAULT") ?: "DEFAULT"

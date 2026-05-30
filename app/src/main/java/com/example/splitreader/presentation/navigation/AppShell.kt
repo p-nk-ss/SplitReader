@@ -36,15 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
+import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.PaperAccent
-import com.example.splitreader.presentation.theme.PaperBg
-import com.example.splitreader.presentation.theme.PaperBg2
-import com.example.splitreader.presentation.theme.PaperBg3
-import com.example.splitreader.presentation.theme.PaperEdge
-import com.example.splitreader.presentation.theme.PaperInk
-import com.example.splitreader.presentation.theme.PaperInk3
 import com.example.splitreader.presentation.ui.BrandIcon
 
 @Composable
@@ -57,8 +51,9 @@ fun AppShell(
 ) {
     val isReader = currentRoute?.startsWith("reader") == true
     val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
 
-    Column(Modifier.fillMaxSize().background(PaperBg)) {
+    Column(Modifier.fillMaxSize().background(palette.bg)) {
         // App status strip
         AppStatusStrip()
 
@@ -80,14 +75,15 @@ fun AppShell(
 
 @Composable
 private fun AppStatusStrip() {
+    val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(LocalSpacing.current.statusBar)
-            .background(PaperBg)
+            .background(palette.bg)
             .drawBehind {
                 drawLine(
-                    color = PaperEdge,
+                    color = palette.edge,
                     start = Offset(0f, size.height),
                     end = Offset(size.width, size.height),
                     strokeWidth = 1.dp.toPx(),
@@ -106,7 +102,7 @@ private fun AppStatusStrip() {
                 fontWeight = FontWeight.Medium,
                 fontSize = 9.sp,
                 letterSpacing = 0.5.sp,
-                color = PaperInk3,
+                color = palette.ink3,
                 modifier = Modifier.weight(1f),
             )
             Text(
@@ -115,7 +111,7 @@ private fun AppStatusStrip() {
                 fontWeight = FontWeight.Medium,
                 fontSize = 9.sp,
                 letterSpacing = 0.5.sp,
-                color = PaperInk3,
+                color = palette.ink3,
                 textAlign = TextAlign.End,
             )
         }
@@ -130,13 +126,14 @@ private fun EditorialNavigationRail(
     onNavigateToWords: () -> Unit,
 ) {
     val sp = LocalSpacing.current
-    val edgeColor = PaperEdge
+    val palette = LocalReaderPalette.current
+    val edgeColor = palette.edge
 
     Column(
         modifier = Modifier
             .width(sp.railWidth)
             .fillMaxHeight()
-            .background(PaperBg2)
+            .background(palette.bg2)
             .drawBehind {
                 drawLine(
                     color = edgeColor,
@@ -158,7 +155,7 @@ private fun EditorialNavigationRail(
             Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(PaperEdge)
+                .background(palette.edge)
         )
 
         Spacer(Modifier.height(sp.sm))
@@ -202,7 +199,10 @@ private fun EditorialNavigationRail(
 
 @Composable
 private fun RailWordmark() {
-    BrandIcon(modifier = Modifier.size(44.dp))
+    // On dark themes use the inverted (cream) brand mark so the wordmark stays
+    // legible against the dark rail; the default ink tile is used on light themes.
+    val palette = LocalReaderPalette.current
+    BrandIcon(modifier = Modifier.size(44.dp), inverted = palette.isDark)
 }
 
 @Composable
@@ -212,14 +212,15 @@ private fun RailTab(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val accentColor = PaperAccent
+    val palette = LocalReaderPalette.current
+    val accentColor = palette.accent
 
     Box(
         modifier = Modifier
             .width(56.dp)
             .height(56.dp)
             .clip(RoundedCornerShape(LocalRadii.current.sm))
-            .background(if (selected) PaperBg3 else PaperBg2)
+            .background(if (selected) palette.bg3 else palette.bg2)
             .drawBehind {
                 if (selected) {
                     drawLine(
@@ -237,7 +238,7 @@ private fun RailTab(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (selected) PaperInk else PaperInk3,
+                tint = if (selected) palette.ink else palette.ink3,
                 modifier = Modifier.size(22.dp),
             )
             Spacer(Modifier.height(3.dp))
@@ -247,7 +248,7 @@ private fun RailTab(
                 fontWeight = FontWeight.Normal,
                 fontStyle = FontStyle.Italic,
                 fontSize = 11.sp,
-                color = if (selected) PaperInk else PaperInk3,
+                color = if (selected) palette.ink else palette.ink3,
             )
         }
     }
@@ -255,12 +256,13 @@ private fun RailTab(
 
 @Composable
 private fun RailAvatar() {
+    val palette = LocalReaderPalette.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
-                .background(PaperAccent),
+                .background(palette.accent),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -269,7 +271,7 @@ private fun RailAvatar() {
                 fontWeight = FontWeight.Medium,
                 fontStyle = FontStyle.Italic,
                 fontSize = 14.sp,
-                color = PaperBg,
+                color = palette.bg,
             )
         }
         Spacer(Modifier.height(3.dp))
@@ -279,7 +281,7 @@ private fun RailAvatar() {
             fontWeight = FontWeight.Normal,
             fontSize = 7.sp,
             letterSpacing = 0.5.sp,
-            color = PaperInk3,
+            color = palette.ink3,
         )
     }
 }
