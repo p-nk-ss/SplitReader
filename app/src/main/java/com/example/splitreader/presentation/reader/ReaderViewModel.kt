@@ -4,24 +4,34 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.data.local.ReadingProgressManager
+import com.example.splitreader.data.local.TranslationUsage
+import com.example.splitreader.data.local.TranslationUsageTracker
+import com.example.splitreader.data.local.TextToSpeechManager
+import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
+import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.domain.usecase.SaveWordUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -34,13 +44,22 @@ class ReaderViewModel @Inject constructor(
     private val translateTextUseCase: TranslateTextUseCase,
     private val parseBookUseCase: ParseBookUseCase,
     private val saveWordUseCase: SaveWordUseCase,
+    private val endReadingSessionUseCase: EndReadingSessionUseCase,
     private val progressManager: ReadingProgressManager,
     private val languageDetector: LanguageDetector,
+    private val apiKeyManager: ApiKeyManager,
+    private val translatorEndpoints: TranslatorEndpoints,
+    private val usageTracker: TranslationUsageTracker,
+    private val textToSpeechManager: TextToSpeechManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private companion object {
         const val TRANSLATE_WINDOW = 25
+        // For non-MLKit (paid/quota-limited) providers: extend prefetch this many paragraphs ahead of scroll
+        const val CLOUD_PREFETCH_AHEAD = 20
+        // Trigger next prefetch batch when within this many paragraphs of the translated edge
+        const val CLOUD_PREFETCH_TRIGGER = 5
     }
 
     private data class InternalState(
@@ -62,6 +81,12 @@ class ReaderViewModel @Inject constructor(
         val isLoading: Boolean = false,
         val error: String? = null,
         val wordSelection: WordSelection? = null,
+        val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
+        val googleCloudKeyConfigured: Boolean = false,
+        val deepLKeyConfigured: Boolean = false,
+        val libreTranslateKeyConfigured: Boolean = false,
+        val libreBaseUrl: String = "",
+        val translationUsage: Map<TranslationProvider, TranslationUsage> = emptyMap(),
     )
 
     private val _state = MutableStateFlow(
@@ -77,8 +102,18 @@ class ReaderViewModel @Inject constructor(
             splitRatio = progressManager.getSplitRatio(),
             showTranslation = progressManager.getShowTranslation(),
             horizontalMargin = progressManager.getHorizontalMargin(),
+            translatorProvider = progressManager.getTranslatorProvider(),
+            googleCloudKeyConfigured = apiKeyManager.getGoogleCloudKey() != null,
+            deepLKeyConfigured = apiKeyManager.getDeepLKey() != null,
+            libreTranslateKeyConfigured = apiKeyManager.getLibreTranslateKey() != null,
+            libreBaseUrl = translatorEndpoints.getLibreTranslateBaseUrl(),
+            translationUsage = TranslationProvider.entries.associateWith { usageTracker.usage(it) },
         )
     )
+
+    // One-shot events for transient UI feedback (e.g. Toast after saving a word)
+    private val _wordSaveEvent = Channel<SaveWordResult>(Channel.BUFFERED)
+    val wordSaveEvent = _wordSaveEvent.receiveAsFlow()
 
     // Guards concurrent state mutations inside the translation coroutine
     private val stateMutex = Mutex()
@@ -105,6 +140,12 @@ class ReaderViewModel @Inject constructor(
                     navigationSide = s.navigationSide,
                     horizontalMargin = s.horizontalMargin,
                     wordSelection = s.wordSelection,
+                    translatorProvider = s.translatorProvider,
+                    googleCloudKeyConfigured = s.googleCloudKeyConfigured,
+                    deepLKeyConfigured = s.deepLKeyConfigured,
+                    libreTranslateKeyConfigured = s.libreTranslateKeyConfigured,
+                    libreBaseUrl = s.libreBaseUrl,
+                    translationUsage = s.translationUsage,
                 )
             }
         }
@@ -115,9 +156,14 @@ class ReaderViewModel @Inject constructor(
         )
 
     private val translationJobs = mutableMapOf<Int, Job>()
+    private val prefetchJobs = mutableMapOf<Int, Job>()
+    private val prefetchedEdge = mutableMapOf<Int, Int>()
     private var selectionTranslateJob: Job? = null
     private var lastScrollPosition = 0
     private var lastScrollOffset = 0
+
+    // Timestamp of the current foreground reading stint; 0 means no active session.
+    private var sessionStartedAt = 0L
 
     fun loadBook(uri: Uri) {
         viewModelScope.launch {
@@ -159,8 +205,39 @@ class ReaderViewModel @Inject constructor(
                 pendingScrollOffset = if (lastScroll > 0) lastOffset else 0,
             )
         }
-        ensureChapterTranslated(0)
-        if (lastChapterIndex != 0) ensureChapterTranslated(lastChapterIndex)
+        ensureChapterTranslated(lastChapterIndex)
+        // Only preload chapter 0 on top of last-opened when free on-device translation is selected
+        if (lastChapterIndex != 0 && progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) {
+            ensureChapterTranslated(0)
+        }
+        // Begin tracking reading time now that the book is on screen
+        resumeSession()
+    }
+
+    /** Start a reading-time session if a book is loaded and none is already running. */
+    fun resumeSession() {
+        if (_state.value.book != null && sessionStartedAt == 0L) {
+            sessionStartedAt = System.currentTimeMillis()
+        }
+    }
+
+    /** End the current reading session (if any) and persist it via [EndReadingSessionUseCase]. */
+    fun pauseSession() {
+        val startedAt = sessionStartedAt
+        val book = _state.value.book
+        if (startedAt == 0L || book == null) return
+        sessionStartedAt = 0L
+        val sourceLang = _state.value.sourceLanguage.code
+        val paragraphsRead = lastScrollPosition
+        viewModelScope.launch {
+            endReadingSessionUseCase(
+                startedAt = startedAt,
+                bookUri = book.filePath,
+                bookTitle = book.title,
+                sourceLang = sourceLang,
+                paragraphsRead = paragraphsRead,
+            )
+        }
     }
 
     fun selectChapter(index: Int) {
@@ -168,19 +245,26 @@ class ReaderViewModel @Inject constructor(
         if (index < 0 || index >= book.chapters.size) return
         _state.update { it.copy(currentChapterIndex = index) }
         ensureChapterTranslated(index)
-        val next = (index + 1).coerceAtMost(book.chapters.size - 1)
-        if (next != index) ensureChapterTranslated(next)
+        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) {
+            val next = (index + 1).coerceAtMost(book.chapters.size - 1)
+            if (next != index) ensureChapterTranslated(next)
+        }
     }
 
     fun setTargetLanguage(lang: Language) {
         progressManager.saveTargetLanguage(lang)
         translationJobs.values.forEach { it.cancel() }
         translationJobs.clear()
+        prefetchJobs.values.forEach { it.cancel() }
+        prefetchJobs.clear()
+        prefetchedEdge.clear()
         _state.update { it.copy(targetLanguage = lang, chapterTranslations = emptyMap()) }
         val book = _state.value.book ?: return
-        // Preload only the first two chapters; scroll tracking handles the rest
         ensureChapterTranslated(0)
-        if (book.chapters.size > 1) ensureChapterTranslated(1)
+        // Only preload adjacent chapter when on-device (free) translation is selected
+        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT && book.chapters.size > 1) {
+            ensureChapterTranslated(1)
+        }
     }
 
     fun updateScrollPosition(chapterIndex: Int, position: Int, offset: Int = 0) {
@@ -188,6 +272,7 @@ class ReaderViewModel @Inject constructor(
         lastScrollOffset = offset
         val book = _state.value.book ?: return
         progressManager.saveProgress(book.filePath, chapterIndex, position, offset)
+        extendPrefetchIfNeeded(chapterIndex, position)
     }
 
     fun consumeScrollRestore() {
@@ -230,6 +315,66 @@ class ReaderViewModel @Inject constructor(
         val clamped = margin.coerceIn(4f, 32f)
         progressManager.saveHorizontalMargin(clamped)
         _state.update { it.copy(horizontalMargin = clamped) }
+    }
+
+    fun setTranslatorProvider(provider: TranslationProvider) {
+        if (_state.value.translatorProvider == provider) return
+        progressManager.setTranslatorProvider(provider)
+        _state.update { it.copy(translatorProvider = provider) }
+        retranslateCurrentChapter()
+    }
+
+    fun refreshTranslationUsage() {
+        val snapshot = TranslationProvider.entries.associateWith { usageTracker.usage(it) }
+        _state.update { it.copy(translationUsage = snapshot) }
+    }
+
+    fun resetTranslationUsage(provider: TranslationProvider) {
+        usageTracker.reset(provider)
+        refreshTranslationUsage()
+    }
+
+    fun setGoogleCloudKey(key: String?) {
+        apiKeyManager.setGoogleCloudKey(key)
+        val configured = apiKeyManager.getGoogleCloudKey() != null
+        _state.update { it.copy(googleCloudKeyConfigured = configured) }
+        if (_state.value.translatorProvider == TranslationProvider.GOOGLE_CLOUD) retranslateCurrentChapter()
+    }
+
+    fun setDeepLKey(key: String?) {
+        apiKeyManager.setDeepLKey(key)
+        val configured = apiKeyManager.getDeepLKey() != null
+        _state.update { it.copy(deepLKeyConfigured = configured) }
+        if (_state.value.translatorProvider == TranslationProvider.DEEPL) retranslateCurrentChapter()
+    }
+
+    fun setLibreTranslateKey(key: String?) {
+        apiKeyManager.setLibreTranslateKey(key)
+        val configured = apiKeyManager.getLibreTranslateKey() != null
+        _state.update { it.copy(libreTranslateKeyConfigured = configured) }
+        if (_state.value.translatorProvider == TranslationProvider.LIBRE_TRANSLATE) retranslateCurrentChapter()
+    }
+
+    fun setLibreBaseUrl(url: String?) {
+        translatorEndpoints.setLibreTranslateBaseUrl(url)
+        _state.update { it.copy(libreBaseUrl = translatorEndpoints.getLibreTranslateBaseUrl()) }
+        if (_state.value.translatorProvider == TranslationProvider.LIBRE_TRANSLATE) retranslateCurrentChapter()
+    }
+
+    private fun retranslateCurrentChapter() {
+        translationJobs.values.forEach { it.cancel() }
+        translationJobs.clear()
+        prefetchJobs.values.forEach { it.cancel() }
+        prefetchJobs.clear()
+        prefetchedEdge.clear()
+        _state.update { it.copy(chapterTranslations = emptyMap(), translationState = TranslationState.Idle) }
+        val book = _state.value.book ?: return
+        val current = _state.value.currentChapterIndex
+        ensureChapterTranslated(current)
+        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) {
+            val next = (current + 1).coerceAtMost(book.chapters.size - 1)
+            if (next != current) ensureChapterTranslated(next)
+        }
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
@@ -310,8 +455,8 @@ class ReaderViewModel @Inject constructor(
             .getOrNull(chapterIndex)?.paragraphs?.getOrElse(paragraphIndex) { "" }
             ?.take(120) ?: ""
         viewModelScope.launch {
-            saveWordUseCase(
-                word = word.trim(),
+            val result = saveWordUseCase(
+                word = word,
                 contextSnippet = context,
                 sourceLang = s.sourceLanguage,
                 targetLang = s.targetLanguage,
@@ -320,8 +465,11 @@ class ReaderViewModel @Inject constructor(
                 chapterIndex = chapterIndex,
                 paragraphIndex = paragraphIndex,
             )
+            _wordSaveEvent.trySend(result)
         }
     }
+
+    fun speak(text: String, langCode: String) = textToSpeechManager.speak(text, langCode)
 
     fun ensureChapterTranslated(index: Int) {
         if (_state.value.chapterTranslations.containsKey(index)) return
@@ -338,6 +486,7 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book ?: return
         val chapter = book.chapters[index]
         val results = MutableList(chapter.paragraphs.size) { "" }
+        val isMlKit = progressManager.getTranslatorProvider() == TranslationProvider.MLKIT
 
         stateMutex.withLock {
             _state.update { it.copy(chapterTranslations = it.chapterTranslations + (index to results.toList())) }
@@ -349,19 +498,45 @@ class ReaderViewModel @Inject constructor(
 
         collectTranslations(index, chapter, results, startIdx, windowEnd)
         if (_state.value.translationState is TranslationState.Error) return
+        prefetchedEdge[index] = windowEnd
 
-        if (windowEnd < chapter.paragraphs.size - 1) {
-            collectTranslations(index, chapter, results, windowEnd + 1, chapter.paragraphs.size - 1)
-            if (_state.value.translationState is TranslationState.Error) return
-        }
+        if (isMlKit) {
+            if (windowEnd < chapter.paragraphs.size - 1) {
+                collectTranslations(index, chapter, results, windowEnd + 1, chapter.paragraphs.size - 1)
+                if (_state.value.translationState is TranslationState.Error) return
+                prefetchedEdge[index] = chapter.paragraphs.size - 1
+            }
 
-        if (startIdx > 0) {
-            collectTranslations(index, chapter, results, 0, startIdx - 1)
-            if (_state.value.translationState is TranslationState.Error) return
+            if (startIdx > 0) {
+                collectTranslations(index, chapter, results, 0, startIdx - 1)
+                if (_state.value.translationState is TranslationState.Error) return
+            }
         }
 
         stateMutex.withLock {
             _state.update { it.copy(translationState = TranslationState.Idle) }
+        }
+    }
+
+    private fun extendPrefetchIfNeeded(chapterIndex: Int, scrollPosition: Int) {
+        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) return
+        val book = _state.value.book ?: return
+        val chapter = book.chapters.getOrNull(chapterIndex) ?: return
+        val edge = prefetchedEdge[chapterIndex] ?: return
+        if (edge >= chapter.paragraphs.size - 1) return
+        if (edge - scrollPosition > CLOUD_PREFETCH_TRIGGER) return
+        if (prefetchJobs[chapterIndex]?.isActive == true) return
+
+        val targetEdge = (scrollPosition + CLOUD_PREFETCH_AHEAD).coerceAtMost(chapter.paragraphs.size - 1)
+        if (targetEdge <= edge) return
+
+        prefetchJobs[chapterIndex] = viewModelScope.launch {
+            val existing = _state.value.chapterTranslations[chapterIndex]?.toMutableList()
+                ?: MutableList(chapter.paragraphs.size) { "" }
+            collectTranslations(chapterIndex, chapter, existing, edge + 1, targetEdge)
+            if (_state.value.translationState !is TranslationState.Error) {
+                prefetchedEdge[chapterIndex] = targetEdge
+            }
         }
     }
 

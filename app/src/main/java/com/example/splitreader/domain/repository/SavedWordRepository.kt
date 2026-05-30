@@ -8,6 +8,7 @@ interface SavedWordRepository {
     fun observeByLang(code: String): Flow<List<SavedWordEntity>>
     fun search(q: String): Flow<List<SavedWordEntity>>
     fun countByLang(code: String): Flow<Int>
+    suspend fun findByWordAndLang(word: String, lang: String): SavedWordEntity?
     suspend fun save(word: SavedWordEntity): Long
     suspend fun update(word: SavedWordEntity)
     suspend fun delete(word: SavedWordEntity)

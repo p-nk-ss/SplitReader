@@ -1,5 +1,6 @@
 package com.example.splitreader.presentation.dictionary
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StickyNote2
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -79,6 +82,7 @@ fun VocabulaireRoute(viewModel: VocabulaireViewModel = hiltViewModel()) {
         onSetQuery = viewModel::setQuery,
         onUpdateNote = viewModel::updateNote,
         onDelete = viewModel::delete,
+        onSpeak = viewModel::speak,
     )
 }
 
@@ -93,9 +97,15 @@ fun VocabulaireScreen(
     onSetQuery: (String) -> Unit,
     onUpdateNote: (SavedWordEntity, String) -> Unit,
     onDelete: (SavedWordEntity) -> Unit,
+    onSpeak: (String, String) -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
+    val context = LocalContext.current
+
+    // Deletion goes through a confirmation dialog instead of removing the word immediately
+    var wordPendingDelete by remember { mutableStateOf<SavedWordEntity?>(null) }
+    val requestDelete: (SavedWordEntity) -> Unit = { wordPendingDelete = it }
 
     Row(Modifier.fillMaxSize()) {
         // Master pane — 380dp
@@ -107,7 +117,7 @@ fun VocabulaireScreen(
             onSelectWord = onSelectWord,
             onSetFilter = onSetFilter,
             onSetQuery = onSetQuery,
-            onDelete = onDelete,
+            onDelete = requestDelete,
             modifier = Modifier
                 .width(380.dp)
                 .fillMaxHeight()
@@ -119,11 +129,63 @@ fun VocabulaireScreen(
         DetailPane(
             word = selectedWord,
             onUpdateNote = onUpdateNote,
-            onDelete = onDelete,
+            onDelete = requestDelete,
+            onSpeak = onSpeak,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
                 .background(palette.bg),
+        )
+    }
+
+    wordPendingDelete?.let { word ->
+        AlertDialog(
+            onDismissRequest = { wordPendingDelete = null },
+            title = {
+                Text(
+                    text = "Удалить слово",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 18.sp,
+                    color = palette.ink,
+                )
+            },
+            text = {
+                Text(
+                    text = "«${word.word}» будет удалено из словаря.",
+                    fontFamily = Newsreader,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
+                    color = palette.ink2,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(word)
+                    wordPendingDelete = null
+                    Toast.makeText(context, "Слово удалено", Toast.LENGTH_SHORT).show()
+                }) {
+                    Text(
+                        text = "Удалить",
+                        fontFamily = Newsreader,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = Color(0xFFB04040),
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { wordPendingDelete = null }) {
+                    Text(
+                        text = "Отмена",
+                        fontFamily = Newsreader,
+                        fontSize = 14.sp,
+                        color = palette.ink2,
+                    )
+                }
+            },
+            containerColor = palette.bg2,
+            tonalElevation = 0.dp,
         )
     }
 }
@@ -455,6 +517,7 @@ private fun DetailPane(
     word: SavedWordEntity?,
     onUpdateNote: (SavedWordEntity, String) -> Unit,
     onDelete: (SavedWordEntity) -> Unit,
+    onSpeak: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (word == null) {
@@ -464,6 +527,7 @@ private fun DetailPane(
             word = word,
             onUpdateNote = onUpdateNote,
             onDelete = onDelete,
+            onSpeak = onSpeak,
             modifier = modifier,
         )
     }
@@ -500,10 +564,12 @@ private fun WordDetail(
     word: SavedWordEntity,
     onUpdateNote: (SavedWordEntity, String) -> Unit,
     onDelete: (SavedWordEntity) -> Unit,
+    onSpeak: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
+    val context = LocalContext.current
     var showNoteDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -606,6 +672,7 @@ private fun WordDetail(
         item {
             ActionRow(
                 onAddNote = { showNoteDialog = true },
+                onPronounce = { onSpeak(word.word, word.sourceLang) },
                 onDelete = { onDelete(word) },
             )
         }
@@ -630,6 +697,7 @@ private fun WordDetail(
             onSave = { noteText ->
                 onUpdateNote(word, noteText)
                 showNoteDialog = false
+                Toast.makeText(context, "Заметка сохранена", Toast.LENGTH_SHORT).show()
             },
         )
     }
@@ -708,6 +776,7 @@ private fun BookInfoRow(word: SavedWordEntity) {
 @Composable
 private fun ActionRow(
     onAddNote: () -> Unit,
+    onPronounce: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
@@ -724,8 +793,7 @@ private fun ActionRow(
         ActionChip(
             icon = Icons.Outlined.Headphones,
             label = "Pronounce",
-            onClick = {},
-            enabled = false,
+            onClick = onPronounce,
             modifier = Modifier.weight(1f),
         )
         ActionChip(

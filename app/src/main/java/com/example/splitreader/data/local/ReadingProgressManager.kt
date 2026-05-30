@@ -2,6 +2,7 @@ package com.example.splitreader.data.local
 
 import android.content.Context
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.TranslationProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -84,4 +85,11 @@ class ReadingProgressManager @Inject constructor(
     }
 
     fun getHorizontalMargin(): Float = prefs.getFloat("horizontal_margin", 12f)
+
+    fun setTranslatorProvider(provider: TranslationProvider) {
+        prefs.edit().putString("translator_provider", provider.name).apply()
+    }
+
+    fun getTranslatorProvider(): TranslationProvider =
+        TranslationProvider.fromName(prefs.getString("translator_provider", null))
 }

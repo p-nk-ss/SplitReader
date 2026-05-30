@@ -9,6 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.repository.BookLibraryRepository
+import com.example.splitreader.domain.repository.ReadingSessionRepository
+import com.example.splitreader.domain.repository.SavedWordRepository
+import com.example.splitreader.domain.usecase.GetStreakUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -17,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,16 +32,39 @@ class HomeViewModel @Inject constructor(
     private val parseBookUseCase: ParseBookUseCase,
     private val bookLibraryRepository: BookLibraryRepository,
     private val progressManager: ReadingProgressManager,
+    private val sessionRepository: ReadingSessionRepository,
+    private val savedWordRepository: SavedWordRepository,
+    private val getStreakUseCase: GetStreakUseCase,
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
+    private data class HomeStats(
+        val streakDays: Int = 0,
+        val weeklyMinutes: Int = 0,
+        val savedWordsThisWeek: Int = 0,
+    )
+
+    // combine has standard overloads up to 5 sources, so the three stat flows are
+    // collapsed into one HomeStats flow before joining the library/loading/error flows.
+    private val statsFlow = combine(
+        getStreakUseCase().map { it.current },
+        sessionRepository.observeWeeklyMinutes().map { days -> days.sumOf { it.minutes } },
+        savedWordRepository.observeAll().map { words ->
+            val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+            words.count { it.savedAt >= weekAgo }
+        },
+    ) { streakDays, weeklyMinutes, savedWords ->
+        HomeStats(streakDays, weeklyMinutes, savedWords)
+    }
+
     val uiState = combine(
         bookLibraryRepository.getAllBooks(),
         _isLoading,
         _errorMessage,
-    ) { books, isLoading, errorMessage ->
+        statsFlow,
+    ) { books, isLoading, errorMessage, stats ->
         HomeUiState(
             books = books.map {
                 BookItem(
@@ -51,6 +78,9 @@ class HomeViewModel @Inject constructor(
             },
             isLoading = isLoading,
             errorMessage = errorMessage,
+            streakDays = stats.streakDays,
+            weeklyMinutes = stats.weeklyMinutes,
+            savedWordsThisWeek = stats.savedWordsThisWeek,
         )
     }.stateIn(
         scope = viewModelScope,

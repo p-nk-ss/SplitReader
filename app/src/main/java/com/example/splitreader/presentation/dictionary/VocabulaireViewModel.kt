@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.dictionary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.SavedWordEntity
+import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.domain.repository.SavedWordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,6 +25,7 @@ sealed interface LangFilter {
 @HiltViewModel
 class VocabulaireViewModel @Inject constructor(
     private val repository: SavedWordRepository,
+    private val textToSpeechManager: TextToSpeechManager,
 ) : ViewModel() {
 
     val langFilter = MutableStateFlow<LangFilter>(LangFilter.All)
@@ -46,7 +48,12 @@ class VocabulaireViewModel @Inject constructor(
     fun setQuery(q: String) { query.value = q }
 
     fun updateNote(word: SavedWordEntity, note: String) {
-        viewModelScope.launch { repository.update(word.copy(note = note)) }
+        viewModelScope.launch {
+            val updated = word.copy(note = note)
+            repository.update(updated)
+            // Keep the detail pane (rendered from selectedWord) in sync with the saved note
+            if (selectedWord.value?.id == word.id) selectedWord.value = updated
+        }
     }
 
     fun delete(word: SavedWordEntity) {
@@ -55,4 +62,6 @@ class VocabulaireViewModel @Inject constructor(
             if (selectedWord.value?.id == word.id) selectedWord.value = null
         }
     }
+
+    fun speak(text: String, langCode: String) = textToSpeechManager.speak(text, langCode)
 }

@@ -1,6 +1,7 @@
 package com.example.splitreader.presentation.reader
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -50,6 +51,7 @@ import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,6 +64,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +86,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -100,9 +104,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -139,6 +148,36 @@ internal fun ReaderRoute(
         viewModel.loadBook(Uri.parse(filePath))
     }
 
+    // Track reading time: resume on foreground, persist the session on pause/navigate-away.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> viewModel.resumeSession()
+                Lifecycle.Event.ON_PAUSE -> viewModel.pauseSession()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.pauseSession()
+        }
+    }
+
+    // Toast feedback after a save attempt from the translation bubble
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.wordSaveEvent.collect { result ->
+            val message = when (result) {
+                SaveWordResult.SAVED -> "Сохранено в словарь"
+                SaveWordResult.DUPLICATE -> "Слово уже в словаре"
+                SaveWordResult.EMPTY -> "Нечего сохранять"
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     when (val s = uiState) {
@@ -160,9 +199,17 @@ internal fun ReaderRoute(
             onConsumeScrollRestore = viewModel::consumeScrollRestore,
             onEnsureChapterTranslated = viewModel::ensureChapterTranslated,
             onSaveWord = viewModel::saveWord,
+            onSpeak = viewModel::speak,
             onSelectWord = viewModel::selectWord,
             onClearWordSelection = viewModel::clearWordSelection,
             onSelectionDragged = viewModel::updateWordSelectionRange,
+            onSetTranslatorProvider = viewModel::setTranslatorProvider,
+            onSetGoogleCloudKey = viewModel::setGoogleCloudKey,
+            onSetDeepLKey = viewModel::setDeepLKey,
+            onSetLibreTranslateKey = viewModel::setLibreTranslateKey,
+            onSetLibreUrl = viewModel::setLibreBaseUrl,
+            onRefreshTranslationUsage = viewModel::refreshTranslationUsage,
+            onResetTranslationUsage = viewModel::resetTranslationUsage,
         )
     }
 }
@@ -206,15 +253,24 @@ private fun ReaderContent(
     onConsumeScrollRestore: () -> Unit,
     onEnsureChapterTranslated: (Int) -> Unit,
     onSaveWord: (String, Int, Int) -> Unit,
+    onSpeak: (String, String) -> Unit,
     onSelectWord: (String, Int, Int, Int, Int) -> Unit,
     onClearWordSelection: () -> Unit,
     onSelectionDragged: (Int, Int) -> Unit,
+    onSetTranslatorProvider: (TranslationProvider) -> Unit,
+    onSetGoogleCloudKey: (String?) -> Unit,
+    onSetDeepLKey: (String?) -> Unit,
+    onSetLibreTranslateKey: (String?) -> Unit,
+    onSetLibreUrl: (String?) -> Unit,
+    onRefreshTranslationUsage: () -> Unit,
+    onResetTranslationUsage: (TranslationProvider) -> Unit,
 ) {
     val palette = readerPalette(state.readerTheme)
 
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showDisplaySettings by remember { mutableStateOf(false) }
     var showChapterPicker by remember { mutableStateOf(false) }
+    var showTranslatorPicker by remember { mutableStateOf(false) }
     var wordHighlightEnabled by remember { mutableStateOf(true) }
 
     val listState = rememberLazyListState()
@@ -247,14 +303,17 @@ private fun ReaderContent(
     }
 
     // Preload translation for visible chapters as user scrolls
-    LaunchedEffect(listState) {
+    val preloadNext = state.preloadNextChapter
+    LaunchedEffect(listState, preloadNext) {
         snapshotFlow { listState.firstVisibleItemIndex }
             .distinctUntilChanged()
             .collect { globalIndex ->
                 val chapter = chapterItemStarts.indexOfLast { it <= globalIndex }.coerceAtLeast(0)
                 onEnsureChapterTranslated(chapter)
-                val next = (chapter + 1).coerceAtMost(state.book.chapters.size - 1)
-                if (next != chapter) onEnsureChapterTranslated(next)
+                if (preloadNext) {
+                    val next = (chapter + 1).coerceAtMost(state.book.chapters.size - 1)
+                    if (next != chapter) onEnsureChapterTranslated(next)
+                }
             }
     }
 
@@ -272,6 +331,7 @@ private fun ReaderContent(
                 onOpenLanguagePicker = { showLanguagePicker = true },
                 onOpenDisplaySettings = { showDisplaySettings = true },
                 onOpenChapterPicker = { showChapterPicker = true },
+                onOpenTranslatorPicker = { showTranslatorPicker = true },
             )
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -289,6 +349,7 @@ private fun ReaderContent(
                     onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
                     onSelectionDragged = onSelectionDragged,
                     onSaveWord = onSaveWord,
+                    onSpeak = onSpeak,
                     onDismiss = onClearWordSelection,
                     sourceLang = state.sourceLanguage,
                     targetLang = state.targetLanguage,
@@ -297,6 +358,13 @@ private fun ReaderContent(
                 if (state.translationState is TranslationState.Translating) {
                     TranslationBanner(
                         progress = (state.translationState as TranslationState.Translating).progress,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
+                if (state.translationState is TranslationState.Error) {
+                    TranslationErrorBanner(
+                        message = (state.translationState as TranslationState.Error).message,
+                        onOpenTranslator = { showTranslatorPicker = true },
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }
@@ -328,6 +396,29 @@ private fun ReaderContent(
                 onDismiss = { showDisplaySettings = false },
             )
         }
+        if (showTranslatorPicker) {
+            LaunchedEffect(Unit) { onRefreshTranslationUsage() }
+            TranslatorPickerDialog(
+                state = TranslatorPickerState(
+                    current = state.translatorProvider,
+                    googleCloudConfigured = state.googleCloudKeyConfigured,
+                    deepLConfigured = state.deepLKeyConfigured,
+                    libreTranslateConfigured = state.libreTranslateKeyConfigured,
+                    libreBaseUrl = state.libreBaseUrl,
+                    usage = state.translationUsage,
+                ),
+                onSelect = { provider ->
+                    onSetTranslatorProvider(provider)
+                    showTranslatorPicker = false
+                },
+                onSetGoogleCloudKey = onSetGoogleCloudKey,
+                onSetDeepLKey = onSetDeepLKey,
+                onSetLibreTranslateKey = onSetLibreTranslateKey,
+                onSetLibreUrl = onSetLibreUrl,
+                onResetUsage = onResetTranslationUsage,
+                onDismiss = { showTranslatorPicker = false },
+            )
+        }
         if (showChapterPicker) {
             ChapterPickerDialog(
                 book = state.book,
@@ -352,6 +443,7 @@ private fun ReaderTopBar(
     onOpenLanguagePicker: () -> Unit,
     onOpenDisplaySettings: () -> Unit,
     onOpenChapterPicker: () -> Unit,
+    onOpenTranslatorPicker: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     val edgeColor = palette.edge
@@ -399,6 +491,9 @@ private fun ReaderTopBar(
             onClick = onOpenLanguagePicker,
         )
 
+        IconButton(onClick = onOpenTranslatorPicker) {
+            Icon(Icons.Outlined.Translate, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
+        }
         IconButton(onClick = onOpenDisplaySettings) {
             Icon(Icons.Outlined.TextFields, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
@@ -529,6 +624,7 @@ private fun PageGutter(modifier: Modifier = Modifier.width(28.dp).fillMaxHeight(
 private fun TranslationBubble(
     wordSelection: WordSelection,
     onSave: () -> Unit,
+    onSpeak: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -609,13 +705,20 @@ private fun TranslationBubble(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (wordSelection.selectionType == SelectionType.WORD) {
-            Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BubbleChip(
-                label = "Сохранить",
-                onClick = onSave,
-                modifier = Modifier.fillMaxWidth(),
+                label = "Прослушать",
+                onClick = onSpeak,
+                modifier = Modifier.weight(1f),
             )
+            if (wordSelection.selectionType == SelectionType.WORD) {
+                BubbleChip(
+                    label = "Сохранить",
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -662,6 +765,7 @@ private fun BookSpread(
     onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onSelectionDragged: (start: Int, end: Int) -> Unit,
     onSaveWord: (word: String, chapterIndex: Int, paragraphIndex: Int) -> Unit,
+    onSpeak: (text: String, langCode: String) -> Unit,
     onDismiss: () -> Unit,
     sourceLang: Language,
     targetLang: Language,
@@ -768,6 +872,7 @@ private fun BookSpread(
         TranslationBubble(
             wordSelection = wordSelection,
             onSave = { onSaveWord(wordSelection.word, wordSelection.chapterIndex, wordSelection.paragraphIndex) },
+            onSpeak = { onSpeak(wordSelection.word, sourceLang.code) },
             onDismiss = onDismiss,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1106,6 +1211,48 @@ private fun TranslationBanner(progress: Int, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+private fun TranslationErrorBanner(
+    message: String,
+    onOpenTranslator: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalReaderPalette.current
+    Column(
+        modifier = modifier
+            .padding(top = 8.dp, start = 12.dp, end = 12.dp)
+            .widthIn(max = 520.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(12.dp))
+            .clickable(onClick = onOpenTranslator)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = "Translation failed".uppercase(),
+            fontFamily = JetBrainsMono,
+            fontSize = 9.sp,
+            letterSpacing = 0.5.sp,
+            color = palette.ink3,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = message,
+            fontFamily = Newsreader,
+            fontSize = 13.sp,
+            color = palette.ink,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Tap to switch translator",
+            fontFamily = Newsreader,
+            fontStyle = FontStyle.Italic,
+            fontSize = 11.sp,
+            color = palette.ink3,
+        )
+    }
+}
+
 // ── Paragraph actions overlay ─────────────────────────────────────────────
 
 @Composable
@@ -1270,7 +1417,7 @@ private fun ParagraphActionsOverlay(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditorialDialog(
+internal fun EditorialDialog(
     eyebrow: String,
     title: String,
     onDismiss: () -> Unit,

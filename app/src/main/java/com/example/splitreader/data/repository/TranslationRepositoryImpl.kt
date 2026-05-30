@@ -1,52 +1,44 @@
 package com.example.splitreader.data.repository
 
+import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TranslationCacheEntity
 import com.example.splitreader.data.local.TranslationDao
+import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.domain.model.Language
-import javax.inject.Singleton
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
-import com.google.mlkit.nl.translate.Translation
-import com.google.mlkit.nl.translate.TranslatorOptions
-import kotlinx.coroutines.suspendCancellableCoroutine
+import com.example.splitreader.domain.translator.TranslationProviderApi
 import javax.inject.Inject
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import javax.inject.Singleton
 
 @Singleton
 class TranslationRepositoryImpl @Inject constructor(
-    private val dao: TranslationDao
+    private val providers: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
+    private val settings: ReadingProgressManager,
+    private val dao: TranslationDao,
+    private val usageTracker: TranslationUsageTracker,
 ) : TranslationRepository {
 
     override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
-        val cacheKey = "${text.hashCode()}_${sourceLanguage.code}_${targetLanguage.code}"
+        val provider = resolveProvider(sourceLanguage, targetLanguage)
+        val cacheKey = cacheKey(provider.id, text, sourceLanguage, targetLanguage)
         dao.getCached(cacheKey)?.let { return it.translatedText }
-
-        val translated = translateWithMlKit(text, sourceLanguage.code, targetLanguage.code)
+        val translated = provider.translate(text, sourceLanguage, targetLanguage)
+        if (provider.id.tracksUsage) usageTracker.record(provider.id, text.length)
         dao.insert(TranslationCacheEntity(cacheKey, text, translated, targetLanguage.code))
         return translated
     }
 
-    private suspend fun translateWithMlKit(text: String, sourceCode: String, targetCode: String): String {
-        val options = TranslatorOptions.Builder()
-            .setSourceLanguage(sourceCode)
-            .setTargetLanguage(targetCode)
-            .build()
-        val translator = Translation.getClient(options)
-        try {
-            suspendCancellableCoroutine { cont ->
-                translator.downloadModelIfNeeded()
-                    .addOnSuccessListener { cont.resume(Unit) }
-                    .addOnFailureListener { cont.resumeWithException(it) }
-                cont.invokeOnCancellation { translator.close() }
-            }
-            return suspendCancellableCoroutine { cont ->
-                translator.translate(text)
-                    .addOnSuccessListener { cont.resume(it) }
-                    .addOnFailureListener { cont.resumeWithException(it) }
-                cont.invokeOnCancellation { translator.close() }
-            }
-        } finally {
-            translator.close()
+    private fun resolveProvider(source: Language, target: Language): TranslationProviderApi {
+        val selected = settings.getTranslatorProvider()
+        val candidate = providers[selected]
+        if (candidate != null && candidate.isConfigured() && candidate.supports(source, target)) {
+            return candidate
         }
+        return providers[TranslationProvider.MLKIT]
+            ?: error("MLKit translation provider is missing from DI")
     }
+
+    private fun cacheKey(provider: TranslationProvider, text: String, source: Language, target: Language): String =
+        "${provider.name}_${text.hashCode()}_${source.code}_${target.code}"
 }

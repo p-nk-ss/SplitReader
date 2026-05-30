@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.reader
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 
@@ -38,7 +39,16 @@ sealed interface ReaderUiState {
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = 12f,
         val wordSelection: WordSelection? = null,
+        val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
+        val googleCloudKeyConfigured: Boolean = false,
+        val deepLKeyConfigured: Boolean = false,
+        val libreTranslateKeyConfigured: Boolean = false,
+        val libreBaseUrl: String = "",
+        val translationUsage: Map<TranslationProvider, com.example.splitreader.data.local.TranslationUsage> = emptyMap(),
     ) : ReaderUiState {
+        val preloadNextChapter: Boolean
+            get() = translatorProvider == TranslationProvider.MLKIT
+
         val currentChapter: Chapter
             get() = book.chapters[currentChapterIndex.coerceIn(0, book.chapters.size - 1)]
     }

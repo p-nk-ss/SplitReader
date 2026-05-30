@@ -201,15 +201,19 @@ private fun HomeScreen(
         // Header — full width
         item(span = { GridItemSpan(maxLineSpan) }) {
             LibraryHeader(
-                weeklyMinutes = 0,
-                savedWords = 0,
+                weeklyMinutes = uiState.weeklyMinutes,
+                savedWords = uiState.savedWordsThisWeek,
                 onOpenFilePicker = onOpenFilePicker,
             )
         }
 
         // Streak ribbon — full width
         item(span = { GridItemSpan(maxLineSpan) }) {
-            StreakRibbon(streakDays = 0, weeklyMinutes = 0, weeklyGoal = 180)
+            StreakRibbon(
+                streakDays = uiState.streakDays,
+                weeklyMinutes = uiState.weeklyMinutes,
+                weeklyGoal = uiState.weeklyGoal,
+            )
         }
 
         // Continue reading hero — full width, only when there are books
