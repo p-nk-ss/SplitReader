@@ -279,6 +279,12 @@ class ReaderViewModel @Inject constructor(
         extendPrefetchIfNeeded(chapterIndex, position)
     }
 
+    /** Called by the reader when the user scrolls to the end of the last chapter. */
+    fun markFinished() {
+        val book = _state.value.book ?: return
+        progressManager.markFinished(book.filePath)
+    }
+
     fun consumeScrollRestore() {
         _state.update { it.copy(pendingScrollPosition = -1, pendingScrollOffset = 0) }
     }

@@ -33,7 +33,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MenuBook
@@ -56,15 +59,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -161,13 +169,24 @@ private fun HomeScreen(
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
     var shelfFilter by remember { mutableIntStateOf(0) } // 0=All,1=Reading,2=Finished,3=Unread
+    var searchActive by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    val filteredBooks = remember(uiState.books, shelfFilter) {
-        when (shelfFilter) {
-            1 -> uiState.books.filter { it.lastChapterIndex > 0 }
-            2 -> uiState.books.filter { it.lastChapterIndex >= it.chapterCount - 1 && it.chapterCount > 0 }
-            3 -> uiState.books.filter { it.lastChapterIndex == 0 }
+    val filteredBooks = remember(uiState.books, shelfFilter, searchQuery) {
+        val byShelf = when (shelfFilter) {
+            1 -> uiState.books.filter { it.lastChapterIndex > 0 && !it.isFinished }
+            2 -> uiState.books.filter { it.isFinished }
+            3 -> uiState.books.filter { it.lastChapterIndex == 0 && !it.isFinished }
             else -> uiState.books
+        }
+        val query = searchQuery.trim()
+        if (query.isEmpty()) {
+            byShelf
+        } else {
+            byShelf.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                    it.author.contains(query, ignoreCase = true)
+            }
         }
     }
 
@@ -191,7 +210,26 @@ private fun HomeScreen(
                 weeklyMinutes = uiState.weeklyMinutes,
                 savedWords = uiState.savedWordsThisWeek,
                 onOpenFilePicker = onOpenFilePicker,
+                searchActive = searchActive,
+                onToggleSearch = {
+                    searchActive = !searchActive
+                    if (!searchActive) searchQuery = ""
+                },
             )
+        }
+
+        // Search bar — full width, only when search is active
+        if (searchActive) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LibrarySearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    onClose = {
+                        searchActive = false
+                        searchQuery = ""
+                    },
+                )
+            }
         }
 
         // Streak ribbon — full width
@@ -217,19 +255,21 @@ private fun HomeScreen(
         item(span = { GridItemSpan(maxLineSpan) }) {
             ShelfHeader(
                 totalCount = uiState.books.size,
-                readingCount = uiState.books.count { it.lastChapterIndex > 0 },
-                finishedCount = uiState.books.count {
-                    it.lastChapterIndex >= it.chapterCount - 1 && it.chapterCount > 0
-                },
-                unreadCount = uiState.books.count { it.lastChapterIndex == 0 },
+                readingCount = uiState.books.count { it.lastChapterIndex > 0 && !it.isFinished },
+                finishedCount = uiState.books.count { it.isFinished },
+                unreadCount = uiState.books.count { it.lastChapterIndex == 0 && !it.isFinished },
                 selectedFilter = shelfFilter,
                 onFilterSelected = { shelfFilter = it },
             )
         }
 
-        if (filteredBooks.isEmpty() && uiState.books.isEmpty()) {
+        if (uiState.books.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 EmptyLibrary(onOpenFilePicker = onOpenFilePicker)
+            }
+        } else if (filteredBooks.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                NoBooksMatch(query = searchQuery)
             }
         } else {
             items(filteredBooks) { book ->
@@ -250,6 +290,8 @@ private fun LibraryHeader(
     weeklyMinutes: Int,
     savedWords: Int,
     onOpenFilePicker: () -> Unit,
+    searchActive: Boolean,
+    onToggleSearch: () -> Unit,
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
@@ -302,10 +344,115 @@ private fun LibraryHeader(
         }
         Spacer(Modifier.width(sp.md))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
-            IconButton(onClick = {}) {
-                Icon(Icons.Outlined.Search, contentDescription = "Search", tint = palette.ink2)
+            IconButton(onClick = onToggleSearch) {
+                Icon(
+                    imageVector = if (searchActive) Icons.Outlined.Close else Icons.Outlined.Search,
+                    contentDescription = if (searchActive) "Close search" else "Search books",
+                    tint = if (searchActive) palette.accent else palette.ink2,
+                )
             }
             LibraryTagButton(text = "Open book", onClick = onOpenFilePicker)
+        }
+    }
+}
+
+// ── Library search ───────────────────────────────────────────────────────
+
+@Composable
+private fun LibrarySearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    val sp = LocalSpacing.current
+    val radii = LocalRadii.current
+    val palette = LocalReaderPalette.current
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = sp.sm)
+            .clip(RoundedCornerShape(radii.md))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
+            .padding(horizontal = sp.md, vertical = sp.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(sp.sm),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Search,
+            contentDescription = null,
+            tint = palette.ink3,
+            modifier = Modifier.size(20.dp),
+        )
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(
+                    text = "Search by title or author",
+                    fontFamily = Newsreader,
+                    fontSize = 16.sp,
+                    color = palette.ink3,
+                )
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                singleLine = true,
+                textStyle = TextStyle(
+                    fontFamily = Newsreader,
+                    fontSize = 16.sp,
+                    color = palette.ink,
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                cursorBrush = SolidColor(palette.accent),
+            )
+        }
+        if (query.isNotEmpty()) {
+            IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "Clear search",
+                    tint = palette.ink3,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoBooksMatch(query: String) {
+    val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = sp.xxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "No books match",
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Medium,
+            fontSize = 18.sp,
+            color = palette.ink,
+        )
+        if (query.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Nothing found for “${query.trim()}”.",
+                fontFamily = Newsreader,
+                fontStyle = FontStyle.Italic,
+                fontSize = 14.sp,
+                color = palette.ink2,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -616,7 +763,7 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
     val palette = LocalReaderPalette.current
     val spec = coverSpec(book.title, book.uri)
     val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
-    val finished = book.lastChapterIndex >= book.chapterCount - 1 && book.chapterCount > 0
+    val finished = book.isFinished
     var showConfirmDelete by remember { mutableStateOf(false) }
 
     if (showConfirmDelete) {

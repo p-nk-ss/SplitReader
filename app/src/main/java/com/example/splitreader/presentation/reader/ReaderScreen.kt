@@ -183,6 +183,7 @@ internal fun ReaderRoute(
             onSetNavigationSide = viewModel::setNavigationSide,
             onSetHorizontalMargin = viewModel::setHorizontalMargin,
             onUpdateScrollPosition = viewModel::updateScrollPosition,
+            onMarkFinished = viewModel::markFinished,
             onConsumeScrollRestore = viewModel::consumeScrollRestore,
             onEnsureChapterTranslated = viewModel::ensureChapterTranslated,
             onSaveWord = viewModel::saveWord,
@@ -239,6 +240,7 @@ private fun ReaderContent(
     onSetNavigationSide: (NavigationSide) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
     onUpdateScrollPosition: (Int, Int, Int) -> Unit,
+    onMarkFinished: () -> Unit,
     onConsumeScrollRestore: () -> Unit,
     onEnsureChapterTranslated: (Int) -> Unit,
     onSaveWord: (String, Int, Int) -> Unit,
@@ -288,6 +290,23 @@ private fun ReaderContent(
                 val chapter = chapterItemStarts.indexOfLast { it <= globalIndex }.coerceAtLeast(0)
                 val localIndex = globalIndex - chapterItemStarts.getOrElse(chapter) { 0 }
                 onUpdateScrollPosition(chapter, localIndex, offset)
+            }
+    }
+
+    // Mark the book finished once the user scrolls to the end of the last chapter.
+    // `canScrollBackward` guards against books that fit one screen / were merely opened.
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            Triple(
+                info.visibleItemsInfo.lastOrNull()?.index ?: -1,
+                info.totalItemsCount,
+                listState.canScrollBackward,
+            )
+        }
+            .distinctUntilChanged()
+            .collect { (lastVisible, total, scrolledDown) ->
+                if (total > 0 && scrolledDown && lastVisible >= total - 2) onMarkFinished()
             }
     }
 

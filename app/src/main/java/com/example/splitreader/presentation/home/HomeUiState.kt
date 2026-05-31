@@ -7,6 +7,7 @@ data class BookItem(
     val coverPath: String?,
     val chapterCount: Int,
     val lastChapterIndex: Int = 0,
+    val isFinished: Boolean = false,
 )
 
 data class HomeUiState(
