@@ -2,7 +2,7 @@
 
 ## What This App Does
 
-SplitReader is a multi-language e-book reader with real-time ML Kit translation. Users open EPUB or FB2 files, and the app displays the original text alongside a live translation in a split-pane layout. Source language is auto-detected; target language is user-selectable (12 languages). Translations are cached in Room to avoid re-translating.
+SplitReader is a multi-language e-book reader with real-time ML Kit translation. Users open EPUB, FB2, or classic MOBI files, and the app displays the original text alongside a live translation in a split-pane layout. Source language is auto-detected; target language is user-selectable (12 languages). Translations are cached in Room to avoid re-translating.
 
 ## Package & Build
 
@@ -27,7 +27,7 @@ app/src/main/java/com/example/splitreader/
 │   └── reader/                 # Reading screen (ReaderActivity + ReaderViewModel + ParagraphAdapter)
 ├── domain/
 │   ├── model/                  # Book, Chapter, Language, TranslationState
-│   ├── parser/                 # BookParser interface, EpubParser, Fb2Parser
+│   ├── parser/                 # BookParser registry interface + EpubParser, Fb2Parser, MobiParser, shared HtmlChapterExtractor
 │   ├── repository/             # TranslationRepository interface
 │   ├── usecase/                # ParseBookUseCase, TranslateTextUseCase
 │   └── LanguageDetector.kt     # ML Kit Language ID wrapper
@@ -49,8 +49,9 @@ app/src/main/java/com/example/splitreader/
 | Async | Coroutines 1.7.3 + Flow |
 | Translation | ML Kit Translate 17.0.2 |
 | Language detection | ML Kit Language ID 17.0.4 |
-| EPUB parsing | Jsoup 1.17.2 |
+| EPUB / MOBI HTML parsing | Jsoup 1.17.2 |
 | FB2 parsing | Android XML parser |
+| MOBI parsing | Hand-rolled PDB + PalmDOC (classic MOBI; HUFF/CDIC & AZW3/KF8 not yet supported) |
 | JSON | Gson 2.10.1 |
 
 ## Navigation
@@ -66,7 +67,7 @@ EN, RU, DE, FR, ES, IT, ZH, JA, PT, AR, KO, TR — defined in `Language.kt` enum
 - ViewModels injected via `@HiltViewModel`; Activities/Fragments annotated `@AndroidEntryPoint`
 - `ReadingProgressManager` persists last chapter + scroll position per book via SharedPreferences
 - `TranslationCacheEntity` keyed by text hash — check cache before calling ML Kit
-- `ParseBookUseCase` detects format by file extension, delegates to `EpubParser` or `Fb2Parser`
+- `ParseBookUseCase` injects a `Set<BookParser>` registry (Hilt `@IntoSet` in `di/ParserModule`) and delegates to the first parser whose `canParse(fileName, mimeType, header)` matches — adding a format is a new `BookParser` + one binding, no dispatcher change
 
 ## Skills
 Read and follow: ~/.claude/skills/android/SKILL.md

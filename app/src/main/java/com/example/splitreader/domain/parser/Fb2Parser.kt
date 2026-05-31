@@ -10,8 +10,19 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.File
 import java.io.InputStream
+import javax.inject.Inject
 
-class Fb2Parser constructor() : BookParser {
+class Fb2Parser @Inject constructor() : BookParser {
+
+    override val supportedExtensions = listOf("fb2", "fb2.xml")
+
+    override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
+        fileName.endsWith(".fb2", ignoreCase = true) ||
+            fileName.endsWith(".fb2.xml", ignoreCase = true) ||
+            mimeType.contains("fb2", ignoreCase = true) ||
+            mimeType == "text/xml" ||
+            mimeType == "application/xml" ||
+            String(header, Charsets.ISO_8859_1).contains("<FictionBook", ignoreCase = true)
 
     override suspend fun parse(uri: Uri, context: Context): Book {
         Log.d("FB2", "Starting parse, uri: $uri")
