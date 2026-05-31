@@ -51,6 +51,12 @@ class MobiParser @Inject constructor() : BookParser {
         // ── MOBI header (starts at offset 16 of record 0), if present ──
         val hasMobiHeader = rec0.size >= 20 && String(rec0, 16, 4, Charsets.US_ASCII) == "MOBI"
         val mobiHeaderLength = if (hasMobiHeader) u32(rec0, 20) else 0
+        // File version at 0x24: 8 = KF8/AZW3, which we don't parse yet. A combo MOBI6+KF8 file keeps
+        // a v6 header in record 0, so it falls through here and is read as plain MOBI6.
+        val fileVersion = if (hasMobiHeader && rec0.size >= 40) u32(rec0, 36) else 6
+        if (fileVersion >= 8) {
+            throw IllegalStateException("This looks like an AZW3/KF8 file, which isn't supported yet.")
+        }
         val textEncoding = if (hasMobiHeader) u32(rec0, 28) else 1252
         val charset: Charset = if (textEncoding == 65001) Charsets.UTF_8 else CP1252
         val firstImageIndex = if (hasMobiHeader && mobiHeaderLength >= 0x70) u32(rec0, 108) else -1
