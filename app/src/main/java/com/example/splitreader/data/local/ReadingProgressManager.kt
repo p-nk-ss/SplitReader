@@ -37,9 +37,17 @@ class ReadingProgressManager @Inject constructor(
     fun getLastScrollOffset(bookUri: String, chapterIndex: Int): Int =
         prefs.getInt("last_scroll_offset_${bookUri}_$chapterIndex", 0)
 
+    /** Marks a book as finished once the reader has scrolled to the end of its last chapter. */
+    fun markFinished(bookUri: String) =
+        prefs.edit().putBoolean("finished_$bookUri", true).apply()
+
+    fun isFinished(bookUri: String): Boolean =
+        prefs.getBoolean("finished_$bookUri", false)
+
     fun clearProgress(bookUri: String) {
         prefs.edit()
             .remove("last_chapter_$bookUri")
+            .remove("finished_$bookUri")
             .apply()
     }
 
