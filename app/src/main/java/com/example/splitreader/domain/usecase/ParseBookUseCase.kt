@@ -5,8 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import com.example.splitreader.domain.model.ParseResult
-import com.example.splitreader.domain.parser.EpubParser
-import com.example.splitreader.domain.parser.Fb2Parser
+import com.example.splitreader.domain.parser.BookParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -15,12 +14,12 @@ import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 
 /**
- * Resolves the book format from the file name, MIME type, or content sniffing, then delegates
- * to the matching [EpubParser]/[Fb2Parser]. Emits [ParseResult] (loading, success, or error).
+ * Resolves the book format by asking each registered [BookParser] whether it [BookParser.canParse]
+ * the file (name, MIME type, and a small header peek), then delegates to the first match. Adding a
+ * format requires no change here — just a new parser in the registry. Emits [ParseResult].
  */
 class ParseBookUseCase @Inject constructor(
-    private val fb2Parser: Fb2Parser,
-    private val epubParser: EpubParser,
+    private val parsers: Set<@JvmSuppressWildcards BookParser>,
     @ApplicationContext private val context: Context,
 ) {
     /** Parses the book at [uri], emitting loading → success/error. Runs on [Dispatchers.IO]. */
@@ -29,32 +28,17 @@ class ParseBookUseCase @Inject constructor(
         try {
             val fileName = getFileName(uri) ?: uri.lastPathSegment ?: ""
             val mimeType = context.contentResolver.getType(uri) ?: ""
+            val header = readHeaderBytes(uri, 256)
 
-            Log.d("PARSER", "File: $fileName, MIME: $mimeType")
+            Log.d("PARSER", "File: $fileName, MIME: $mimeType, parsers: ${parsers.size}")
 
-            val isFb2 = fileName.endsWith(".fb2", ignoreCase = true) ||
-                fileName.endsWith(".fb2.xml", ignoreCase = true) ||
-                mimeType.contains("fb2") ||
-                mimeType == "text/xml" ||
-                mimeType == "application/xml"
-
-            val isEpub = fileName.endsWith(".epub", ignoreCase = true) ||
-                mimeType.contains("epub")
-
-            val parser = when {
-                isEpub -> epubParser
-                isFb2 -> fb2Parser
-                else -> {
-                    val preview = readFirstBytes(uri, 500)
-                    when {
-                        preview.contains("<FictionBook", ignoreCase = true) -> fb2Parser
-                        preview.contains("epub", ignoreCase = true) -> epubParser
-                        else -> throw IllegalArgumentException(
-                            "Unsupported format: $fileName\nSupported: .fb2, .fb2.xml, .epub"
-                        )
-                    }
-                }
-            }
+            val parser = parsers.firstOrNull { it.canParse(fileName, mimeType, header) }
+                ?: throw IllegalArgumentException(
+                    "Unsupported format: $fileName\nSupported: " +
+                        parsers.flatMap { it.supportedExtensions }
+                            .distinct()
+                            .joinToString(", ") { ".$it" }
+                )
 
             val book = parser.parse(uri, context)
             emit(ParseResult.Success(book))
@@ -75,10 +59,11 @@ class ParseBookUseCase @Inject constructor(
         return name
     }
 
-    private fun readFirstBytes(uri: Uri, byteCount: Int): String =
+    /** Reads the first [byteCount] bytes (or fewer) of the file for magic-byte format detection. */
+    private fun readHeaderBytes(uri: Uri, byteCount: Int): ByteArray =
         context.contentResolver.openInputStream(uri)?.use { stream ->
             val bytes = ByteArray(byteCount)
             val read = stream.read(bytes)
-            String(bytes, 0, read, Charsets.UTF_8)
-        } ?: ""
+            if (read <= 0) ByteArray(0) else bytes.copyOf(read)
+        } ?: ByteArray(0)
 }

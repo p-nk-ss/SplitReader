@@ -8,16 +8,17 @@ import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.io.File
 import java.util.zip.ZipInputStream
+import javax.inject.Inject
 
-/** Substring markers used to heuristically detect epigraph/verse blocks by CSS class name. */
-private val EPIGRAPH_KEYWORDS = listOf(
-    "epigraph", "epigraf",
-    "poem", "stih", "verse", "stanza",
-    "quote", "cite", "citation",
-    "litany", "poetry",
-)
+class EpubParser @Inject constructor() : BookParser {
 
-class EpubParser : BookParser {
+    override val supportedExtensions = listOf("epub")
+
+    override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
+        fileName.endsWith(".epub", ignoreCase = true) ||
+            mimeType.contains("epub", ignoreCase = true) ||
+            // EPUB's leading "mimetype" entry carries "application/epub+zip" near the start.
+            String(header, Charsets.ISO_8859_1).contains("epub", ignoreCase = true)
 
     private data class OpfData(
         val title: String,
@@ -66,9 +67,9 @@ class EpubParser : BookParser {
             val href = opf.manifestMap[id] ?: return@forEach
             val fullPath = "$opfDir$href"
             val htmlContent = entryMap[fullPath] ?: entryMap[href] ?: return@forEach
-            val result = parseHtmlChapter(htmlContent)
+            val result = HtmlChapterExtractor.parse(htmlContent)
 
-            // Content before the chapter heading → standalone chapter (no title)
+            // Content before the chapter heading -> standalone chapter (no title)
             if (result.preHeadingParagraphs.isNotEmpty()) {
                 chapters.add(Chapter(
                     index = chapters.size,
@@ -128,73 +129,6 @@ class EpubParser : BookParser {
             ?: doc.selectFirst("item[id=cover], item[id=cover-image]")?.attr("href")
 
         return OpfData(title, author, spineIds, manifestMap, coverHref, navItemIds)
-    }
-
-    private data class HtmlParseResult(
-        val headingTitle: String?,
-        val preHeadingParagraphs: List<String>,
-        val epigraphParagraphs: List<String>,
-        val mainParagraphs: List<String>,
-    )
-
-    private fun parseHtmlChapter(content: ByteArray): HtmlParseResult {
-        val doc = Jsoup.parse(content.inputStream(), "UTF-8", "")
-        val body = doc.body()
-            ?: return HtmlParseResult(null, emptyList(), emptyList(), emptyList())
-        val headingEl = body.selectFirst("h1, h2, h3")
-        val headingTitle = headingEl?.text()?.takeIf { it.isNotBlank() }
-
-        if (headingEl == null) {
-            val paras = body.select("p").map { it.text().trim() }.filter { it.isNotBlank() }
-                .ifEmpty {
-                    body.select("div, section, blockquote")
-                        .map { it.ownText().trim() }.filter { it.length > 20 }
-                }
-            return HtmlParseResult(null, emptyList(), emptyList(), paras)
-        }
-
-        val preHeading = mutableListOf<String>()
-        val epigraph = mutableListOf<String>()
-        val main = mutableListOf<String>()
-        var foundHeading = false
-
-        for (el in body.select("h1, h2, h3, blockquote, p")) {
-            val tag = el.tagName()
-            when {
-                tag in listOf("h1", "h2", "h3") -> foundHeading = true
-                !foundHeading && tag == "p" && el.closest("blockquote") == null -> {
-                    val text = el.text().trim()
-                    if (text.isNotBlank()) preHeading.add(text)
-                }
-                tag == "blockquote" && foundHeading -> {
-                    val texts = el.select("p").map { it.text().trim() }.filter { it.isNotBlank() }
-                        .ifEmpty { listOf(el.text().trim()).filter { it.isNotBlank() } }
-                    epigraph.addAll(texts)
-                }
-                tag == "p" && foundHeading && el.closest("blockquote") == null -> {
-                    val text = el.text().trim()
-                    if (text.isBlank()) continue
-                    if (looksLikeEpigraph(el)) epigraph.add(text) else main.add(text)
-                }
-            }
-        }
-
-        return HtmlParseResult(headingTitle, preHeading, epigraph, main)
-    }
-
-    private fun looksLikeEpigraph(el: org.jsoup.nodes.Element): Boolean {
-        fun org.jsoup.nodes.Element.hasEpigraphClass() =
-            classNames().any { c -> EPIGRAPH_KEYWORDS.any { k -> c.lowercase().contains(k) } }
-
-        if (el.hasEpigraphClass()) return true
-        val style = el.attr("style").lowercase()
-        if ("italic" in style) return true
-        // Check ancestor containers up to but not including body
-        for (parent in el.parents()) {
-            if (parent.tagName() in listOf("body", "html")) break
-            if (parent.hasEpigraphClass()) return true
-        }
-        return false
     }
 
     private fun extractCoverFromZip(uri: Uri, context: Context, coverEntryPath: String): String? {
