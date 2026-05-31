@@ -53,10 +53,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -86,8 +82,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -109,11 +107,16 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.presentation.theme.ReadingFont
 import com.example.splitreader.presentation.theme.readerPalette
 import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.NightPalette
 import com.example.splitreader.presentation.theme.PaperPalette
 import com.example.splitreader.presentation.theme.SepiaPalette
+import com.example.splitreader.presentation.ui.SectionEyebrow
+import com.example.splitreader.presentation.ui.SliderRow
+import com.example.splitreader.presentation.ui.ToggleRow
+import com.example.splitreader.presentation.ui.TypographyControls
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -178,12 +181,21 @@ internal fun ReaderRoute(
             onSetReaderTheme = viewModel::setReaderTheme,
             onAdjustTextSize = viewModel::adjustTextSize,
             onAdjustLineHeight = viewModel::adjustLineHeight,
+            onSetReadingFont = viewModel::setReadingFont,
+            onSetLetterSpacing = viewModel::setLetterSpacing,
+            onSetTextIndent = viewModel::setTextIndent,
+            onSetParagraphSpacing = viewModel::setParagraphSpacing,
+            onSetJustifyText = viewModel::setJustifyText,
+            onSetHyphenation = viewModel::setHyphenation,
             onSetSplitRatio = viewModel::setSplitRatio,
             onToggleTranslation = viewModel::toggleTranslation,
             onSetNavigationSide = viewModel::setNavigationSide,
             onSetHorizontalMargin = viewModel::setHorizontalMargin,
             onUpdateScrollPosition = viewModel::updateScrollPosition,
             onMarkFinished = viewModel::markFinished,
+            onToggleBookmark = viewModel::toggleBookmarkAtCurrentPosition,
+            onRemoveBookmark = viewModel::removeBookmarkAt,
+            onJumpToBookmark = viewModel::jumpToBookmark,
             onConsumeScrollRestore = viewModel::consumeScrollRestore,
             onEnsureChapterTranslated = viewModel::ensureChapterTranslated,
             onSaveWord = viewModel::saveWord,
@@ -235,12 +247,21 @@ private fun ReaderContent(
     onSetReaderTheme: (ReaderThemeKey) -> Unit,
     onAdjustTextSize: (Float) -> Unit,
     onAdjustLineHeight: (Float) -> Unit,
+    onSetReadingFont: (ReadingFont) -> Unit,
+    onSetLetterSpacing: (Float) -> Unit,
+    onSetTextIndent: (Float) -> Unit,
+    onSetParagraphSpacing: (Float) -> Unit,
+    onSetJustifyText: (Boolean) -> Unit,
+    onSetHyphenation: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
     onSetNavigationSide: (NavigationSide) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
     onUpdateScrollPosition: (Int, Int, Int) -> Unit,
     onMarkFinished: () -> Unit,
+    onToggleBookmark: () -> Unit,
+    onRemoveBookmark: (Int, Int) -> Unit,
+    onJumpToBookmark: (Int, Int) -> Unit,
     onConsumeScrollRestore: () -> Unit,
     onEnsureChapterTranslated: (Int) -> Unit,
     onSaveWord: (String, Int, Int) -> Unit,
@@ -262,6 +283,7 @@ private fun ReaderContent(
     var showDisplaySettings by remember { mutableStateOf(false) }
     var showChapterPicker by remember { mutableStateOf(false) }
     var showTranslatorPicker by remember { mutableStateOf(false) }
+    var showBookmarks by remember { mutableStateOf(false) }
     var wordHighlightEnabled by remember { mutableStateOf(true) }
 
     val listState = rememberLazyListState()
@@ -340,6 +362,7 @@ private fun ReaderContent(
                 onOpenDisplaySettings = { showDisplaySettings = true },
                 onOpenChapterPicker = { showChapterPicker = true },
                 onOpenTranslatorPicker = { showTranslatorPicker = true },
+                onOpenBookmarks = { showBookmarks = true },
             )
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -349,8 +372,7 @@ private fun ReaderContent(
                     chapterTranslations = state.chapterTranslations,
                     showTranslation = state.showTranslation,
                     splitRatio = state.splitRatio,
-                    textSize = state.textSize,
-                    lineHeightMultiplier = state.lineHeightMultiplier,
+                    style = state.readingStyle,
                     wordSelection = state.wordSelection,
                     wordHighlightEnabled = wordHighlightEnabled,
                     listState = listState,
@@ -404,6 +426,12 @@ private fun ReaderContent(
                 onSetReaderTheme = onSetReaderTheme,
                 onAdjustTextSize = onAdjustTextSize,
                 onAdjustLineHeight = onAdjustLineHeight,
+                onSetReadingFont = onSetReadingFont,
+                onSetLetterSpacing = onSetLetterSpacing,
+                onSetTextIndent = onSetTextIndent,
+                onSetParagraphSpacing = onSetParagraphSpacing,
+                onSetJustifyText = onSetJustifyText,
+                onSetHyphenation = onSetHyphenation,
                 onSetSplitRatio = onSetSplitRatio,
                 onToggleTranslation = onToggleTranslation,
                 wordHighlightEnabled = wordHighlightEnabled,
@@ -446,6 +474,23 @@ private fun ReaderContent(
                 onDismiss = { showChapterPicker = false },
             )
         }
+        if (showBookmarks) {
+            BookmarksDialog(
+                book = state.book,
+                bookmarks = state.bookmarks,
+                isCurrentBookmarked = state.isCurrentPositionBookmarked,
+                onToggleCurrent = onToggleBookmark,
+                onRemove = onRemoveBookmark,
+                onJump = { ch, p ->
+                    onJumpToBookmark(ch, p)
+                    coroutineScope.launch {
+                        listState.scrollToItem(chapterItemStarts.getOrElse(ch) { 0 } + p)
+                    }
+                    showBookmarks = false
+                },
+                onDismiss = { showBookmarks = false },
+            )
+        }
     }
 }
 
@@ -459,6 +504,7 @@ private fun ReaderTopBar(
     onOpenDisplaySettings: () -> Unit,
     onOpenChapterPicker: () -> Unit,
     onOpenTranslatorPicker: () -> Unit,
+    onOpenBookmarks: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     val edgeColor = palette.edge
@@ -515,8 +561,13 @@ private fun ReaderTopBar(
         IconButton(onClick = onOpenChapterPicker) {
             Icon(Icons.Outlined.FormatListBulleted, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
-        IconButton(onClick = {}) {
-            Icon(Icons.Outlined.Bookmark, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
+        IconButton(onClick = onOpenBookmarks) {
+            Icon(
+                if (state.isCurrentPositionBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                contentDescription = "Bookmarks",
+                tint = if (state.isCurrentPositionBookmarked) palette.accent else palette.ink2,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
@@ -772,8 +823,7 @@ private fun BookSpread(
     chapterTranslations: Map<Int, List<String>>,
     showTranslation: Boolean,
     splitRatio: Float,
-    textSize: Float,
-    lineHeightMultiplier: Float,
+    style: ReadingStyle,
     wordSelection: WordSelection?,
     wordHighlightEnabled: Boolean,
     listState: LazyListState,
@@ -825,8 +875,7 @@ private fun BookSpread(
                                 isActive = isSelected,
                                 selectedWordStart = selectedStart,
                                 selectedWordEnd = selectedEnd,
-                                textSize = textSize,
-                                lineHeightMultiplier = lineHeightMultiplier,
+                                style = style,
                                 wordHighlightEnabled = wordHighlightEnabled,
                                 onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                                 onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
@@ -842,10 +891,7 @@ private fun BookSpread(
                             // Translation text always visible (dimmed when bubble is active)
                             Box(Modifier.alpha(if (isSelected) 0.25f else 1f)) {
                                 if (awaitingTranslation) {
-                                    TranslationPlaceholder(
-                                        textSize = textSize,
-                                        lineHeightMultiplier = lineHeightMultiplier,
-                                    )
+                                    TranslationPlaceholder(style = style)
                                 } else {
                                     ParagraphItem(
                                         text = translated,
@@ -855,8 +901,7 @@ private fun BookSpread(
                                         isActive = false,
                                         selectedWordStart = -1,
                                         selectedWordEnd = -1,
-                                        textSize = textSize,
-                                        lineHeightMultiplier = lineHeightMultiplier,
+                                        style = style,
                                         onWordSelected = { _, _, _ -> },
                                         onTap = { if (wordSelection != null) onDismiss() },
                                     )
@@ -874,8 +919,7 @@ private fun BookSpread(
                             isActive = isSelected,
                             selectedWordStart = selectedStart,
                             selectedWordEnd = selectedEnd,
-                            textSize = textSize,
-                            lineHeightMultiplier = lineHeightMultiplier,
+                            style = style,
                             wordHighlightEnabled = wordHighlightEnabled,
                             onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                             onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
@@ -883,7 +927,7 @@ private fun BookSpread(
                         )
                     }
                 }
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(style.paragraphSpacing.dp))
             }
         }
 
@@ -916,18 +960,17 @@ private fun BookSpread(
  */
 @Composable
 private fun TranslationPlaceholder(
-    textSize: Float,
-    lineHeightMultiplier: Float,
+    style: ReadingStyle,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalReaderPalette.current
     Text(
         text = "…",
         modifier = modifier.alpha(0.4f),
-        fontFamily = Newsreader,
+        fontFamily = style.font.fontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = textSize.sp,
-        lineHeight = (textSize * lineHeightMultiplier).sp,
+        fontSize = style.textSize.sp,
+        lineHeight = (style.textSize * style.lineHeightMultiplier).sp,
         color = palette.ink3,
     )
 }
@@ -941,8 +984,7 @@ private fun ParagraphItem(
     isActive: Boolean,
     selectedWordStart: Int,
     selectedWordEnd: Int,
-    textSize: Float,
-    lineHeightMultiplier: Float,
+    style: ReadingStyle,
     wordHighlightEnabled: Boolean = false,
     onWordSelected: (word: String, start: Int, end: Int) -> Unit,
     onSelectionDragged: (start: Int, end: Int) -> Unit = { _, _ -> },
@@ -1096,12 +1138,17 @@ private fun ParagraphItem(
                     append(text)
                 }
             },
-            fontFamily = Newsreader,
+            fontFamily = style.font.fontFamily,
             fontWeight = FontWeight.Normal,
-            fontSize = textSize.sp,
-            lineHeight = (textSize * lineHeightMultiplier).sp,
+            fontSize = style.textSize.sp,
+            lineHeight = (style.textSize * style.lineHeightMultiplier).sp,
+            letterSpacing = style.letterSpacing.sp,
             color = baseColor,
-            textAlign = TextAlign.Justify,
+            textAlign = if (style.justify) TextAlign.Justify else TextAlign.Start,
+            style = TextStyle(
+                textIndent = TextIndent(firstLine = style.textIndent.sp),
+                hyphens = if (style.hyphenation) Hyphens.Auto else Hyphens.None,
+            ),
             onTextLayout = { textLayoutResult = it },
         )
     }
@@ -1640,6 +1687,12 @@ private fun DisplaySettingsDialog(
     onSetReaderTheme: (ReaderThemeKey) -> Unit,
     onAdjustTextSize: (Float) -> Unit,
     onAdjustLineHeight: (Float) -> Unit,
+    onSetReadingFont: (ReadingFont) -> Unit,
+    onSetLetterSpacing: (Float) -> Unit,
+    onSetTextIndent: (Float) -> Unit,
+    onSetParagraphSpacing: (Float) -> Unit,
+    onSetJustifyText: (Boolean) -> Unit,
+    onSetHyphenation: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
     wordHighlightEnabled: Boolean,
@@ -1679,24 +1732,24 @@ private fun DisplaySettingsDialog(
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
         Spacer(Modifier.height(sp.md))
 
-        // Font size slider
-        SliderRow(
-            label = "Font size",
-            value = state.textSize,
-            valueLabel = "${state.textSize.toInt()}sp",
-            valueRange = 14f..24f,
-            onValueChange = { onAdjustTextSize(it - state.textSize) },
-        )
-
-        Spacer(Modifier.height(sp.sm))
-
-        // Line height slider
-        SliderRow(
-            label = "Line height",
-            value = state.lineHeightMultiplier,
-            valueLabel = "×${"%.2f".format(state.lineHeightMultiplier)}",
-            valueRange = 1.20f..2.00f,
-            onValueChange = { onAdjustLineHeight(it - state.lineHeightMultiplier) },
+        // Typography (shared with the global Settings screen)
+        TypographyControls(
+            readingFont = state.readingFont,
+            onSetReadingFont = onSetReadingFont,
+            textSize = state.textSize,
+            onSetTextSize = { onAdjustTextSize(it - state.textSize) },
+            lineHeightMultiplier = state.lineHeightMultiplier,
+            onSetLineHeight = { onAdjustLineHeight(it - state.lineHeightMultiplier) },
+            letterSpacing = state.letterSpacing,
+            onSetLetterSpacing = onSetLetterSpacing,
+            textIndent = state.textIndent,
+            onSetTextIndent = onSetTextIndent,
+            paragraphSpacing = state.paragraphSpacing,
+            onSetParagraphSpacing = onSetParagraphSpacing,
+            justify = state.justifyText,
+            onSetJustify = onSetJustifyText,
+            hyphenation = state.hyphenation,
+            onSetHyphenation = onSetHyphenation,
         )
 
         Spacer(Modifier.height(sp.md))
@@ -1718,65 +1771,6 @@ private fun DisplaySettingsDialog(
             onToggle = onToggleWordHighlight,
         )
         Spacer(Modifier.height(sp.sm))
-    }
-}
-
-@Composable
-private fun SectionEyebrow(text: String) {
-    val palette = LocalReaderPalette.current
-    Text(
-        text = text.uppercase(),
-        fontFamily = JetBrainsMono,
-        fontSize = 11.sp,
-        letterSpacing = 0.5.sp,
-        color = palette.ink3,
-    )
-}
-
-@Composable
-private fun SliderRow(label: String, value: Float, valueLabel: String, valueRange: ClosedFloatingPointRange<Float>, onValueChange: (Float) -> Unit) {
-    val palette = LocalReaderPalette.current
-    Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink)
-            Text(valueLabel, fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
-        }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            modifier = Modifier.fillMaxWidth().height(22.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = palette.bg,
-                activeTrackColor = palette.accent,
-                inactiveTrackColor = palette.bg3,
-            ),
-        )
-    }
-}
-
-@Composable
-private fun ToggleRow(label: String, sub: String, checked: Boolean, onToggle: () -> Unit) {
-    val palette = LocalReaderPalette.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = palette.ink)
-            Text(sub, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = { onToggle() },
-            colors = SwitchDefaults.colors(
-                checkedTrackColor = palette.accent,
-                uncheckedTrackColor = palette.bg3,
-                checkedThumbColor = palette.bg,
-                uncheckedThumbColor = palette.bg,
-            ),
-        )
     }
 }
 
@@ -1839,6 +1833,117 @@ private fun ChapterPickerDialog(
                     }
                     index < currentChapterIndex -> Icon(Icons.Outlined.Check, null, tint = palette.moss, modifier = Modifier.size(16.dp))
                     else -> Spacer(Modifier.width(24.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(sp.sm))
+    }
+}
+
+// ── Bookmarks dialog ──────────────────────────────────────────────────────
+
+@Composable
+private fun BookmarksDialog(
+    book: com.example.splitreader.domain.model.Book,
+    bookmarks: List<com.example.splitreader.data.local.BookmarkEntity>,
+    isCurrentBookmarked: Boolean,
+    onToggleCurrent: () -> Unit,
+    onRemove: (Int, Int) -> Unit,
+    onJump: (Int, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    val radii = LocalRadii.current
+    val edgeColor = palette.edge
+
+    EditorialDialog(eyebrow = book.title, title = "Bookmarks", onDismiss = onDismiss) {
+        // Toggle the current reading position
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(radii.md))
+                .background(if (isCurrentBookmarked) palette.accentSoft else palette.bg2)
+                .border(1.dp, if (isCurrentBookmarked) palette.accent else palette.edge, RoundedCornerShape(radii.md))
+                .clickable(onClick = onToggleCurrent)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    if (isCurrentBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                    null,
+                    tint = if (isCurrentBookmarked) palette.accent else palette.ink2,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = if (isCurrentBookmarked) "Remove bookmark here" else "Bookmark this page",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    color = palette.ink,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(sp.md))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
+        Spacer(Modifier.height(sp.sm))
+
+        if (bookmarks.isEmpty()) {
+            Text(
+                text = "No bookmarks yet. Tap “Bookmark this page” to add one.",
+                fontFamily = Newsreader,
+                fontStyle = FontStyle.Italic,
+                fontSize = 13.sp,
+                color = palette.ink3,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        } else {
+            bookmarks.forEach { bm ->
+                val chapterTitle = book.chapters.getOrNull(bm.chapterIndex)?.title
+                    ?: "Chapter ${bm.chapterIndex + 1}"
+                val preview = book.chapters.getOrNull(bm.chapterIndex)
+                    ?.paragraphs?.getOrNull(bm.paragraphIndex)
+                    ?.take(80)?.trim().orEmpty()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onJump(bm.chapterIndex, bm.paragraphIndex) }
+                        .drawBehind {
+                            drawLine(edgeColor, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+                        }
+                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "$chapterTitle · ¶ ${bm.paragraphIndex + 1}",
+                            fontFamily = JetBrainsMono,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.3.sp,
+                            color = palette.ink3,
+                        )
+                        if (preview.isNotEmpty()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = preview,
+                                fontFamily = Newsreader,
+                                fontSize = 14.sp,
+                                color = palette.ink,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(radii.sm))
+                            .clickable { onRemove(bm.chapterIndex, bm.paragraphIndex) }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                    ) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Remove", tint = palette.ink3, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }

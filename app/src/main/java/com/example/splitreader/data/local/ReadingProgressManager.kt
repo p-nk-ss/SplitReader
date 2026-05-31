@@ -111,4 +111,63 @@ class ReadingProgressManager @Inject constructor(
 
     fun getTranslatorProvider(): TranslationProvider =
         TranslationProvider.fromName(prefs.getString("translator_provider", null))
+
+    // ── Typography (reading panes) ─────────────────────────────────────────────
+
+    fun saveTextSize(size: Float) {
+        prefs.edit().putFloat("text_size", size).apply()
+    }
+
+    fun getTextSize(): Float = prefs.getFloat("text_size", 16f)
+
+    /** Persisted reading typeface name; falls back to SERIF for unknown/legacy values. */
+    fun saveReadingFont(name: String) {
+        prefs.edit().putString("reading_font", name).apply()
+    }
+
+    fun getReadingFontName(): String = prefs.getString("reading_font", "SERIF") ?: "SERIF"
+
+    fun saveParagraphSpacing(spacing: Float) {
+        prefs.edit().putFloat("paragraph_spacing", spacing).apply()
+    }
+
+    fun getParagraphSpacing(): Float = prefs.getFloat("paragraph_spacing", 8f)
+
+    fun saveLetterSpacing(spacing: Float) {
+        prefs.edit().putFloat("letter_spacing", spacing).apply()
+    }
+
+    fun getLetterSpacing(): Float = prefs.getFloat("letter_spacing", 0f)
+
+    fun saveTextIndent(indent: Float) {
+        prefs.edit().putFloat("text_indent", indent).apply()
+    }
+
+    fun getTextIndent(): Float = prefs.getFloat("text_indent", 0f)
+
+    fun saveJustifyText(justify: Boolean) {
+        prefs.edit().putBoolean("justify_text", justify).apply()
+    }
+
+    fun getJustifyText(): Boolean = prefs.getBoolean("justify_text", true)
+
+    fun saveHyphenation(enabled: Boolean) {
+        prefs.edit().putBoolean("hyphenation", enabled).apply()
+    }
+
+    fun getHyphenation(): Boolean = prefs.getBoolean("hyphenation", false)
+
+    // ── Read-aloud (TTS) ───────────────────────────────────────────────────────
+
+    fun saveTtsRate(rate: Float) {
+        prefs.edit().putFloat("tts_rate", rate).apply()
+    }
+
+    fun getTtsRate(): Float = prefs.getFloat("tts_rate", 1.0f)
+
+    fun saveTtsPitch(pitch: Float) {
+        prefs.edit().putFloat("tts_pitch", pitch).apply()
+    }
+
+    fun getTtsPitch(): Float = prefs.getFloat("tts_pitch", 1.0f)
 }

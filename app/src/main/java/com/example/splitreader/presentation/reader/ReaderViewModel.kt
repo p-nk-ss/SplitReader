@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
+import com.example.splitreader.data.local.BookmarkEntity
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TranslationUsage
 import com.example.splitreader.data.local.TranslationUsageTracker
@@ -17,12 +18,15 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.repository.BookmarkRepository
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.domain.usecase.SaveWordUseCase
+import com.example.splitreader.domain.usecase.ToggleBookmarkUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.presentation.theme.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -48,6 +52,8 @@ class ReaderViewModel @Inject constructor(
     private val translateTextUseCase: TranslateTextUseCase,
     private val parseBookUseCase: ParseBookUseCase,
     private val saveWordUseCase: SaveWordUseCase,
+    private val toggleBookmarkUseCase: ToggleBookmarkUseCase,
+    private val bookmarkRepository: BookmarkRepository,
     private val endReadingSessionUseCase: EndReadingSessionUseCase,
     private val progressManager: ReadingProgressManager,
     private val languageDetector: LanguageDetector,
@@ -77,6 +83,12 @@ class ReaderViewModel @Inject constructor(
         val pendingScrollOffset: Int = 0,
         val textSize: Float = 16f,
         val lineHeightMultiplier: Float = 1.5f,
+        val readingFont: ReadingFont = ReadingFont.SERIF,
+        val letterSpacing: Float = 0f,
+        val textIndent: Float = 0f,
+        val paragraphSpacing: Float = 18f,
+        val justifyText: Boolean = true,
+        val hyphenation: Boolean = false,
         val splitRatio: Float = 0.5f,
         val showTranslation: Boolean = true,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
@@ -84,6 +96,8 @@ class ReaderViewModel @Inject constructor(
         val horizontalMargin: Float = 12f,
         val isLoading: Boolean = false,
         val error: String? = null,
+        val currentParagraph: Int = 0,
+        val bookmarks: List<BookmarkEntity> = emptyList(),
         val wordSelection: WordSelection? = null,
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val googleCloudKeyConfigured: Boolean = false,
@@ -103,6 +117,14 @@ class ReaderViewModel @Inject constructor(
                     ?: ReaderThemeKey.PAPER
             },
             lineHeightMultiplier = progressManager.getLineHeightMultiplier(),
+            textSize = progressManager.getTextSize(),
+            readingFont = ReadingFont.entries.find { it.name == progressManager.getReadingFontName() }
+                ?: ReadingFont.SERIF,
+            letterSpacing = progressManager.getLetterSpacing(),
+            textIndent = progressManager.getTextIndent(),
+            paragraphSpacing = progressManager.getParagraphSpacing(),
+            justifyText = progressManager.getJustifyText(),
+            hyphenation = progressManager.getHyphenation(),
             splitRatio = progressManager.getSplitRatio(),
             showTranslation = progressManager.getShowTranslation(),
             horizontalMargin = progressManager.getHorizontalMargin(),
@@ -138,11 +160,21 @@ class ReaderViewModel @Inject constructor(
                     pendingScrollOffset = s.pendingScrollOffset,
                     textSize = s.textSize,
                     lineHeightMultiplier = s.lineHeightMultiplier,
+                    readingFont = s.readingFont,
+                    letterSpacing = s.letterSpacing,
+                    textIndent = s.textIndent,
+                    paragraphSpacing = s.paragraphSpacing,
+                    justifyText = s.justifyText,
+                    hyphenation = s.hyphenation,
                     splitRatio = s.splitRatio,
                     showTranslation = s.showTranslation,
                     readerTheme = s.readerTheme,
                     navigationSide = s.navigationSide,
                     horizontalMargin = s.horizontalMargin,
+                    bookmarks = s.bookmarks,
+                    isCurrentPositionBookmarked = s.bookmarks.any {
+                        it.chapterIndex == s.currentChapterIndex && it.paragraphIndex == s.currentParagraph
+                    },
                     wordSelection = s.wordSelection,
                     translatorProvider = s.translatorProvider,
                     googleCloudKeyConfigured = s.googleCloudKeyConfigured,
@@ -216,6 +248,15 @@ class ReaderViewModel @Inject constructor(
         }
         // Begin tracking reading time now that the book is on screen
         resumeSession()
+        observeBookmarks(book.filePath)
+    }
+
+    private fun observeBookmarks(bookUri: String) {
+        viewModelScope.launch {
+            bookmarkRepository.observeForBook(bookUri).collect { list ->
+                _state.update { it.copy(bookmarks = list) }
+            }
+        }
     }
 
     /** Start a reading-time session if a book is loaded and none is already running. */
@@ -275,8 +316,43 @@ class ReaderViewModel @Inject constructor(
         lastScrollPosition = position
         lastScrollOffset = offset
         val book = _state.value.book ?: return
+        _state.update { it.copy(currentChapterIndex = chapterIndex, currentParagraph = position) }
         progressManager.saveProgress(book.filePath, chapterIndex, position, offset)
         extendPrefetchIfNeeded(chapterIndex, position)
+    }
+
+    /** Toggles a bookmark at the user's current reading position (current chapter + top paragraph). */
+    fun toggleBookmarkAtCurrentPosition() {
+        val book = _state.value.book ?: return
+        val chapterIndex = _state.value.currentChapterIndex
+        val paragraphIndex = _state.value.currentParagraph
+        viewModelScope.launch {
+            toggleBookmarkUseCase(book.filePath, chapterIndex, paragraphIndex)
+        }
+    }
+
+    /** Removes a specific bookmark (used by the bookmarks list). */
+    fun removeBookmarkAt(chapterIndex: Int, paragraphIndex: Int) {
+        val book = _state.value.book ?: return
+        viewModelScope.launch {
+            toggleBookmarkUseCase(book.filePath, chapterIndex, paragraphIndex)
+        }
+    }
+
+    /** Jumps the reader to a bookmarked paragraph via the existing scroll-restore path. */
+    fun jumpToBookmark(chapterIndex: Int, paragraphIndex: Int) {
+        val book = _state.value.book ?: return
+        if (chapterIndex < 0 || chapterIndex >= book.chapters.size) return
+        lastScrollPosition = paragraphIndex
+        _state.update {
+            it.copy(
+                currentChapterIndex = chapterIndex,
+                currentParagraph = paragraphIndex,
+                pendingScrollPosition = paragraphIndex,
+                pendingScrollOffset = 0,
+            )
+        }
+        ensureChapterTranslated(chapterIndex)
     }
 
     /** Called by the reader when the user scrolls to the end of the last chapter. */
@@ -290,7 +366,42 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun adjustTextSize(delta: Float) {
-        _state.update { it.copy(textSize = (it.textSize + delta).coerceIn(14f, 30f)) }
+        val newSize = (_state.value.textSize + delta).coerceIn(14f, 30f)
+        progressManager.saveTextSize(newSize)
+        _state.update { it.copy(textSize = newSize) }
+    }
+
+    fun setReadingFont(font: ReadingFont) {
+        progressManager.saveReadingFont(font.name)
+        _state.update { it.copy(readingFont = font) }
+    }
+
+    fun setLetterSpacing(spacing: Float) {
+        val clamped = spacing.coerceIn(0f, 2f)
+        progressManager.saveLetterSpacing(clamped)
+        _state.update { it.copy(letterSpacing = clamped) }
+    }
+
+    fun setTextIndent(indent: Float) {
+        val clamped = indent.coerceIn(0f, 48f)
+        progressManager.saveTextIndent(clamped)
+        _state.update { it.copy(textIndent = clamped) }
+    }
+
+    fun setParagraphSpacing(spacing: Float) {
+        val clamped = spacing.coerceIn(4f, 48f)
+        progressManager.saveParagraphSpacing(clamped)
+        _state.update { it.copy(paragraphSpacing = clamped) }
+    }
+
+    fun setJustifyText(justify: Boolean) {
+        progressManager.saveJustifyText(justify)
+        _state.update { it.copy(justifyText = justify) }
+    }
+
+    fun setHyphenation(enabled: Boolean) {
+        progressManager.saveHyphenation(enabled)
+        _state.update { it.copy(hyphenation = enabled) }
     }
 
     fun setNavigationSide(side: NavigationSide) {

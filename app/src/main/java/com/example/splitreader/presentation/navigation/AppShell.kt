@@ -47,6 +47,7 @@ fun AppShell(
     onNavigateToHome: () -> Unit,
     onNavigateToAlmanac: () -> Unit,
     onNavigateToWords: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     val isReader = currentRoute?.startsWith("reader") == true
@@ -64,6 +65,7 @@ fun AppShell(
                     onNavigateToHome = onNavigateToHome,
                     onNavigateToAlmanac = onNavigateToAlmanac,
                     onNavigateToWords = onNavigateToWords,
+                    onNavigateToSettings = onNavigateToSettings,
                 )
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -124,6 +126,7 @@ private fun EditorialNavigationRail(
     onNavigateToHome: () -> Unit,
     onNavigateToAlmanac: () -> Unit,
     onNavigateToWords: () -> Unit,
+    onNavigateToSettings: () -> Unit,
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
@@ -186,8 +189,8 @@ private fun EditorialNavigationRail(
         RailTab(
             icon = Icons.Outlined.Settings,
             label = "Settings",
-            selected = false,
-            onClick = {},
+            selected = currentRoute == SETTINGS_ROUTE,
+            onClick = onNavigateToSettings,
         )
 
         Spacer(Modifier.height(sp.sm))

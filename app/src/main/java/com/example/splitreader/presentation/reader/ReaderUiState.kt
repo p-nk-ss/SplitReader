@@ -6,8 +6,24 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.presentation.theme.ReadingFont
 
 enum class SelectionType { WORD, SENTENCE }
+
+/**
+ * Bundle of typography values applied to the reading panes, so the values can be threaded as a
+ * single argument through [BookSpread] and the paragraph composables.
+ */
+data class ReadingStyle(
+    val font: ReadingFont = ReadingFont.SERIF,
+    val textSize: Float = 16f,
+    val lineHeightMultiplier: Float = 1.5f,
+    val letterSpacing: Float = 0f,
+    val textIndent: Float = 0f,
+    val paragraphSpacing: Float = 18f,
+    val justify: Boolean = true,
+    val hyphenation: Boolean = false,
+)
 
 data class WordSelection(
     val word: String,
@@ -33,11 +49,19 @@ sealed interface ReaderUiState {
         val pendingScrollOffset: Int = 0,
         val textSize: Float = 16f,
         val lineHeightMultiplier: Float = 1.5f,
+        val readingFont: ReadingFont = ReadingFont.SERIF,
+        val letterSpacing: Float = 0f,
+        val textIndent: Float = 0f,
+        val paragraphSpacing: Float = 18f,
+        val justifyText: Boolean = true,
+        val hyphenation: Boolean = false,
         val splitRatio: Float = 0.5f,
         val showTranslation: Boolean = true,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = 12f,
+        val bookmarks: List<com.example.splitreader.data.local.BookmarkEntity> = emptyList(),
+        val isCurrentPositionBookmarked: Boolean = false,
         val wordSelection: WordSelection? = null,
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val googleCloudKeyConfigured: Boolean = false,
@@ -48,6 +72,18 @@ sealed interface ReaderUiState {
     ) : ReaderUiState {
         val preloadNextChapter: Boolean
             get() = translatorProvider == TranslationProvider.MLKIT
+
+        val readingStyle: ReadingStyle
+            get() = ReadingStyle(
+                font = readingFont,
+                textSize = textSize,
+                lineHeightMultiplier = lineHeightMultiplier,
+                letterSpacing = letterSpacing,
+                textIndent = textIndent,
+                paragraphSpacing = paragraphSpacing,
+                justify = justifyText,
+                hyphenation = hyphenation,
+            )
 
         val currentChapter: Chapter
             get() = book.chapters[currentChapterIndex.coerceIn(0, book.chapters.size - 1)]
