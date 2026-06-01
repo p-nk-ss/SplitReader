@@ -126,11 +126,15 @@ class HomeViewModel @Inject constructor(
 
     fun openBookFromLibrary(uri: String) {
         val parsedUri = Uri.parse(uri)
-        val hasPermission = context.contentResolver.persistedUriPermissions
-            .any { it.uri == parsedUri && it.isReadPermission }
-        if (!hasPermission) {
-            _errorMessage.value = context.getString(R.string.error_file_access)
-            return
+        // Catalog downloads live in app-private storage (file:// URIs) and are always readable;
+        // only content:// URIs from the document picker need a persisted read grant.
+        if (parsedUri.scheme != "file") {
+            val hasPermission = context.contentResolver.persistedUriPermissions
+                .any { it.uri == parsedUri && it.isReadPermission }
+            if (!hasPermission) {
+                _errorMessage.value = context.getString(R.string.error_file_access)
+                return
+            }
         }
         viewModelScope.launch {
             bookLibraryRepository.touchBook(uri)

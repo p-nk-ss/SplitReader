@@ -12,6 +12,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.splitreader.presentation.almanac.AlmanacRoute
+import com.example.splitreader.presentation.catalog.CatalogRoute
 import com.example.splitreader.presentation.words.WordsRoute
 import com.example.splitreader.presentation.home.HomeRoute
 import com.example.splitreader.presentation.reader.ReaderRoute
@@ -19,6 +20,7 @@ import com.example.splitreader.presentation.settings.SettingsRoute
 
 const val HOME_ROUTE     = "home"
 const val READER_ROUTE   = "reader?path={path}"
+const val CATALOG_ROUTE  = "catalog"
 const val ALMANAC_ROUTE  = "almanac"
 const val WORDS_ROUTE    = "words"
 const val SETTINGS_ROUTE = "settings"
@@ -35,6 +37,7 @@ fun SplitReaderNavHost(
     AppShell(
         currentRoute = currentRoute,
         onNavigateToHome = { navController.navigate(HOME_ROUTE) { launchSingleTop = true } },
+        onNavigateToCatalog = { navController.navigate(CATALOG_ROUTE) { launchSingleTop = true } },
         onNavigateToAlmanac = { navController.navigate(ALMANAC_ROUTE) { launchSingleTop = true } },
         onNavigateToWords = { navController.navigate(WORDS_ROUTE) { launchSingleTop = true } },
         onNavigateToSettings = { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } },
@@ -59,6 +62,13 @@ fun SplitReaderNavHost(
                 ReaderRoute(
                     filePath = encoded,
                     onNavigateBack = { navController.popBackStack() },
+                )
+            }
+            composable(CATALOG_ROUTE) {
+                CatalogRoute(
+                    onNavigateToReader = { filePath ->
+                        navController.navigate("reader?path=${Uri.encode(filePath)}")
+                    },
                 )
             }
             composable(ALMANAC_ROUTE) {
