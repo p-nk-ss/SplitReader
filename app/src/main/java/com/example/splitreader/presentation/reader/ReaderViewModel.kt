@@ -595,6 +595,25 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Retries translation for the current chapter after a failure. A failed chapter keeps an
+     * (empty) entry in [chapterTranslations], which would make [ensureChapterTranslated] no-op —
+     * so clear that entry and the cached job/prefetch edge before re-running.
+     */
+    fun retryTranslation() {
+        val index = _state.value.currentChapterIndex
+        translationJobs[index]?.cancel()
+        translationJobs.remove(index)
+        prefetchedEdge.remove(index)
+        _state.update {
+            it.copy(
+                chapterTranslations = it.chapterTranslations - index,
+                translationState = TranslationState.Idle,
+            )
+        }
+        ensureChapterTranslated(index)
+    }
+
     private suspend fun translateChapter(index: Int) {
         val book = _state.value.book ?: return
         val chapter = book.chapters[index]

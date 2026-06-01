@@ -17,4 +17,8 @@ interface GutenbergOpdsApi {
     /** Full-text search over title and author. Returns the raw OPDS XML feed. */
     @GET("ebooks/search.opds/")
     suspend fun searchBooks(@Query("query") query: String): ResponseBody
+
+    /** Most-downloaded books, used to populate the catalog when no query is entered. */
+    @GET("ebooks/search.opds/")
+    suspend fun popularBooks(@Query("sort_order") sortOrder: String = "downloads"): ResponseBody
 }

@@ -6,6 +6,7 @@ import com.example.splitreader.data.catalog.GutenbergOpdsApi
 import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogPage
 import com.example.splitreader.domain.repository.CatalogRepository
+import com.example.splitreader.di.GutenbergClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,37 +23,39 @@ private val EBOOK_ID_REGEX = Regex("""ebooks/(\d+)""")
 
 class CatalogRepositoryImpl @Inject constructor(
     private val api: GutenbergOpdsApi,
-    private val httpClient: OkHttpClient,
+    @GutenbergClient private val httpClient: OkHttpClient,
     @ApplicationContext private val context: Context,
 ) : CatalogRepository {
 
     override suspend fun search(query: String, languages: List<String>, page: Int): CatalogPage =
         withContext(Dispatchers.IO) {
-            if (query.isBlank()) return@withContext CatalogPage(emptyList(), hasNext = false)
-
-            val xml = api.searchBooks(query).string()
-            val doc = Jsoup.parse(xml, "", Parser.xmlParser())
-
-            val books = doc.select("entry").mapNotNull { entry ->
-                // The feed leads with "Authors"/"Subjects" navigation entries whose ids have no
-                // numeric ebook segment — EBOOK_ID_REGEX naturally filters them out.
-                val id = EBOOK_ID_REGEX.find(entry.selectFirst("id")?.text().orEmpty())
-                    ?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
-                val title = entry.selectFirst("title")?.text()?.takeIf { it.isNotBlank() }
-                    ?: return@mapNotNull null
-                val author = entry.selectFirst("content")?.text()
-                    .orEmpty().ifBlank { "Unknown author" }
-                CatalogBook(
-                    id = id,
-                    title = title,
-                    author = author,
-                    languages = emptyList(),
-                    coverUrl = "https://www.gutenberg.org/cache/epub/$id/pg$id.cover.medium.jpg",
-                    epubUrl = "https://www.gutenberg.org/ebooks/$id.epub.images",
-                )
-            }
-            CatalogPage(books = books, hasNext = false)
+            // No query → show the most-downloaded books so the screen is useful on first open.
+            val body = if (query.isBlank()) api.popularBooks() else api.searchBooks(query)
+            CatalogPage(books = parseOpds(body.string()), hasNext = false)
         }
+
+    /** Maps OPDS `<entry>` elements to [CatalogBook]; shared by search and the popular feed. */
+    private fun parseOpds(xml: String): List<CatalogBook> {
+        val doc = Jsoup.parse(xml, "", Parser.xmlParser())
+        return doc.select("entry").mapNotNull { entry ->
+            // The feed leads with "All Books"/"Authors"/"Subjects" navigation entries whose ids
+            // have no numeric ebook segment — EBOOK_ID_REGEX naturally filters them out.
+            val id = EBOOK_ID_REGEX.find(entry.selectFirst("id")?.text().orEmpty())
+                ?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
+            val title = entry.selectFirst("title")?.text()?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+            val author = entry.selectFirst("content")?.text()
+                .orEmpty().ifBlank { "Unknown author" }
+            CatalogBook(
+                id = id,
+                title = title,
+                author = author,
+                languages = emptyList(),
+                coverUrl = "https://www.gutenberg.org/cache/epub/$id/pg$id.cover.medium.jpg",
+                epubUrl = "https://www.gutenberg.org/ebooks/$id.epub.images",
+            )
+        }
+    }
 
     override suspend fun downloadEpub(book: CatalogBook): Uri = withContext(Dispatchers.IO) {
         val dir = File(context.filesDir, "catalog").apply { mkdirs() }

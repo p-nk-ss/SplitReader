@@ -45,6 +45,11 @@ class CatalogViewModel @Inject constructor(
     private var searchJob: Job? = null
     private var downloadJob: Job? = null
 
+    init {
+        // Populate with popular books so the screen is useful before the user types anything.
+        runSearch("")
+    }
+
     fun onQueryChange(query: String) {
         _uiState.update { it.copy(query = query) }
         searchJob?.cancel()
@@ -58,12 +63,6 @@ class CatalogViewModel @Inject constructor(
 
     private fun runSearch(query: String) {
         searchJob?.cancel()
-        if (query.isBlank()) {
-            _uiState.update {
-                it.copy(books = emptyList(), isLoading = false, hasSearched = false, errorMessage = null)
-            }
-            return
-        }
         searchJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {

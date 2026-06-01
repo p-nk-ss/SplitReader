@@ -105,7 +105,7 @@ private fun CatalogScreen(
         )
         Spacer(Modifier.height(sp.xs))
         Text(
-            text = "FREE PUBLIC-DOMAIN BOOKS · PROJECT GUTENBERG",
+            text = "FREE PUBLIC-DOMAIN BOOKS",
             fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Medium,
             fontSize = 11.sp,
@@ -142,6 +142,17 @@ private fun CatalogScreen(
                 contentPadding = PaddingValues(bottom = sp.xxl),
                 verticalArrangement = Arrangement.spacedBy(sp.sm),
             ) {
+                item(key = "section-label") {
+                    Text(
+                        text = if (uiState.query.isBlank()) "POPULAR" else "RESULTS",
+                        fontFamily = JetBrainsMono,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.5.sp,
+                        color = palette.ink3,
+                        modifier = Modifier.padding(bottom = sp.xs),
+                    )
+                }
                 items(uiState.books, key = { it.id }) { book ->
                     CatalogRow(
                         book = book,
