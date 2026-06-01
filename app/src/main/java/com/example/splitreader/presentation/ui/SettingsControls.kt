@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.presentation.theme.JetBrainsMono
@@ -103,15 +104,20 @@ fun TypographyControls(
 
     SectionEyebrow("Typeface")
     Spacer(Modifier.height(sp.xs))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        ReadingFont.entries.forEach { font ->
-            FontChip(
-                font = font,
-                selected = readingFont == font,
-                onClick = { onSetReadingFont(font) },
-                modifier = Modifier.weight(1f),
-            )
+    val fontRows = ReadingFont.entries.chunked(3)
+    fontRows.forEach { rowFonts ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            rowFonts.forEach { font ->
+                FontChip(
+                    font = font,
+                    selected = readingFont == font,
+                    onClick = { onSetReadingFont(font) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            repeat(3 - rowFonts.size) { Spacer(Modifier.weight(1f)) }
         }
+        Spacer(Modifier.height(8.dp))
     }
 
     Spacer(Modifier.height(sp.md))
@@ -179,14 +185,16 @@ private fun FontChip(
             .background(if (selected) palette.ink else palette.bg2)
             .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(horizontal = 6.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = font.displayName,
             fontFamily = font.fontFamily,
             fontWeight = FontWeight.Medium,
-            fontSize = 15.sp,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             color = if (selected) palette.bg else palette.ink,
         )
     }

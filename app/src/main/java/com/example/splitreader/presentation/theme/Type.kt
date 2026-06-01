@@ -38,26 +38,6 @@ val JetBrainsMono = FontFamily(
     Font(googleFont = jetbrainsMonoGF, fontProvider = gfProvider, weight = FontWeight.SemiBold),
 )
 
-/**
- * User-selectable typeface for the reading panes (original + translation).
- *
- * SERIF keeps the app's Newsreader serif (the default look). SANS and MONO map to the platform's
- * built-in families so the choice always renders distinctly, with no dependency on a downloadable
- * Google Font being available on the device.
- */
-enum class ReadingFont(val displayName: String) {
-    SERIF("Serif"),
-    SANS("Sans"),
-    MONO("Mono");
-
-    val fontFamily: FontFamily
-        get() = when (this) {
-            SERIF -> FontFamily.Serif
-            SANS -> FontFamily.SansSerif
-            MONO -> FontFamily.Monospace
-        }
-}
-
 // Material 3 Typography slots mapped to the editorial palette.
 // • display / headline / title  → Newsreader serif
 // • body                        → Newsreader, longer line-height for reading
