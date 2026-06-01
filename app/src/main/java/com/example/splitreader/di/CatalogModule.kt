@@ -22,7 +22,7 @@ import javax.inject.Singleton
  * app and a contact address; clients without one are blocked. Same string for every install — it
  * names the app and the developer's contact, not the user.
  */
-private const val GUTENBERG_USER_AGENT = "SplitReader/1.0 (+mailto:pankaz6jha@gmail.com)"
+private const val GUTENBERG_USER_AGENT = "SplitReader/1.0 (+https://github.com/p-nk-ss/SplitReader)"
 
 @Module
 @InstallIn(SingletonComponent::class)
