@@ -22,7 +22,6 @@ private val gfProvider = GoogleFont.Provider(
 
 private val newsreaderGF = GoogleFont("Newsreader")
 private val jetbrainsMonoGF = GoogleFont("JetBrains Mono")
-private val interGF = GoogleFont("Inter")
 
 val Newsreader = FontFamily(
     Font(googleFont = newsreaderGF, fontProvider = gfProvider, weight = FontWeight.Light),
@@ -39,16 +38,12 @@ val JetBrainsMono = FontFamily(
     Font(googleFont = jetbrainsMonoGF, fontProvider = gfProvider, weight = FontWeight.SemiBold),
 )
 
-// Sans-serif reading face (optional alternative to the default Newsreader serif).
-val Inter = FontFamily(
-    Font(googleFont = interGF, fontProvider = gfProvider, weight = FontWeight.Normal),
-    Font(googleFont = interGF, fontProvider = gfProvider, weight = FontWeight.Medium),
-    Font(googleFont = interGF, fontProvider = gfProvider, weight = FontWeight.SemiBold),
-)
-
 /**
- * User-selectable typeface for the reading panes (original + translation). Maps to one of the
- * three bundled families. SERIF (Newsreader) is the default and preserves the original look.
+ * User-selectable typeface for the reading panes (original + translation).
+ *
+ * SERIF keeps the app's Newsreader serif (the default look). SANS and MONO map to the platform's
+ * built-in families so the choice always renders distinctly, with no dependency on a downloadable
+ * Google Font being available on the device.
  */
 enum class ReadingFont(val displayName: String) {
     SERIF("Serif"),
@@ -58,8 +53,8 @@ enum class ReadingFont(val displayName: String) {
     val fontFamily: FontFamily
         get() = when (this) {
             SERIF -> Newsreader
-            SANS -> Inter
-            MONO -> JetBrainsMono
+            SANS -> FontFamily.SansSerif
+            MONO -> FontFamily.Monospace
         }
 }
 

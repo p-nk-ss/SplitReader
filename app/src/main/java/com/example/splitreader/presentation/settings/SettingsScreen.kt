@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.splitreader.domain.model.Language
-import com.example.splitreader.presentation.reader.NavigationSide
 import com.example.splitreader.presentation.reader.TranslatorPickerDialog
 import com.example.splitreader.presentation.reader.TranslatorPickerState
 import com.example.splitreader.presentation.theme.AmoledPalette
@@ -61,7 +60,6 @@ fun SettingsRoute(viewModel: SettingsViewModel = hiltViewModel()) {
         onSetTargetLanguage = viewModel::setTargetLanguage,
         onSetSplitRatio = viewModel::setSplitRatio,
         onSetShowTranslation = viewModel::setShowTranslation,
-        onSetNavigationSide = viewModel::setNavigationSide,
         onSetHorizontalMargin = viewModel::setHorizontalMargin,
         onSetReadingFont = viewModel::setReadingFont,
         onSetTextSize = viewModel::setTextSize,
@@ -70,7 +68,6 @@ fun SettingsRoute(viewModel: SettingsViewModel = hiltViewModel()) {
         onSetTextIndent = viewModel::setTextIndent,
         onSetParagraphSpacing = viewModel::setParagraphSpacing,
         onSetJustifyText = viewModel::setJustifyText,
-        onSetHyphenation = viewModel::setHyphenation,
         onSetTranslatorProvider = viewModel::setTranslatorProvider,
         onSetGoogleCloudKey = viewModel::setGoogleCloudKey,
         onSetDeepLKey = viewModel::setDeepLKey,
@@ -92,7 +89,6 @@ fun SettingsScreen(
     onSetTargetLanguage: (Language) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onSetShowTranslation: (Boolean) -> Unit,
-    onSetNavigationSide: (NavigationSide) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
     onSetReadingFont: (com.example.splitreader.presentation.theme.ReadingFont) -> Unit,
     onSetTextSize: (Float) -> Unit,
@@ -101,7 +97,6 @@ fun SettingsScreen(
     onSetTextIndent: (Float) -> Unit,
     onSetParagraphSpacing: (Float) -> Unit,
     onSetJustifyText: (Boolean) -> Unit,
-    onSetHyphenation: (Boolean) -> Unit,
     onSetTranslatorProvider: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
     onSetGoogleCloudKey: (String?) -> Unit,
     onSetDeepLKey: (String?) -> Unit,
@@ -189,8 +184,6 @@ fun SettingsScreen(
                 onSetParagraphSpacing = onSetParagraphSpacing,
                 justify = state.justifyText,
                 onSetJustify = onSetJustifyText,
-                hyphenation = state.hyphenation,
-                onSetHyphenation = onSetHyphenation,
             )
 
             Divider()
@@ -217,25 +210,6 @@ fun SettingsScreen(
                 checked = state.showTranslation,
                 onToggle = { onSetShowTranslation(!state.showTranslation) },
             )
-
-            Divider()
-
-            SectionEyebrow("Navigation side")
-            Spacer(Modifier.height(sp.xs))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                SelectChip(
-                    label = "Left",
-                    selected = state.navigationSide == NavigationSide.LEFT,
-                    onClick = { onSetNavigationSide(NavigationSide.LEFT) },
-                    modifier = Modifier.weight(1f),
-                )
-                SelectChip(
-                    label = "Right",
-                    selected = state.navigationSide == NavigationSide.RIGHT,
-                    onClick = { onSetNavigationSide(NavigationSide.RIGHT) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
 
             Divider()
 
@@ -446,7 +420,7 @@ private fun SelectChip(label: String, selected: Boolean, onClick: () -> Unit, mo
             .background(if (selected) palette.ink else palette.bg2)
             .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -461,7 +435,6 @@ private fun SelectChip(label: String, selected: Boolean, onClick: () -> Unit, mo
 
 @Composable
 private fun AboutSection() {
-    val palette = LocalReaderPalette.current
     val context = LocalContext.current
     val version = remember {
         runCatching {
@@ -474,16 +447,6 @@ private fun AboutSection() {
         AboutRow("Formats", "EPUB · FB2 · MOBI")
         Spacer(Modifier.height(6.dp))
         AboutRow("Translation", "Google ML Kit (on-device)")
-        Spacer(Modifier.height(6.dp))
-        AboutRow("Package", context.packageName)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Language models and translations are provided by Google ML Kit.",
-            fontFamily = Newsreader,
-            fontStyle = FontStyle.Italic,
-            fontSize = 12.sp,
-            color = palette.ink3,
-        )
     }
 }
 

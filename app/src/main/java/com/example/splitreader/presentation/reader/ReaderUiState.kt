@@ -22,7 +22,6 @@ data class ReadingStyle(
     val textIndent: Float = 0f,
     val paragraphSpacing: Float = 18f,
     val justify: Boolean = true,
-    val hyphenation: Boolean = false,
 )
 
 data class WordSelection(
@@ -54,7 +53,6 @@ sealed interface ReaderUiState {
         val textIndent: Float = 0f,
         val paragraphSpacing: Float = 18f,
         val justifyText: Boolean = true,
-        val hyphenation: Boolean = false,
         val splitRatio: Float = 0.5f,
         val showTranslation: Boolean = true,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
@@ -82,7 +80,6 @@ sealed interface ReaderUiState {
                 textIndent = textIndent,
                 paragraphSpacing = paragraphSpacing,
                 justify = justifyText,
-                hyphenation = hyphenation,
             )
 
         val currentChapter: Chapter

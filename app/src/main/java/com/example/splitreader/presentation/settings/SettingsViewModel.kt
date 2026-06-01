@@ -11,7 +11,6 @@ import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
-import com.example.splitreader.presentation.reader.NavigationSide
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +27,6 @@ data class SettingsUiState(
     val targetLanguage: Language = Language.ENGLISH,
     val splitRatio: Float = 0.5f,
     val showTranslation: Boolean = true,
-    val navigationSide: NavigationSide = NavigationSide.RIGHT,
     val horizontalMargin: Float = 12f,
     // Typography
     val readingFont: ReadingFont = ReadingFont.SERIF,
@@ -38,7 +36,6 @@ data class SettingsUiState(
     val textIndent: Float = 0f,
     val paragraphSpacing: Float = 18f,
     val justifyText: Boolean = true,
-    val hyphenation: Boolean = false,
     // Translation engine
     val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
     val googleCloudKeyConfigured: Boolean = false,
@@ -79,7 +76,6 @@ class SettingsViewModel @Inject constructor(
         targetLanguage = progressManager.getTargetLanguage(),
         splitRatio = progressManager.getSplitRatio(),
         showTranslation = progressManager.getShowTranslation(),
-        navigationSide = if (progressManager.isNavigationLeft()) NavigationSide.LEFT else NavigationSide.RIGHT,
         horizontalMargin = progressManager.getHorizontalMargin(),
         readingFont = ReadingFont.entries.find { it.name == progressManager.getReadingFontName() }
             ?: ReadingFont.SERIF,
@@ -89,7 +85,6 @@ class SettingsViewModel @Inject constructor(
         textIndent = progressManager.getTextIndent(),
         paragraphSpacing = progressManager.getParagraphSpacing(),
         justifyText = progressManager.getJustifyText(),
-        hyphenation = progressManager.getHyphenation(),
         translatorProvider = progressManager.getTranslatorProvider(),
         googleCloudKeyConfigured = apiKeyManager.getGoogleCloudKey() != null,
         deepLKeyConfigured = apiKeyManager.getDeepLKey() != null,
@@ -121,11 +116,6 @@ class SettingsViewModel @Inject constructor(
     fun setShowTranslation(show: Boolean) {
         progressManager.saveShowTranslation(show)
         _state.update { it.copy(showTranslation = show) }
-    }
-
-    fun setNavigationSide(side: NavigationSide) {
-        progressManager.saveNavigationSideLeft(side == NavigationSide.LEFT)
-        _state.update { it.copy(navigationSide = side) }
     }
 
     fun setHorizontalMargin(margin: Float) {
@@ -174,11 +164,6 @@ class SettingsViewModel @Inject constructor(
     fun setJustifyText(justify: Boolean) {
         progressManager.saveJustifyText(justify)
         _state.update { it.copy(justifyText = justify) }
-    }
-
-    fun setHyphenation(enabled: Boolean) {
-        progressManager.saveHyphenation(enabled)
-        _state.update { it.copy(hyphenation = enabled) }
     }
 
     // ── Translation engine ─────────────────────────────────────────────────────

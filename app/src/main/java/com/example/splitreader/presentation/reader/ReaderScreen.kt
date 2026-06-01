@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,6 +74,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
@@ -82,7 +84,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextIndent
@@ -186,7 +187,6 @@ internal fun ReaderRoute(
             onSetTextIndent = viewModel::setTextIndent,
             onSetParagraphSpacing = viewModel::setParagraphSpacing,
             onSetJustifyText = viewModel::setJustifyText,
-            onSetHyphenation = viewModel::setHyphenation,
             onSetSplitRatio = viewModel::setSplitRatio,
             onToggleTranslation = viewModel::toggleTranslation,
             onSetNavigationSide = viewModel::setNavigationSide,
@@ -252,7 +252,6 @@ private fun ReaderContent(
     onSetTextIndent: (Float) -> Unit,
     onSetParagraphSpacing: (Float) -> Unit,
     onSetJustifyText: (Boolean) -> Unit,
-    onSetHyphenation: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
     onSetNavigationSide: (NavigationSide) -> Unit,
@@ -431,7 +430,6 @@ private fun ReaderContent(
                 onSetTextIndent = onSetTextIndent,
                 onSetParagraphSpacing = onSetParagraphSpacing,
                 onSetJustifyText = onSetJustifyText,
-                onSetHyphenation = onSetHyphenation,
                 onSetSplitRatio = onSetSplitRatio,
                 onToggleTranslation = onToggleTranslation,
                 wordHighlightEnabled = wordHighlightEnabled,
@@ -1145,10 +1143,7 @@ private fun ParagraphItem(
             letterSpacing = style.letterSpacing.sp,
             color = baseColor,
             textAlign = if (style.justify) TextAlign.Justify else TextAlign.Start,
-            style = TextStyle(
-                textIndent = TextIndent(firstLine = style.textIndent.sp),
-                hyphens = if (style.hyphenation) Hyphens.Auto else Hyphens.None,
-            ),
+            style = TextStyle(textIndent = TextIndent(firstLine = style.textIndent.sp)),
             onTextLayout = { textLayoutResult = it },
         )
     }
@@ -1527,6 +1522,7 @@ internal fun EditorialDialog(
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
+    val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
 
     BasicAlertDialog(
         onDismissRequest = onDismiss,
@@ -1536,6 +1532,7 @@ internal fun EditorialDialog(
             modifier = Modifier
                 .widthIn(max = 560.dp)
                 .fillMaxWidth(0.85f)
+                .heightIn(max = maxDialogHeight)
                 .clip(RoundedCornerShape(radii.xl))
                 .background(palette.bg)
                 .border(1.dp, palette.edge, RoundedCornerShape(radii.xl)),
@@ -1585,12 +1582,15 @@ internal fun EditorialDialog(
 
             Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
 
-            // Scrollable body
+            // Scrollable body — weighted so it scrolls within the capped dialog height
+            // instead of pushing the last rows under the system gesture bar.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = sp.xl, vertical = sp.md),
+                    .padding(horizontal = sp.xl, vertical = sp.md)
+                    .navigationBarsPadding(),
             ) {
                 content()
             }
@@ -1692,7 +1692,6 @@ private fun DisplaySettingsDialog(
     onSetTextIndent: (Float) -> Unit,
     onSetParagraphSpacing: (Float) -> Unit,
     onSetJustifyText: (Boolean) -> Unit,
-    onSetHyphenation: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
     wordHighlightEnabled: Boolean,
@@ -1748,8 +1747,6 @@ private fun DisplaySettingsDialog(
             onSetParagraphSpacing = onSetParagraphSpacing,
             justify = state.justifyText,
             onSetJustify = onSetJustifyText,
-            hyphenation = state.hyphenation,
-            onSetHyphenation = onSetHyphenation,
         )
 
         Spacer(Modifier.height(sp.md))

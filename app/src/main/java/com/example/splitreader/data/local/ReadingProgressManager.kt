@@ -151,12 +151,6 @@ class ReadingProgressManager @Inject constructor(
 
     fun getJustifyText(): Boolean = prefs.getBoolean("justify_text", true)
 
-    fun saveHyphenation(enabled: Boolean) {
-        prefs.edit().putBoolean("hyphenation", enabled).apply()
-    }
-
-    fun getHyphenation(): Boolean = prefs.getBoolean("hyphenation", false)
-
     // ── Read-aloud (TTS) ───────────────────────────────────────────────────────
 
     fun saveTtsRate(rate: Float) {

@@ -98,8 +98,6 @@ fun TypographyControls(
     onSetParagraphSpacing: (Float) -> Unit,
     justify: Boolean,
     onSetJustify: (Boolean) -> Unit,
-    hyphenation: Boolean,
-    onSetHyphenation: (Boolean) -> Unit,
 ) {
     val sp = LocalSpacing.current
 
@@ -163,13 +161,6 @@ fun TypographyControls(
         sub = "Align both edges of each line",
         checked = justify,
         onToggle = { onSetJustify(!justify) },
-    )
-    Spacer(Modifier.height(sp.sm))
-    ToggleRow(
-        label = "Hyphenation",
-        sub = "Break long words at line ends",
-        checked = hyphenation,
-        onToggle = { onSetHyphenation(!hyphenation) },
     )
 }
 

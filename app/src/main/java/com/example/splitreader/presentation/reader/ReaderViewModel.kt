@@ -88,7 +88,6 @@ class ReaderViewModel @Inject constructor(
         val textIndent: Float = 0f,
         val paragraphSpacing: Float = 18f,
         val justifyText: Boolean = true,
-        val hyphenation: Boolean = false,
         val splitRatio: Float = 0.5f,
         val showTranslation: Boolean = true,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
@@ -124,7 +123,6 @@ class ReaderViewModel @Inject constructor(
             textIndent = progressManager.getTextIndent(),
             paragraphSpacing = progressManager.getParagraphSpacing(),
             justifyText = progressManager.getJustifyText(),
-            hyphenation = progressManager.getHyphenation(),
             splitRatio = progressManager.getSplitRatio(),
             showTranslation = progressManager.getShowTranslation(),
             horizontalMargin = progressManager.getHorizontalMargin(),
@@ -165,7 +163,6 @@ class ReaderViewModel @Inject constructor(
                     textIndent = s.textIndent,
                     paragraphSpacing = s.paragraphSpacing,
                     justifyText = s.justifyText,
-                    hyphenation = s.hyphenation,
                     splitRatio = s.splitRatio,
                     showTranslation = s.showTranslation,
                     readerTheme = s.readerTheme,
@@ -397,11 +394,6 @@ class ReaderViewModel @Inject constructor(
     fun setJustifyText(justify: Boolean) {
         progressManager.saveJustifyText(justify)
         _state.update { it.copy(justifyText = justify) }
-    }
-
-    fun setHyphenation(enabled: Boolean) {
-        progressManager.saveHyphenation(enabled)
-        _state.update { it.copy(hyphenation = enabled) }
     }
 
     fun setNavigationSide(side: NavigationSide) {
