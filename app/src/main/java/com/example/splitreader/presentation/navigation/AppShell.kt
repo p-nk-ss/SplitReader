@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StickyNote2
@@ -45,6 +46,7 @@ import com.example.splitreader.presentation.ui.BrandIcon
 fun AppShell(
     currentRoute: String?,
     onNavigateToHome: () -> Unit,
+    onNavigateToCatalog: () -> Unit,
     onNavigateToAlmanac: () -> Unit,
     onNavigateToWords: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -63,6 +65,7 @@ fun AppShell(
                 EditorialNavigationRail(
                     currentRoute = currentRoute,
                     onNavigateToHome = onNavigateToHome,
+                    onNavigateToCatalog = onNavigateToCatalog,
                     onNavigateToAlmanac = onNavigateToAlmanac,
                     onNavigateToWords = onNavigateToWords,
                     onNavigateToSettings = onNavigateToSettings,
@@ -124,6 +127,7 @@ private fun AppStatusStrip() {
 private fun EditorialNavigationRail(
     currentRoute: String?,
     onNavigateToHome: () -> Unit,
+    onNavigateToCatalog: () -> Unit,
     onNavigateToAlmanac: () -> Unit,
     onNavigateToWords: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -169,6 +173,12 @@ private fun EditorialNavigationRail(
             label = "Library",
             selected = currentRoute == HOME_ROUTE,
             onClick = onNavigateToHome,
+        )
+        RailTab(
+            icon = Icons.Outlined.Explore,
+            label = "Catalog",
+            selected = currentRoute == CATALOG_ROUTE,
+            onClick = onNavigateToCatalog,
         )
         RailTab(
             icon = Icons.Outlined.BarChart,

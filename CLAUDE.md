@@ -27,6 +27,7 @@ app/src/main/java/com/example/splitreader/
 │   ├── home/                   # Library screen (HomeRoute/HomeScreen + HomeViewModel)
 │   ├── reader/                 # Reading screen (ReaderRoute/ReaderScreen + ReaderViewModel); split-pane render + dialogs
 │   ├── settings/               # Settings screen (SettingsRoute/SettingsScreen + SettingsViewModel)
+│   ├── catalog/                # Free-book catalog (CatalogRoute/CatalogScreen + CatalogViewModel); search + download from Project Gutenberg
 │   ├── almanac/ words/         # Reading-stats + saved-vocabulary screens
 │   ├── theme/                  # Palettes, Type.kt (fonts + ReadingFont enum), spacing/radii tokens
 │   └── ui/                     # Shared widgets: SettingsControls (Slider/Toggle/Typography)
@@ -62,7 +63,11 @@ app/src/main/java/com/example/splitreader/
 
 ## Navigation
 
-Programmatic Compose `NavHost` in `presentation/navigation/SplitReaderNavHost.kt`. Routes: `HOME_ROUTE` (start), `READER_ROUTE` (`reader?path={path}`), `ALMANAC_ROUTE`, `WORDS_ROUTE`, `SETTINGS_ROUTE`. `AppShell` wraps the host with the left editorial nav rail (hidden while reading). Home navigates to the reader by passing the book file path as the `path` argument.
+Programmatic Compose `NavHost` in `presentation/navigation/SplitReaderNavHost.kt`. Routes: `HOME_ROUTE` (start), `READER_ROUTE` (`reader?path={path}`), `CATALOG_ROUTE`, `ALMANAC_ROUTE`, `WORDS_ROUTE`, `SETTINGS_ROUTE`. `AppShell` wraps the host with the left editorial nav rail (hidden while reading). Home navigates to the reader by passing the book file path as the `path` argument.
+
+## Catalog (free books)
+
+`CatalogScreen` lets users discover and read free **public-domain** books with translation, no login required. Source is **Project Gutenberg's official OPDS catalog** hit directly at `https://www.gutenberg.org/ebooks/search.opds/` (`data/catalog/GutenbergOpdsApi.kt`, wired in `di/CatalogModule.kt`, reuses the shared `OkHttpClient`). The Gutendex JSON wrapper was dropped — it timed out chronically. `CatalogRepositoryImpl.search` parses the OPDS XML with **Jsoup** (`<entry>` → numeric ebook id from `<id>`, `<title>`, author from `<content>`); the EPUB and cover URLs are built deterministically from the id (`/ebooks/{id}.epub.images`, `/cache/epub/{id}/pg{id}.cover.medium.jpg`). `downloadEpub` streams the DRM-free EPUB into `filesDir/catalog/<id>.epub` and returns a `file://` Uri; `CatalogViewModel` then runs the **existing** `ParseBookUseCase` → `EpubParser` → `BookLibraryRepository.saveBook`, so a catalog book lands in the library and reads like any imported file. Purchased Google Play Books are intentionally **not** supported — DRM (Adobe ACS4) makes their content inaccessible to third-party apps, and Google Sign-In does not change that. Note: `HomeViewModel.openBookFromLibrary` skips the persisted-URI-permission check for `file://` (app-private) catalog downloads.
 
 ## Settings & reading customization
 
