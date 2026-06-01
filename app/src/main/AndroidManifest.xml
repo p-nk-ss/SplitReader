@@ -3,10 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_DOCUMENT_VISUAL_USER_SELECTED" />
+    <!--
+      No storage/media permission is declared: book import uses the Storage Access Framework
+      (ActivityResultContracts.OpenDocument), which grants per-file access without any permission,
+      and catalog downloads are written to app-private filesDir.
+    -->
 
     <!-- Allow binding to the system text-to-speech engine on Android 11+ -->
     <queries>
