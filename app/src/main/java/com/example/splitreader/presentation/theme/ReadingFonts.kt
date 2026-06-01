@@ -59,6 +59,7 @@ enum class ReadingFont(val displayName: String) {
     SERIF("Serif"),
     SANS("Sans"),
     MONO("Mono"),
+    NEWSREADER("Newsreader"),
     LITERATA("Literata"),
     LORA("Lora"),
     MERRIWEATHER("Merriweather"),
@@ -73,6 +74,7 @@ enum class ReadingFont(val displayName: String) {
             SERIF -> FontFamily.Serif
             SANS -> FontFamily.SansSerif
             MONO -> FontFamily.Monospace
+            NEWSREADER -> Newsreader
             LITERATA -> Literata
             LORA -> Lora
             MERRIWEATHER -> Merriweather
