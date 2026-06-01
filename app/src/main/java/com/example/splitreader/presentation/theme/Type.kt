@@ -20,17 +20,10 @@ private val gfProvider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs,
 )
 
-private val newsreaderGF = GoogleFont("Newsreader")
 private val jetbrainsMonoGF = GoogleFont("JetBrains Mono")
 
-val Newsreader = FontFamily(
-    Font(googleFont = newsreaderGF, fontProvider = gfProvider, weight = FontWeight.Light),
-    Font(googleFont = newsreaderGF, fontProvider = gfProvider, weight = FontWeight.Normal),
-    Font(googleFont = newsreaderGF, fontProvider = gfProvider, weight = FontWeight.Medium),
-    Font(googleFont = newsreaderGF, fontProvider = gfProvider, weight = FontWeight.SemiBold),
-    Font(googleFont = newsreaderGF, fontProvider = gfProvider, weight = FontWeight.Normal, style = FontStyle.Italic),
-    Font(googleFont = newsreaderGF, fontProvider = gfProvider, weight = FontWeight.Medium, style = FontStyle.Italic),
-)
+// Newsreader (the app's serif) is bundled as a res/font resource — see ReadingFonts.kt — so the
+// editorial typography renders reliably offline and on emulators without Google Play Services.
 
 val JetBrainsMono = FontFamily(
     Font(googleFont = jetbrainsMonoGF, fontProvider = gfProvider, weight = FontWeight.Normal),
