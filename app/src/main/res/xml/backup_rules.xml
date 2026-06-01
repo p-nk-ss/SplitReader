@@ -6,8 +6,9 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Never back up translation-provider secrets/endpoints. EncryptedSharedPreferences is also
+         keyed to this device's Keystore, so a restored copy would be undecryptable. -->
+    <exclude domain="sharedpref" path="translator_keys_enc.xml"/>
+    <exclude domain="sharedpref" path="translator_keys.xml"/>
+    <exclude domain="sharedpref" path="translator_endpoints.xml"/>
 </full-backup-content>

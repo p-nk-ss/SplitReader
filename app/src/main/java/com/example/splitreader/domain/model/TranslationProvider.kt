@@ -18,14 +18,6 @@ enum class TranslationProvider(
         description = "On-device translation. Works offline once language packs download.",
         tracksUsage = false,
     ),
-    GOOGLE_WEB(
-        displayName = "Google Translate (free)",
-        requiresApiKey = false,
-        requiresNetwork = true,
-        category = TranslationProviderCategory.FREE,
-        description = "Unofficial Google endpoint. No setup, but may be unstable.",
-        tracksUsage = false,
-    ),
     LIBRE_TRANSLATE(
         displayName = "LibreTranslate",
         requiresApiKey = true,

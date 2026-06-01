@@ -5,15 +5,14 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Translation-provider secrets/endpoints must never leave the device. -->
+        <exclude domain="sharedpref" path="translator_keys_enc.xml"/>
+        <exclude domain="sharedpref" path="translator_keys.xml"/>
+        <exclude domain="sharedpref" path="translator_endpoints.xml"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="translator_keys_enc.xml"/>
+        <exclude domain="sharedpref" path="translator_keys.xml"/>
+        <exclude domain="sharedpref" path="translator_endpoints.xml"/>
     </device-transfer>
-    -->
 </data-extraction-rules>
