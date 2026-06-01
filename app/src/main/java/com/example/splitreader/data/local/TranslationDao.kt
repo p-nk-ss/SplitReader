@@ -16,4 +16,10 @@ interface TranslationDao {
 
     @Query("DELETE FROM translation_cache WHERE timestamp < :before")
     suspend fun clearOlderThan(before: Long)
+
+    @Query("DELETE FROM translation_cache")
+    suspend fun clearAll()
+
+    @Query("SELECT COUNT(*) FROM translation_cache")
+    suspend fun count(): Int
 }

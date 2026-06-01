@@ -16,6 +16,7 @@ import javax.inject.Singleton
 @Singleton
 class TextToSpeechManager @Inject constructor(
     @ApplicationContext context: Context,
+    private val progressManager: ReadingProgressManager,
 ) {
     private var ready = false
     private var pending: Pair<String, String>? = null
@@ -23,6 +24,7 @@ class TextToSpeechManager @Inject constructor(
     private val tts = TextToSpeech(context.applicationContext) { status ->
         ready = status == TextToSpeech.SUCCESS
         if (ready) {
+            applyRateAndPitch()
             pending?.let { (text, langCode) -> play(text, langCode) }
         }
         pending = null
@@ -39,7 +41,25 @@ class TextToSpeechManager @Inject constructor(
         play(trimmed, langCode)
     }
 
+    /** Persists and immediately applies the speech rate (1.0 = normal). */
+    fun setRate(rate: Float) {
+        progressManager.saveTtsRate(rate)
+        if (ready) tts.setSpeechRate(rate)
+    }
+
+    /** Persists and immediately applies the voice pitch (1.0 = normal). */
+    fun setPitch(pitch: Float) {
+        progressManager.saveTtsPitch(pitch)
+        if (ready) tts.setPitch(pitch)
+    }
+
+    private fun applyRateAndPitch() {
+        tts.setSpeechRate(progressManager.getTtsRate())
+        tts.setPitch(progressManager.getTtsPitch())
+    }
+
     private fun play(text: String, langCode: String) {
+        applyRateAndPitch()
         val locale = Locale.forLanguageTag(langCode)
         val result = tts.setLanguage(locale)
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {

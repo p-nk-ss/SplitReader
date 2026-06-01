@@ -16,15 +16,20 @@ SplitReader is a multi-language e-book reader with real-time ML Kit translation.
 
 ## Architecture
 
-Single-module app. Clean Architecture + MVVM. No Compose — uses Fragments, Activities, RecyclerView, ViewBinding.
+Single-module app. Clean Architecture + MVVM. **Jetpack Compose** (Material 3) — no Fragments/XML layouts; screens are composables hosted by a single `NavHost`.
 
 ```
 app/src/main/java/com/example/splitreader/
 ├── SplitReaderApplication.kt   # @HiltAndroidApp
-├── MainActivity.kt             # NavHostFragment host
+├── MainActivity.kt             # setContent { SplitReaderTheme { SplitReaderNavHost() } }
 ├── presentation/
-│   ├── home/                   # Book selection screen (HomeFragment + HomeViewModel)
-│   └── reader/                 # Reading screen (ReaderActivity + ReaderViewModel + ParagraphAdapter)
+│   ├── navigation/             # SplitReaderNavHost (routes) + AppShell (left nav rail)
+│   ├── home/                   # Library screen (HomeRoute/HomeScreen + HomeViewModel)
+│   ├── reader/                 # Reading screen (ReaderRoute/ReaderScreen + ReaderViewModel); split-pane render + dialogs
+│   ├── settings/               # Settings screen (SettingsRoute/SettingsScreen + SettingsViewModel)
+│   ├── almanac/ words/         # Reading-stats + saved-vocabulary screens
+│   ├── theme/                  # Palettes, Type.kt (fonts + ReadingFont enum), spacing/radii tokens
+│   └── ui/                     # Shared widgets: SettingsControls (Slider/Toggle/Typography)
 ├── domain/
 │   ├── model/                  # Book, Chapter, Language, TranslationState
 │   ├── parser/                 # BookParser registry interface + EpubParser, Fb2Parser, MobiParser, shared HtmlChapterExtractor
@@ -45,7 +50,8 @@ app/src/main/java/com/example/splitreader/
 |---------|---------|
 | DI | Hilt 2.52 |
 | Database | Room 2.7.0 |
-| Navigation | AndroidX Navigation 2.7.7 (Fragment) |
+| UI | Jetpack Compose + Material 3 |
+| Navigation | AndroidX Navigation Compose (single `NavHost`) |
 | Async | Coroutines 1.7.3 + Flow |
 | Translation | ML Kit Translate 17.0.2 |
 | Language detection | ML Kit Language ID 17.0.4 |
@@ -56,7 +62,11 @@ app/src/main/java/com/example/splitreader/
 
 ## Navigation
 
-Single nav graph (`nav_graph.xml`). Start destination: `HomeFragment`. HomeFragment navigates to `ReaderActivity` passing a serialized `Book` as `bookJson` argument.
+Programmatic Compose `NavHost` in `presentation/navigation/SplitReaderNavHost.kt`. Routes: `HOME_ROUTE` (start), `READER_ROUTE` (`reader?path={path}`), `ALMANAC_ROUTE`, `WORDS_ROUTE`, `SETTINGS_ROUTE`. `AppShell` wraps the host with the left editorial nav rail (hidden while reading). Home navigates to the reader by passing the book file path as the `path` argument.
+
+## Settings & reading customization
+
+`SettingsScreen` is the global preferences editor. The reader's appearance/translation prefs are persisted as **single global keys** in `ReadingProgressManager`, so Settings and the reader's in-session `DisplaySettingsDialog`/`TranslatorPickerDialog` share one source of truth (no per-book scoping). Typography (typeface via `ReadingFont`, font size, line height, paragraph/letter spacing, first-line indent, justification, hyphenation) is rendered through the shared `TypographyControls` and applied at the reader's paragraph render sites. Settings also hosts: translation engine config (mirrors the reader's `TranslatorPickerDialog`), clear-translation-cache (`TranslationDao.clearAll`), TTS rate/pitch (`TextToSpeechManager`), and About. Bookmarks (existing `BookmarkRepository`/`ToggleBookmarkUseCase`) are surfaced via the reader top-bar bookmark button + an in-reader bookmarks dialog.
 
 ## Supported Languages (12)
 

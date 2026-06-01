@@ -15,11 +15,13 @@ import com.example.splitreader.presentation.almanac.AlmanacRoute
 import com.example.splitreader.presentation.words.WordsRoute
 import com.example.splitreader.presentation.home.HomeRoute
 import com.example.splitreader.presentation.reader.ReaderRoute
+import com.example.splitreader.presentation.settings.SettingsRoute
 
-const val HOME_ROUTE    = "home"
-const val READER_ROUTE  = "reader?path={path}"
-const val ALMANAC_ROUTE = "almanac"
-const val WORDS_ROUTE   = "words"
+const val HOME_ROUTE     = "home"
+const val READER_ROUTE   = "reader?path={path}"
+const val ALMANAC_ROUTE  = "almanac"
+const val WORDS_ROUTE    = "words"
+const val SETTINGS_ROUTE = "settings"
 private const val ARG_PATH = "path"
 
 @Composable
@@ -35,6 +37,7 @@ fun SplitReaderNavHost(
         onNavigateToHome = { navController.navigate(HOME_ROUTE) { launchSingleTop = true } },
         onNavigateToAlmanac = { navController.navigate(ALMANAC_ROUTE) { launchSingleTop = true } },
         onNavigateToWords = { navController.navigate(WORDS_ROUTE) { launchSingleTop = true } },
+        onNavigateToSettings = { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } },
     ) {
         NavHost(
             navController = navController,
@@ -63,6 +66,9 @@ fun SplitReaderNavHost(
             }
             composable(WORDS_ROUTE) {
                 WordsRoute()
+            }
+            composable(SETTINGS_ROUTE) {
+                SettingsRoute()
             }
         }
     }
