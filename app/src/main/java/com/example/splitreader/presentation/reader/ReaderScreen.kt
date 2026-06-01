@@ -210,6 +210,7 @@ internal fun ReaderRoute(
             onSetLibreUrl = viewModel::setLibreBaseUrl,
             onRefreshTranslationUsage = viewModel::refreshTranslationUsage,
             onResetTranslationUsage = viewModel::resetTranslationUsage,
+            onRetryTranslation = viewModel::retryTranslation,
         )
     }
 }
@@ -275,6 +276,7 @@ private fun ReaderContent(
     onSetLibreUrl: (String?) -> Unit,
     onRefreshTranslationUsage: () -> Unit,
     onResetTranslationUsage: (TranslationProvider) -> Unit,
+    onRetryTranslation: () -> Unit,
 ) {
     val palette = readerPalette(state.readerTheme)
 
@@ -400,6 +402,7 @@ private fun ReaderContent(
                 if (state.translationState is TranslationState.Error) {
                     TranslationErrorBanner(
                         message = (state.translationState as TranslationState.Error).message,
+                        onRetry = onRetryTranslation,
                         onOpenTranslator = { showTranslatorPicker = true },
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
@@ -1303,6 +1306,7 @@ private fun TranslationBanner(label: String, modifier: Modifier = Modifier) {
 @Composable
 private fun TranslationErrorBanner(
     message: String,
+    onRetry: () -> Unit,
     onOpenTranslator: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1314,7 +1318,6 @@ private fun TranslationErrorBanner(
             .clip(RoundedCornerShape(12.dp))
             .background(palette.bg2)
             .border(1.dp, palette.edge, RoundedCornerShape(12.dp))
-            .clickable(onClick = onOpenTranslator)
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(
@@ -1331,14 +1334,38 @@ private fun TranslationErrorBanner(
             fontSize = 13.sp,
             color = palette.ink,
         )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = "Tap to switch translator",
-            fontFamily = Newsreader,
-            fontStyle = FontStyle.Italic,
-            fontSize = 11.sp,
-            color = palette.ink3,
-        )
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(palette.accent)
+                    .clickable(onClick = onRetry)
+                    .padding(horizontal = 16.dp, vertical = 7.dp),
+            ) {
+                Text(
+                    text = "Retry",
+                    fontFamily = JetBrainsMono,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    color = palette.bg,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, palette.edge, RoundedCornerShape(8.dp))
+                    .clickable(onClick = onOpenTranslator)
+                    .padding(horizontal = 16.dp, vertical = 7.dp),
+            ) {
+                Text(
+                    text = "Switch translator",
+                    fontFamily = JetBrainsMono,
+                    fontSize = 12.sp,
+                    color = palette.ink2,
+                )
+            }
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package com.example.splitreader.data.translator
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.toTranslateLanguage
+import com.example.splitreader.domain.translator.ModelDownloadException
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
@@ -10,8 +11,13 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** Cap on the first-use on-device model download so a stalled download surfaces an error instead
+ *  of an endless "Preparing translation…" banner. Once downloaded, the model is cached and reused. */
+private const val MODEL_DOWNLOAD_TIMEOUT_MS = 90_000L
 
 @Singleton
 class MLKitTranslationProvider @Inject constructor() : TranslationProviderApi {
@@ -25,7 +31,11 @@ class MLKitTranslationProvider @Inject constructor() : TranslationProviderApi {
 
     override suspend fun translate(text: String, source: Language, target: Language): String {
         val translator = mutex.withLock { ensureTranslator(source, target) }
-        translator.downloadModelIfNeeded().await()
+        val ready = withTimeoutOrNull(MODEL_DOWNLOAD_TIMEOUT_MS) {
+            translator.downloadModelIfNeeded().await()
+            true
+        }
+        if (ready == null) throw ModelDownloadException()
         return translator.translate(text).await()
     }
 

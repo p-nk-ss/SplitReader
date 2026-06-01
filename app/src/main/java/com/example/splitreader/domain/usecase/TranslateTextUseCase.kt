@@ -5,6 +5,7 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.TranslationRepository
+import com.example.splitreader.domain.translator.ModelDownloadException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -55,6 +56,8 @@ class TranslateTextUseCase @Inject constructor(
     }.flowOn(Dispatchers.IO)
 
     private fun friendlyError(e: Exception, provider: TranslationProvider): String = when {
+        e is ModelDownloadException ->
+            "Couldn't download the offline translation model. Check your internet and Google Play services, then retry."
         e is HttpException -> when (e.code()) {
             401, 403 -> "Invalid ${provider.displayName} API key — open Translator menu to update"
             429 -> "${provider.displayName} quota exceeded — try a different provider"
