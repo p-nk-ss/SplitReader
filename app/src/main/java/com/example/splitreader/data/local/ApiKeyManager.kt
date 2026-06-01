@@ -14,9 +14,17 @@ import javax.inject.Singleton
 class ApiKeyManager @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private val prefs: SharedPreferences by lazy { buildPrefs() }
+    /** Encrypted on-disk store; null if the platform Keystore/crypto is unavailable. */
+    private val prefs: SharedPreferences? by lazy { buildEncryptedPrefs() }
 
-    private fun buildPrefs(): SharedPreferences =
+    /**
+     * Session-only fallback used when [EncryptedSharedPreferences] cannot be created. Keys are kept
+     * in memory and never written to disk in plaintext — they simply do not survive a process
+     * restart in that degraded state, which is the safe trade-off.
+     */
+    private val inMemory = mutableMapOf<String, String>()
+
+    private fun buildEncryptedPrefs(): SharedPreferences? =
         try {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -29,38 +37,41 @@ class ApiKeyManager @Inject constructor(
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
         } catch (t: Throwable) {
-            Log.w(TAG, "EncryptedSharedPreferences unavailable, falling back to plain prefs", t)
-            context.getSharedPreferences(FALLBACK_PREFS_NAME, Context.MODE_PRIVATE)
+            Log.w(TAG, "EncryptedSharedPreferences unavailable; keys will be kept in memory only", t)
+            null
         }
 
-    fun getGoogleCloudKey(): String? = prefs.getString(KEY_GOOGLE_CLOUD, null)?.takeIf { it.isNotBlank() }
+    private fun read(key: String): String? =
+        (prefs?.getString(key, null) ?: inMemory[key])?.takeIf { it.isNotBlank() }
 
-    fun setGoogleCloudKey(value: String?) {
-        prefs.edit().apply {
-            if (value.isNullOrBlank()) remove(KEY_GOOGLE_CLOUD) else putString(KEY_GOOGLE_CLOUD, value.trim())
-        }.apply()
+    private fun write(key: String, value: String?) {
+        val trimmed = value?.trim()
+        val store = prefs
+        if (trimmed.isNullOrBlank()) {
+            inMemory.remove(key)
+            store?.edit()?.remove(key)?.apply()
+        } else if (store != null) {
+            store.edit().putString(key, trimmed).apply()
+        } else {
+            inMemory[key] = trimmed
+        }
     }
 
-    fun getDeepLKey(): String? = prefs.getString(KEY_DEEPL, null)?.takeIf { it.isNotBlank() }
+    fun getGoogleCloudKey(): String? = read(KEY_GOOGLE_CLOUD)
 
-    fun setDeepLKey(value: String?) {
-        prefs.edit().apply {
-            if (value.isNullOrBlank()) remove(KEY_DEEPL) else putString(KEY_DEEPL, value.trim())
-        }.apply()
-    }
+    fun setGoogleCloudKey(value: String?) = write(KEY_GOOGLE_CLOUD, value)
 
-    fun getLibreTranslateKey(): String? = prefs.getString(KEY_LIBRE, null)?.takeIf { it.isNotBlank() }
+    fun getDeepLKey(): String? = read(KEY_DEEPL)
 
-    fun setLibreTranslateKey(value: String?) {
-        prefs.edit().apply {
-            if (value.isNullOrBlank()) remove(KEY_LIBRE) else putString(KEY_LIBRE, value.trim())
-        }.apply()
-    }
+    fun setDeepLKey(value: String?) = write(KEY_DEEPL, value)
+
+    fun getLibreTranslateKey(): String? = read(KEY_LIBRE)
+
+    fun setLibreTranslateKey(value: String?) = write(KEY_LIBRE, value)
 
     private companion object {
         const val TAG = "ApiKeyManager"
         const val ENCRYPTED_PREFS_NAME = "translator_keys_enc"
-        const val FALLBACK_PREFS_NAME = "translator_keys"
         const val KEY_GOOGLE_CLOUD = "google_cloud_key"
         const val KEY_DEEPL = "deepl_key"
         const val KEY_LIBRE = "libre_translate_key"
