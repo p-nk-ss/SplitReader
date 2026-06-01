@@ -6,6 +6,7 @@ import com.example.splitreader.data.catalog.GutenbergOpdsApi
 import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogPage
 import com.example.splitreader.domain.repository.CatalogRepository
+import com.example.splitreader.di.GutenbergClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,7 +23,7 @@ private val EBOOK_ID_REGEX = Regex("""ebooks/(\d+)""")
 
 class CatalogRepositoryImpl @Inject constructor(
     private val api: GutenbergOpdsApi,
-    private val httpClient: OkHttpClient,
+    @GutenbergClient private val httpClient: OkHttpClient,
     @ApplicationContext private val context: Context,
 ) : CatalogRepository {
 
