@@ -52,7 +52,7 @@ enum class ReadingFont(val displayName: String) {
 
     val fontFamily: FontFamily
         get() = when (this) {
-            SERIF -> Newsreader
+            SERIF -> FontFamily.Serif
             SANS -> FontFamily.SansSerif
             MONO -> FontFamily.Monospace
         }
