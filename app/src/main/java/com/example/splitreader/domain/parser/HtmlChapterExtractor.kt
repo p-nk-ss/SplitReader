@@ -40,6 +40,12 @@ object HtmlChapterExtractor {
     fun parse(html: String): Result = parse(Jsoup.parse(html))
 
     private fun parse(doc: org.jsoup.nodes.Document): Result {
+        // Project Gutenberg boilerplate/license is wrapped in stable containers; remove it so only
+        // the actual book text remains (no-op for non-Gutenberg HTML — selectors won't match).
+        doc.select(
+            "div.pg-boilerplate, #pg-header, #pg-footer, #project-gutenberg-license, " +
+                "#pg-start-separator, #pg-end-separator",
+        ).remove()
         val body = doc.body() ?: return Result(null, emptyList(), emptyList(), emptyList())
         val headingEl = body.selectFirst("h1, h2, h3")
         val headingTitle = headingEl?.text()?.takeIf { it.isNotBlank() }

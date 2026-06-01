@@ -105,7 +105,7 @@ private fun CatalogScreen(
         )
         Spacer(Modifier.height(sp.xs))
         Text(
-            text = "FREE PUBLIC-DOMAIN BOOKS · PROJECT GUTENBERG",
+            text = "FREE PUBLIC-DOMAIN BOOKS",
             fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Medium,
             fontSize = 11.sp,
