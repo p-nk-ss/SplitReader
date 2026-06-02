@@ -203,11 +203,9 @@ internal fun ReaderRoute(
             onSelectWord = viewModel::selectWord,
             onClearWordSelection = viewModel::clearWordSelection,
             onSelectionDragged = viewModel::updateWordSelectionRange,
-            onSetTranslatorProvider = viewModel::setTranslatorProvider,
-            onSetGoogleCloudKey = viewModel::setGoogleCloudKey,
-            onSetDeepLKey = viewModel::setDeepLKey,
-            onSetLibreTranslateKey = viewModel::setLibreTranslateKey,
-            onSetLibreUrl = viewModel::setLibreBaseUrl,
+            onSelectProvider = viewModel::selectProvider,
+            onConfigureProvider = viewModel::configureProvider,
+            onClearProvider = viewModel::clearProvider,
             onRefreshTranslationUsage = viewModel::refreshTranslationUsage,
             onResetTranslationUsage = viewModel::resetTranslationUsage,
             onRetryTranslation = viewModel::retryTranslation,
@@ -269,11 +267,9 @@ private fun ReaderContent(
     onSelectWord: (String, Int, Int, Int, Int) -> Unit,
     onClearWordSelection: () -> Unit,
     onSelectionDragged: (Int, Int) -> Unit,
-    onSetTranslatorProvider: (TranslationProvider) -> Unit,
-    onSetGoogleCloudKey: (String?) -> Unit,
-    onSetDeepLKey: (String?) -> Unit,
-    onSetLibreTranslateKey: (String?) -> Unit,
-    onSetLibreUrl: (String?) -> Unit,
+    onSelectProvider: (TranslationProvider) -> Unit,
+    onConfigureProvider: (TranslationProvider, String?, String?) -> Unit,
+    onClearProvider: (TranslationProvider) -> Unit,
     onRefreshTranslationUsage: () -> Unit,
     onResetTranslationUsage: (TranslationProvider) -> Unit,
     onRetryTranslation: () -> Unit,
@@ -443,22 +439,13 @@ private fun ReaderContent(
         if (showTranslatorPicker) {
             LaunchedEffect(Unit) { onRefreshTranslationUsage() }
             TranslatorPickerDialog(
-                state = TranslatorPickerState(
-                    current = state.translatorProvider,
-                    googleCloudConfigured = state.googleCloudKeyConfigured,
-                    deepLConfigured = state.deepLKeyConfigured,
-                    libreTranslateConfigured = state.libreTranslateKeyConfigured,
-                    libreBaseUrl = state.libreBaseUrl,
-                    usage = state.translationUsage,
-                ),
+                state = state.translatorConfig,
                 onSelect = { provider ->
-                    onSetTranslatorProvider(provider)
+                    onSelectProvider(provider)
                     showTranslatorPicker = false
                 },
-                onSetGoogleCloudKey = onSetGoogleCloudKey,
-                onSetDeepLKey = onSetDeepLKey,
-                onSetLibreTranslateKey = onSetLibreTranslateKey,
-                onSetLibreUrl = onSetLibreUrl,
+                onConfigure = onConfigureProvider,
+                onClear = onClearProvider,
                 onResetUsage = onResetTranslationUsage,
                 onDismiss = { showTranslatorPicker = false },
             )
