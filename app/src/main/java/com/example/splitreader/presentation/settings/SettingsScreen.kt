@@ -20,6 +20,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -151,7 +152,7 @@ fun SettingsScreen(
                             .background(p.bg)
                             .border(if (selected) 2.dp else 1.dp, if (selected) p.ink else p.edge, RoundedCornerShape(LocalRadii.current.md))
                             .clickable { onSetReaderTheme(p.key) }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = sp.sm),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -291,7 +292,7 @@ fun SettingsScreen(
     }
 
     if (showTranslatorPicker) {
-        androidx.compose.runtime.LaunchedEffect(Unit) { onRefreshTranslationUsage() }
+        LaunchedEffect(Unit) { onRefreshTranslationUsage() }
         TranslatorPickerDialog(
             state = state.translatorConfig,
             onSelect = { provider ->
@@ -371,6 +372,7 @@ private fun Divider() {
 private fun RowValue(label: String, action: String, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
     val radii = LocalRadii.current
+    val sp = LocalSpacing.current
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -389,7 +391,7 @@ private fun RowValue(label: String, action: String, onClick: () -> Unit) {
                 .clip(RoundedCornerShape(radii.md))
                 .background(palette.ink)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = sp.md, vertical = sp.xs),
         ) {
             Text(action, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp, color = palette.bg)
         }
@@ -465,7 +467,7 @@ private fun LanguageGridDialog(
                 .padding(24.dp),
         ) {
             Text("Translate into", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 1.sp, color = palette.ink3)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(sp.xxs))
             Text(
                 "Default language",
                 fontFamily = Newsreader,
@@ -476,7 +478,7 @@ private fun LanguageGridDialog(
             )
             Spacer(Modifier.height(sp.md))
             Language.entries.chunked(3).forEach { rowLangs ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
                     rowLangs.forEach { lang ->
                         val selected = lang == current
                         Column(
@@ -506,7 +508,7 @@ private fun LanguageGridDialog(
                     }
                     repeat(3 - rowLangs.size) { Spacer(Modifier.weight(1f)) }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(sp.xs))
             }
         }
     }
@@ -523,6 +525,7 @@ private fun ConfirmDialog(
 ) {
     val palette = LocalReaderPalette.current
     val radii = LocalRadii.current
+    val sp = LocalSpacing.current
     BasicAlertDialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
@@ -540,10 +543,10 @@ private fun ConfirmDialog(
                 fontSize = 20.sp,
                 color = palette.ink,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(sp.xs))
             Text(body, fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink2)
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(sp.md))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
                 Box(
                     Modifier
                         .weight(1f)
