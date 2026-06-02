@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.data.local.BookmarkEntity
 import com.example.splitreader.data.local.ReadingProgressManager
-import com.example.splitreader.data.local.TranslationUsage
 import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslatorEndpoints
@@ -19,6 +18,7 @@ import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.BookmarkRepository
+import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import com.example.splitreader.domain.usecase.SaveWordResult
@@ -61,8 +61,12 @@ class ReaderViewModel @Inject constructor(
     private val translatorEndpoints: TranslatorEndpoints,
     private val usageTracker: TranslationUsageTracker,
     private val textToSpeechManager: TextToSpeechManager,
+    private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    private fun buildTranslatorConfig(current: TranslationProvider): TranslatorConfigState =
+        buildTranslatorConfigState(translationProviders, translatorEndpoints, usageTracker, current)
 
     private companion object {
         const val TRANSLATE_WINDOW = 25
@@ -99,11 +103,8 @@ class ReaderViewModel @Inject constructor(
         val bookmarks: List<BookmarkEntity> = emptyList(),
         val wordSelection: WordSelection? = null,
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
-        val googleCloudKeyConfigured: Boolean = false,
-        val deepLKeyConfigured: Boolean = false,
-        val libreTranslateKeyConfigured: Boolean = false,
-        val libreBaseUrl: String = "",
-        val translationUsage: Map<TranslationProvider, TranslationUsage> = emptyMap(),
+        val translatorConfig: TranslatorConfigState =
+            TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
     )
 
     private val _state = MutableStateFlow(
@@ -127,11 +128,7 @@ class ReaderViewModel @Inject constructor(
             showTranslation = progressManager.getShowTranslation(),
             horizontalMargin = progressManager.getHorizontalMargin(),
             translatorProvider = progressManager.getTranslatorProvider(),
-            googleCloudKeyConfigured = apiKeyManager.getGoogleCloudKey() != null,
-            deepLKeyConfigured = apiKeyManager.getDeepLKey() != null,
-            libreTranslateKeyConfigured = apiKeyManager.getLibreTranslateKey() != null,
-            libreBaseUrl = translatorEndpoints.getLibreTranslateBaseUrl(),
-            translationUsage = TranslationProvider.entries.associateWith { usageTracker.usage(it) },
+            translatorConfig = buildTranslatorConfig(progressManager.getTranslatorProvider()),
         )
     )
 
@@ -174,11 +171,7 @@ class ReaderViewModel @Inject constructor(
                     },
                     wordSelection = s.wordSelection,
                     translatorProvider = s.translatorProvider,
-                    googleCloudKeyConfigured = s.googleCloudKeyConfigured,
-                    deepLKeyConfigured = s.deepLKeyConfigured,
-                    libreTranslateKeyConfigured = s.libreTranslateKeyConfigured,
-                    libreBaseUrl = s.libreBaseUrl,
-                    translationUsage = s.translationUsage,
+                    translatorConfig = s.translatorConfig,
                 )
             }
         }
@@ -430,48 +423,33 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(horizontalMargin = clamped) }
     }
 
-    fun setTranslatorProvider(provider: TranslationProvider) {
+    fun selectProvider(provider: TranslationProvider) {
         if (_state.value.translatorProvider == provider) return
         progressManager.setTranslatorProvider(provider)
-        _state.update { it.copy(translatorProvider = provider) }
+        _state.update { it.copy(translatorProvider = provider, translatorConfig = buildTranslatorConfig(provider)) }
         retranslateCurrentChapter()
     }
 
+    fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
+        if (key != null) apiKeyManager.setKey(provider, key)
+        if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
+        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        if (provider == _state.value.translatorProvider) retranslateCurrentChapter()
+    }
+
+    fun clearProvider(provider: TranslationProvider) {
+        apiKeyManager.setKey(provider, null)
+        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        if (provider == _state.value.translatorProvider) retranslateCurrentChapter()
+    }
+
     fun refreshTranslationUsage() {
-        val snapshot = TranslationProvider.entries.associateWith { usageTracker.usage(it) }
-        _state.update { it.copy(translationUsage = snapshot) }
+        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
     }
 
     fun resetTranslationUsage(provider: TranslationProvider) {
         usageTracker.reset(provider)
         refreshTranslationUsage()
-    }
-
-    fun setGoogleCloudKey(key: String?) {
-        apiKeyManager.setGoogleCloudKey(key)
-        val configured = apiKeyManager.getGoogleCloudKey() != null
-        _state.update { it.copy(googleCloudKeyConfigured = configured) }
-        if (_state.value.translatorProvider == TranslationProvider.GOOGLE_CLOUD) retranslateCurrentChapter()
-    }
-
-    fun setDeepLKey(key: String?) {
-        apiKeyManager.setDeepLKey(key)
-        val configured = apiKeyManager.getDeepLKey() != null
-        _state.update { it.copy(deepLKeyConfigured = configured) }
-        if (_state.value.translatorProvider == TranslationProvider.DEEPL) retranslateCurrentChapter()
-    }
-
-    fun setLibreTranslateKey(key: String?) {
-        apiKeyManager.setLibreTranslateKey(key)
-        val configured = apiKeyManager.getLibreTranslateKey() != null
-        _state.update { it.copy(libreTranslateKeyConfigured = configured) }
-        if (_state.value.translatorProvider == TranslationProvider.LIBRE_TRANSLATE) retranslateCurrentChapter()
-    }
-
-    fun setLibreBaseUrl(url: String?) {
-        translatorEndpoints.setLibreTranslateBaseUrl(url)
-        _state.update { it.copy(libreBaseUrl = translatorEndpoints.getLibreTranslateBaseUrl()) }
-        if (_state.value.translatorProvider == TranslationProvider.LIBRE_TRANSLATE) retranslateCurrentChapter()
     }
 
     private fun retranslateCurrentChapter() {

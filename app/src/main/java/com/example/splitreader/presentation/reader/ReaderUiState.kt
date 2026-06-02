@@ -62,11 +62,8 @@ sealed interface ReaderUiState {
         val isCurrentPositionBookmarked: Boolean = false,
         val wordSelection: WordSelection? = null,
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
-        val googleCloudKeyConfigured: Boolean = false,
-        val deepLKeyConfigured: Boolean = false,
-        val libreTranslateKeyConfigured: Boolean = false,
-        val libreBaseUrl: String = "",
-        val translationUsage: Map<TranslationProvider, com.example.splitreader.data.local.TranslationUsage> = emptyMap(),
+        val translatorConfig: TranslatorConfigState =
+            TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
     ) : ReaderUiState {
         val preloadNextChapter: Boolean
             get() = translatorProvider == TranslationProvider.MLKIT

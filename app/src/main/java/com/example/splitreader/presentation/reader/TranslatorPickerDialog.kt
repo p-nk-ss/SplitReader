@@ -46,28 +46,16 @@ import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import androidx.compose.material3.Text
 
-data class TranslatorPickerState(
-    val current: TranslationProvider,
-    val googleCloudConfigured: Boolean,
-    val deepLConfigured: Boolean,
-    val libreTranslateConfigured: Boolean,
-    val libreBaseUrl: String,
-    val usage: Map<TranslationProvider, TranslationUsage> = emptyMap(),
-)
-
 @Composable
 internal fun TranslatorPickerDialog(
-    state: TranslatorPickerState,
+    state: TranslatorConfigState,
     onSelect: (TranslationProvider) -> Unit,
-    onSetGoogleCloudKey: (String?) -> Unit,
-    onSetDeepLKey: (String?) -> Unit,
-    onSetLibreTranslateKey: (String?) -> Unit,
-    onSetLibreUrl: (String?) -> Unit,
+    onConfigure: (provider: TranslationProvider, key: String?, secondary: String?) -> Unit,
+    onClear: (TranslationProvider) -> Unit,
     onResetUsage: (TranslationProvider) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var keyDialogTarget by remember { mutableStateOf<TranslationProvider?>(null) }
-    var urlDialogTarget by remember { mutableStateOf<TranslationProvider?>(null) }
     var resetConfirmTarget by remember { mutableStateOf<TranslationProvider?>(null) }
 
     EditorialDialog(eyebrow = "Translator", title = "Choose provider", onDismiss = onDismiss) {
@@ -81,7 +69,7 @@ internal fun TranslatorPickerDialog(
                 ProviderRow(
                     provider = provider,
                     selected = provider == state.current,
-                    configured = true,
+                    configured = state.configs[provider]?.configured ?: true,
                     usage = state.usage[provider],
                     onSelect = { onSelect(provider) },
                     onConfigure = null,
@@ -95,12 +83,7 @@ internal fun TranslatorPickerDialog(
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             advanced.forEach { provider ->
-                val configured = when (provider) {
-                    TranslationProvider.GOOGLE_CLOUD -> state.googleCloudConfigured
-                    TranslationProvider.DEEPL -> state.deepLConfigured
-                    TranslationProvider.LIBRE_TRANSLATE -> state.libreTranslateConfigured
-                    else -> false
-                }
+                val configured = state.configs[provider]?.configured ?: false
                 ProviderRow(
                     provider = provider,
                     selected = provider == state.current,
@@ -120,29 +103,19 @@ internal fun TranslatorPickerDialog(
     keyDialogTarget?.let { provider ->
         ApiKeyDialog(
             provider = provider,
-            existingPresent = when (provider) {
-                TranslationProvider.GOOGLE_CLOUD -> state.googleCloudConfigured
-                TranslationProvider.DEEPL -> state.deepLConfigured
-                TranslationProvider.LIBRE_TRANSLATE -> state.libreTranslateConfigured
-                else -> false
-            },
-            onSave = { key ->
-                when (provider) {
-                    TranslationProvider.GOOGLE_CLOUD -> onSetGoogleCloudKey(key)
-                    TranslationProvider.DEEPL -> onSetDeepLKey(key)
-                    TranslationProvider.LIBRE_TRANSLATE -> onSetLibreTranslateKey(key)
-                    else -> Unit
-                }
+            existingPresent = state.configs[provider]?.configured ?: false,
+            secondaryLabel = provider.secondaryLabel,
+            secondaryValue = state.configs[provider]?.secondaryValue.orEmpty(),
+            secondaryPlaceholder = provider.secondaryPlaceholder.orEmpty(),
+            secondaryIsUrl = provider.secondaryIsUrl,
+            helpUrl = provider.helpUrl,
+            onSave = { key, secondary ->
+                onConfigure(provider, key, secondary)
                 onSelect(provider)
                 keyDialogTarget = null
             },
             onClear = {
-                when (provider) {
-                    TranslationProvider.GOOGLE_CLOUD -> onSetGoogleCloudKey(null)
-                    TranslationProvider.DEEPL -> onSetDeepLKey(null)
-                    TranslationProvider.LIBRE_TRANSLATE -> onSetLibreTranslateKey(null)
-                    else -> Unit
-                }
+                onClear(provider)
                 keyDialogTarget = null
             },
             onDismiss = { keyDialogTarget = null },
@@ -160,31 +133,6 @@ internal fun TranslatorPickerDialog(
         )
     }
 
-    urlDialogTarget?.let { provider ->
-        val current = when (provider) {
-            TranslationProvider.LIBRE_TRANSLATE -> state.libreBaseUrl
-            else -> ""
-        }
-        InstanceUrlDialog(
-            provider = provider,
-            current = current,
-            onSave = { url ->
-                when (provider) {
-                    TranslationProvider.LIBRE_TRANSLATE -> onSetLibreUrl(url)
-                    else -> Unit
-                }
-                urlDialogTarget = null
-            },
-            onReset = {
-                when (provider) {
-                    TranslationProvider.LIBRE_TRANSLATE -> onSetLibreUrl(null)
-                    else -> Unit
-                }
-                urlDialogTarget = null
-            },
-            onDismiss = { urlDialogTarget = null },
-        )
-    }
 }
 
 @Composable
@@ -286,7 +234,12 @@ private fun ProviderRow(
 internal fun ApiKeyDialog(
     provider: TranslationProvider,
     existingPresent: Boolean,
-    onSave: (String) -> Unit,
+    secondaryLabel: String?,
+    secondaryValue: String,
+    secondaryPlaceholder: String,
+    secondaryIsUrl: Boolean,
+    helpUrl: String?,
+    onSave: (key: String?, secondary: String?) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -294,6 +247,7 @@ internal fun ApiKeyDialog(
     val radii = LocalRadii.current
     val sp = LocalSpacing.current
     var input by remember { mutableStateOf("") }
+    var secondaryInput by remember { mutableStateOf(secondaryValue) }
 
     EditorialDialog(eyebrow = provider.displayName, title = "API key", onDismiss = onDismiss) {
         Text(
@@ -337,20 +291,62 @@ internal fun ApiKeyDialog(
                 },
             )
         }
+        if (secondaryLabel != null) {
+            Spacer(Modifier.height(12.dp))
+            SectionLabel(secondaryLabel)
+            Spacer(Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(radii.md))
+                    .background(palette.bg2)
+                    .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+            ) {
+                BasicTextField(
+                    value = secondaryInput,
+                    onValueChange = { secondaryInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (secondaryIsUrl) KeyboardType.Uri else KeyboardType.Text,
+                    ),
+                    textStyle = TextStyle(
+                        fontFamily = JetBrainsMono,
+                        fontSize = 13.sp,
+                        color = palette.ink,
+                    ),
+                    cursorBrush = SolidColor(palette.ink),
+                    decorationBox = { inner ->
+                        if (secondaryInput.isEmpty()) {
+                            Text(secondaryPlaceholder, fontFamily = JetBrainsMono, fontSize = 13.sp, color = palette.ink3)
+                        }
+                        inner()
+                    },
+                )
+            }
+        }
         Spacer(Modifier.height(sp.md))
+        val saveEnabled = input.isNotBlank() || existingPresent ||
+            (secondaryLabel != null && secondaryInput.isNotBlank())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            DialogButton(label = "Save", primary = true, enabled = input.isNotBlank(), onClick = { onSave(input.trim()) })
+            DialogButton(
+                label = "Save",
+                primary = true,
+                enabled = saveEnabled,
+                onClick = {
+                    onSave(
+                        input.trim().ifBlank { null },
+                        if (secondaryLabel != null) secondaryInput.trim() else null,
+                    )
+                },
+            )
             if (existingPresent) {
                 DialogButton(label = "Clear", primary = false, enabled = true, onClick = onClear)
             }
             DialogButton(label = "Cancel", primary = false, enabled = true, onClick = onDismiss)
         }
         Spacer(Modifier.height(4.dp))
-        val helpUrl = when (provider) {
-            TranslationProvider.GOOGLE_CLOUD -> "console.cloud.google.com → Translation API → API key"
-            TranslationProvider.DEEPL -> "deepl.com/pro-api (free plan)"
-            else -> null
-        }
         if (helpUrl != null) {
             Text(
                 text = "Get a key: $helpUrl",
@@ -358,64 +354,6 @@ internal fun ApiKeyDialog(
                 fontSize = 11.sp,
                 color = palette.ink3,
             )
-        }
-    }
-}
-
-@Composable
-internal fun InstanceUrlDialog(
-    provider: TranslationProvider,
-    current: String,
-    onSave: (String) -> Unit,
-    onReset: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val palette = LocalReaderPalette.current
-    val radii = LocalRadii.current
-    val sp = LocalSpacing.current
-    var input by remember { mutableStateOf(current) }
-
-    EditorialDialog(eyebrow = provider.displayName, title = "Server URL", onDismiss = onDismiss) {
-        Text(
-            text = "Use a different ${provider.displayName} instance if the default is rate-limited or offline.",
-            fontFamily = Newsreader,
-            fontSize = 13.sp,
-            color = palette.ink2,
-        )
-        Spacer(Modifier.height(12.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(radii.md))
-                .background(palette.bg2)
-                .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-        ) {
-            BasicTextField(
-                value = input,
-                onValueChange = { input = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                textStyle = TextStyle(
-                    fontFamily = JetBrainsMono,
-                    fontSize = 13.sp,
-                    color = palette.ink,
-                ),
-                cursorBrush = SolidColor(palette.ink),
-                decorationBox = { inner ->
-                    if (input.isEmpty()) {
-                        Text("https://…", fontFamily = JetBrainsMono, fontSize = 13.sp, color = palette.ink3)
-                    }
-                    inner()
-                },
-            )
-        }
-        Spacer(Modifier.height(sp.md))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            DialogButton(label = "Save", primary = true, enabled = input.isNotBlank(), onClick = { onSave(input.trim()) })
-            DialogButton(label = "Reset", primary = false, enabled = true, onClick = onReset)
-            DialogButton(label = "Cancel", primary = false, enabled = true, onClick = onDismiss)
         }
     }
 }

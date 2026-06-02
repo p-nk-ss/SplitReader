@@ -47,6 +47,7 @@ class TranslationUsageTracker @Inject constructor(
     private fun limitFor(provider: TranslationProvider): Long? = when (provider) {
         TranslationProvider.GOOGLE_CLOUD -> 500_000L
         TranslationProvider.DEEPL -> 500_000L
+        TranslationProvider.AZURE -> 2_000_000L
         else -> null
     }
 }

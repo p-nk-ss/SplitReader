@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.presentation.reader.TranslatorPickerDialog
-import com.example.splitreader.presentation.reader.TranslatorPickerState
 import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
@@ -68,11 +67,9 @@ fun SettingsRoute(viewModel: SettingsViewModel = hiltViewModel()) {
         onSetTextIndent = viewModel::setTextIndent,
         onSetParagraphSpacing = viewModel::setParagraphSpacing,
         onSetJustifyText = viewModel::setJustifyText,
-        onSetTranslatorProvider = viewModel::setTranslatorProvider,
-        onSetGoogleCloudKey = viewModel::setGoogleCloudKey,
-        onSetDeepLKey = viewModel::setDeepLKey,
-        onSetLibreTranslateKey = viewModel::setLibreTranslateKey,
-        onSetLibreUrl = viewModel::setLibreBaseUrl,
+        onSelectProvider = viewModel::selectProvider,
+        onConfigureProvider = viewModel::configureProvider,
+        onClearProvider = viewModel::clearProvider,
         onRefreshTranslationUsage = viewModel::refreshTranslationUsage,
         onResetTranslationUsage = viewModel::resetTranslationUsage,
         onClearCache = viewModel::clearTranslationCache,
@@ -97,11 +94,9 @@ fun SettingsScreen(
     onSetTextIndent: (Float) -> Unit,
     onSetParagraphSpacing: (Float) -> Unit,
     onSetJustifyText: (Boolean) -> Unit,
-    onSetTranslatorProvider: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
-    onSetGoogleCloudKey: (String?) -> Unit,
-    onSetDeepLKey: (String?) -> Unit,
-    onSetLibreTranslateKey: (String?) -> Unit,
-    onSetLibreUrl: (String?) -> Unit,
+    onSelectProvider: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
+    onConfigureProvider: (com.example.splitreader.domain.model.TranslationProvider, String?, String?) -> Unit,
+    onClearProvider: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
     onRefreshTranslationUsage: () -> Unit,
     onResetTranslationUsage: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
     onClearCache: () -> Unit,
@@ -298,22 +293,13 @@ fun SettingsScreen(
     if (showTranslatorPicker) {
         androidx.compose.runtime.LaunchedEffect(Unit) { onRefreshTranslationUsage() }
         TranslatorPickerDialog(
-            state = TranslatorPickerState(
-                current = state.translatorProvider,
-                googleCloudConfigured = state.googleCloudKeyConfigured,
-                deepLConfigured = state.deepLKeyConfigured,
-                libreTranslateConfigured = state.libreTranslateKeyConfigured,
-                libreBaseUrl = state.libreBaseUrl,
-                usage = state.translationUsage,
-            ),
+            state = state.translatorConfig,
             onSelect = { provider ->
-                onSetTranslatorProvider(provider)
+                onSelectProvider(provider)
                 showTranslatorPicker = false
             },
-            onSetGoogleCloudKey = onSetGoogleCloudKey,
-            onSetDeepLKey = onSetDeepLKey,
-            onSetLibreTranslateKey = onSetLibreTranslateKey,
-            onSetLibreUrl = onSetLibreUrl,
+            onConfigure = onConfigureProvider,
+            onClear = onClearProvider,
             onResetUsage = onResetTranslationUsage,
             onDismiss = { showTranslatorPicker = false },
         )

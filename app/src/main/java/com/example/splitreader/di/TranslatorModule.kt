@@ -2,10 +2,12 @@ package com.example.splitreader.di
 
 import com.example.splitreader.BuildConfig
 import com.example.splitreader.data.repository.TranslationRepositoryImpl
+import com.example.splitreader.data.translator.AzureTranslationProvider
 import com.example.splitreader.data.translator.DeepLTranslationProvider
 import com.example.splitreader.data.translator.GoogleCloudTranslationProvider
 import com.example.splitreader.data.translator.LibreTranslateProvider
 import com.example.splitreader.data.translator.MLKitTranslationProvider
+import com.example.splitreader.data.translator.api.AzureTranslatorApi
 import com.example.splitreader.data.translator.api.DeepLApi
 import com.example.splitreader.data.translator.api.GoogleCloudApi
 import com.example.splitreader.data.translator.api.LibreTranslateApi
@@ -31,6 +33,7 @@ import javax.inject.Singleton
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class GoogleCloudRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class LibreRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class DeepLRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class AzureRetrofit
 
 @MapKey
 annotation class TranslationProviderKey(val value: TranslationProvider)
@@ -77,6 +80,10 @@ object TranslatorNetworkModule {
     fun provideDeepLRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit("https://api-free.deepl.com/", client)
 
+    @Provides @Singleton @AzureRetrofit
+    fun provideAzureRetrofit(client: OkHttpClient): Retrofit =
+        buildRetrofit("https://api.cognitive.microsofttranslator.com/", client)
+
     @Provides @Singleton
     fun provideGoogleCloudApi(@GoogleCloudRetrofit retrofit: Retrofit): GoogleCloudApi =
         retrofit.create(GoogleCloudApi::class.java)
@@ -88,6 +95,10 @@ object TranslatorNetworkModule {
     @Provides @Singleton
     fun provideDeepLApi(@DeepLRetrofit retrofit: Retrofit): DeepLApi =
         retrofit.create(DeepLApi::class.java)
+
+    @Provides @Singleton
+    fun provideAzureTranslatorApi(@AzureRetrofit retrofit: Retrofit): AzureTranslatorApi =
+        retrofit.create(AzureTranslatorApi::class.java)
 }
 
 @Module
@@ -117,4 +128,9 @@ abstract class TranslatorBindingsModule {
     @IntoMap
     @TranslationProviderKey(TranslationProvider.DEEPL)
     abstract fun bindDeepL(impl: DeepLTranslationProvider): TranslationProviderApi
+
+    @Binds
+    @IntoMap
+    @TranslationProviderKey(TranslationProvider.AZURE)
+    abstract fun bindAzure(impl: AzureTranslationProvider): TranslationProviderApi
 }
