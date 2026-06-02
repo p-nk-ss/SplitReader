@@ -56,6 +56,9 @@ val NightMossSoft  = Color(0xFF3A4A36)
 // Muted brick red for destructive/error UI. Deliberately distinct from the
 // terracotta accent so an error never reads as a normal accent.
 val ErrorTone      = Color(0xFF9E3B2A)
+// Quota-meter status tones (identical in every theme, like ErrorTone).
+val WarnTone       = Color(0xFFB37D1F) // ≥70% of monthly quota used
+val DangerTone     = Color(0xFFB23A2A) // ≥90% of monthly quota used
 
 // ── AMOLED (true black) ─────────────────────────────────────────────────
 val AmoledBg        = Color(0xFF000000)

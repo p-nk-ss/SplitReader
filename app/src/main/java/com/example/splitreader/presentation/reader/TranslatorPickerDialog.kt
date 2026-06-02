@@ -39,11 +39,13 @@ import androidx.compose.ui.unit.sp
 import com.example.splitreader.data.local.TranslationUsage
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProviderCategory
+import com.example.splitreader.presentation.theme.DangerTone
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
+import com.example.splitreader.presentation.theme.WarnTone
 import androidx.compose.material3.Text
 
 @Composable
@@ -57,14 +59,15 @@ internal fun TranslatorPickerDialog(
 ) {
     var keyDialogTarget by remember { mutableStateOf<TranslationProvider?>(null) }
     var resetConfirmTarget by remember { mutableStateOf<TranslationProvider?>(null) }
+    val sp = LocalSpacing.current
 
     EditorialDialog(eyebrow = "Translator", title = "Choose provider", onDismiss = onDismiss) {
         val free = TranslationProvider.entries.filter { it.category == TranslationProviderCategory.FREE }
         val advanced = TranslationProvider.entries.filter { it.category == TranslationProviderCategory.ADVANCED }
 
         SectionLabel("Free, no setup")
-        Spacer(Modifier.height(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(sp.xs))
+        Column(verticalArrangement = Arrangement.spacedBy(sp.xs)) {
             free.forEach { provider ->
                 ProviderRow(
                     provider = provider,
@@ -78,10 +81,10 @@ internal fun TranslatorPickerDialog(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(sp.md))
         SectionLabel("Advanced (own API key)")
-        Spacer(Modifier.height(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(sp.xs))
+        Column(verticalArrangement = Arrangement.spacedBy(sp.xs)) {
             advanced.forEach { provider ->
                 val configured = state.configs[provider]?.configured ?: false
                 ProviderRow(
@@ -97,7 +100,7 @@ internal fun TranslatorPickerDialog(
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(sp.xs))
     }
 
     keyDialogTarget?.let { provider ->
@@ -136,9 +139,10 @@ internal fun TranslatorPickerDialog(
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     Text(
+        modifier = modifier,
         text = text.uppercase(),
         fontFamily = JetBrainsMono,
         fontSize = 11.sp,
@@ -156,11 +160,13 @@ private fun ProviderRow(
     onSelect: () -> Unit,
     onConfigure: (() -> Unit)?,
     onResetUsage: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val palette = LocalReaderPalette.current
     val radii = LocalRadii.current
+    val sp = LocalSpacing.current
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(radii.md))
             .background(if (selected) palette.ink else palette.bg2)
@@ -185,7 +191,7 @@ private fun ProviderRow(
                 color = if (selected) palette.bg.copy(alpha = 0.75f) else palette.ink3,
             )
             if (provider.requiresApiKey) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(sp.xxs))
                 val statusText = if (configured) "Key configured" else "Tap to add API key"
                 Text(
                     text = statusText.uppercase(),
@@ -196,7 +202,7 @@ private fun ProviderRow(
                 )
             }
             if (provider.tracksUsage && usage != null && usage.charactersThisMonth > 0L) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(sp.xxs))
                 UsageBar(usage = usage, onDark = selected, onReset = onResetUsage)
             }
         }
@@ -209,7 +215,7 @@ private fun ProviderRow(
             )
         }
         if (onConfigure != null) {
-            Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.size(sp.xs))
             Box(
                 modifier = Modifier
                     .size(28.dp)
@@ -256,14 +262,14 @@ internal fun ApiKeyDialog(
             fontSize = 13.sp,
             color = palette.ink2,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(sp.sm))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(radii.md))
                 .background(palette.bg2)
                 .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = sp.sm, vertical = sp.sm),
         ) {
             BasicTextField(
                 value = input,
@@ -292,7 +298,7 @@ internal fun ApiKeyDialog(
             )
         }
         if (secondaryLabel != null) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(sp.sm))
             SectionLabel(secondaryLabel)
             Spacer(Modifier.height(6.dp))
             Box(
@@ -301,7 +307,7 @@ internal fun ApiKeyDialog(
                     .clip(RoundedCornerShape(radii.md))
                     .background(palette.bg2)
                     .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                    .padding(horizontal = sp.sm, vertical = sp.sm),
             ) {
                 BasicTextField(
                     value = secondaryInput,
@@ -329,7 +335,7 @@ internal fun ApiKeyDialog(
         Spacer(Modifier.height(sp.md))
         val saveEnabled = input.isNotBlank() || existingPresent ||
             (secondaryLabel != null && secondaryInput.isNotBlank())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(sp.xs), modifier = Modifier.fillMaxWidth()) {
             DialogButton(
                 label = "Save",
                 primary = true,
@@ -346,7 +352,7 @@ internal fun ApiKeyDialog(
             }
             DialogButton(label = "Cancel", primary = false, enabled = true, onClick = onDismiss)
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(sp.xxs))
         if (helpUrl != null) {
             Text(
                 text = "Get a key: $helpUrl",
@@ -359,7 +365,7 @@ internal fun ApiKeyDialog(
 }
 
 @Composable
-private fun UsageBar(usage: TranslationUsage, onDark: Boolean, onReset: () -> Unit) {
+private fun UsageBar(usage: TranslationUsage, onDark: Boolean, onReset: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     val limit = usage.monthlyLimit
     val used = usage.charactersThisMonth
@@ -370,11 +376,11 @@ private fun UsageBar(usage: TranslationUsage, onDark: Boolean, onReset: () -> Un
     }
     val tone: Color = when {
         limit == null -> if (onDark) palette.bg.copy(alpha = 0.85f) else palette.ink2
-        used >= (limit * 0.9).toLong() -> Color(0xFFB23A2A)
-        used >= (limit * 0.7).toLong() -> Color(0xFFB37D1F)
+        used >= (limit * 0.9).toLong() -> DangerTone
+        used >= (limit * 0.7).toLong() -> WarnTone
         else -> if (onDark) palette.bg.copy(alpha = 0.85f) else palette.ink2
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label.uppercase(),
             fontFamily = JetBrainsMono,
@@ -423,7 +429,7 @@ private fun ResetUsageDialog(
             color = palette.ink2,
         )
         Spacer(Modifier.height(sp.md))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(sp.xs), modifier = Modifier.fillMaxWidth()) {
             DialogButton(label = "Reset", primary = true, enabled = true, onClick = onConfirm)
             DialogButton(label = "Cancel", primary = false, enabled = true, onClick = onDismiss)
         }
@@ -431,7 +437,7 @@ private fun ResetUsageDialog(
 }
 
 @Composable
-private fun DialogButton(label: String, primary: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun DialogButton(label: String, primary: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     val radii = LocalRadii.current
     val bg = when {
@@ -446,7 +452,7 @@ private fun DialogButton(label: String, primary: Boolean, enabled: Boolean, onCl
         else -> palette.ink
     }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(radii.md))
             .background(bg)
             .border(1.dp, border, RoundedCornerShape(radii.md))
