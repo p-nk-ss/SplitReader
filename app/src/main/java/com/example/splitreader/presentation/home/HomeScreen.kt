@@ -67,6 +67,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import com.example.splitreader.presentation.theme.FadeInOnAppear
+import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
@@ -265,19 +267,21 @@ private fun HomeScreen(
 
         if (uiState.books.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                EmptyLibrary(onOpenFilePicker = onOpenFilePicker)
+                FadeInOnAppear { EmptyLibrary(onOpenFilePicker = onOpenFilePicker) }
             }
         } else if (filteredBooks.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                NoBooksMatch(query = searchQuery)
+                FadeInOnAppear { NoBooksMatch(query = searchQuery) }
             }
         } else {
-            items(filteredBooks) { book ->
-                BookCoverCard(
-                    book = book,
-                    onClick = { onOpenFromLibrary(book.uri) },
-                    onDelete = { onDeleteBook(book.uri) },
-                )
+            items(filteredBooks, key = { it.uri }) { book ->
+                Box(Modifier.animateItem()) {
+                    BookCoverCard(
+                        book = book,
+                        onClick = { onOpenFromLibrary(book.uri) },
+                        onDelete = { onDeleteBook(book.uri) },
+                    )
+                }
             }
         }
     }
@@ -739,8 +743,8 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(radii.md))
-            .background(if (selected) palette.ink else palette.bg)
-            .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
+            .background(animatedSelection(if (selected) palette.ink else palette.bg, "filterPillBg"))
+            .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "filterPillBorder"), RoundedCornerShape(radii.md))
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
@@ -751,7 +755,7 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
             fontStyle = if (selected) FontStyle.Italic else FontStyle.Normal,
             fontSize = 11.sp,
             letterSpacing = if (selected) 0.sp else 0.3.sp,
-            color = if (selected) palette.bg else palette.ink2,
+            color = animatedSelection(if (selected) palette.bg else palette.ink2, "filterPillText"),
         )
     }
 }

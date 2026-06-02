@@ -1,9 +1,14 @@
 package com.example.splitreader.presentation.navigation
 
 import android.net.Uri
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.example.splitreader.presentation.theme.MotionTokens
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -46,6 +51,10 @@ fun SplitReaderNavHost(
             navController = navController,
             startDestination = HOME_ROUTE,
             modifier = modifier,
+            enterTransition = { fadeIn(tween(MotionTokens.Medium)) + slideInHorizontally { it / 12 } },
+            exitTransition = { fadeOut(tween(MotionTokens.Medium)) },
+            popEnterTransition = { fadeIn(tween(MotionTokens.Medium)) + slideInHorizontally { -it / 12 } },
+            popExitTransition = { fadeOut(tween(MotionTokens.Medium)) },
         ) {
             composable(HOME_ROUTE) {
                 HomeRoute(

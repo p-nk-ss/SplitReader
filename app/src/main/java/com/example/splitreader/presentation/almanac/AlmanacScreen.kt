@@ -43,6 +43,8 @@ import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
+import com.example.splitreader.presentation.theme.FadeInOnAppear
+import com.example.splitreader.presentation.theme.animatedSelection
 import com.example.splitreader.presentation.theme.Newsreader
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -103,12 +105,12 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (selected) palette.ink else palette.bg2)
+                            .background(animatedSelection(if (selected) palette.ink else palette.bg2, "rangeBg"))
                             .clickable { viewModel.selectRange(range) }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     ) {
                         Text(range.label, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp,
-                            color = if (selected) palette.bg else palette.ink2)
+                            color = animatedSelection(if (selected) palette.bg else palette.ink2, "rangeText"))
                     }
                 }
             }
@@ -118,7 +120,7 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
 
         if (!hasData) {
             // Empty state
-            EmptyAlmanac()
+            FadeInOnAppear { EmptyAlmanac() }
         } else {
             // Top row: streak hero + 3 stat blocks
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {

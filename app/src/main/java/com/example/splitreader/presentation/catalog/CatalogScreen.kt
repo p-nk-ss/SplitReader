@@ -34,6 +34,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.example.splitreader.presentation.theme.FadeInOnAppear
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -154,12 +155,14 @@ private fun CatalogScreen(
                     )
                 }
                 items(uiState.books, key = { it.id }) { book ->
-                    CatalogRow(
-                        book = book,
-                        isDownloading = uiState.downloadingId == book.id,
-                        downloadEnabled = uiState.downloadingId == null,
-                        onDownload = { onDownload(book) },
-                    )
+                    Box(Modifier.animateItem()) {
+                        CatalogRow(
+                            book = book,
+                            isDownloading = uiState.downloadingId == book.id,
+                            downloadEnabled = uiState.downloadingId == null,
+                            onDownload = { onDownload(book) },
+                        )
+                    }
                 }
             }
         }
@@ -347,6 +350,7 @@ private fun CenteredLoader() {
 private fun CenteredMessage(title: String, actionLabel: String?, onAction: () -> Unit) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
+    FadeInOnAppear(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -375,5 +379,6 @@ private fun CenteredMessage(title: String, actionLabel: String?, onAction: () ->
                 }
             }
         }
+    }
     }
 }
