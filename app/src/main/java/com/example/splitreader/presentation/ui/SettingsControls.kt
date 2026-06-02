@@ -32,6 +32,7 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.presentation.theme.animatedSelection
 
 /**
  * Shared settings widgets used by both the reader's in-session Display dialog and the global
@@ -182,8 +183,8 @@ private fun FontChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(radii.md))
-            .background(if (selected) palette.ink else palette.bg2)
-            .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
+            .background(animatedSelection(if (selected) palette.ink else palette.bg2, "fontChipBg"))
+            .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "fontChipBorder"), RoundedCornerShape(radii.md))
             .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
@@ -195,7 +196,7 @@ private fun FontChip(
             fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            color = if (selected) palette.bg else palette.ink,
+            color = animatedSelection(if (selected) palette.bg else palette.ink, "fontChipText"),
         )
     }
 }

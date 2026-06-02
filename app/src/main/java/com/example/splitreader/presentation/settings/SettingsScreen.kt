@@ -44,6 +44,7 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.NightPalette
+import com.example.splitreader.presentation.theme.animatedSelection
 import com.example.splitreader.presentation.theme.PaperPalette
 import com.example.splitreader.presentation.theme.SepiaPalette
 import com.example.splitreader.presentation.ui.SectionEyebrow
@@ -150,7 +151,7 @@ fun SettingsScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(LocalRadii.current.md))
                             .background(p.bg)
-                            .border(if (selected) 2.dp else 1.dp, if (selected) p.ink else p.edge, RoundedCornerShape(LocalRadii.current.md))
+                            .border(if (selected) 2.dp else 1.dp, animatedSelection(if (selected) p.ink else p.edge, "themeSwatchBorder"), RoundedCornerShape(LocalRadii.current.md))
                             .clickable { onSetReaderTheme(p.key) }
                             .padding(vertical = sp.sm),
                         contentAlignment = Alignment.Center,
@@ -405,8 +406,8 @@ private fun SelectChip(label: String, selected: Boolean, onClick: () -> Unit, mo
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(radii.md))
-            .background(if (selected) palette.ink else palette.bg2)
-            .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
+            .background(animatedSelection(if (selected) palette.ink else palette.bg2, "selBg"))
+            .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "selBorder"), RoundedCornerShape(radii.md))
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
@@ -485,8 +486,8 @@ private fun LanguageGridDialog(
                             Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(radii.md))
-                                .background(if (selected) palette.ink else palette.bg2)
-                                .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
+                                .background(animatedSelection(if (selected) palette.ink else palette.bg2, "selBg"))
+                                .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "selBorder"), RoundedCornerShape(radii.md))
                                 .clickable { onSelect(lang) }
                                 .padding(vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -496,13 +497,13 @@ private fun LanguageGridDialog(
                                 fontFamily = JetBrainsMono,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 11.sp,
-                                color = if (selected) palette.bg else palette.ink,
+                                color = animatedSelection(if (selected) palette.bg else palette.ink, "selText"),
                             )
                             Text(
                                 lang.displayName,
                                 fontFamily = Newsreader,
                                 fontSize = 13.sp,
-                                color = if (selected) palette.bg.copy(alpha = 0.85f) else palette.ink2,
+                                color = animatedSelection(if (selected) palette.bg.copy(alpha = 0.85f) else palette.ink2, "langCellText2"),
                             )
                         }
                     }

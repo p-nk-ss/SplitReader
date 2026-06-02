@@ -2,6 +2,14 @@ package com.example.splitreader.presentation.reader
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import com.example.splitreader.presentation.theme.MotionTokens
+import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -1542,6 +1550,13 @@ internal fun EditorialDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
+        val dialogVisible = remember { MutableTransitionState(false).apply { targetState = true } }
+        AnimatedVisibility(
+            visibleState = dialogVisible,
+            enter = fadeIn(tween(MotionTokens.Medium)) +
+                scaleIn(initialScale = 0.96f, animationSpec = tween(MotionTokens.Medium, easing = MotionTokens.EaseStandard)),
+            exit = fadeOut(),
+        ) {
         Column(
             modifier = Modifier
                 .widthIn(max = 560.dp)
@@ -1609,6 +1624,7 @@ internal fun EditorialDialog(
                 content()
             }
         }
+        }
     }
 }
 
@@ -1640,8 +1656,8 @@ private fun LanguagePickerDialog(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(radii.md))
-                                    .background(if (selected) palette.ink else palette.bg2)
-                                    .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
+                                    .background(animatedSelection(if (selected) palette.ink else palette.bg2, "langPickerBg"))
+                                    .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "langPickerBorder"), RoundedCornerShape(radii.md))
                                     .clickable { onSelect(lang) }
                                     .padding(vertical = 14.dp, horizontal = 8.dp),
                                 contentAlignment = Alignment.Center,
@@ -1728,7 +1744,7 @@ private fun DisplaySettingsDialog(
                         .weight(1f)
                         .clip(RoundedCornerShape(radii.md))
                         .background(p.bg)
-                        .border(if (selected) 2.dp else 1.dp, if (selected) p.ink else p.edge, RoundedCornerShape(radii.md))
+                        .border(if (selected) 2.dp else 1.dp, animatedSelection(if (selected) p.ink else p.edge, "readerThemeSwatchBorder"), RoundedCornerShape(radii.md))
                         .clickable { onSetReaderTheme(p.key) }
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center,

@@ -46,6 +46,7 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.WarnTone
+import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.material3.Text
 
 @Composable
@@ -169,8 +170,8 @@ private fun ProviderRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(radii.md))
-            .background(if (selected) palette.ink else palette.bg2)
-            .border(1.dp, if (selected) palette.ink else palette.edge, RoundedCornerShape(radii.md))
+            .background(animatedSelection(if (selected) palette.ink else palette.bg2, "providerRowBg"))
+            .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "providerRowBorder"), RoundedCornerShape(radii.md))
             .clickable(onClick = onSelect)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

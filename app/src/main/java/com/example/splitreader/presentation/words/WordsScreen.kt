@@ -63,7 +63,9 @@ import com.example.splitreader.data.local.SavedWordEntity
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
+import com.example.splitreader.presentation.theme.FadeInOnAppear
 import com.example.splitreader.presentation.theme.Newsreader
+import com.example.splitreader.presentation.theme.animatedSelection
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -287,7 +289,7 @@ private fun MasterPane(
 
         // Word list
         if (words.isEmpty()) {
-            EmptyMaster(Modifier.weight(1f))
+            FadeInOnAppear(Modifier.weight(1f)) { EmptyMaster(Modifier.fillMaxSize()) }
         } else {
             val grouped = remember(words) {
                 words.groupBy { relativeDate(it.savedAt) }
@@ -301,12 +303,14 @@ private fun MasterPane(
                         DateGroupHeader(dateLabel)
                     }
                     items(group, key = { it.id }) { word ->
-                        WordListItem(
-                            word = word,
-                            selected = selectedWord?.id == word.id,
-                            onSelect = { onSelectWord(word) },
-                            onDelete = { onDelete(word) },
-                        )
+                        Box(Modifier.animateItem()) {
+                            WordListItem(
+                                word = word,
+                                selected = selectedWord?.id == word.id,
+                                onSelect = { onSelectWord(word) },
+                                onDelete = { onDelete(word) },
+                            )
+                        }
                     }
                 }
             }
@@ -317,8 +321,8 @@ private fun MasterPane(
 @Composable
 private fun LangPill(label: String, selected: Boolean, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
-    val bg = if (selected) palette.accent else palette.bg3
-    val fg = if (selected) palette.bg else palette.ink2
+    val bg = animatedSelection(if (selected) palette.accent else palette.bg3, "langPillBg")
+    val fg = animatedSelection(if (selected) palette.bg else palette.ink2, "langPillFg")
     Box(
         Modifier
             .clip(RoundedCornerShape(20.dp))
@@ -486,8 +490,9 @@ private fun WordListItem(
 @Composable
 private fun EmptyMaster(modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
     Column(
-        modifier,
+        modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -497,7 +502,7 @@ private fun EmptyMaster(modifier: Modifier = Modifier) {
             tint = palette.ink4,
             modifier = Modifier.size(40.dp),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(sp.sm))
         Text(
             "No saved words yet",
             fontFamily = Newsreader,
@@ -505,7 +510,7 @@ private fun EmptyMaster(modifier: Modifier = Modifier) {
             fontSize = 16.sp,
             color = palette.ink3,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(sp.xxs))
         Text(
             stringResource(R.string.words_empty_hint),
             fontFamily = JetBrainsMono,
@@ -528,7 +533,7 @@ private fun DetailPane(
     modifier: Modifier = Modifier,
 ) {
     if (word == null) {
-        EmptyDetail(modifier)
+        FadeInOnAppear(modifier) { EmptyDetail(Modifier.fillMaxSize()) }
     } else {
         WordDetail(
             word = word,
