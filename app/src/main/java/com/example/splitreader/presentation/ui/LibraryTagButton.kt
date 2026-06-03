@@ -37,8 +37,9 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
  *   LibraryTagButton(text = "Browse files", onClick = ..., showPlus = false)
  *   LibraryTagButton(text = "Save", onClick = ..., dense = true, showPlus = false)
  *
- * Reading CTAs ("Continue reading", "Open chapter") belong to
- * [BookplateButton] instead so the two vocabularies don't compete.
+ * Pass [filled] = true for a solid black/ink fill with inverted (cream) label —
+ * used for the "Continue reading" CTA so it reads as the primary action while
+ * staying in the same tag vocabulary as "Open book".
  */
 @Composable
 fun LibraryTagButton(
@@ -47,16 +48,19 @@ fun LibraryTagButton(
     modifier: Modifier = Modifier,
     showPlus: Boolean = true,
     dense: Boolean = false,
+    filled: Boolean = false,
 ) {
     val verticalPad   = if (dense) 7.dp else 9.dp
     val labelSize     = if (dense) 10.sp else 11.sp
     val plusSize      = if (dense) 12.dp else 13.dp
     val palette       = LocalReaderPalette.current
+    val surfaceColor  = if (filled) palette.ink else palette.bg2
+    val labelColor    = if (filled) palette.bg else palette.ink
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(4.dp),
-        color = palette.bg2,
+        color = surfaceColor,
         border = BorderStroke(1.dp, palette.ink),
         modifier = modifier,
     ) {
@@ -75,7 +79,7 @@ fun LibraryTagButton(
             )
             Text(
                 text = text.uppercase(),
-                color = palette.ink,
+                color = labelColor,
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = labelSize,
@@ -85,7 +89,7 @@ fun LibraryTagButton(
                 Icon(
                     imageVector = Icons.Outlined.Add,
                     contentDescription = null,
-                    tint = palette.ink,
+                    tint = labelColor,
                     modifier = Modifier.size(plusSize),
                 )
             }

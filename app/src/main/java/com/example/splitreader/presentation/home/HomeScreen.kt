@@ -2,6 +2,13 @@ package com.example.splitreader.presentation.home
 
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.ImageBitmap
@@ -68,6 +75,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import com.example.splitreader.presentation.theme.FadeInOnAppear
+import com.example.splitreader.presentation.theme.MotionTokens
 import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -87,9 +95,11 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.ui.BookplateButton
 import com.example.splitreader.presentation.ui.LibraryTagButton
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
 import kotlin.math.abs
@@ -220,9 +230,16 @@ private fun HomeScreen(
             )
         }
 
-        // Search bar — full width, only when search is active
-        if (searchActive) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+        // Search bar — full width. Kept in the grid always so it can animate both in
+        // and out; AnimatedVisibility collapses it to zero height when inactive.
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            AnimatedVisibility(
+                visible = searchActive,
+                enter = expandVertically(tween(MotionTokens.Medium, easing = MotionTokens.EaseStandard)) +
+                    fadeIn(tween(MotionTokens.Medium)),
+                exit = shrinkVertically(tween(MotionTokens.Fast, easing = MotionTokens.EaseStandard)) +
+                    fadeOut(tween(MotionTokens.Fast)),
+            ) {
                 LibrarySearchBar(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
@@ -248,6 +265,7 @@ private fun HomeScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 ContinueReadingHero(
                     book = uiState.lastBook!!,
+                    minutesToday = uiState.minutesToday,
                     onContinue = { onOpenFromLibrary(uiState.lastBook!!.uri) },
                 )
             }
@@ -349,11 +367,17 @@ private fun LibraryHeader(
         Spacer(Modifier.width(sp.md))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
             IconButton(onClick = onToggleSearch) {
-                Icon(
-                    imageVector = if (searchActive) Icons.Outlined.Close else Icons.Outlined.Search,
-                    contentDescription = if (searchActive) "Close search" else "Search books",
-                    tint = if (searchActive) palette.accent else palette.ink2,
-                )
+                Crossfade(
+                    targetState = searchActive,
+                    animationSpec = tween(MotionTokens.Fast, easing = MotionTokens.EaseStandard),
+                    label = "searchIcon",
+                ) { active ->
+                    Icon(
+                        imageVector = if (active) Icons.Outlined.Close else Icons.Outlined.Search,
+                        contentDescription = if (active) "Close search" else "Search books",
+                        tint = animatedSelection(if (active) palette.accent else palette.ink2, "searchIconTint"),
+                    )
+                }
             }
             LibraryTagButton(text = "Open book", onClick = onOpenFilePicker)
         }
@@ -551,8 +575,23 @@ private fun StreakBar(streakDays: Int) {
 
 // ── Continue reading hero ────────────────────────────────────────────────
 
+/** Human-friendly "last opened" label: "Today, 8:42 PM" / "Yesterday, 8:42 PM" / "May 30". */
+private fun formatLastOpened(millis: Long): String {
+    if (millis <= 0L) return "—"
+    val zone = ZoneId.systemDefault()
+    val dateTime = Instant.ofEpochMilli(millis).atZone(zone)
+    val date = dateTime.toLocalDate()
+    val today = LocalDate.now(zone)
+    val time = dateTime.format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH))
+    return when (date) {
+        today -> "Today, $time"
+        today.minusDays(1) -> "Yesterday, $time"
+        else -> dateTime.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
+    }
+}
+
 @Composable
-private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
+private fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: () -> Unit) {
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
     val palette = LocalReaderPalette.current
@@ -620,7 +659,7 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = "CH ${book.lastChapterIndex + 1} · PAGE —/${book.chapterCount}",
+                    text = "CH ${book.lastChapterIndex + 1} OF ${book.chapterCount}",
                     fontFamily = JetBrainsMono,
                     fontWeight = FontWeight.Normal,
                     fontSize = 11.sp,
@@ -661,18 +700,31 @@ private fun ContinueReadingHero(book: BookItem, onContinue: () -> Unit) {
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Today",
+                    text = formatLastOpened(book.lastOpenedAt),
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Normal,
                     fontStyle = FontStyle.Italic,
                     fontSize = 14.sp,
                     color = palette.ink,
                 )
+                if (minutesToday > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "+$minutesToday MIN TODAY",
+                        fontFamily = JetBrainsMono,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.5.sp,
+                        color = palette.ink3,
+                    )
+                }
             }
-            // Continue button
-            BookplateButton(
+            // Continue button — solid black tag, primary CTA in the "Open book" vocabulary
+            LibraryTagButton(
                 text = "Continue reading",
                 onClick = onContinue,
+                showPlus = false,
+                filled = true,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

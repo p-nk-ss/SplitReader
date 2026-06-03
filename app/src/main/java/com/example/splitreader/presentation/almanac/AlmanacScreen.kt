@@ -60,9 +60,9 @@ fun AlmanacRoute(viewModel: AlmanacViewModel = hiltViewModel()) {
 fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
     val streak by viewModel.streak.collectAsStateWithLifecycle()
     val dailyMinutes by viewModel.dailyMinutes.collectAsStateWithLifecycle()
-    val weeklyMinutes by viewModel.weeklyMinutes.collectAsStateWithLifecycle()
-    val weeklyPages by viewModel.weeklyPages.collectAsStateWithLifecycle()
-    val weeklyWords by viewModel.weeklyWords.collectAsStateWithLifecycle()
+    val rangeMinutes by viewModel.rangeMinutes.collectAsStateWithLifecycle()
+    val rangePages by viewModel.rangePages.collectAsStateWithLifecycle()
+    val rangeWords by viewModel.rangeWords.collectAsStateWithLifecycle()
     val timeByBook by viewModel.timeByBook.collectAsStateWithLifecycle()
     val timeByLang by viewModel.timeByLang.collectAsStateWithLifecycle()
     val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
@@ -116,7 +116,13 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
             }
         }
 
-        val hasData = streak.current > 0 || weeklyMinutes > 0
+        val hasData = streak.current > 0 || rangeMinutes > 0
+
+        // Captions track the selected range: "this week/month/year" or "all time".
+        val periodLabel = if (selectedRange == TimeRange.ALL) "all time"
+            else "this ${selectedRange.label.lowercase()}"
+        // The 180-minute goal is a weekly target, so only surface it for the Week range.
+        val minutesCaption = if (selectedRange == TimeRange.WEEK) "of 180 this week" else periodLabel
 
         if (!hasData) {
             // Empty state
@@ -125,9 +131,9 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
             // Top row: streak hero + 3 stat blocks
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
                 StreakHeroCard(streak.current, streak.longest, modifier = Modifier.weight(1.4f))
-                StatBlock("$weeklyMinutes", "minutes", "of 180 this week", Modifier.weight(1f))
-                StatBlock("$weeklyPages", "pages", "this week", Modifier.weight(1f))
-                StatBlock("$weeklyWords", "words", "saved this week", Modifier.weight(1f))
+                StatBlock("$rangeMinutes", "minutes", minutesCaption, Modifier.weight(1f))
+                StatBlock("$rangePages", "pages", periodLabel, Modifier.weight(1f))
+                StatBlock("$rangeWords", "words", "saved $periodLabel", Modifier.weight(1f))
             }
 
             // Middle row: weekly bar chart + 26-week heatmap

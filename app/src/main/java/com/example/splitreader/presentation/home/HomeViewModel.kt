@@ -45,9 +45,10 @@ class HomeViewModel @Inject constructor(
         val streakDays: Int = 0,
         val weeklyMinutes: Int = 0,
         val savedWordsThisWeek: Int = 0,
+        val minutesToday: Int = 0,
     )
 
-    // combine has standard overloads up to 5 sources, so the three stat flows are
+    // combine has standard overloads up to 5 sources, so the stat flows are
     // collapsed into one HomeStats flow before joining the library/loading/error flows.
     private val statsFlow = combine(
         getStreakUseCase().map { it.current },
@@ -56,8 +57,9 @@ class HomeViewModel @Inject constructor(
             val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
             words.count { it.savedAt >= weekAgo }
         },
-    ) { streakDays, weeklyMinutes, savedWords ->
-        HomeStats(streakDays, weeklyMinutes, savedWords)
+        sessionRepository.observeDailyMinutes(1).map { days -> days.sumOf { it.minutes } },
+    ) { streakDays, weeklyMinutes, savedWords, minutesToday ->
+        HomeStats(streakDays, weeklyMinutes, savedWords, minutesToday)
     }
 
     val uiState = combine(
@@ -76,6 +78,7 @@ class HomeViewModel @Inject constructor(
                     chapterCount = it.chapterCount,
                     lastChapterIndex = progressManager.getLastChapter(it.uri),
                     isFinished = progressManager.isFinished(it.uri),
+                    lastOpenedAt = it.lastOpenedAt,
                 )
             },
             isLoading = isLoading,
@@ -83,6 +86,7 @@ class HomeViewModel @Inject constructor(
             streakDays = stats.streakDays,
             weeklyMinutes = stats.weeklyMinutes,
             savedWordsThisWeek = stats.savedWordsThisWeek,
+            minutesToday = stats.minutesToday,
         )
     }.stateIn(
         scope = viewModelScope,

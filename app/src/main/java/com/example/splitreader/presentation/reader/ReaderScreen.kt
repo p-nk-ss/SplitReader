@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.MotionTokens
 import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.foundation.Canvas
@@ -1546,17 +1547,10 @@ internal fun EditorialDialog(
     val radii = LocalRadii.current
     val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
 
-    BasicAlertDialog(
-        onDismissRequest = onDismiss,
+    AnimatedDialog(
+        onDismiss = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        val dialogVisible = remember { MutableTransitionState(false).apply { targetState = true } }
-        AnimatedVisibility(
-            visibleState = dialogVisible,
-            enter = fadeIn(tween(MotionTokens.Medium)) +
-                scaleIn(initialScale = 0.96f, animationSpec = tween(MotionTokens.Medium, easing = MotionTokens.EaseStandard)),
-            exit = fadeOut(),
-        ) {
+    ) { dismiss ->
         Column(
             modifier = Modifier
                 .widthIn(max = 560.dp)
@@ -1594,7 +1588,7 @@ internal fun EditorialDialog(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .clickable(onClick = onDismiss),
+                        .clickable(onClick = dismiss),
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(
@@ -1623,7 +1617,6 @@ internal fun EditorialDialog(
             ) {
                 content()
             }
-        }
         }
     }
 }
