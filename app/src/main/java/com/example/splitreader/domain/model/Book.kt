@@ -6,4 +6,5 @@ data class Book(
     val chapters: List<Chapter>,
     val filePath: String,
     val coverPath: String? = null,
+    val synopsis: String? = null,
 )

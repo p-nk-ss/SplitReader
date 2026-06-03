@@ -11,4 +11,5 @@ data class BookEntity(
     val coverPath: String?,
     val lastOpenedAt: Long,
     val chapterCount: Int,
+    val synopsis: String? = null,
 )
