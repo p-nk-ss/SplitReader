@@ -80,6 +80,7 @@ class HomeViewModel @Inject constructor(
                     isFinished = progressManager.isFinished(it.uri),
                     lastOpenedAt = it.lastOpenedAt,
                     synopsis = it.synopsis,
+                    excerpt = progressManager.getExcerpt(it.uri),
                 )
             },
             isLoading = isLoading,

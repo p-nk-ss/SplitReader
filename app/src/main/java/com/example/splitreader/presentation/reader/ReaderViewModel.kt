@@ -17,6 +17,7 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
@@ -308,6 +309,14 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book ?: return
         _state.update { it.copy(currentChapterIndex = chapterIndex, currentParagraph = position) }
         progressManager.saveProgress(book.filePath, chapterIndex, position, offset)
+        // Capture the paragraph the reader is on as a "continue reading" excerpt for the Library hero.
+        // position is the chapter-local list index where 0 is the chapter masthead, so the visible
+        // paragraph is paragraphs[position - 1]; skip the very top of the first chapter (nothing read yet).
+        if (chapterIndex > 0 || position > 0) {
+            val paragraph = book.chapters.getOrNull(chapterIndex)
+                ?.paragraphs?.getOrNull((position - 1).coerceAtLeast(0))
+            SynopsisExtractor.normalize(paragraph)?.let { progressManager.saveExcerpt(book.filePath, it) }
+        }
         extendPrefetchIfNeeded(chapterIndex, position)
     }
 

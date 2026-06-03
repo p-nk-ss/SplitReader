@@ -10,6 +10,7 @@ data class BookItem(
     val isFinished: Boolean = false,
     val lastOpenedAt: Long = 0L,
     val synopsis: String? = null,
+    val excerpt: String? = null,
 )
 
 data class HomeUiState(

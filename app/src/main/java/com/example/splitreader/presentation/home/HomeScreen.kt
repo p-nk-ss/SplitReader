@@ -652,17 +652,19 @@ private fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: (
                 fontSize = 14.sp,
                 color = palette.ink2,
             )
-            val synopsis = book.synopsis
-            if (synopsis != null) {
+            // Prefer the passage the reader stopped on; fall back to the book's description.
+            val excerpt = book.excerpt ?: book.synopsis
+            if (excerpt != null) {
                 Spacer(Modifier.height(sp.sm))
                 Text(
-                    text = synopsis,
+                    text = excerpt,
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Normal,
+                    fontStyle = FontStyle.Italic,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     color = palette.ink2,
-                    maxLines = 4,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

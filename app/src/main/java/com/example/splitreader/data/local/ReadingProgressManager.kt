@@ -37,6 +37,13 @@ class ReadingProgressManager @Inject constructor(
     fun getLastScrollOffset(bookUri: String, chapterIndex: Int): Int =
         prefs.getInt("last_scroll_offset_${bookUri}_$chapterIndex", 0)
 
+    /** Persists the paragraph the reader last stopped on, shown in the Library's Continue Reading hero. */
+    fun saveExcerpt(bookUri: String, text: String) =
+        prefs.edit().putString("last_excerpt_$bookUri", text).apply()
+
+    fun getExcerpt(bookUri: String): String? =
+        prefs.getString("last_excerpt_$bookUri", null)
+
     /** Marks a book as finished once the reader has scrolled to the end of its last chapter. */
     fun markFinished(bookUri: String) =
         prefs.edit().putBoolean("finished_$bookUri", true).apply()
@@ -48,6 +55,7 @@ class ReadingProgressManager @Inject constructor(
         prefs.edit()
             .remove("last_chapter_$bookUri")
             .remove("finished_$bookUri")
+            .remove("last_excerpt_$bookUri")
             .apply()
     }
 
