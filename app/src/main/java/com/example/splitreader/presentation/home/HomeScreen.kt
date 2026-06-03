@@ -621,7 +621,7 @@ private fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: (
         )
 
         // Title block
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).height(176.dp)) {
             Text(
                 text = "CONTINUE READING",
                 fontFamily = JetBrainsMono,
@@ -650,7 +650,21 @@ private fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: (
                 fontSize = 14.sp,
                 color = palette.ink2,
             )
-            Spacer(Modifier.height(sp.md))
+            val synopsis = book.synopsis
+            if (synopsis != null) {
+                Spacer(Modifier.height(sp.sm))
+                Text(
+                    text = synopsis,
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = palette.ink2,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.weight(1f))
             // Progress bar
             ProgressRule(progress = progress, modifier = Modifier.fillMaxWidth().height(3.dp))
             Spacer(Modifier.height(6.dp))
@@ -679,7 +693,7 @@ private fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: (
 
         // Right column
         Column(
-            modifier = Modifier.width(160.dp),
+            modifier = Modifier.width(190.dp),
             verticalArrangement = Arrangement.spacedBy(sp.sm),
         ) {
             // Last opened card
