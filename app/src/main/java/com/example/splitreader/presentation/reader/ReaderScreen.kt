@@ -8,6 +8,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.MotionTokens
 import com.example.splitreader.presentation.theme.animatedSelection
@@ -127,6 +129,7 @@ import com.example.splitreader.presentation.ui.SectionEyebrow
 import com.example.splitreader.presentation.ui.SliderRow
 import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -246,6 +249,9 @@ private fun ReaderErrorScreen(message: String, onBack: () -> Unit) {
 
 // ── Reader content ────────────────────────────────────────────────────────
 
+/** How long the reader's top/bottom bars stay visible before auto-hiding for an immersive read. */
+private const val READER_BARS_AUTO_HIDE_MS = 3500L
+
 @Composable
 private fun ReaderContent(
     state: ReaderUiState.Success,
@@ -291,6 +297,17 @@ private fun ReaderContent(
     var showTranslatorPicker by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
     var wordHighlightEnabled by remember { mutableStateOf(true) }
+
+    // Immersive reading: the top/bottom bars auto-hide after a delay and reappear on a page tap.
+    var barsVisible by remember { mutableStateOf(true) }
+    val anyDialogOpen = showLanguagePicker || showDisplaySettings ||
+        showChapterPicker || showTranslatorPicker || showBookmarks
+    LaunchedEffect(barsVisible, anyDialogOpen) {
+        if (barsVisible && !anyDialogOpen) {
+            delay(READER_BARS_AUTO_HIDE_MS)
+            barsVisible = false
+        }
+    }
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -361,15 +378,21 @@ private fun ReaderContent(
                 .fillMaxSize()
                 .background(palette.bg),
         ) {
-            ReaderTopBar(
-                state = state,
-                onBack = onNavigateBack,
-                onOpenLanguagePicker = { showLanguagePicker = true },
-                onOpenDisplaySettings = { showDisplaySettings = true },
-                onOpenChapterPicker = { showChapterPicker = true },
-                onOpenTranslatorPicker = { showTranslatorPicker = true },
-                onOpenBookmarks = { showBookmarks = true },
-            )
+            AnimatedVisibility(
+                visible = barsVisible,
+                enter = slideInVertically { -it } + fadeIn(),
+                exit = slideOutVertically { -it } + fadeOut(),
+            ) {
+                ReaderTopBar(
+                    state = state,
+                    onBack = onNavigateBack,
+                    onOpenLanguagePicker = { showLanguagePicker = true },
+                    onOpenDisplaySettings = { showDisplaySettings = true },
+                    onOpenChapterPicker = { showChapterPicker = true },
+                    onOpenTranslatorPicker = { showTranslatorPicker = true },
+                    onOpenBookmarks = { showBookmarks = true },
+                )
+            }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 BookSpread(
@@ -387,6 +410,7 @@ private fun ReaderContent(
                     onSaveWord = onSaveWord,
                     onSpeak = onSpeak,
                     onDismiss = onClearWordSelection,
+                    onToggleBars = { barsVisible = !barsVisible },
                     sourceLang = state.sourceLanguage,
                     targetLang = state.targetLanguage,
                 )
@@ -414,7 +438,13 @@ private fun ReaderContent(
                 }
             }
 
-            ReaderStatusFooter(state = state)
+            AnimatedVisibility(
+                visible = barsVisible,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+            ) {
+                ReaderStatusFooter(state = state)
+            }
         }
 
         if (showLanguagePicker) {
@@ -829,6 +859,7 @@ private fun BookSpread(
     onSaveWord: (word: String, chapterIndex: Int, paragraphIndex: Int) -> Unit,
     onSpeak: (text: String, langCode: String) -> Unit,
     onDismiss: () -> Unit,
+    onToggleBars: () -> Unit,
     sourceLang: Language,
     targetLang: Language,
 ) {
@@ -876,7 +907,7 @@ private fun BookSpread(
                                 wordHighlightEnabled = wordHighlightEnabled,
                                 onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                                 onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
-                                onTap = { if (wordSelection != null) onDismiss() },
+                                onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
                             )
                         }
                         Box(
@@ -900,7 +931,7 @@ private fun BookSpread(
                                         selectedWordEnd = -1,
                                         style = style,
                                         onWordSelected = { _, _, _ -> },
-                                        onTap = { if (wordSelection != null) onDismiss() },
+                                        onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
                                     )
                                 }
                             }
@@ -920,7 +951,7 @@ private fun BookSpread(
                             wordHighlightEnabled = wordHighlightEnabled,
                             onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                             onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
-                            onTap = { if (wordSelection != null) onDismiss() },
+                            onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
                         )
                     }
                 }
