@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -620,8 +621,9 @@ private fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: (
             coverFilePath = book.coverPath,
         )
 
-        // Title block
-        Column(modifier = Modifier.weight(1f).height(176.dp)) {
+        // Title block — at least the cover height so a short/absent synopsis still
+        // pins the progress block to the bottom; grows (no clip) when the synopsis is tall.
+        Column(modifier = Modifier.weight(1f).heightIn(min = 176.dp)) {
             Text(
                 text = "CONTINUE READING",
                 fontFamily = JetBrainsMono,
