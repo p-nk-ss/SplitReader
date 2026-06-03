@@ -93,8 +93,10 @@ class MobiParser @Inject constructor() : BookParser {
 
         val coverPath = extractCover(pdb, exth, firstImageIndex, uri.toString(), context)
 
+        val synopsis = SynopsisExtractor.build(exth[103], chapters.flatMap { it.paragraphs })
+
         Log.d("MOBI", "Parsed: title=$title, author=$author, chapters=${chapters.size}, comp=$compression")
-        return Book(title, author, chapters, uri.toString(), coverPath)
+        return Book(title, author, chapters, uri.toString(), coverPath, synopsis)
     }
 
     // ── Chapter building ─────────────────────────────────────────────────────
@@ -143,8 +145,8 @@ class MobiParser @Inject constructor() : BookParser {
             if (len < 8 || p + len > rec0.size) return@repeat
             val data = rec0.copyOfRange(p + 8, p + len)
             when (type) {
-                100, 503 -> out[type] = String(data, CP1252).trim()  // author, updated title
-                201 -> out[type] = beInt(data).toString()            // cover record offset
+                100, 103, 503 -> out[type] = String(data, CP1252).trim()  // author, description, updated title
+                201 -> out[type] = beInt(data).toString()                  // cover record offset
             }
             p += len
         }
