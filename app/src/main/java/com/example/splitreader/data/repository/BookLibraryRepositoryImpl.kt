@@ -23,6 +23,7 @@ class BookLibraryRepositoryImpl @Inject constructor(
                 coverPath = book.coverPath,
                 lastOpenedAt = System.currentTimeMillis(),
                 chapterCount = book.chapters.size,
+                synopsis = book.synopsis,
             )
         )
     }

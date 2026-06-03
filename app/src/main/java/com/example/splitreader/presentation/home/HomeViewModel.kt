@@ -79,6 +79,7 @@ class HomeViewModel @Inject constructor(
                     lastChapterIndex = progressManager.getLastChapter(it.uri),
                     isFinished = progressManager.isFinished(it.uri),
                     lastOpenedAt = it.lastOpenedAt,
+                    synopsis = it.synopsis,
                 )
             },
             isLoading = isLoading,
