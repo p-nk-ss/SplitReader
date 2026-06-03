@@ -15,7 +15,11 @@ object SynopsisExtractor {
     private const val MIN_PARAGRAPH_LENGTH = 40
     private val WHITESPACE = Regex("\\s+")
 
-    /** Strips HTML/whitespace, trims, clamps to [MAX_LENGTH]; returns null if blank. */
+    /**
+     * Strips HTML and collapses whitespace, trims, and returns null if blank.
+     * When the text exceeds [MAX_LENGTH] it is clamped to [MAX_LENGTH], any trailing
+     * `, . ; :` at the cut point is stripped, and an ellipsis is appended.
+     */
     fun normalize(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
         val text = Jsoup.parse(raw).text().replace(WHITESPACE, " ").trim()
