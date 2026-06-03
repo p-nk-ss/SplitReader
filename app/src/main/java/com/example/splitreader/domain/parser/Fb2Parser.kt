@@ -50,6 +50,8 @@ class Fb2Parser @Inject constructor() : BookParser {
         var insideTitle = false
         var insideParagraph = false
         var currentText = StringBuilder()
+        var insideAnnotation = false
+        val annotationText = StringBuilder()
 
         // Body-level epigraph (before first section)
         val preambleParagraphs = mutableListOf<String>()
@@ -96,6 +98,7 @@ class Fb2Parser @Inject constructor() : BookParser {
                         }
                     }
                     tagName == "body" -> insideBody = true
+                    tagName == "annotation" -> insideAnnotation = true
                     tagName == "epigraph" && insideBody && sectionDepth == 0 -> insidePreambleEpigraph = true
                     tagName == "epigraph" && insideBody && sectionDepth > 0 -> insideEpigraph = true
                     tagName == "text-author" && insideEpigraph -> {
@@ -172,13 +175,16 @@ class Fb2Parser @Inject constructor() : BookParser {
                         }
                     }
                     tagName == "body" -> insideBody = false
+                    tagName == "annotation" -> insideAnnotation = false
                 }
 
                 XmlPullParser.TEXT -> {
+                    val text = parser.text ?: ""
                     when {
-                        insideCoverBinary -> coverBinaryData?.append(parser.text ?: "")
+                        insideCoverBinary -> coverBinaryData?.append(text)
+                        insideAnnotation -> annotationText.append(text).append(' ')
                         insideParagraph || insideTitle || insideTextAuthor || !insideBody ->
-                            currentText.append(parser.text ?: "")
+                            currentText.append(text)
                     }
                 }
             }
@@ -191,7 +197,11 @@ class Fb2Parser @Inject constructor() : BookParser {
         if (chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
 
         val coverPath = saveFb2Cover(coverBinaryData, filePath, context)
-        return Book(title = title, author = author, chapters = chapters, filePath = filePath, coverPath = coverPath)
+        val synopsis = SynopsisExtractor.build(
+            annotationText.toString(),
+            chapters.flatMap { it.paragraphs },
+        )
+        return Book(title = title, author = author, chapters = chapters, filePath = filePath, coverPath = coverPath, synopsis = synopsis)
     }
 
     private fun saveFb2Cover(
