@@ -27,6 +27,7 @@ class EpubParser @Inject constructor() : BookParser {
         val manifestMap: Map<String, String>,
         val coverHref: String?,
         val navItemIds: Set<String>,
+        val description: String?,
     )
 
     override suspend fun parse(uri: Uri, context: Context): Book {
@@ -95,7 +96,8 @@ class EpubParser @Inject constructor() : BookParser {
             extractCoverFromZip(uri, context, fullCoverPath)
         }
 
-        return Book(opf.title, opf.author, chapters, uri.toString(), coverPath)
+        val synopsis = SynopsisExtractor.build(opf.description, chapters.flatMap { it.paragraphs })
+        return Book(opf.title, opf.author, chapters, uri.toString(), coverPath, synopsis)
     }
 
     private fun parseContainerXml(content: ByteArray): String {
@@ -112,6 +114,8 @@ class EpubParser @Inject constructor() : BookParser {
         val author = doc.selectFirst("dc|creator, dc\\:creator")?.text()
             ?: doc.selectFirst("creator")?.text()
             ?: "Unknown"
+        val description = doc.selectFirst("dc|description, dc\\:description")?.text()
+            ?: doc.selectFirst("description")?.text()
         val manifestMap = doc.select("item").associate { it.attr("id") to it.attr("href") }
         val navItemIds = doc.select("item").filter { "nav" in it.attr("properties") }.map { it.attr("id") }.toSet()
         val spineIds = doc.select("itemref")
@@ -128,7 +132,7 @@ class EpubParser @Inject constructor() : BookParser {
             }
             ?: doc.selectFirst("item[id=cover], item[id=cover-image]")?.attr("href")
 
-        return OpfData(title, author, spineIds, manifestMap, coverHref, navItemIds)
+        return OpfData(title, author, spineIds, manifestMap, coverHref, navItemIds, description)
     }
 
     private fun extractCoverFromZip(uri: Uri, context: Context, coverEntryPath: String): String? {
