@@ -44,6 +44,7 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.NightPalette
+import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.animatedSelection
 import com.example.splitreader.presentation.theme.PaperPalette
 import com.example.splitreader.presentation.theme.SepiaPalette
@@ -458,7 +459,7 @@ private fun LanguageGridDialog(
     val palette = LocalReaderPalette.current
     val radii = LocalRadii.current
     val sp = LocalSpacing.current
-    BasicAlertDialog(onDismissRequest = onDismiss) {
+    AnimatedDialog(onDismiss = onDismiss) { _ ->
         Column(
             Modifier
                 .widthIn(max = 460.dp)
@@ -527,7 +528,7 @@ private fun ConfirmDialog(
     val palette = LocalReaderPalette.current
     val radii = LocalRadii.current
     val sp = LocalSpacing.current
-    BasicAlertDialog(onDismissRequest = onDismiss) {
+    AnimatedDialog(onDismiss = onDismiss) { dismiss ->
         Column(
             Modifier
                 .widthIn(max = 420.dp)
@@ -565,7 +566,7 @@ private fun ConfirmDialog(
                         .clip(RoundedCornerShape(radii.md))
                         .background(palette.bg2)
                         .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
-                        .clickable(onClick = onDismiss)
+                        .clickable(onClick = dismiss)
                         .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center,
                 ) {

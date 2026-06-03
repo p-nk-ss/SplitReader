@@ -43,18 +43,22 @@ class AlmanacViewModel @Inject constructor(
         .flatMapLatest { range -> sessionRepository.observeDailyMinutes(range.daysBack) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val weeklyMinutes: StateFlow<Int> = sessionRepository.observeWeeklyMinutes()
+    val rangeMinutes: StateFlow<Int> = selectedRange
+        .flatMapLatest { range -> sessionRepository.observeDailyMinutes(range.daysBack) }
         .map { days -> days.sumOf { it.minutes } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    val weeklyPages: StateFlow<Int> = sessionRepository.observeWeeklyMinutes()
+    val rangePages: StateFlow<Int> = selectedRange
+        .flatMapLatest { range -> sessionRepository.observeDailyMinutes(range.daysBack) }
         .map { days -> days.sumOf { it.minutes * 2 } } // rough approx: 2 pages/min
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    val weeklyWords: StateFlow<Int> = savedWordRepository.observeAll()
-        .map { words ->
-            val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
-            words.count { it.savedAt >= weekAgo }
+    val rangeWords: StateFlow<Int> = selectedRange
+        .flatMapLatest { range ->
+            savedWordRepository.observeAll().map { words ->
+                val since = System.currentTimeMillis() - range.daysBack * 24L * 60 * 60 * 1000
+                words.count { it.savedAt >= since }
+            }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 

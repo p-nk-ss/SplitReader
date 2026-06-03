@@ -8,6 +8,7 @@ data class BookItem(
     val chapterCount: Int,
     val lastChapterIndex: Int = 0,
     val isFinished: Boolean = false,
+    val lastOpenedAt: Long = 0L,
 )
 
 data class HomeUiState(
@@ -17,6 +18,7 @@ data class HomeUiState(
     val streakDays: Int = 0,
     val weeklyMinutes: Int = 0,
     val savedWordsThisWeek: Int = 0,
+    val minutesToday: Int = 0,
     val weeklyGoal: Int = 180,
 ) {
     val lastBook: BookItem? get() = books.firstOrNull()
