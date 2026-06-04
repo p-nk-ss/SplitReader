@@ -50,6 +50,12 @@ class DeepLTranslationProvider @Inject constructor(
         Language.KOREAN -> "KO"
         Language.TURKISH -> "TR"
         Language.ARABIC -> "AR"
+        Language.UKRAINIAN -> "UK"
+        Language.POLISH -> "PL"
+        Language.DUTCH -> "NL"
+        Language.SWEDISH -> "SV"
+        Language.CZECH -> "CS"
+        Language.HINDI -> null // DeepL has no Hindi — falls back to ML Kit via resolveProvider
     }
 
     private fun Language.toDeepLTargetCode(): String? = when (this) {
