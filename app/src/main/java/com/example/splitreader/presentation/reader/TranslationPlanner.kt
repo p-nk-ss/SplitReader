@@ -80,4 +80,12 @@ object TranslationPlanner {
     /** Monotonic 0..100 progress within a single segment of [total] paragraphs. */
     fun progressPercent(done: Int, total: Int): Int =
         if (total <= 0) 0 else (done * 100 / total).coerceIn(0, 100)
+
+    /**
+     * Whether translation should run at all. ML Kit is free/on-device, so it keeps translating even
+     * when the translation pane is hidden; paid providers translate only while the pane is visible,
+     * so hiding it never burns subscription quota/tokens on text the reader can't see.
+     */
+    fun shouldTranslate(isMlKit: Boolean, translationVisible: Boolean): Boolean =
+        isMlKit || translationVisible
 }

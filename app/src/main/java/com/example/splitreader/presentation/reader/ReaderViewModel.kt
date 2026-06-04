@@ -177,6 +177,7 @@ class ReaderViewModel @Inject constructor(
         scope = viewModelScope,
         translateTextUseCase = translateTextUseCase,
         isMlKit = { progressManager.getTranslatorProvider() == TranslationProvider.MLKIT },
+        isTranslationVisible = { progressManager.getShowTranslation() },
     )
     private var selectionTranslateJob: Job? = null
     private var lastScrollPosition = 0
@@ -422,6 +423,10 @@ class ReaderViewModel @Inject constructor(
         val newValue = !_state.value.showTranslation
         progressManager.saveShowTranslation(newValue)
         _state.update { it.copy(showTranslation = newValue) }
+        // Re-enabling the pane: translate the current view, which a paid provider skipped while hidden.
+        if (newValue) {
+            translationManager.onScroll(_state.value.currentChapterIndex, anchorFor(lastScrollPosition))
+        }
     }
 
     fun setHorizontalMargin(margin: Float) {

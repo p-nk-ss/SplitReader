@@ -153,4 +153,22 @@ class TranslationPlannerTest {
     fun `progressPercent of an empty segment is zero`() {
         assertEquals(0, TranslationPlanner.progressPercent(done = 0, total = 0))
     }
+
+    // ── shouldTranslate ───────────────────────────────────────────────────
+
+    @Test
+    fun `shouldTranslate keeps ML Kit running even when the pane is hidden`() {
+        assertTrue(TranslationPlanner.shouldTranslate(isMlKit = true, translationVisible = false))
+        assertTrue(TranslationPlanner.shouldTranslate(isMlKit = true, translationVisible = true))
+    }
+
+    @Test
+    fun `shouldTranslate skips paid providers when the pane is hidden`() {
+        assertFalse(TranslationPlanner.shouldTranslate(isMlKit = false, translationVisible = false))
+    }
+
+    @Test
+    fun `shouldTranslate runs paid providers when the pane is visible`() {
+        assertTrue(TranslationPlanner.shouldTranslate(isMlKit = false, translationVisible = true))
+    }
 }

@@ -30,6 +30,7 @@ class ChapterTranslationManager(
     private val scope: CoroutineScope,
     private val translateTextUseCase: TranslateTextUseCase,
     private val isMlKit: () -> Boolean,
+    private val isTranslationVisible: () -> Boolean,
 ) {
     val updates: SharedFlow<TranslationUpdate> = MutableSharedFlow(
         replay = 1,
@@ -77,6 +78,11 @@ class ChapterTranslationManager(
     fun focusChapter(chapterIndex: Int, anchor: Int) {
         val book = book ?: return
         if (chapterIndex < 0 || chapterIndex >= book.chapters.size) return
+        // Don't burn paid quota translating text the reader has hidden; ML Kit (free) keeps going.
+        if (!TranslationPlanner.shouldTranslate(isMlKit(), isTranslationVisible())) {
+            activeAnchor = anchor
+            return
+        }
         if (chapterIndex == activeChapter) return
         activeChapter = chapterIndex
         activeAnchor = anchor
@@ -109,6 +115,10 @@ class ChapterTranslationManager(
 
     /** Drive translation from a scroll update: re-focus on chapter change, else prefetch ahead (paid). */
     fun onScroll(chapterIndex: Int, anchor: Int) {
+        if (!TranslationPlanner.shouldTranslate(isMlKit(), isTranslationVisible())) {
+            activeAnchor = anchor
+            return
+        }
         if (chapterIndex != activeChapter) {
             focusChapter(chapterIndex, anchor)
             return
