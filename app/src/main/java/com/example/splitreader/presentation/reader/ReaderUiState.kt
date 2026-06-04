@@ -65,9 +65,6 @@ sealed interface ReaderUiState {
         val translatorConfig: TranslatorConfigState =
             TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
     ) : ReaderUiState {
-        val preloadNextChapter: Boolean
-            get() = translatorProvider == TranslationProvider.MLKIT
-
         val readingStyle: ReadingStyle
             get() = ReadingStyle(
                 font = readingFont,

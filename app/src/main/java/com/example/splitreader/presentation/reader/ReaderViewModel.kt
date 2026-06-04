@@ -12,7 +12,6 @@ import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
-import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationProvider
@@ -68,14 +67,6 @@ class ReaderViewModel @Inject constructor(
 
     private fun buildTranslatorConfig(current: TranslationProvider): TranslatorConfigState =
         buildTranslatorConfigState(translationProviders, translatorEndpoints, usageTracker, current)
-
-    private companion object {
-        const val TRANSLATE_WINDOW = 25
-        // For non-MLKit (paid/quota-limited) providers: extend prefetch this many paragraphs ahead of scroll
-        const val CLOUD_PREFETCH_AHEAD = 20
-        // Trigger next prefetch batch when within this many paragraphs of the translated edge
-        const val CLOUD_PREFETCH_TRIGGER = 5
-    }
 
     private data class InternalState(
         val book: Book? = null,
@@ -182,12 +173,33 @@ class ReaderViewModel @Inject constructor(
             initialValue = ReaderUiState.Loading,
         )
 
-    private val translationJobs = mutableMapOf<Int, Job>()
-    private val prefetchJobs = mutableMapOf<Int, Job>()
-    private val prefetchedEdge = mutableMapOf<Int, Int>()
+    private val translationManager = ChapterTranslationManager(
+        scope = viewModelScope,
+        translateTextUseCase = translateTextUseCase,
+        isMlKit = { progressManager.getTranslatorProvider() == TranslationProvider.MLKIT },
+    )
     private var selectionTranslateJob: Job? = null
     private var lastScrollPosition = 0
     private var lastScrollOffset = 0
+
+    init {
+        // Fold the translation engine's snapshots (translated text + foreground banner state) into UI state.
+        viewModelScope.launch {
+            translationManager.updates.collect { update ->
+                stateMutex.withLock {
+                    _state.update {
+                        it.copy(
+                            chapterTranslations = update.translations,
+                            translationState = update.state,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /** Convert a chapter-local list index (item 0 is the chapter masthead) to a paragraph anchor. */
+    private fun anchorFor(localIndex: Int): Int = (localIndex - 1).coerceAtLeast(0)
 
     // Timestamp of the current foreground reading stint; 0 means no active session.
     private var sessionStartedAt = 0L
@@ -232,11 +244,8 @@ class ReaderViewModel @Inject constructor(
                 pendingScrollOffset = if (lastScroll > 0) lastOffset else 0,
             )
         }
-        ensureChapterTranslated(lastChapterIndex)
-        // Only preload chapter 0 on top of last-opened when free on-device translation is selected
-        if (lastChapterIndex != 0 && progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) {
-            ensureChapterTranslated(0)
-        }
+        translationManager.attach(book, detectedLang, targetLang)
+        translationManager.focusChapter(lastChapterIndex, anchorFor(lastScroll))
         // Begin tracking reading time now that the book is on screen
         resumeSession()
         observeBookmarks(book.filePath)
@@ -280,27 +289,16 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
         _state.update { it.copy(currentChapterIndex = index) }
-        ensureChapterTranslated(index)
-        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) {
-            val next = (index + 1).coerceAtMost(book.chapters.size - 1)
-            if (next != index) ensureChapterTranslated(next)
-        }
+        // A jump lands at the top of the chapter; the manager cancels stale work and translates here first.
+        translationManager.focusChapter(index, anchor = 0)
     }
 
     fun setTargetLanguage(lang: Language) {
         progressManager.saveTargetLanguage(lang)
-        translationJobs.values.forEach { it.cancel() }
-        translationJobs.clear()
-        prefetchJobs.values.forEach { it.cancel() }
-        prefetchJobs.clear()
-        prefetchedEdge.clear()
+        translationManager.reset()
+        translationManager.setLanguages(_state.value.sourceLanguage, lang)
         _state.update { it.copy(targetLanguage = lang, chapterTranslations = emptyMap()) }
-        val book = _state.value.book ?: return
-        ensureChapterTranslated(0)
-        // Only preload adjacent chapter when on-device (free) translation is selected
-        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT && book.chapters.size > 1) {
-            ensureChapterTranslated(1)
-        }
+        translationManager.focusChapter(_state.value.currentChapterIndex, anchorFor(lastScrollPosition))
     }
 
     fun updateScrollPosition(chapterIndex: Int, position: Int, offset: Int = 0) {
@@ -317,7 +315,7 @@ class ReaderViewModel @Inject constructor(
                 ?.paragraphs?.getOrNull((position - 1).coerceAtLeast(0))
             SynopsisExtractor.normalize(paragraph)?.let { progressManager.saveExcerpt(book.filePath, it) }
         }
-        extendPrefetchIfNeeded(chapterIndex, position)
+        translationManager.onScroll(chapterIndex, anchorFor(position))
     }
 
     /** Toggles a bookmark at the user's current reading position (current chapter + top paragraph). */
@@ -462,19 +460,11 @@ class ReaderViewModel @Inject constructor(
     }
 
     private fun retranslateCurrentChapter() {
-        translationJobs.values.forEach { it.cancel() }
-        translationJobs.clear()
-        prefetchJobs.values.forEach { it.cancel() }
-        prefetchJobs.clear()
-        prefetchedEdge.clear()
+        translationManager.reset()
         _state.update { it.copy(chapterTranslations = emptyMap(), translationState = TranslationState.Idle) }
-        val book = _state.value.book ?: return
-        val current = _state.value.currentChapterIndex
-        ensureChapterTranslated(current)
-        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) {
-            val next = (current + 1).coerceAtMost(book.chapters.size - 1)
-            if (next != current) ensureChapterTranslated(next)
-        }
+        if (_state.value.book == null) return
+        // Re-translate from the reader's current position; the manager handles provider-specific fill.
+        translationManager.focusChapter(_state.value.currentChapterIndex, anchorFor(lastScrollPosition))
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
@@ -572,130 +562,20 @@ class ReaderViewModel @Inject constructor(
     fun speak(text: String, langCode: String) = textToSpeechManager.speak(text, langCode)
 
     fun ensureChapterTranslated(index: Int) {
-        if (_state.value.chapterTranslations.containsKey(index)) return
-        if (translationJobs[index]?.isActive == true) return
-        val book = _state.value.book ?: return
-        if (index < 0 || index >= book.chapters.size) return
+        translationManager.focusChapter(index, anchor = 0)
+    }
 
-        translationJobs[index] = viewModelScope.launch {
-            translateChapter(index)
-        }
+    /** Retries translation for the current chapter after a failure (clears it and re-runs). */
+    fun retryTranslation() {
+        translationManager.retry(_state.value.currentChapterIndex)
     }
 
     /**
-     * Retries translation for the current chapter after a failure. A failed chapter keeps an
-     * (empty) entry in [chapterTranslations], which would make [ensureChapterTranslated] no-op —
-     * so clear that entry and the cached job/prefetch edge before re-running.
+     * Paid escape-hatch: translate the remainder of the current chapter on demand. Paid providers
+     * otherwise only translate the visible window plus a small look-ahead to conserve quota/tokens.
      */
-    fun retryTranslation() {
-        val index = _state.value.currentChapterIndex
-        translationJobs[index]?.cancel()
-        translationJobs.remove(index)
-        prefetchedEdge.remove(index)
-        _state.update {
-            it.copy(
-                chapterTranslations = it.chapterTranslations - index,
-                translationState = TranslationState.Idle,
-            )
-        }
-        ensureChapterTranslated(index)
-    }
-
-    private suspend fun translateChapter(index: Int) {
-        val book = _state.value.book ?: return
-        val chapter = book.chapters[index]
-        val results = MutableList(chapter.paragraphs.size) { "" }
-        val isMlKit = progressManager.getTranslatorProvider() == TranslationProvider.MLKIT
-
-        stateMutex.withLock {
-            _state.update {
-                it.copy(
-                    chapterTranslations = it.chapterTranslations + (index to results.toList()),
-                    translationState = TranslationState.Translating(0),
-                )
-            }
-        }
-
-        val startIdx = if (index == _state.value.currentChapterIndex)
-            lastScrollPosition.coerceIn(0, (chapter.paragraphs.size - 1).coerceAtLeast(0)) else 0
-        val windowEnd = (startIdx + TRANSLATE_WINDOW - 1).coerceAtMost(chapter.paragraphs.size - 1)
-
-        collectTranslations(index, chapter, results, startIdx, windowEnd)
-        if (_state.value.translationState is TranslationState.Error) return
-        prefetchedEdge[index] = windowEnd
-
-        if (isMlKit) {
-            if (windowEnd < chapter.paragraphs.size - 1) {
-                collectTranslations(index, chapter, results, windowEnd + 1, chapter.paragraphs.size - 1)
-                if (_state.value.translationState is TranslationState.Error) return
-                prefetchedEdge[index] = chapter.paragraphs.size - 1
-            }
-
-            if (startIdx > 0) {
-                collectTranslations(index, chapter, results, 0, startIdx - 1)
-                if (_state.value.translationState is TranslationState.Error) return
-            }
-        }
-
-        stateMutex.withLock {
-            _state.update { it.copy(translationState = TranslationState.Idle) }
-        }
-    }
-
-    private fun extendPrefetchIfNeeded(chapterIndex: Int, scrollPosition: Int) {
-        if (progressManager.getTranslatorProvider() == TranslationProvider.MLKIT) return
-        val book = _state.value.book ?: return
-        val chapter = book.chapters.getOrNull(chapterIndex) ?: return
-        val edge = prefetchedEdge[chapterIndex] ?: return
-        if (edge >= chapter.paragraphs.size - 1) return
-        if (edge - scrollPosition > CLOUD_PREFETCH_TRIGGER) return
-        if (prefetchJobs[chapterIndex]?.isActive == true) return
-
-        val targetEdge = (scrollPosition + CLOUD_PREFETCH_AHEAD).coerceAtMost(chapter.paragraphs.size - 1)
-        if (targetEdge <= edge) return
-
-        prefetchJobs[chapterIndex] = viewModelScope.launch {
-            val existing = _state.value.chapterTranslations[chapterIndex]?.toMutableList()
-                ?: MutableList(chapter.paragraphs.size) { "" }
-            collectTranslations(chapterIndex, chapter, existing, edge + 1, targetEdge)
-            if (_state.value.translationState !is TranslationState.Error) {
-                prefetchedEdge[chapterIndex] = targetEdge
-            }
-        }
-    }
-
-    private suspend fun collectTranslations(
-        chapterIndex: Int,
-        chapter: Chapter,
-        results: MutableList<String>,
-        startIdx: Int,
-        endIdx: Int,
-    ) {
-        translateTextUseCase(
-            chapter.paragraphs,
-            _state.value.sourceLanguage,
-            _state.value.targetLanguage,
-            startIndex = startIdx,
-            endIndex = endIdx,
-        ).collect { state ->
-            when (state) {
-                is TranslationState.Partial -> {
-                    results[state.index] = state.text
-                    val progress = ((state.index + 1) * 100) / chapter.paragraphs.size
-                    stateMutex.withLock {
-                        _state.update {
-                            it.copy(
-                                chapterTranslations = it.chapterTranslations + (chapterIndex to results.toList()),
-                                translationState = TranslationState.Translating(progress),
-                            )
-                        }
-                    }
-                }
-                else -> stateMutex.withLock {
-                    _state.update { it.copy(translationState = state) }
-                }
-            }
-        }
+    fun translateWholeChapter() {
+        translationManager.translateWholeChapter(_state.value.currentChapterIndex)
     }
 
     private fun buildLanguageSample(book: Book): String {

@@ -56,6 +56,7 @@ internal fun TranslatorPickerDialog(
     onConfigure: (provider: TranslationProvider, key: String?, secondary: String?) -> Unit,
     onClear: (TranslationProvider) -> Unit,
     onResetUsage: (TranslationProvider) -> Unit,
+    onTranslateWholeChapter: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     var keyDialogTarget by remember { mutableStateOf<TranslationProvider?>(null) }
@@ -98,6 +99,34 @@ internal fun TranslatorPickerDialog(
                     },
                     onConfigure = { keyDialogTarget = provider },
                     onResetUsage = { resetConfirmTarget = provider },
+                )
+            }
+        }
+
+        // Paid providers translate only the visible window + look-ahead to conserve quota/tokens.
+        // This is the on-demand escape-hatch to finish the rest of the current chapter.
+        if (onTranslateWholeChapter != null && state.current.category == TranslationProviderCategory.ADVANCED) {
+            Spacer(Modifier.height(sp.md))
+            val palette = LocalReaderPalette.current
+            val radii = LocalRadii.current
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(radii.md))
+                    .background(palette.ink)
+                    .clickable {
+                        onTranslateWholeChapter()
+                        onDismiss()
+                    }
+                    .padding(vertical = sp.sm),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "Translate the rest of this chapter",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    color = palette.bg,
                 )
             }
         }

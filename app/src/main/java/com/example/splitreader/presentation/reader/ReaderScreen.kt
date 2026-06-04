@@ -221,6 +221,7 @@ internal fun ReaderRoute(
             onRefreshTranslationUsage = viewModel::refreshTranslationUsage,
             onResetTranslationUsage = viewModel::resetTranslationUsage,
             onRetryTranslation = viewModel::retryTranslation,
+            onTranslateWholeChapter = viewModel::translateWholeChapter,
         )
     }
 }
@@ -288,6 +289,7 @@ private fun ReaderContent(
     onRefreshTranslationUsage: () -> Unit,
     onResetTranslationUsage: (TranslationProvider) -> Unit,
     onRetryTranslation: () -> Unit,
+    onTranslateWholeChapter: () -> Unit,
 ) {
     val palette = readerPalette(state.readerTheme)
 
@@ -355,18 +357,14 @@ private fun ReaderContent(
             }
     }
 
-    // Preload translation for visible chapters as user scrolls
-    val preloadNext = state.preloadNextChapter
-    LaunchedEffect(listState, preloadNext) {
+    // Translate the chapter that scrolls into view. Next-chapter preload (ML Kit) and paid
+    // look-ahead are owned by ChapterTranslationManager, so the UI only reports the visible chapter.
+    LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex }
             .distinctUntilChanged()
             .collect { globalIndex ->
                 val chapter = chapterItemStarts.indexOfLast { it <= globalIndex }.coerceAtLeast(0)
                 onEnsureChapterTranslated(chapter)
-                if (preloadNext) {
-                    val next = (chapter + 1).coerceAtMost(state.book.chapters.size - 1)
-                    if (next != chapter) onEnsureChapterTranslated(next)
-                }
             }
     }
 
@@ -486,6 +484,7 @@ private fun ReaderContent(
                 onConfigure = onConfigureProvider,
                 onClear = onClearProvider,
                 onResetUsage = onResetTranslationUsage,
+                onTranslateWholeChapter = onTranslateWholeChapter,
                 onDismiss = { showTranslatorPicker = false },
             )
         }
