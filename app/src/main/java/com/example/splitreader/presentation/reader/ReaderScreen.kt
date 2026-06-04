@@ -484,7 +484,9 @@ private fun ReaderContent(
                 onConfigure = onConfigureProvider,
                 onClear = onClearProvider,
                 onResetUsage = onResetTranslationUsage,
-                onTranslateWholeChapter = onTranslateWholeChapter,
+                // Hide the "translate whole chapter" action when the translation pane is off —
+                // translating text the reader can't see would just burn paid quota.
+                onTranslateWholeChapter = if (state.showTranslation) onTranslateWholeChapter else null,
                 onDismiss = { showTranslatorPicker = false },
             )
         }
