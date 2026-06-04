@@ -575,8 +575,8 @@ private fun ReaderTopBar(
 
         // Language chip
         LangChip(
-            source = state.sourceLanguage.code.uppercase(),
-            target = state.targetLanguage.code.uppercase(),
+            source = state.sourceLanguage.badge,
+            target = state.targetLanguage.badge,
             onClick = onOpenLanguagePicker,
         )
 
@@ -1283,7 +1283,7 @@ private fun ReaderStatusFooter(state: ReaderUiState.Success) {
         )
         Text("·", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink4)
         Text(
-            text = "${state.sourceLanguage.code.uppercase()} → ${state.targetLanguage.code.uppercase()}",
+            text = "${state.sourceLanguage.badge} → ${state.targetLanguage.badge}",
             fontFamily = JetBrainsMono,
             fontSize = 11.sp,
             letterSpacing = 0.5.sp,
@@ -1694,7 +1694,7 @@ private fun LanguagePickerDialog(
                                             .background(if (selected) palette.bg.copy(alpha = 0.22f) else palette.bg3)
                                             .padding(horizontal = 7.dp, vertical = 3.dp),
                                     ) {
-                                        Text(lang.code.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = if (selected) palette.bg else palette.ink)
+                                        Text(lang.badge, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = if (selected) palette.bg else palette.ink)
                                     }
                                     Text(lang.displayName, fontFamily = Newsreader, fontSize = 14.sp, color = if (selected) palette.bg else palette.ink)
                                     Text(lang.displayName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 11.sp, color = if (selected) palette.bg.copy(alpha = 0.8f) else palette.ink3)

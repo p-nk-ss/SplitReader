@@ -494,7 +494,7 @@ private fun LanguageGridDialog(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                lang.code.uppercase(),
+                                lang.badge,
                                 fontFamily = JetBrainsMono,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 11.sp,

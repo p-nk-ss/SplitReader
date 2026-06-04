@@ -5,9 +5,12 @@ import com.google.mlkit.nl.translate.TranslateLanguage
 // Endonyms (the language's own name) are intentional in the language picker;
 // flag emoji were removed because a flag denotes a country, not a language.
 // Enum order is the picker grid order (3 columns): keep it laid out as the rows below.
-enum class Language(val code: String, val displayName: String) {
+// `code` is the ISO 639-1 language code the engines require (do not change); `badge` is the short
+// label shown in the UI, defaulting to the uppercased code. Ukrainian overrides it to "UA" because
+// the uppercased language code "UK" reads as the United Kingdom.
+enum class Language(val code: String, val displayName: String, val badge: String = code.uppercase()) {
     ENGLISH("en", "English"),
-    UKRAINIAN("uk", "Українська"),
+    UKRAINIAN("uk", "Українська", "UA"),
     GERMAN("de", "Deutsch"),
     FRENCH("fr", "Français"),
     SPANISH("es", "Español"),
