@@ -11,7 +11,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.splitreader"
+        applicationId = "io.mirrolit.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
