@@ -28,11 +28,19 @@
     <!-- Errors -->
     <string name="error_file_access">Can\'t access this file — reopen it via \"Open book\".</string>
 
+    <!-- Google Drive import (Catalog screen) -->
+    <string name="drive_section_label">FROM YOUR DRIVE</string>
+    <string name="drive_pick_action">Choose a book from Drive</string>
+    <string name="drive_signed_out_hint">Sign in with Google to load books from your Drive.</string>
+    <string name="drive_error_unsupported">That file isn\'t a supported book (EPUB, FB2, or MOBI).</string>
+    <string name="drive_error_download">Couldn\'t load the file from Drive. Check your connection and try again.</string>
+    <string name="drive_error_cancelled">Drive access was cancelled.</string>
+
     <!-- Account / Auth -->
     <string name="account_title">Account</string>
     <string name="profile_title">Profile</string>
     <string name="account_avatar_sign_in">Sign in</string>
-    <string name="account_signed_out_hint">Sign in to sync your library and link Google Drive (coming soon).</string>
+    <string name="account_signed_out_hint">Sign in to sync your library and link Google Drive.</string>
     <string name="account_sign_in_or_register">Sign in or create account</string>
     <string name="account_action_open">Open</string>
     <string name="account_signed_in_as">Signed in</string>

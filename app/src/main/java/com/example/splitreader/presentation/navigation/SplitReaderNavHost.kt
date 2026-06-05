@@ -104,6 +104,9 @@ fun SplitReaderNavHost(
                     onNavigateToReader = { filePath ->
                         navController.navigate("reader?path=${Uri.encode(filePath)}")
                     },
+                    onNavigateToAuth = {
+                        navController.navigate(AUTH_ROUTE) { launchSingleTop = true }
+                    },
                 )
             }
             composable(ALMANAC_ROUTE) {
