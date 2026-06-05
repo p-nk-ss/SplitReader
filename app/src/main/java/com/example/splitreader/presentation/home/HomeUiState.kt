@@ -22,6 +22,7 @@ data class HomeUiState(
     val savedWordsThisWeek: Int = 0,
     val minutesToday: Int = 0,
     val weeklyGoal: Int = 180,
+    val userName: String? = null,
 ) {
     val lastBook: BookItem? get() = books.firstOrNull()
 }

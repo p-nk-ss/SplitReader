@@ -45,11 +45,14 @@ import com.example.splitreader.presentation.ui.BrandIcon
 @Composable
 fun AppShell(
     currentRoute: String?,
+    avatarLabel: String,
+    avatarSubtitle: String,
     onNavigateToHome: () -> Unit,
     onNavigateToCatalog: () -> Unit,
     onNavigateToAlmanac: () -> Unit,
     onNavigateToWords: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToAccount: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     val isReader = currentRoute?.startsWith("reader") == true
@@ -64,11 +67,14 @@ fun AppShell(
             if (!isReader) {
                 EditorialNavigationRail(
                     currentRoute = currentRoute,
+                    avatarLabel = avatarLabel,
+                    avatarSubtitle = avatarSubtitle,
                     onNavigateToHome = onNavigateToHome,
                     onNavigateToCatalog = onNavigateToCatalog,
                     onNavigateToAlmanac = onNavigateToAlmanac,
                     onNavigateToWords = onNavigateToWords,
                     onNavigateToSettings = onNavigateToSettings,
+                    onNavigateToAccount = onNavigateToAccount,
                 )
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -102,7 +108,7 @@ private fun AppStatusStrip() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "SPLIT READER",
+                text = "MIRROLIT",
                 fontFamily = JetBrainsMono,
                 fontWeight = FontWeight.Medium,
                 fontSize = 11.sp,
@@ -126,11 +132,14 @@ private fun AppStatusStrip() {
 @Composable
 private fun EditorialNavigationRail(
     currentRoute: String?,
+    avatarLabel: String,
+    avatarSubtitle: String,
     onNavigateToHome: () -> Unit,
     onNavigateToCatalog: () -> Unit,
     onNavigateToAlmanac: () -> Unit,
     onNavigateToWords: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToAccount: () -> Unit,
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
@@ -205,8 +214,12 @@ private fun EditorialNavigationRail(
 
         Spacer(Modifier.height(sp.sm))
 
-        // Avatar
-        RailAvatar()
+        // Avatar → account / profile
+        RailAvatar(
+            label = avatarLabel,
+            subtitle = avatarSubtitle,
+            onClick = onNavigateToAccount,
+        )
     }
 }
 
@@ -268,9 +281,15 @@ private fun RailTab(
 }
 
 @Composable
-private fun RailAvatar() {
+private fun RailAvatar(label: String, subtitle: String, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(LocalRadii.current.sm))
+            .clickable(onClick = onClick)
+            .padding(4.dp),
+    ) {
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -279,7 +298,7 @@ private fun RailAvatar() {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "A",
+                text = label,
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.Medium,
                 fontStyle = FontStyle.Italic,
@@ -289,7 +308,7 @@ private fun RailAvatar() {
         }
         Spacer(Modifier.height(3.dp))
         Text(
-            text = "L1·A2",
+            text = subtitle,
             fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Normal,
             fontSize = 11.sp,

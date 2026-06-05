@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Split Reader</string>
+    <string name="app_name">Mirrolit</string>
     <string name="label_original_text">Original Text</string>
     <string name="label_ai_translation">AI Translation</string>
     <string name="badge_english">English</string>
@@ -27,4 +27,69 @@
 
     <!-- Errors -->
     <string name="error_file_access">Can\'t access this file — reopen it via \"Open book\".</string>
+
+    <!-- Account / Auth -->
+    <string name="account_title">Account</string>
+    <string name="profile_title">Profile</string>
+    <string name="account_avatar_sign_in">Sign in</string>
+    <string name="account_signed_out_hint">Sign in to sync your library and link Google Drive (coming soon).</string>
+    <string name="account_sign_in_or_register">Sign in or create account</string>
+    <string name="account_action_open">Open</string>
+    <string name="account_signed_in_as">Signed in</string>
+    <string name="account_email_verified">Email verified</string>
+    <string name="account_email_unverified">Email not verified</string>
+    <string name="account_verify_resend">Resend</string>
+    <string name="account_verify_refresh">Refresh</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_delete">Delete account</string>
+    <string name="account_verification_sent">Verification email sent</string>
+
+    <string name="auth_sign_in_title">Sign in</string>
+    <string name="auth_register_title">Create account</string>
+    <string name="auth_name_label">Name</string>
+    <string name="auth_name_placeholder">How should we call you?</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_email_placeholder">you@example.com</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_password_placeholder">Your password</string>
+    <string name="auth_sign_in_action">Sign in</string>
+    <string name="auth_register_action">Create account</string>
+    <string name="auth_google_action">Continue with Google</string>
+    <string name="auth_or">or</string>
+    <string name="auth_toggle_to_register">No account? Create one</string>
+    <string name="auth_toggle_to_sign_in">Already have an account? Sign in</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+
+    <!-- Validation -->
+    <string name="auth_error_email_invalid_inline">Enter a valid email address.</string>
+    <string name="auth_error_password_too_short">Password must be at least 8 characters.</string>
+
+    <!-- Password reset dialog -->
+    <string name="auth_reset_title">Reset password</string>
+    <string name="auth_reset_body">Enter your email and we\'ll send a password reset link.</string>
+    <string name="auth_reset_action">Send link</string>
+    <string name="auth_reset_sent">If that email is registered, a reset link is on its way.</string>
+
+    <!-- Re-authentication before deletion -->
+    <string name="auth_reauth_title">Confirm it\'s you</string>
+    <string name="auth_reauth_body">For your security, please sign in again to delete your account.</string>
+    <string name="auth_reauth_password_action">Confirm</string>
+    <string name="auth_reauth_google_action">Confirm with Google</string>
+
+    <!-- Delete confirmation -->
+    <string name="account_delete_title">Delete account</string>
+    <string name="account_delete_body">This permanently deletes your account. This cannot be undone.</string>
+    <string name="account_delete_confirm">Delete</string>
+    <string name="account_deleted">Account deleted</string>
+
+    <!-- Auth error messages -->
+    <string name="auth_error_invalid_email">That email address is not valid.</string>
+    <string name="auth_error_weak_password">Choose a stronger password (at least 6 characters).</string>
+    <string name="auth_error_wrong_password">Incorrect email or password.</string>
+    <string name="auth_error_user_not_found">No account found for that email.</string>
+    <string name="auth_error_email_in_use">An account with this email already exists.</string>
+    <string name="auth_error_google_collision">This email is registered with Google — use \"Continue with Google\".</string>
+    <string name="auth_error_network">No connection. Check your network and try again.</string>
+    <string name="auth_error_recent_login">Please sign in again to continue.</string>
+    <string name="auth_error_unknown">Something went wrong. Please try again.</string>
 </resources>

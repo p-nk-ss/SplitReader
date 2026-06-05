@@ -222,6 +222,7 @@ private fun HomeScreen(
             LibraryHeader(
                 weeklyMinutes = uiState.weeklyMinutes,
                 savedWords = uiState.savedWordsThisWeek,
+                userName = uiState.userName,
                 onOpenFilePicker = onOpenFilePicker,
                 searchActive = searchActive,
                 onToggleSearch = {
@@ -312,6 +313,7 @@ private fun HomeScreen(
 private fun LibraryHeader(
     weeklyMinutes: Int,
     savedWords: Int,
+    userName: String?,
     onOpenFilePicker: () -> Unit,
     searchActive: Boolean,
     onToggleSearch: () -> Unit,
@@ -328,6 +330,7 @@ private fun LibraryHeader(
         hour < 17 -> "Good afternoon"
         else      -> "Good evening"
     }
+    val greetingText = if (!userName.isNullOrBlank()) "$greeting, $userName" else greeting
 
     Row(
         modifier = Modifier
@@ -347,7 +350,7 @@ private fun LibraryHeader(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = greeting,
+                text = greetingText,
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.Medium,
                 fontSize = 28.sp,

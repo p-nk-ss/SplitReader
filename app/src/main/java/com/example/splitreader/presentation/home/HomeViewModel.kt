@@ -8,7 +8,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.R
 import com.example.splitreader.data.local.ReadingProgressManager
+import com.example.splitreader.domain.model.AuthState
 import com.example.splitreader.domain.model.ParseResult
+import com.example.splitreader.domain.repository.AuthRepository
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
@@ -36,6 +38,7 @@ class HomeViewModel @Inject constructor(
     private val sessionRepository: ReadingSessionRepository,
     private val savedWordRepository: SavedWordRepository,
     private val getStreakUseCase: GetStreakUseCase,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
@@ -67,7 +70,10 @@ class HomeViewModel @Inject constructor(
         _isLoading,
         _errorMessage,
         statsFlow,
-    ) { books, isLoading, errorMessage, stats ->
+        authRepository.authState,
+    ) { books, isLoading, errorMessage, stats, authState ->
+        val userName = (authState as? AuthState.SignedIn)?.user
+            ?.displayName?.trim()?.substringBefore(" ")?.takeIf { it.isNotBlank() }
         HomeUiState(
             books = books.map {
                 BookItem(
@@ -89,6 +95,7 @@ class HomeViewModel @Inject constructor(
             weeklyMinutes = stats.weeklyMinutes,
             savedWordsThisWeek = stats.savedWordsThisWeek,
             minutesToday = stats.minutesToday,
+            userName = userName,
         )
     }.stateIn(
         scope = viewModelScope,

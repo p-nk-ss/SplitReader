@@ -17,5 +17,6 @@ local.properties
 graphify-out/
 .graphify_python
 Screenshot*.png
+app/google-services.json
 /design_handoff_splitreader/
 /design_handoff_splitreader_improvements/
