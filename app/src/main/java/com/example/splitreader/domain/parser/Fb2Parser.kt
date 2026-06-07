@@ -6,6 +6,7 @@ import android.util.Base64
 import android.util.Log
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
+import com.example.splitreader.domain.model.ChapterImage
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.File
@@ -42,23 +43,27 @@ class Fb2Parser @Inject constructor() : BookParser {
         var firstName = ""
         var lastName = ""
         val chapters = mutableListOf<Chapter>()
-        var currentChapterTitle = ""
-        val currentParagraphs = mutableListOf<String>()
         var chapterIndex = 0
         var insideBody = false
-        var sectionDepth = 0
         var insideTitle = false
         var insideParagraph = false
         var currentText = StringBuilder()
         var insideAnnotation = false
         val annotationText = StringBuilder()
 
-        // Body-level epigraph (before first section)
+        // Sections nest arbitrarily in FB2: a "wrapper" section (e.g. a story/part) holds only
+        // child sections + a title, while a "leaf" section directly holds <p> prose. We keep one
+        // frame per open section so each leaf becomes its own chapter (with its own title) instead
+        // of all children collapsing into the top-level section.
+        val sectionStack = ArrayDeque<SectionFrame>()
+        fun top() = sectionStack.lastOrNull()
+
+        // Body-level epigraph (before first section); prepended to the first chapter emitted.
         val preambleParagraphs = mutableListOf<String>()
         var insidePreambleEpigraph = false
+        var preambleFlushed = false
 
         // Section-level epigraph (inside a chapter section)
-        val currentEpigraphParagraphs = mutableListOf<String>()
         var insideEpigraph = false
         var insideTextAuthor = false
 
@@ -67,6 +72,14 @@ class Fb2Parser @Inject constructor() : BookParser {
         var coverImageId: String? = null
         var insideCoverBinary = false
         var coverBinaryData: StringBuilder? = null
+
+        // Inline illustrations: <image href="#id"> refs are discovered in the body, but the matching
+        // <binary> base64 usually appears after </body>, so we capture referenced binaries during the
+        // pass and decode/attach them after parsing. emitted-chapter-index -> list of (finalAnchor, id).
+        val referencedImageIds = mutableSetOf<String>()
+        val binaries = mutableMapOf<String, StringBuilder>()
+        var currentBinaryId: String? = null
+        val pendingChapterImages = mutableMapOf<Int, List<Pair<Int, String>>>()
 
         val factory = XmlPullParserFactory.newInstance()
         factory.isNamespaceAware = false
@@ -90,39 +103,46 @@ class Fb2Parser @Inject constructor() : BookParser {
                             ?.let { parser.getAttributeValue(it) }
                         coverImageId = href?.removePrefix("#")?.trim()
                     }
+                    tagName == "image" && !insideCoverPage && sectionStack.isNotEmpty() -> {
+                        val href = (0 until parser.attributeCount)
+                            .firstOrNull { parser.getAttributeName(it).endsWith("href") }
+                            ?.let { parser.getAttributeValue(it) }
+                        val id = href?.removePrefix("#")?.trim()
+                        if (!id.isNullOrEmpty()) {
+                            top()?.let { it.imageRefs.add(it.directParagraphs.size to id) }
+                            referencedImageIds.add(id)
+                        }
+                    }
                     tagName == "binary" -> {
                         val id = parser.getAttributeValue(null, "id")?.trim()
-                        if (id != null && id == coverImageId) {
-                            insideCoverBinary = true
-                            coverBinaryData = StringBuilder()
+                        if (id != null) {
+                            if (id == coverImageId) {
+                                insideCoverBinary = true
+                                coverBinaryData = StringBuilder()
+                            }
+                            if (id in referencedImageIds) {
+                                currentBinaryId = id
+                                binaries[id] = StringBuilder()
+                            }
                         }
                     }
                     tagName == "body" -> insideBody = true
                     tagName == "annotation" -> insideAnnotation = true
-                    tagName == "epigraph" && insideBody && sectionDepth == 0 -> insidePreambleEpigraph = true
-                    tagName == "epigraph" && insideBody && sectionDepth > 0 -> insideEpigraph = true
+                    tagName == "epigraph" && insideBody && sectionStack.isEmpty() -> insidePreambleEpigraph = true
+                    tagName == "epigraph" && insideBody && sectionStack.isNotEmpty() -> insideEpigraph = true
                     tagName == "text-author" && insideEpigraph -> {
                         insideTextAuthor = true
                         currentText = StringBuilder()
                     }
                     tagName == "section" && insideBody -> {
-                        sectionDepth++
-                        if (sectionDepth == 1) {
-                            currentChapterTitle = "Chapter ${chapterIndex + 1}"
-                            currentParagraphs.clear()
-                            currentEpigraphParagraphs.clear()
-                            insideEpigraph = false
-                            if (preambleParagraphs.isNotEmpty()) {
-                                currentParagraphs.addAll(preambleParagraphs)
-                                preambleParagraphs.clear()
-                            }
-                        }
+                        sectionStack.addLast(SectionFrame(chapterIndex))
+                        if (sectionStack.size == 1) insideEpigraph = false
                     }
-                    tagName == "title" && sectionDepth > 0 -> {
+                    tagName == "title" && sectionStack.isNotEmpty() -> {
                         insideTitle = true
                         currentText = StringBuilder()
                     }
-                    tagName == "p" && (sectionDepth > 0 || insidePreambleEpigraph) && !insideTitle -> {
+                    tagName == "p" && (sectionStack.isNotEmpty() || insidePreambleEpigraph) && !insideTitle -> {
                         insideParagraph = true
                         currentText = StringBuilder()
                     }
@@ -138,13 +158,15 @@ class Fb2Parser @Inject constructor() : BookParser {
                     tagName == "text-author" && insideTextAuthor -> {
                         insideTextAuthor = false
                         val text = currentText.toString().trim()
-                        if (text.isNotBlank()) currentEpigraphParagraphs.add(text)
+                        if (text.isNotBlank()) top()?.epigraphParagraphs?.add(text)
                     }
-                    tagName == "binary" -> insideCoverBinary = false
-                    tagName == "title" && sectionDepth > 0 -> {
+                    tagName == "binary" -> {
+                        insideCoverBinary = false
+                        currentBinaryId = null
+                    }
+                    tagName == "title" && sectionStack.isNotEmpty() -> {
                         insideTitle = false
-                        currentChapterTitle = currentText.toString().trim()
-                            .ifBlank { "Chapter ${chapterIndex + 1}" }
+                        top()?.let { it.title = currentText.toString().trim().ifBlank { it.title } }
                     }
                     tagName == "p" && insideParagraph -> {
                         insideParagraph = false
@@ -152,27 +174,45 @@ class Fb2Parser @Inject constructor() : BookParser {
                         if (text.isNotBlank() && text.length < 5000) {
                             when {
                                 insidePreambleEpigraph -> preambleParagraphs.add(text)
-                                insideEpigraph -> currentEpigraphParagraphs.add(text)
-                                else -> currentParagraphs.add(text)
+                                insideEpigraph -> top()?.epigraphParagraphs?.add(text)
+                                else -> top()?.directParagraphs?.add(text)
                             }
                         }
                     }
-                    tagName == "section" && sectionDepth > 0 -> {
-                        sectionDepth--
-                        if (sectionDepth == 0) {
-                            val allParagraphs = currentEpigraphParagraphs + currentParagraphs
+                    tagName == "section" && sectionStack.isNotEmpty() -> {
+                        val frame = sectionStack.removeLast()
+                        // Leaf section (held its own prose) → emit a chapter; wrapper sections
+                        // (only subsections) emit nothing, their children already did.
+                        if (frame.directParagraphs.isNotEmpty()) {
+                            var preShift = 0
+                            if (!preambleFlushed && preambleParagraphs.isNotEmpty()) {
+                                preShift = preambleParagraphs.size
+                                frame.directParagraphs.addAll(0, preambleParagraphs)
+                                preambleParagraphs.clear()
+                                preambleFlushed = true
+                            }
+                            val allParagraphs = frame.epigraphParagraphs + frame.directParagraphs
                             if (allParagraphs.isNotEmpty()) {
+                                // Prefix ancestor wrapper titles (e.g. story/part name) so each
+                                // chapter stays self-describing: "Цена риска · 1. ...".
+                                val prefix = sectionStack
+                                    .filter { it.title != "Chapter ${it.index + 1}" }
+                                    .joinToString("") { "${it.title} · " }
                                 chapters.add(Chapter(
                                     index = chapterIndex,
-                                    title = currentChapterTitle,
+                                    title = prefix + frame.title,
                                     paragraphs = allParagraphs,
-                                    epigraphCount = currentEpigraphParagraphs.size,
+                                    epigraphCount = frame.epigraphParagraphs.size,
                                 ))
+                                if (frame.imageRefs.isNotEmpty()) {
+                                    val epiShift = frame.epigraphParagraphs.size
+                                    pendingChapterImages[chapterIndex] =
+                                        frame.imageRefs.map { (a, id) -> (epiShift + preShift + a) to id }
+                                }
                                 chapterIndex++
                             }
-                            currentParagraphs.clear()
-                            currentEpigraphParagraphs.clear()
                         }
+                        if (sectionStack.isEmpty()) insideEpigraph = false
                     }
                     tagName == "body" -> insideBody = false
                     tagName == "annotation" -> insideAnnotation = false
@@ -182,6 +222,7 @@ class Fb2Parser @Inject constructor() : BookParser {
                     val text = parser.text ?: ""
                     when {
                         insideCoverBinary -> coverBinaryData?.append(text)
+                        currentBinaryId != null -> binaries[currentBinaryId]?.append(text)
                         insideAnnotation -> annotationText.append(text).append(' ')
                         insideParagraph || insideTitle || insideTextAuthor || !insideBody ->
                             currentText.append(text)
@@ -195,6 +236,24 @@ class Fb2Parser @Inject constructor() : BookParser {
         Log.d("FB2", "Parsed: title=$title, author=$author, chapters=${chapters.size}")
 
         if (chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
+
+        // All <binary> blobs are now known: decode referenced inline images and attach by chapter.
+        if (pendingChapterImages.isNotEmpty()) {
+            val bookHash = filePath.hashCode().toLong().and(0x7FFFFFFFL)
+            pendingChapterImages.forEach { (chIdx, refs) ->
+                val i = chapters.indexOfFirst { it.index == chIdx }
+                if (i < 0) return@forEach
+                val maxAnchor = chapters[i].paragraphs.size
+                val resolved = refs.mapNotNull { (anchor, id) ->
+                    val raw = binaries[id]?.toString()?.replace("\\s".toRegex(), "")
+                    if (raw.isNullOrEmpty()) return@mapNotNull null
+                    val bytes = try { Base64.decode(raw, Base64.DEFAULT) } catch (_: Exception) { return@mapNotNull null }
+                    ImageStore.save(context, bytes, "${bookHash}_$id")
+                        ?.let { ChapterImage(anchor.coerceIn(0, maxAnchor), it) }
+                }
+                if (resolved.isNotEmpty()) chapters[i] = chapters[i].copy(images = resolved)
+            }
+        }
 
         val coverPath = saveFb2Cover(coverBinaryData, filePath, context)
         val synopsis = SynopsisExtractor.build(
@@ -222,5 +281,14 @@ class Fb2Parser @Inject constructor() : BookParser {
         } catch (_: Exception) {
             null
         }
+    }
+
+    /** One open `<section>` while parsing. A leaf (own [directParagraphs]) becomes a chapter. */
+    private class SectionFrame(val index: Int) {
+        var title: String = "Chapter ${index + 1}"
+        val directParagraphs = mutableListOf<String>()
+        val epigraphParagraphs = mutableListOf<String>()
+        /** (anchor within directParagraphs, binary id) for inline <image> refs in this section. */
+        val imageRefs = mutableListOf<Pair<Int, String>>()
     }
 }

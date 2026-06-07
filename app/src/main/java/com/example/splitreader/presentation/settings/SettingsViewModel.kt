@@ -29,6 +29,7 @@ data class SettingsUiState(
     val targetLanguage: Language = Language.ENGLISH,
     val splitRatio: Float = 0.5f,
     val showTranslation: Boolean = true,
+    val showIllustrations: Boolean = true,
     val horizontalMargin: Float = 12f,
     // Typography
     val readingFont: ReadingFont = ReadingFont.SERIF,
@@ -79,6 +80,7 @@ class SettingsViewModel @Inject constructor(
         targetLanguage = progressManager.getTargetLanguage(),
         splitRatio = progressManager.getSplitRatio(),
         showTranslation = progressManager.getShowTranslation(),
+        showIllustrations = progressManager.getShowIllustrations(),
         horizontalMargin = progressManager.getHorizontalMargin(),
         readingFont = ReadingFont.entries.find { it.name == progressManager.getReadingFontName() }
             ?: ReadingFont.SERIF,
@@ -115,6 +117,11 @@ class SettingsViewModel @Inject constructor(
     fun setShowTranslation(show: Boolean) {
         progressManager.saveShowTranslation(show)
         _state.update { it.copy(showTranslation = show) }
+    }
+
+    fun setShowIllustrations(show: Boolean) {
+        progressManager.saveShowIllustrations(show)
+        _state.update { it.copy(showIllustrations = show) }
     }
 
     fun setHorizontalMargin(margin: Float) {

@@ -86,6 +86,7 @@ class ReaderViewModel @Inject constructor(
         val justifyText: Boolean = true,
         val splitRatio: Float = 0.5f,
         val showTranslation: Boolean = true,
+        val showIllustrations: Boolean = true,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = 12f,
@@ -118,6 +119,7 @@ class ReaderViewModel @Inject constructor(
             justifyText = progressManager.getJustifyText(),
             splitRatio = progressManager.getSplitRatio(),
             showTranslation = progressManager.getShowTranslation(),
+            showIllustrations = progressManager.getShowIllustrations(),
             horizontalMargin = progressManager.getHorizontalMargin(),
             translatorProvider = progressManager.getTranslatorProvider(),
             translatorConfig = buildTranslatorConfig(progressManager.getTranslatorProvider()),
@@ -154,6 +156,7 @@ class ReaderViewModel @Inject constructor(
                     justifyText = s.justifyText,
                     splitRatio = s.splitRatio,
                     showTranslation = s.showTranslation,
+                    showIllustrations = s.showIllustrations,
                     readerTheme = s.readerTheme,
                     navigationSide = s.navigationSide,
                     horizontalMargin = s.horizontalMargin,
@@ -427,6 +430,12 @@ class ReaderViewModel @Inject constructor(
         if (newValue) {
             translationManager.onScroll(_state.value.currentChapterIndex, anchorFor(lastScrollPosition))
         }
+    }
+
+    fun toggleIllustrations() {
+        val newValue = !_state.value.showIllustrations
+        progressManager.saveShowIllustrations(newValue)
+        _state.update { it.copy(showIllustrations = newValue) }
     }
 
     fun setHorizontalMargin(margin: Float) {

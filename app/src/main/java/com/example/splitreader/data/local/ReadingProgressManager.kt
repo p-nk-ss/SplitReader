@@ -107,6 +107,12 @@ class ReadingProgressManager @Inject constructor(
 
     fun getShowTranslation(): Boolean = prefs.getBoolean("show_translation", true)
 
+    fun saveShowIllustrations(show: Boolean) {
+        prefs.edit().putBoolean("show_illustrations", show).apply()
+    }
+
+    fun getShowIllustrations(): Boolean = prefs.getBoolean("show_illustrations", true)
+
     fun saveHorizontalMargin(margin: Float) {
         prefs.edit().putFloat("horizontal_margin", margin).apply()
     }

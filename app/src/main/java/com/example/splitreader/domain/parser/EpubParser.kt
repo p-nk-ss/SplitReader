@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
+import com.example.splitreader.domain.model.ChapterImage
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.io.File
@@ -32,16 +33,19 @@ class EpubParser @Inject constructor() : BookParser {
 
     override suspend fun parse(uri: Uri, context: Context): Book {
         val entryMap = mutableMapOf<String, ByteArray>()
+        val imageMap = mutableMapOf<String, ByteArray>()
         val textExtensions = setOf("xml", "html", "xhtml", "opf", "ncx", "htm")
+        val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "webp", "svg")
 
         context.contentResolver.openInputStream(uri)?.use { input ->
             ZipInputStream(input).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
-                    if (!entry.isDirectory &&
-                        entry.name.substringAfterLast('.').lowercase() in textExtensions
-                    ) {
-                        entryMap[entry.name] = zip.readBytes()
+                    if (!entry.isDirectory) {
+                        when (entry.name.substringAfterLast('.').lowercase()) {
+                            in textExtensions -> entryMap[entry.name] = zip.readBytes()
+                            in imageExtensions -> imageMap[entry.name] = zip.readBytes()
+                        }
                     }
                     zip.closeEntry()
                     entry = zip.nextEntry
@@ -63,6 +67,7 @@ class EpubParser @Inject constructor() : BookParser {
             if (it.isEmpty()) "" else "$it/"
         }
 
+        val bookHash = uri.toString().hashCode().toLong().and(0x7FFFFFFFL)
         val chapters = mutableListOf<Chapter>()
         opf.spineIds.filter { id -> id !in opf.navItemIds }.forEach { id ->
             val href = opf.manifestMap[id] ?: return@forEach
@@ -82,11 +87,19 @@ class EpubParser @Inject constructor() : BookParser {
             // Main chapter: epigraph paragraphs first, then body paragraphs
             val allParagraphs = result.epigraphParagraphs + result.mainParagraphs
             if (result.headingTitle != null || allParagraphs.isNotEmpty()) {
+                // The XHTML file's directory is the base for relative image src URLs.
+                val contentDir = fullPath.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
+                val images = result.imageRefs.mapNotNull { ref ->
+                    val bytes = resolveImageBytes(ref.src, contentDir, imageMap) ?: return@mapNotNull null
+                    val name = "${bookHash}_${normalizePath(contentDir + decodeSrc(ref.src)).substringAfterLast('/')}"
+                    ImageStore.save(context, bytes, name)?.let { ChapterImage(ref.anchorParagraph, it) }
+                }
                 chapters.add(Chapter(
                     index = chapters.size,
                     title = result.headingTitle ?: "Chapter ${chapters.size + 1}",
                     paragraphs = allParagraphs,
                     epigraphCount = result.epigraphParagraphs.size,
+                    images = images,
                 ))
             }
         }
@@ -133,6 +146,42 @@ class EpubParser @Inject constructor() : BookParser {
             ?: doc.selectFirst("item[id=cover], item[id=cover-image]")?.attr("href")
 
         return OpfData(title, author, spineIds, manifestMap, coverHref, navItemIds, description)
+    }
+
+    /** Strips fragment/query and URL-decodes an image src. */
+    private fun decodeSrc(src: String): String {
+        val clean = src.substringBefore('#').substringBefore('?')
+        return try {
+            java.net.URLDecoder.decode(clean, "UTF-8")
+        } catch (_: Exception) {
+            clean
+        }
+    }
+
+    /** Resolves a relative path against [base], collapsing "./" and "../" segments. */
+    private fun normalizePath(path: String): String {
+        val out = ArrayDeque<String>()
+        for (seg in path.split('/')) {
+            when (seg) {
+                "", "." -> {}
+                ".." -> if (out.isNotEmpty()) out.removeLast()
+                else -> out.addLast(seg)
+            }
+        }
+        return out.joinToString("/")
+    }
+
+    /** Resolves an image src to bytes in [imageMap], trying exact, case-insensitive, then basename match. */
+    private fun resolveImageBytes(
+        src: String,
+        contentDir: String,
+        imageMap: Map<String, ByteArray>,
+    ): ByteArray? {
+        val key = normalizePath(contentDir + decodeSrc(src))
+        imageMap[key]?.let { return it }
+        imageMap.entries.firstOrNull { it.key.equals(key, ignoreCase = true) }?.let { return it.value }
+        val basename = key.substringAfterLast('/')
+        return imageMap.entries.firstOrNull { it.key.endsWith("/$basename", ignoreCase = true) }?.value
     }
 
     private fun extractCoverFromZip(uri: Uri, context: Context, coverEntryPath: String): String? {

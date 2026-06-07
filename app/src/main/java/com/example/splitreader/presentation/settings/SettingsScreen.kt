@@ -62,6 +62,7 @@ fun SettingsRoute(viewModel: SettingsViewModel = hiltViewModel()) {
         onSetTargetLanguage = viewModel::setTargetLanguage,
         onSetSplitRatio = viewModel::setSplitRatio,
         onSetShowTranslation = viewModel::setShowTranslation,
+        onSetShowIllustrations = viewModel::setShowIllustrations,
         onSetHorizontalMargin = viewModel::setHorizontalMargin,
         onSetReadingFont = viewModel::setReadingFont,
         onSetTextSize = viewModel::setTextSize,
@@ -89,6 +90,7 @@ fun SettingsScreen(
     onSetTargetLanguage: (Language) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onSetShowTranslation: (Boolean) -> Unit,
+    onSetShowIllustrations: (Boolean) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
     onSetReadingFont: (com.example.splitreader.presentation.theme.ReadingFont) -> Unit,
     onSetTextSize: (Float) -> Unit,
@@ -207,6 +209,13 @@ fun SettingsScreen(
                 sub = "Show the translated pane by default",
                 checked = state.showTranslation,
                 onToggle = { onSetShowTranslation(!state.showTranslation) },
+            )
+            Spacer(Modifier.height(sp.sm))
+            ToggleRow(
+                label = "Show illustrations",
+                sub = "Display book images inline",
+                checked = state.showIllustrations,
+                onToggle = { onSetShowIllustrations(!state.showIllustrations) },
             )
 
             Divider()

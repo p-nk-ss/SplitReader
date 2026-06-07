@@ -20,11 +20,16 @@ object HtmlChapterExtractor {
         "litany", "poetry",
     )
 
+    /** An inline image reference. [src] is the raw HTML src/href; [anchorParagraph] indexes into the
+     * FINAL chapter paragraph list (epigraph + main), before which the image renders. */
+    data class ImageRef(val src: String, val anchorParagraph: Int)
+
     data class Result(
         val headingTitle: String?,
         val preHeadingParagraphs: List<String>,
         val epigraphParagraphs: List<String>,
         val mainParagraphs: List<String>,
+        val imageRefs: List<ImageRef> = emptyList(),
     ) {
         val isEmpty: Boolean
             get() = headingTitle == null &&
@@ -62,12 +67,18 @@ object HtmlChapterExtractor {
         val preHeading = mutableListOf<String>()
         val epigraph = mutableListOf<String>()
         val main = mutableListOf<String>()
+        // Anchors recorded in MAIN-relative space (count of main paragraphs so far); offset by
+        // epigraph.size below since the final list is epigraph + main. Pre-heading images are dropped.
+        val imageRefs = mutableListOf<ImageRef>()
         var foundHeading = false
 
-        for (el in body.select("h1, h2, h3, blockquote, p")) {
+        for (el in body.select("h1, h2, h3, blockquote, p, img, image")) {
             val tag = el.tagName()
             when {
                 tag in listOf("h1", "h2", "h3") -> foundHeading = true
+                (tag == "img" || tag == "image") && foundHeading -> {
+                    imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size)) }
+                }
                 !foundHeading && tag == "p" && el.closest("blockquote") == null -> {
                     val text = el.text().trim()
                     if (text.isNotBlank()) preHeading.add(text)
@@ -85,7 +96,16 @@ object HtmlChapterExtractor {
             }
         }
 
-        return Result(headingTitle, preHeading, epigraph, main)
+        val finalImageRefs = imageRefs.map { it.copy(anchorParagraph = epigraph.size + it.anchorParagraph) }
+        return Result(headingTitle, preHeading, epigraph, main, finalImageRefs)
+    }
+
+    /** Resolves the source of an <img> (src) or SVG <image> (any *href attribute), or null if absent. */
+    private fun imageSrc(el: Element): String? {
+        val raw = el.attr("src").ifBlank {
+            el.attributes().firstOrNull { it.key.endsWith("href", ignoreCase = true) }?.value ?: ""
+        }
+        return raw.trim().takeIf { it.isNotBlank() }
     }
 
     private fun looksLikeEpigraph(el: Element): Boolean {

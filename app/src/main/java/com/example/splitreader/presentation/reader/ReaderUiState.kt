@@ -55,6 +55,7 @@ sealed interface ReaderUiState {
         val justifyText: Boolean = true,
         val splitRatio: Float = 0.5f,
         val showTranslation: Boolean = true,
+        val showIllustrations: Boolean = true,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = 12f,

@@ -101,6 +101,9 @@ class MobiParser @Inject constructor() : BookParser {
 
     // ── Chapter building ─────────────────────────────────────────────────────
 
+    // Inline illustrations are intentionally not supported for classic MOBI: the decompressed
+    // PalmDOC text stream has no surviving <img> anchors (image records are addressed by index via
+    // EXTH), so there is nothing to anchor into the chapter flow. Only the cover is extracted.
     private fun buildChapters(html: String): List<Chapter> {
         val fragments = PAGEBREAK.split(html).map { it.trim() }.filter { it.isNotEmpty() }
             .ifEmpty { listOf(html) }

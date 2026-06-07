@@ -1,5 +1,6 @@
 package com.example.splitreader.presentation.reader
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -14,6 +15,7 @@ import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.MotionTokens
 import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,7 +40,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -71,6 +72,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -84,7 +86,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -129,10 +134,12 @@ import com.example.splitreader.presentation.ui.SectionEyebrow
 import com.example.splitreader.presentation.ui.SliderRow
 import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.BreakIterator
 
 // ── Entry point ───────────────────────────────────────────────────────────
@@ -201,6 +208,7 @@ internal fun ReaderRoute(
             onSetJustifyText = viewModel::setJustifyText,
             onSetSplitRatio = viewModel::setSplitRatio,
             onToggleTranslation = viewModel::toggleTranslation,
+            onToggleIllustrations = viewModel::toggleIllustrations,
             onSetNavigationSide = viewModel::setNavigationSide,
             onSetHorizontalMargin = viewModel::setHorizontalMargin,
             onUpdateScrollPosition = viewModel::updateScrollPosition,
@@ -269,6 +277,7 @@ private fun ReaderContent(
     onSetJustifyText: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
+    onToggleIllustrations: () -> Unit,
     onSetNavigationSide: (NavigationSide) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
     onUpdateScrollPosition: (Int, Int, Int) -> Unit,
@@ -314,9 +323,13 @@ private fun ReaderContent(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Pre-compute global item start index for each chapter
-    val chapterItemStarts = remember(state.book.chapters) {
-        state.book.chapters.runningFold(0) { acc, ch -> acc + 1 + ch.paragraphs.size }.dropLast(1)
+    // Pre-compute global item start index for each chapter. Image items are real LazyColumn items
+    // (one per illustration) only when illustrations are shown, so the per-chapter item count tracks
+    // the toggle — keeping scroll restore / bookmark jumps aligned with what is actually emitted.
+    val chapterItemStarts = remember(state.book.chapters, state.showIllustrations) {
+        state.book.chapters.runningFold(0) { acc, ch ->
+            acc + 1 + ch.paragraphs.size + (if (state.showIllustrations) ch.images.size else 0)
+        }.dropLast(1)
     }
 
     // Restore scroll position on book load
@@ -398,6 +411,7 @@ private fun ReaderContent(
                     book = state.book,
                     chapterTranslations = state.chapterTranslations,
                     showTranslation = state.showTranslation,
+                    showIllustrations = state.showIllustrations,
                     splitRatio = state.splitRatio,
                     style = state.readingStyle,
                     wordSelection = state.wordSelection,
@@ -468,6 +482,7 @@ private fun ReaderContent(
                 onSetJustifyText = onSetJustifyText,
                 onSetSplitRatio = onSetSplitRatio,
                 onToggleTranslation = onToggleTranslation,
+                onToggleIllustrations = onToggleIllustrations,
                 wordHighlightEnabled = wordHighlightEnabled,
                 onToggleWordHighlight = { wordHighlightEnabled = !wordHighlightEnabled },
                 onDismiss = { showDisplaySettings = false },
@@ -850,6 +865,7 @@ private fun BookSpread(
     book: com.example.splitreader.domain.model.Book,
     chapterTranslations: Map<Int, List<String>>,
     showTranslation: Boolean,
+    showIllustrations: Boolean,
     splitRatio: Float,
     style: ReadingStyle,
     wordSelection: WordSelection?,
@@ -876,8 +892,17 @@ private fun BookSpread(
                 ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex)
             }
 
-            // Paragraph rows
-            itemsIndexed(chapter.paragraphs, key = { idx, _ -> "p_${chapterIndex}_$idx" }) { idx, original ->
+            // Paragraph rows, with inline illustrations interleaved at their anchors. Each paragraph
+            // item still uses `idx` (the paragraph index) for translation lookup, so alignment is
+            // unchanged; images are separate full-width items that span both panes.
+            val images = if (showIllustrations) chapter.images else emptyList()
+            chapter.paragraphs.forEachIndexed { idx, original ->
+                images.forEachIndexed { imgIdx, img ->
+                    if (img.anchorParagraph == idx) {
+                        item(key = "img_${chapterIndex}_$imgIdx") { Illustration(path = img.path) }
+                    }
+                }
+                item(key = "p_${chapterIndex}_$idx") {
                 val translated = if (showTranslation)
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
                 else ""
@@ -957,6 +982,13 @@ private fun BookSpread(
                     }
                 }
                 Spacer(Modifier.height(style.paragraphSpacing.dp))
+                }
+            }
+            // Illustrations anchored after the last paragraph
+            images.forEachIndexed { imgIdx, img ->
+                if (img.anchorParagraph >= chapter.paragraphs.size) {
+                    item(key = "img_${chapterIndex}_$imgIdx") { Illustration(path = img.path) }
+                }
             }
         }
 
@@ -980,6 +1012,43 @@ private fun BookSpread(
                 .navigationBarsPadding(),
         )
     }
+    }
+}
+
+/**
+ * Full-width inline illustration. Loads the bitmap off the main thread (downscaled to ~screen width
+ * to avoid OOM on large plates) and spans both panes — images are not translated, so they are not
+ * split. Renders nothing if the file is missing or undecodable (e.g. SVG), keeping the reader robust.
+ */
+@Composable
+private fun Illustration(path: String) {
+    val screenWidthPx = with(LocalDensity.current) {
+        LocalConfiguration.current.screenWidthDp.dp.toPx()
+    }.toInt().coerceAtLeast(1)
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, path) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, bounds)
+                var sample = 1
+                while (bounds.outWidth / sample > screenWidthPx * 2) sample *= 2
+                val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+                BitmapFactory.decodeFile(path, opts)?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    bitmap?.let { bmp ->
+        Box(
+            Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                bitmap = bmp,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
+            )
+        }
     }
 }
 
@@ -1749,6 +1818,7 @@ private fun DisplaySettingsDialog(
     onSetJustifyText: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
+    onToggleIllustrations: () -> Unit,
     wordHighlightEnabled: Boolean,
     onToggleWordHighlight: () -> Unit,
     onDismiss: () -> Unit,
@@ -1814,6 +1884,13 @@ private fun DisplaySettingsDialog(
             sub = "Hide to read original only",
             checked = state.showTranslation,
             onToggle = onToggleTranslation,
+        )
+        Spacer(Modifier.height(sp.sm))
+        ToggleRow(
+            label = "Show illustrations",
+            sub = "Display book images inline",
+            checked = state.showIllustrations,
+            onToggle = onToggleIllustrations,
         )
         Spacer(Modifier.height(sp.sm))
         ToggleRow(
