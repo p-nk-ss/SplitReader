@@ -5,9 +5,13 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +48,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.example.splitreader.R
 import com.example.splitreader.presentation.theme.FadeInOnAppear
+import com.example.splitreader.presentation.theme.MotionTokens
+import com.example.splitreader.presentation.theme.animatedSelection
+import com.example.splitreader.presentation.theme.pressScale
+import com.example.splitreader.presentation.theme.shimmer
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -390,12 +399,19 @@ private fun CatalogRow(
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
+    val interaction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .pressScale(interaction)
             .clip(RoundedCornerShape(LocalRadii.current.md))
             .background(palette.bg2)
-            .clickable(enabled = downloadEnabled, onClick = onDownload)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                enabled = downloadEnabled,
+                onClick = onDownload,
+            )
             .padding(sp.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -441,29 +457,47 @@ private fun CatalogRow(
 private fun DownloadButton(isDownloading: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
+    val interaction = remember { MutableInteractionSource() }
+    val bg = animatedSelection(
+        if (enabled || isDownloading) palette.accent else palette.bg3,
+        "downloadBtnBg",
+    )
     Box(
         modifier = Modifier
+            .pressScale(interaction)
             .clip(RoundedCornerShape(LocalRadii.current.sm))
-            .background(if (enabled || isDownloading) palette.accent else palette.bg3)
-            .clickable(enabled = enabled && !isDownloading, onClick = onClick)
+            .background(bg)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled && !isDownloading,
+                onClick = onClick,
+            )
             .padding(horizontal = sp.md, vertical = sp.xs),
         contentAlignment = Alignment.Center,
     ) {
-        if (isDownloading) {
-            CircularProgressIndicator(
-                color = palette.bg,
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(16.dp),
-            )
-        } else {
-            Text(
-                text = "Read",
-                fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-                letterSpacing = 0.5.sp,
-                color = palette.bg,
-            )
+        // Crossfade so the Read ↔ spinner swap is continuous, not a hard cut.
+        Crossfade(
+            targetState = isDownloading,
+            animationSpec = tween(MotionTokens.Fast, easing = MotionTokens.EaseStandard),
+            label = "downloadBtn",
+        ) { downloading ->
+            if (downloading) {
+                CircularProgressIndicator(
+                    color = palette.bg,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(16.dp),
+                )
+            } else {
+                Text(
+                    text = "Read",
+                    fontFamily = JetBrainsMono,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    letterSpacing = 0.5.sp,
+                    color = palette.bg,
+                )
+            }
         }
     }
 }
@@ -472,37 +506,54 @@ private fun DownloadButton(isDownloading: Boolean, enabled: Boolean, onClick: ()
 @Composable
 private fun CoverThumb(url: String?) {
     val palette = LocalReaderPalette.current
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, url) {
-        value = if (url == null) null else withContext(Dispatchers.IO) {
+    val shape = RoundedCornerShape(LocalRadii.current.sm)
+    // Three-state load so we can shimmer while fetching (vs. an instant gray→image pop).
+    val state by produceState<ThumbState>(initialValue = ThumbState.Loading, url) {
+        value = if (url == null) {
+            ThumbState.Failed
+        } else withContext(Dispatchers.IO) {
             runCatching {
                 URL(url).openStream().use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
-            }.getOrNull()
+            }.getOrNull()?.let { ThumbState.Loaded(it) } ?: ThumbState.Failed
         }
     }
     Box(
         modifier = Modifier
             .size(width = 44.dp, height = 64.dp)
-            .clip(RoundedCornerShape(LocalRadii.current.sm))
+            .clip(shape)
             .background(palette.bg3),
         contentAlignment = Alignment.Center,
     ) {
-        val bmp = bitmap
-        if (bmp != null) {
-            Image(
-                bitmap = bmp,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Outlined.MenuBook,
-                contentDescription = null,
-                tint = palette.ink3,
-                modifier = Modifier.size(20.dp),
-            )
+        Crossfade(
+            targetState = state,
+            animationSpec = tween(MotionTokens.Medium, easing = MotionTokens.EaseStandard),
+            label = "coverThumb",
+        ) { s ->
+            when (s) {
+                ThumbState.Loading -> Box(Modifier.fillMaxSize().shimmer(shape))
+                is ThumbState.Loaded -> Image(
+                    bitmap = s.bmp,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                ThumbState.Failed -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.MenuBook,
+                        contentDescription = null,
+                        tint = palette.ink3,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
         }
     }
+}
+
+private sealed interface ThumbState {
+    data object Loading : ThumbState
+    data class Loaded(val bmp: ImageBitmap) : ThumbState
+    data object Failed : ThumbState
 }
 
 @Composable

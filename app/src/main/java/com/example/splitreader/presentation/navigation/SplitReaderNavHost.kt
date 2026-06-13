@@ -1,6 +1,9 @@
 package com.example.splitreader.presentation.navigation
 
 import android.net.Uri
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -8,6 +11,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,6 +44,13 @@ const val SETTINGS_ROUTE = "settings"
 const val AUTH_ROUTE     = "auth"
 const val PROFILE_ROUTE  = "profile"
 private const val ARG_PATH = "path"
+
+// Route slide settles on a gentle spring so transitions feel organic, not mechanical.
+private val NavSlideSpring = spring(
+    dampingRatio = 0.9f,
+    stiffness = Spring.StiffnessMediumLow,
+    visibilityThreshold = IntOffset.VisibilityThreshold,
+)
 
 @Composable
 fun SplitReaderNavHost(
@@ -77,9 +88,15 @@ fun SplitReaderNavHost(
             navController = navController,
             startDestination = HOME_ROUTE,
             modifier = modifier,
-            enterTransition = { fadeIn(tween(MotionTokens.Medium)) + slideInHorizontally { it / 12 } },
+            enterTransition = {
+                fadeIn(tween(MotionTokens.Medium)) +
+                    slideInHorizontally(animationSpec = NavSlideSpring) { it / 12 }
+            },
             exitTransition = { fadeOut(tween(MotionTokens.Medium)) },
-            popEnterTransition = { fadeIn(tween(MotionTokens.Medium)) + slideInHorizontally { -it / 12 } },
+            popEnterTransition = {
+                fadeIn(tween(MotionTokens.Medium)) +
+                    slideInHorizontally(animationSpec = NavSlideSpring) { -it / 12 }
+            },
             popExitTransition = { fadeOut(tween(MotionTokens.Medium)) },
         ) {
             composable(HOME_ROUTE) {

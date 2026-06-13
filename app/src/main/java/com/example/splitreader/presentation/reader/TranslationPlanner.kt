@@ -9,72 +9,62 @@ data class TranslationSegment(
 )
 
 /**
- * Pure scheduling logic for the reader's translation pipeline. All engines (ML Kit and paid)
- * share one model: a high-priority foreground window anchored at the visible paragraph, plus
- * a provider-specific background fill. Keeping this logic side-effect-free makes the ordering,
- * progress, and prefetch rules unit-testable without coroutines or Android.
+ * Pure scheduling logic for the reader's translation pipeline. Translation follows the *viewport*:
+ * everything currently on screen (which may span several short chapters) is translated first, then
+ * a small look-ahead below and look-behind above. The window is bounded, so work stays small and
+ * predictable regardless of chapter sizes — and because it tracks the real visible range rather than
+ * a single chapter anchored at one scroll point, scrolling up or flinging through short chapters
+ * always translates what the reader can actually see.
+ *
+ * Keeping this logic side-effect-free makes the ordering, clamping, and pruning rules unit-testable
+ * without coroutines or Android.
  */
 object TranslationPlanner {
-    /** Paragraphs translated immediately around the visible position (foreground, all engines). */
-    const val VISIBLE_WINDOW = 12
+    /** Paragraphs translated below the last visible paragraph (forward look-ahead). */
+    const val LOOKAHEAD = 8
 
-    /** How far ahead of scroll paid providers keep text translated. */
-    const val LOOKAHEAD = 20
-
-    /** Trigger the next paid prefetch batch when within this many paragraphs of the edge. */
-    const val PREFETCH_TRIGGER = 5
-
-    /** The foreground (visible) range: [anchor, anchor+VISIBLE_WINDOW) clamped to the chapter. */
-    fun foregroundRange(anchor: Int, chapterSize: Int): IntRange {
-        if (chapterSize <= 0) return IntRange.EMPTY
-        val start = anchor.coerceIn(0, chapterSize - 1)
-        val end = (start + VISIBLE_WINDOW - 1).coerceAtMost(chapterSize - 1)
-        return start..end
-    }
+    /** Paragraphs translated above the first visible paragraph (backward look-behind). */
+    const val LOOKBEHIND = 4
 
     /**
-     * Background fill plan after the foreground window has been scheduled.
+     * Plan the translation window for the given visible paragraph span.
      *
-     * ML Kit (free, on-device): rest of the current chapter, then the whole next chapter, then
-     * the start of the current chapter (paragraphs above the anchor). Paid providers: empty —
-     * they only extend via scroll prefetch ([prefetchRange]) or an explicit whole-chapter request.
+     * The visible range may cross chapter boundaries (`visibleStartChapter` may differ from
+     * `visibleEndChapter`). The result is an ordered list of per-chapter segments: the visible
+     * paragraphs first (foreground — these drive the progress banner), then the look-ahead below,
+     * then the look-behind above. Paragraphs for which [isTranslated] returns true are pruned, so a
+     * segment is split around text that is already done and the engine never re-issues cached work.
      */
-    fun backgroundPlan(
-        isMlKit: Boolean,
-        chapterIndex: Int,
-        foregroundEnd: Int,
-        anchor: Int,
+    fun windowPlan(
+        visibleStartChapter: Int,
+        visibleStartPara: Int,
+        visibleEndChapter: Int,
+        visibleEndPara: Int,
         chapterSizes: List<Int>,
+        isTranslated: (chapter: Int, para: Int) -> Boolean,
     ): List<TranslationSegment> {
-        if (!isMlKit) return emptyList()
-        val size = chapterSizes.getOrElse(chapterIndex) { 0 }
-        if (size <= 0) return emptyList()
+        val total = chapterSizes.sum()
+        if (total <= 0) return emptyList()
+
+        val vStart = toGlobal(visibleStartChapter, visibleStartPara, chapterSizes).coerceIn(0, total - 1)
+        val vEnd = toGlobal(visibleEndChapter, visibleEndPara, chapterSizes)
+            .coerceIn(0, total - 1)
+            .coerceAtLeast(vStart)
+
+        val lookaheadStart = vEnd + 1
+        val lookaheadEnd = (vEnd + LOOKAHEAD).coerceAtMost(total - 1)
+        val lookbehindEnd = vStart - 1
+        val lookbehindStart = (vStart - LOOKBEHIND).coerceAtLeast(0)
+
         val segments = mutableListOf<TranslationSegment>()
-        if (foregroundEnd < size - 1) {
-            segments += TranslationSegment(chapterIndex, foregroundEnd + 1, size - 1, foreground = false)
+        segments += buildSegments(vStart, vEnd, foreground = true, chapterSizes, isTranslated)
+        if (lookaheadStart <= lookaheadEnd) {
+            segments += buildSegments(lookaheadStart, lookaheadEnd, foreground = false, chapterSizes, isTranslated)
         }
-        val next = chapterIndex + 1
-        val nextSize = chapterSizes.getOrElse(next) { 0 }
-        if (next <= chapterSizes.lastIndex && nextSize > 0) {
-            segments += TranslationSegment(next, 0, nextSize - 1, foreground = false)
-        }
-        val clampedAnchor = anchor.coerceIn(0, size - 1)
-        if (clampedAnchor > 0) {
-            segments += TranslationSegment(chapterIndex, 0, clampedAnchor - 1, foreground = false)
+        if (lookbehindStart <= lookbehindEnd) {
+            segments += buildSegments(lookbehindStart, lookbehindEnd, foreground = false, chapterSizes, isTranslated)
         }
         return segments
-    }
-
-    /** True when scroll has approached the translated edge and more should be prefetched (paid). */
-    fun needsPrefetch(edge: Int, scrollPos: Int, chapterSize: Int): Boolean =
-        edge < chapterSize - 1 && edge - scrollPos <= PREFETCH_TRIGGER
-
-    /** Next prefetch range ahead of scroll, or null when nothing new is ahead of the edge. */
-    fun prefetchRange(edge: Int, scrollPos: Int, chapterSize: Int): IntRange? {
-        if (chapterSize <= 0) return null
-        val targetEnd = (scrollPos + LOOKAHEAD).coerceAtMost(chapterSize - 1)
-        if (targetEnd <= edge) return null
-        return (edge + 1)..targetEnd
     }
 
     /** Monotonic 0..100 progress within a single segment of [total] paragraphs. */
@@ -88,4 +78,68 @@ object TranslationPlanner {
      */
     fun shouldTranslate(isMlKit: Boolean, translationVisible: Boolean): Boolean =
         isMlKit || translationVisible
+
+    /**
+     * Walk the inclusive global paragraph range [from]..[to], dropping already-translated paragraphs,
+     * and coalesce the rest into contiguous per-chapter segments (broken at chapter boundaries and at
+     * gaps left by pruned paragraphs). Segment order follows the walk, so reading order is preserved.
+     */
+    private fun buildSegments(
+        from: Int,
+        to: Int,
+        foreground: Boolean,
+        sizes: List<Int>,
+        isTranslated: (Int, Int) -> Boolean,
+    ): List<TranslationSegment> {
+        val out = mutableListOf<TranslationSegment>()
+        if (from > to) return out
+
+        var segChapter = -1
+        var segStart = -1
+        var segEnd = -1
+        fun close() {
+            if (segChapter >= 0) out += TranslationSegment(segChapter, segStart, segEnd, foreground)
+            segChapter = -1
+            segStart = -1
+            segEnd = -1
+        }
+
+        for (global in from..to) {
+            val (chapter, para) = toLocal(global, sizes)
+            if (isTranslated(chapter, para)) {
+                close()
+                continue
+            }
+            if (segChapter == chapter && para == segEnd + 1) {
+                segEnd = para
+            } else {
+                close()
+                segChapter = chapter
+                segStart = para
+                segEnd = para
+            }
+        }
+        close()
+        return out
+    }
+
+    /** Convert a (chapter, paragraph) coordinate to a flat global paragraph index. */
+    private fun toGlobal(chapter: Int, para: Int, sizes: List<Int>): Int {
+        val ch = chapter.coerceIn(0, (sizes.size - 1).coerceAtLeast(0))
+        var offset = 0
+        for (i in 0 until ch) offset += sizes[i]
+        return offset + para.coerceAtLeast(0)
+    }
+
+    /** Convert a flat global paragraph index back to a (chapter, paragraph) coordinate. */
+    private fun toLocal(global: Int, sizes: List<Int>): Pair<Int, Int> {
+        var remaining = global
+        for (i in sizes.indices) {
+            val size = sizes[i]
+            if (remaining < size) return i to remaining
+            remaining -= size
+        }
+        val last = sizes.lastIndex.coerceAtLeast(0)
+        return last to (sizes.getOrElse(last) { 1 } - 1).coerceAtLeast(0)
+    }
 }

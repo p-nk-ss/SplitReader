@@ -7,6 +7,7 @@ import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -20,11 +21,15 @@ data class TranslationUpdate(
 )
 
 /**
- * Owns the reader's translation orchestration: one high-priority foreground window anchored at
- * the visible paragraph, plus a provider-specific background fill — the same pipeline for ML Kit
- * and paid engines (see [TranslationPlanner]). Switching chapters or jumping cancels stale work so
- * the engine never translates the previous chapter ahead of the one the reader actually opened, and
- * only the foreground window drives the progress banner (background fill is silent and monotonic).
+ * Owns the reader's translation orchestration. Translation follows the *viewport*: the reader reports
+ * the paragraph span it can actually see (which may cross chapter boundaries), and a single serialized
+ * worker translates that span first, then a bounded look-ahead/look-behind (see [TranslationPlanner]).
+ *
+ * The worker is re-targeted rather than cancelled when the viewport moves: an in-flight paragraph
+ * always finishes (its result is cached), and after each segment the worker re-reads the latest window
+ * and recomputes the plan. So flinging through short chapters never strands half-translated chapters,
+ * and scrolling up immediately picks up the newly-visible (earlier) paragraphs — the same pipeline for
+ * ML Kit and paid engines, with paid engines simply gated off while the pane is hidden.
  */
 class ChapterTranslationManager(
     private val scope: CoroutineScope,
@@ -47,18 +52,30 @@ class ChapterTranslationManager(
 
     /** Authoritative per-chapter translated text; index-aligned to each chapter's paragraphs. */
     private val results = mutableMapOf<Int, MutableList<String>>()
-    /** Immutable snapshot mirror handed to the UI (rebuilt per changed chapter, like the old state). */
+    /** Immutable snapshot mirror handed to the UI (rebuilt per changed chapter). */
     private var snapshot: Map<Int, List<String>> = emptyMap()
-    /** The furthest contiguous paragraph index translated per chapter. */
-    private val prefetchedEdge = mutableMapOf<Int, Int>()
+    /**
+     * Per-chapter set of paragraph indices already translated. Tracked explicitly (rather than via
+     * empty text) so legitimately blank paragraphs count as done and the planner can prune them.
+     */
+    private val translatedIndex = mutableMapOf<Int, MutableSet<Int>>()
 
     private var currentState: TranslationState = TranslationState.Idle
-    private var activeChapter = -1
-    private var activeAnchor = 0
 
-    private var foregroundJob: Job? = null
-    private var backgroundJob: Job? = null
-    private var prefetchJob: Job? = null
+    /** The latest viewport span the reader reported; the worker always plans against this. */
+    private data class VisibleWindow(
+        val startChapter: Int,
+        val startPara: Int,
+        val endChapter: Int,
+        val endPara: Int,
+    )
+    private var latestWindow: VisibleWindow? = null
+
+    /** Conflated wake-up signal: collapses a burst of scroll updates into a single re-plan. */
+    private val windowSignal = Channel<Unit>(Channel.CONFLATED)
+    private var workerJob: Job? = null
+    /** One-off full-chapter fill (paid escape-hatch), kept off the viewport worker. */
+    private var wholeChapterJob: Job? = null
 
     fun attach(book: Book, source: Language, target: Language) {
         this.book = book
@@ -72,140 +89,106 @@ class ChapterTranslationManager(
     }
 
     /**
-     * Focus a chapter: translate its visible window first, then kick off the background fill.
-     * No-op when the chapter is already the active one (scrolling within it is handled by [onScroll]).
+     * Report the visible paragraph span (start/end may be in different chapters). Re-targets the
+     * worker to translate this window + look-ahead/behind, picking up where it left off.
      */
-    fun focusChapter(chapterIndex: Int, anchor: Int) {
-        val book = book ?: return
-        if (chapterIndex < 0 || chapterIndex >= book.chapters.size) return
-        // Don't burn paid quota translating text the reader has hidden; ML Kit (free) keeps going.
-        if (!TranslationPlanner.shouldTranslate(isMlKit(), isTranslationVisible())) {
-            activeAnchor = anchor
-            return
-        }
-        if (chapterIndex == activeChapter) return
-        activeChapter = chapterIndex
-        activeAnchor = anchor
-
-        foregroundJob?.cancel()
-        backgroundJob?.cancel()
-        prefetchJob?.cancel()
-
-        val size = book.chapters[chapterIndex].paragraphs.size
-        // Already fully translated (e.g. ML Kit pre-loaded it): skip the window, just preload ahead.
-        if ((prefetchedEdge[chapterIndex] ?: -1) >= size - 1 && size > 0) {
-            emitState(TranslationState.Idle)
-            startBackground(chapterIndex, size - 1, anchor)
-            return
-        }
-
-        foregroundJob = scope.launch {
-            val fg = TranslationPlanner.foregroundRange(anchor, size)
-            if (fg.isEmpty()) {
-                emitState(TranslationState.Idle)
-                return@launch
-            }
-            val ok = runSegment(chapterIndex, fg.first, fg.last, foreground = true)
-            if (!ok) return@launch
-            setEdge(chapterIndex, fg.last)
-            emitState(TranslationState.Idle)
-            startBackground(chapterIndex, fg.last, anchor)
-        }
+    fun onVisibleRange(startChapter: Int, startPara: Int, endChapter: Int, endPara: Int) {
+        if (book == null) return
+        latestWindow = VisibleWindow(startChapter, startPara, endChapter, endPara)
+        ensureWorker()
+        windowSignal.trySend(Unit)
     }
 
-    /** Drive translation from a scroll update: re-focus on chapter change, else prefetch ahead (paid). */
-    fun onScroll(chapterIndex: Int, anchor: Int) {
-        if (!TranslationPlanner.shouldTranslate(isMlKit(), isTranslationVisible())) {
-            activeAnchor = anchor
-            return
-        }
-        if (chapterIndex != activeChapter) {
-            focusChapter(chapterIndex, anchor)
-            return
-        }
-        activeAnchor = anchor
-        maybePrefetch(chapterIndex, anchor)
-    }
-
-    /** Explicit request (paid escape-hatch) to finish translating the rest of a chapter. */
+    /** Explicit request (paid escape-hatch) to finish translating a whole chapter. */
     fun translateWholeChapter(chapterIndex: Int) {
         val book = book ?: return
         val size = book.chapters.getOrNull(chapterIndex)?.paragraphs?.size ?: return
-        val edge = prefetchedEdge[chapterIndex] ?: -1
-        if (edge >= size - 1) return
-        prefetchJob?.cancel()
-        backgroundJob?.cancel()
-        backgroundJob = scope.launch {
-            if (runSegment(chapterIndex, edge + 1, size - 1, foreground = false)) {
-                setEdge(chapterIndex, size - 1)
-            }
+        if (size <= 0) return
+        wholeChapterJob?.cancel()
+        wholeChapterJob = scope.launch {
+            runSegment(chapterIndex, 0, size - 1, foreground = false)
         }
     }
 
-    /** Re-run a failed chapter from scratch at the reader's current position. */
+    /** Re-run a failed chapter from scratch at the reader's current window. */
     fun retry(chapterIndex: Int) {
-        foregroundJob?.cancel()
-        backgroundJob?.cancel()
-        prefetchJob?.cancel()
         results.remove(chapterIndex)
-        prefetchedEdge.remove(chapterIndex)
+        translatedIndex.remove(chapterIndex)
         snapshot = snapshot - chapterIndex
-        activeChapter = -1
         emitState(TranslationState.Idle)
-        focusChapter(chapterIndex, activeAnchor)
+        ensureWorker()
+        windowSignal.trySend(Unit)
     }
 
     /** Discard everything (e.g. target language changed) and emit an empty state. */
     fun reset() {
         cancelAll()
         results.clear()
-        prefetchedEdge.clear()
+        translatedIndex.clear()
         snapshot = emptyMap()
-        activeChapter = -1
+        latestWindow = null
         emitState(TranslationState.Idle)
     }
 
     fun cancelAll() {
-        foregroundJob?.cancel()
-        backgroundJob?.cancel()
-        prefetchJob?.cancel()
+        workerJob?.cancel()
+        workerJob = null
+        wholeChapterJob?.cancel()
+        wholeChapterJob = null
     }
 
-    private fun startBackground(chapterIndex: Int, foregroundEnd: Int, anchor: Int) {
-        val book = book ?: return
-        val sizes = book.chapters.map { it.paragraphs.size }
-        val plan = TranslationPlanner.backgroundPlan(isMlKit(), chapterIndex, foregroundEnd, anchor, sizes)
-        if (plan.isEmpty()) return
-        backgroundJob = scope.launch {
-            for (segment in plan) {
-                val ok = runSegment(segment.chapterIndex, segment.start, segment.endInclusive, foreground = false)
-                if (!ok) break
-                if (segment.endInclusive > (prefetchedEdge[segment.chapterIndex] ?: -1)) {
-                    setEdge(segment.chapterIndex, segment.endInclusive)
-                }
-            }
-        }
-    }
+    private fun isTranslated(chapter: Int, para: Int): Boolean =
+        translatedIndex[chapter]?.contains(para) == true
 
-    private fun maybePrefetch(chapterIndex: Int, anchor: Int) {
-        if (isMlKit()) return // ML Kit background already fills the whole chapter
-        val book = book ?: return
-        val size = book.chapters.getOrNull(chapterIndex)?.paragraphs?.size ?: return
-        val edge = prefetchedEdge[chapterIndex] ?: return
-        if (!TranslationPlanner.needsPrefetch(edge, anchor, size)) return
-        if (prefetchJob?.isActive == true) return
-        val range = TranslationPlanner.prefetchRange(edge, anchor, size) ?: return
-        prefetchJob = scope.launch {
-            if (runSegment(chapterIndex, range.first, range.last, foreground = false)) {
-                setEdge(chapterIndex, range.last)
+    private fun ensureWorker() {
+        if (workerJob?.isActive == true) return
+        workerJob = scope.launch {
+            for (signal in windowSignal) {
+                processWindow()
             }
         }
     }
 
     /**
-     * Translate one contiguous range, folding partials into [results]/[snapshot]. Only foreground
-     * segments drive the progress banner; background segments update text silently. Returns false
-     * if the range errored (foreground errors are surfaced; background errors stay silent).
+     * Translate the current window one segment at a time, re-reading [latestWindow] and recomputing
+     * the plan after each segment so the worker chases the viewport without cancelling completed work.
+     */
+    private suspend fun processWindow() {
+        val book = book ?: return
+        val sizes = book.chapters.map { it.paragraphs.size }
+        while (true) {
+            val window = latestWindow ?: return
+            // Don't burn paid quota translating text the reader has hidden; ML Kit (free) keeps going.
+            if (!TranslationPlanner.shouldTranslate(isMlKit(), isTranslationVisible())) {
+                emitState(TranslationState.Idle)
+                return
+            }
+            val plan = TranslationPlanner.windowPlan(
+                window.startChapter, window.startPara,
+                window.endChapter, window.endPara,
+                sizes, ::isTranslated,
+            )
+            val segment = plan.firstOrNull()
+            if (segment == null) {
+                emitState(TranslationState.Idle)
+                return
+            }
+            // The visible window is done once we reach the silent look-ahead/behind: clear the banner.
+            if (!segment.foreground &&
+                currentState !is TranslationState.Idle &&
+                currentState !is TranslationState.Error
+            ) {
+                emitState(TranslationState.Idle)
+            }
+            val ok = runSegment(segment.chapterIndex, segment.start, segment.endInclusive, segment.foreground)
+            if (!ok) return // error already surfaced (foreground); wait for retry / next scroll
+        }
+    }
+
+    /**
+     * Translate one contiguous range, folding partials into [results]/[snapshot] and marking each
+     * paragraph done in [translatedIndex]. Only foreground segments drive the progress banner.
+     * Returns false if the range errored (foreground errors are surfaced; background errors are silent).
      */
     private suspend fun runSegment(
         chapterIndex: Int,
@@ -233,6 +216,7 @@ class ChapterTranslationManager(
             when (state) {
                 is TranslationState.Partial -> mutex.withLock {
                     if (state.index in chapterResults.indices) chapterResults[state.index] = state.text
+                    translatedIndex.getOrPut(chapterIndex) { mutableSetOf() }.add(state.index)
                     done++
                     snapshot = snapshot + (chapterIndex to chapterResults.toList())
                     if (foreground) {
@@ -249,11 +233,6 @@ class ChapterTranslationManager(
             }
         }
         return !failed
-    }
-
-    private fun setEdge(chapterIndex: Int, edge: Int) {
-        val existing = prefetchedEdge[chapterIndex] ?: -1
-        if (edge > existing) prefetchedEdge[chapterIndex] = edge
     }
 
     private fun emitState(state: TranslationState) {

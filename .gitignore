@@ -20,3 +20,6 @@ Screenshot*.png
 app/google-services.json
 /design_handoff_splitreader/
 /design_handoff_splitreader_improvements/
+# Copyright-protected QA test books — staged into androidTest assets locally, never committed
+/qa_book/
+/app/build/generated/qaAssets/

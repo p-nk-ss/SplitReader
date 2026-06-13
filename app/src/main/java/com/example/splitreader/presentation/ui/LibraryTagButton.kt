@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -23,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
+import com.example.splitreader.presentation.theme.pressScale
 
 /**
  * Library tag — primary button for system actions.
@@ -56,13 +59,15 @@ fun LibraryTagButton(
     val palette       = LocalReaderPalette.current
     val surfaceColor  = if (filled) palette.ink else palette.bg2
     val labelColor    = if (filled) palette.bg else palette.ink
+    val interaction   = remember { MutableInteractionSource() }
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(4.dp),
         color = surfaceColor,
         border = BorderStroke(1.dp, palette.ink),
-        modifier = modifier,
+        interactionSource = interaction,
+        modifier = modifier.pressScale(interaction),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),

@@ -2,137 +2,170 @@ package com.example.splitreader.presentation.reader
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TranslationPlannerTest {
 
-    // ── foregroundRange ───────────────────────────────────────────────────
+    /** Predicate: nothing is translated yet. */
+    private val none: (Int, Int) -> Boolean = { _, _ -> false }
+
+    // ── windowPlan: within a single chapter ───────────────────────────────
 
     @Test
-    fun `foregroundRange from the top spans the visible window`() {
-        val range = TranslationPlanner.foregroundRange(anchor = 0, chapterSize = 100)
-        assertEquals(0, range.first)
-        assertEquals(TranslationPlanner.VISIBLE_WINDOW - 1, range.last)
-    }
-
-    @Test
-    fun `foregroundRange in the middle is anchored at the scroll position`() {
-        val range = TranslationPlanner.foregroundRange(anchor = 40, chapterSize = 100)
-        assertEquals(40, range.first)
-        assertEquals(40 + TranslationPlanner.VISIBLE_WINDOW - 1, range.last)
-    }
-
-    @Test
-    fun `foregroundRange near the end clamps to the last paragraph`() {
-        val range = TranslationPlanner.foregroundRange(anchor = 98, chapterSize = 100)
-        assertEquals(98, range.first)
-        assertEquals(99, range.last)
-    }
-
-    @Test
-    fun `foregroundRange for a chapter shorter than the window covers it whole`() {
-        val range = TranslationPlanner.foregroundRange(anchor = 0, chapterSize = 5)
-        assertEquals(0, range.first)
-        assertEquals(4, range.last)
-    }
-
-    @Test
-    fun `foregroundRange for an empty chapter is empty`() {
-        assertTrue(TranslationPlanner.foregroundRange(anchor = 0, chapterSize = 0).isEmpty())
-    }
-
-    // ── backgroundPlan ────────────────────────────────────────────────────
-
-    @Test
-    fun `backgroundPlan for ML Kit fills rest of chapter then next chapter then the start`() {
-        val plan = TranslationPlanner.backgroundPlan(
-            isMlKit = true,
-            chapterIndex = 1,
-            foregroundEnd = 11,
-            anchor = 3,
-            chapterSizes = listOf(50, 100, 80),
+    fun `windowPlan covers visible span then lookahead then lookbehind`() {
+        val plan = TranslationPlanner.windowPlan(
+            visibleStartChapter = 0, visibleStartPara = 10,
+            visibleEndChapter = 0, visibleEndPara = 14,
+            chapterSizes = listOf(50),
+            isTranslated = none,
         )
-        assertEquals(3, plan.size)
-        // rest of current chapter (after the foreground window)
-        assertEquals(TranslationSegment(1, 12, 99, foreground = false), plan[0])
-        // next chapter, whole
-        assertEquals(TranslationSegment(2, 0, 79, foreground = false), plan[1])
-        // start of current chapter (paragraphs above the anchor)
-        assertEquals(TranslationSegment(1, 0, 2, foreground = false), plan[2])
-    }
-
-    @Test
-    fun `backgroundPlan for ML Kit on the last chapter has no next chapter`() {
-        val plan = TranslationPlanner.backgroundPlan(
-            isMlKit = true,
-            chapterIndex = 2,
-            foregroundEnd = 11,
-            anchor = 0,
-            chapterSizes = listOf(50, 100, 80),
+        assertEquals(
+            listOf(
+                TranslationSegment(0, 10, 14, foreground = true),                                  // visible
+                TranslationSegment(0, 15, 14 + TranslationPlanner.LOOKAHEAD, foreground = false),  // lookahead
+                TranslationSegment(0, 10 - TranslationPlanner.LOOKBEHIND, 9, foreground = false),   // lookbehind
+            ),
+            plan,
         )
-        assertEquals(1, plan.size)
-        assertEquals(TranslationSegment(2, 12, 79, foreground = false), plan[0])
     }
 
     @Test
-    fun `backgroundPlan for paid providers is empty`() {
-        val plan = TranslationPlanner.backgroundPlan(
-            isMlKit = false,
-            chapterIndex = 1,
-            foregroundEnd = 11,
-            anchor = 3,
-            chapterSizes = listOf(50, 100, 80),
+    fun `windowPlan marks only the visible segment as foreground`() {
+        val plan = TranslationPlanner.windowPlan(0, 10, 0, 14, listOf(50), none)
+        assertEquals(1, plan.count { it.foreground })
+        assertTrue(plan.first().foreground)
+        assertTrue(plan.drop(1).none { it.foreground })
+    }
+
+    // ── windowPlan: spanning several short chapters (guards skipped-short-chapters bug) ──
+
+    @Test
+    fun `windowPlan covers every chapter in a multi-chapter visible span`() {
+        // sizes: ch0=5 (g0..4), ch1=3 (g5..7), ch2=4 (g8..11), ch3=6 (g12..17)
+        val plan = TranslationPlanner.windowPlan(
+            visibleStartChapter = 1, visibleStartPara = 0,
+            visibleEndChapter = 2, visibleEndPara = 3,
+            chapterSizes = listOf(5, 3, 4, 6),
+            isTranslated = none,
+        )
+        // Both visible short chapters are fully covered as foreground.
+        assertEquals(TranslationSegment(1, 0, 2, foreground = true), plan[0])
+        assertEquals(TranslationSegment(2, 0, 3, foreground = true), plan[1])
+        // Lookahead spills into the next chapter; lookbehind into the previous one.
+        assertEquals(TranslationSegment(3, 0, 5, foreground = false), plan[2]) // g12..17 (8 ahead clamped)
+        assertEquals(TranslationSegment(0, 1, 4, foreground = false), plan[3]) // g1..4 (4 behind)
+        assertEquals(4, plan.size)
+    }
+
+    // ── windowPlan: lookbehind reaches the previous chapter (guards deep-open scroll-up bug) ──
+
+    @Test
+    fun `windowPlan lookbehind crosses into the previous chapter when opened deep`() {
+        // Opened at the very top of chapter 1; nothing before it has been translated.
+        val plan = TranslationPlanner.windowPlan(
+            visibleStartChapter = 1, visibleStartPara = 0,
+            visibleEndChapter = 1, visibleEndPara = 0,
+            chapterSizes = listOf(20, 20),
+            isTranslated = none,
+        )
+        assertEquals(TranslationSegment(1, 0, 0, foreground = true), plan[0])
+        assertEquals(TranslationSegment(1, 1, TranslationPlanner.LOOKAHEAD, foreground = false), plan[1])
+        // The tail of the *previous* chapter is translated without any large scroll-up.
+        assertEquals(TranslationSegment(0, 20 - TranslationPlanner.LOOKBEHIND, 19, foreground = false), plan[2])
+    }
+
+    // ── windowPlan: clamping at book bounds ───────────────────────────────
+
+    @Test
+    fun `windowPlan at the book start has no lookbehind`() {
+        val plan = TranslationPlanner.windowPlan(0, 0, 0, 0, listOf(10), none)
+        assertEquals(TranslationSegment(0, 0, 0, foreground = true), plan[0])
+        assertEquals(TranslationSegment(0, 1, TranslationPlanner.LOOKAHEAD, foreground = false), plan[1])
+        assertEquals(2, plan.size)
+    }
+
+    @Test
+    fun `windowPlan at the book end has no lookahead and clamps lookbehind`() {
+        val plan = TranslationPlanner.windowPlan(0, 9, 0, 9, listOf(10), none)
+        assertEquals(TranslationSegment(0, 9, 9, foreground = true), plan[0])
+        assertEquals(TranslationSegment(0, 9 - TranslationPlanner.LOOKBEHIND, 8, foreground = false), plan[1])
+        assertEquals(2, plan.size)
+    }
+
+    @Test
+    fun `windowPlan for an empty book is empty`() {
+        assertTrue(TranslationPlanner.windowPlan(0, 0, 0, 0, emptyList(), none).isEmpty())
+        assertTrue(TranslationPlanner.windowPlan(0, 0, 0, 0, listOf(0, 0), none).isEmpty())
+    }
+
+    // ── windowPlan: already-translated paragraphs are pruned ──────────────
+
+    @Test
+    fun `windowPlan splits the visible span around already-translated paragraphs`() {
+        val translated: (Int, Int) -> Boolean = { ch, p -> ch == 0 && (p == 1 || p == 2) }
+        val plan = TranslationPlanner.windowPlan(
+            visibleStartChapter = 0, visibleStartPara = 0,
+            visibleEndChapter = 0, visibleEndPara = 4,
+            chapterSizes = listOf(10),
+            isTranslated = translated,
+        )
+        // Paragraphs 1 and 2 are done, so the visible span splits into [0] and [3,4].
+        assertEquals(TranslationSegment(0, 0, 0, foreground = true), plan[0])
+        assertEquals(TranslationSegment(0, 3, 4, foreground = true), plan[1])
+        assertTrue(plan.none { it.chapterIndex == 0 && it.start <= 2 && it.endInclusive >= 1 })
+    }
+
+    @Test
+    fun `windowPlan omits a band entirely when every paragraph in it is translated`() {
+        // Whole chapter already translated: visible + lookahead/behind all prune to nothing.
+        val plan = TranslationPlanner.windowPlan(
+            visibleStartChapter = 0, visibleStartPara = 2,
+            visibleEndChapter = 0, visibleEndPara = 4,
+            chapterSizes = listOf(10),
+            isTranslated = { _, _ -> true },
         )
         assertTrue(plan.isEmpty())
     }
 
+    // ── windowPlan: jumping several chapters forward retains earlier chapters ──
+
     @Test
-    fun `backgroundPlan omits rest segment when the window already covers the chapter`() {
-        val plan = TranslationPlanner.backgroundPlan(
-            isMlKit = true,
-            chapterIndex = 0,
-            foregroundEnd = 4,
-            anchor = 0,
-            chapterSizes = listOf(5, 100),
+    fun `jumping forward several chapters does not re-plan already-translated earlier chapters`() {
+        // 6 chapters of 10 paragraphs each. Chapters 0..4 are already fully translated (the reader
+        // read/translated them, then jumped ahead). Landing at the top of chapter 5 must NOT schedule
+        // any work in chapters 0..4 — their translations stay cached and on screen.
+        val earlierDone: (Int, Int) -> Boolean = { ch, _ -> ch < 5 }
+        val plan = TranslationPlanner.windowPlan(
+            visibleStartChapter = 5, visibleStartPara = 0,
+            visibleEndChapter = 5, visibleEndPara = 1,
+            chapterSizes = listOf(10, 10, 10, 10, 10, 10),
+            isTranslated = earlierDone,
         )
-        // current chapter fully covered; only the next chapter remains
-        assertEquals(1, plan.size)
-        assertEquals(TranslationSegment(1, 0, 99, foreground = false), plan[0])
-    }
-
-    // ── needsPrefetch ─────────────────────────────────────────────────────
-
-    @Test
-    fun `needsPrefetch triggers within the trigger distance of the edge`() {
-        val edge = 30
-        val scrollPos = edge - TranslationPlanner.PREFETCH_TRIGGER
-        assertTrue(TranslationPlanner.needsPrefetch(edge, scrollPos, chapterSize = 100))
+        // No segment touches a previous chapter (lookbehind into ch4 is pruned away as already done).
+        assertTrue(
+            "previous chapters must not be re-translated when jumping forward",
+            plan.none { it.chapterIndex < 5 },
+        )
+        // Only the newly-visible chapter 5 is planned (visible span + clamped lookahead).
+        assertTrue(plan.isNotEmpty())
+        assertTrue(plan.all { it.chapterIndex == 5 })
     }
 
     @Test
-    fun `needsPrefetch does not trigger when far from the edge`() {
-        assertFalse(TranslationPlanner.needsPrefetch(edge = 30, scrollPos = 0, chapterSize = 100))
-    }
-
-    @Test
-    fun `needsPrefetch does not trigger at the end of the chapter`() {
-        assertFalse(TranslationPlanner.needsPrefetch(edge = 99, scrollPos = 99, chapterSize = 100))
-    }
-
-    // ── prefetchRange ─────────────────────────────────────────────────────
-
-    @Test
-    fun `prefetchRange extends lookahead ahead of scroll`() {
-        val range = TranslationPlanner.prefetchRange(edge = 30, scrollPos = 28, chapterSize = 100)
-        assertEquals(31, range!!.first)
-        assertEquals(28 + TranslationPlanner.LOOKAHEAD, range.last)
-    }
-
-    @Test
-    fun `prefetchRange returns null when nothing new is ahead`() {
-        assertNull(TranslationPlanner.prefetchRange(edge = 99, scrollPos = 99, chapterSize = 100))
+    fun `lookbehind only reaches the immediately preceding untranslated paragraphs`() {
+        // Jump to the middle of chapter 3; chapters 0..2 already done, chapter 3 fresh. Lookbehind is
+        // bounded to LOOKBEHIND paragraphs, so it never sweeps back across whole earlier chapters.
+        val earlierDone: (Int, Int) -> Boolean = { ch, _ -> ch < 3 }
+        val plan = TranslationPlanner.windowPlan(
+            visibleStartChapter = 3, visibleStartPara = 5,
+            visibleEndChapter = 3, visibleEndPara = 6,
+            chapterSizes = listOf(10, 10, 10, 10),
+            isTranslated = earlierDone,
+        )
+        assertTrue("must not reach back into earlier chapters", plan.none { it.chapterIndex < 3 })
+        // Lookbehind within chapter 3: paragraphs 1..4 (5 - LOOKBEHIND .. 4).
+        assertTrue(plan.any { it == TranslationSegment(3, 5 - TranslationPlanner.LOOKBEHIND, 4, foreground = false) })
     }
 
     // ── progressPercent ───────────────────────────────────────────────────

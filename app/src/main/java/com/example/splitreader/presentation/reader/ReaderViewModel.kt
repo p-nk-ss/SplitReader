@@ -249,7 +249,10 @@ class ReaderViewModel @Inject constructor(
             )
         }
         translationManager.attach(book, detectedLang, targetLang)
-        translationManager.focusChapter(lastChapterIndex, anchorFor(lastScroll))
+        // Seed the window at the restored position so the visible spot translates immediately, before
+        // the reader's first visible-range report arrives once layout settles.
+        val anchor = anchorFor(lastScroll)
+        translationManager.onVisibleRange(lastChapterIndex, anchor, lastChapterIndex, anchor)
         // Begin tracking reading time now that the book is on screen
         resumeSession()
         observeBookmarks(book.filePath)
@@ -293,8 +296,9 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
         _state.update { it.copy(currentChapterIndex = index) }
-        // A jump lands at the top of the chapter; the manager cancels stale work and translates here first.
-        translationManager.focusChapter(index, anchor = 0)
+        // A jump lands at the top of the chapter; seed the window there and the reader's visible-range
+        // report will widen it once the chapter is laid out.
+        translationManager.onVisibleRange(index, 0, index, 0)
     }
 
     fun setTargetLanguage(lang: Language) {
@@ -302,7 +306,8 @@ class ReaderViewModel @Inject constructor(
         translationManager.reset()
         translationManager.setLanguages(_state.value.sourceLanguage, lang)
         _state.update { it.copy(targetLanguage = lang, chapterTranslations = emptyMap()) }
-        translationManager.focusChapter(_state.value.currentChapterIndex, anchorFor(lastScrollPosition))
+        val anchor = anchorFor(lastScrollPosition)
+        translationManager.onVisibleRange(_state.value.currentChapterIndex, anchor, _state.value.currentChapterIndex, anchor)
     }
 
     fun updateScrollPosition(chapterIndex: Int, position: Int, offset: Int = 0) {
@@ -319,7 +324,8 @@ class ReaderViewModel @Inject constructor(
                 ?.paragraphs?.getOrNull((position - 1).coerceAtLeast(0))
             SynopsisExtractor.normalize(paragraph)?.let { progressManager.saveExcerpt(book.filePath, it) }
         }
-        translationManager.onScroll(chapterIndex, anchorFor(position))
+        // Translation is driven by the reader's visible-range reports (see [onVisibleRange]); this
+        // path only persists progress and the "continue reading" excerpt.
     }
 
     /** Toggles a bookmark at the user's current reading position (current chapter + top paragraph). */
@@ -353,7 +359,7 @@ class ReaderViewModel @Inject constructor(
                 pendingScrollOffset = 0,
             )
         }
-        ensureChapterTranslated(chapterIndex)
+        translationManager.onVisibleRange(chapterIndex, paragraphIndex, chapterIndex, paragraphIndex)
     }
 
     /** Called by the reader when the user scrolls to the end of the last chapter. */
@@ -428,7 +434,8 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(showTranslation = newValue) }
         // Re-enabling the pane: translate the current view, which a paid provider skipped while hidden.
         if (newValue) {
-            translationManager.onScroll(_state.value.currentChapterIndex, anchorFor(lastScrollPosition))
+            val anchor = anchorFor(lastScrollPosition)
+            translationManager.onVisibleRange(_state.value.currentChapterIndex, anchor, _state.value.currentChapterIndex, anchor)
         }
     }
 
@@ -477,8 +484,9 @@ class ReaderViewModel @Inject constructor(
         translationManager.reset()
         _state.update { it.copy(chapterTranslations = emptyMap(), translationState = TranslationState.Idle) }
         if (_state.value.book == null) return
-        // Re-translate from the reader's current position; the manager handles provider-specific fill.
-        translationManager.focusChapter(_state.value.currentChapterIndex, anchorFor(lastScrollPosition))
+        // Re-translate from the reader's current position; the manager re-plans the visible window.
+        val anchor = anchorFor(lastScrollPosition)
+        translationManager.onVisibleRange(_state.value.currentChapterIndex, anchor, _state.value.currentChapterIndex, anchor)
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
@@ -575,8 +583,16 @@ class ReaderViewModel @Inject constructor(
 
     fun speak(text: String, langCode: String) = textToSpeechManager.speak(text, langCode)
 
-    fun ensureChapterTranslated(index: Int) {
-        translationManager.focusChapter(index, anchor = 0)
+    /**
+     * The reader reports its visible item span as chapter-local *list* indices (item 0 of each
+     * chapter is the masthead). [anchorFor] maps those to paragraph anchors; the manager then
+     * translates the visible window plus a bounded look-ahead/behind across chapter boundaries.
+     */
+    fun onVisibleRange(startChapter: Int, startLocalIndex: Int, endChapter: Int, endLocalIndex: Int) {
+        translationManager.onVisibleRange(
+            startChapter, anchorFor(startLocalIndex),
+            endChapter, anchorFor(endLocalIndex),
+        )
     }
 
     /** Retries translation for the current chapter after a failure (clears it and re-runs). */

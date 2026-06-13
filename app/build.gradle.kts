@@ -103,4 +103,39 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.coroutines.test)
 }
+
+// ── QA test fixtures ──────────────────────────────────────────────────────────
+// The copyright-protected real books in qa_book/ are gitignored. This task copies them
+// into the androidTest assets under stable ASCII names so instrumentation tests can parse
+// the actual files. Missing qa_book/ is tolerated (the dir is simply empty and the
+// real-file test cases skip via Assume). Only the public-domain Gutenberg EPUB fixture
+// is committed (in app/src/androidTest/assets/qa-pd/).
+val qaFixtureMap = mapOf(
+    "Академик Лидер.fb2" to "academic_leader.fb2",
+    "Агриппа (Книга мертвых).fb2" to "agrippa.fb2",
+    "1. Зов Ктулху.fb2" to "cthulhu.fb2",
+    "02. Джонни Мнемоник (пер. Переводчик неизвестен) .fb2" to "johnny_mnemonic.fb2",
+    "Byekker_R._Vtoroyiapokalipsis._Knyaz_Pustotyi_Kniga_Tret.fb2" to "bekker.fb2",
+    "Dembski-Bouden_Aaron_[Poveliteli_nochi#1]_Lovets_dush.mobi" to "soul_hunter.mobi",
+    "Kouell_Kressida_[Kak_priruchit_drakona#1]_Kak_priruchit_drakona.mobi" to "how_to_train_dragon.mobi",
+)
+// Staged layout: <buildDir>/generated/qaAssets/root/qa/<ascii> — the "root" dir is registered
+// as an androidTest assets srcDir, so tests read the files at asset path "qa/<ascii>".
+val qaStagedRoot = layout.buildDirectory.dir("generated/qaAssets/root")
+val stageQaFixtures = tasks.register<Copy>("stageQaFixtures") {
+    val srcDir = rootProject.layout.projectDirectory.dir("qa_book")
+    into(qaStagedRoot.map { it.dir("qa") })
+    qaFixtureMap.forEach { (original, ascii) ->
+        from(srcDir.file(original)) { rename { ascii } }
+    }
+    // No-op cleanly when qa_book/ is absent (e.g. CI without the local books).
+    onlyIf { srcDir.asFile.exists() }
+}
+
+android.sourceSets.getByName("androidTest").assets.srcDir(qaStagedRoot)
+// Stage fixtures before any androidTest asset-merge/packaging task consumes the srcDir.
+tasks.matching { it.name.contains("AndroidTest") && it.name.contains("Assets") }
+    .configureEach { dependsOn(stageQaFixtures) }

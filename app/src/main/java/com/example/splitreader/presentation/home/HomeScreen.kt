@@ -18,15 +18,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +42,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -50,7 +54,6 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,7 +80,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import com.example.splitreader.presentation.theme.FadeInOnAppear
 import com.example.splitreader.presentation.theme.MotionTokens
+import com.example.splitreader.presentation.theme.ShimmerBox
+import com.example.splitreader.presentation.theme.StaggeredAppear
 import com.example.splitreader.presentation.theme.animatedSelection
+import com.example.splitreader.presentation.theme.pressScale
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
@@ -204,8 +210,18 @@ private fun HomeScreen(
     }
 
     if (uiState.isLoading) {
-        Box(Modifier.fillMaxSize().background(palette.bg), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = palette.accent)
+        // Skeleton stand-in that mirrors the real grid metrics, so the layout doesn't
+        // jump when books arrive (vs. a centered spinner over a blank screen).
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(7),
+            modifier = Modifier.fillMaxSize().background(palette.bg),
+            contentPadding = PaddingValues(sp.xxl),
+            verticalArrangement = Arrangement.spacedBy(sp.lg),
+            horizontalArrangement = Arrangement.spacedBy(sp.lg),
+            userScrollEnabled = false,
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) { HomeHeaderSkeleton() }
+            items(14) { SkeletonCoverCard() }
         }
         return
     }
@@ -294,8 +310,8 @@ private fun HomeScreen(
                 FadeInOnAppear { NoBooksMatch(query = searchQuery) }
             }
         } else {
-            items(filteredBooks, key = { it.uri }) { book ->
-                Box(Modifier.animateItem()) {
+            itemsIndexed(filteredBooks, key = { _, book -> book.uri }) { index, book ->
+                StaggeredAppear(index = index, modifier = Modifier.animateItem()) {
                     BookCoverCard(
                         book = book,
                         onClick = { onOpenFromLibrary(book.uri) },
@@ -895,10 +911,16 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
         )
     }
 
+    val interaction = remember { MutableInteractionSource() }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .pressScale(interaction)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            ),
     ) {
         Box {
             BookCover(
@@ -998,6 +1020,39 @@ private fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> U
                 color = palette.ink3,
             )
         }
+    }
+}
+
+// ── Loading skeletons ───────────────────────────────────────────────────────
+
+@Composable
+private fun HomeHeaderSkeleton() {
+    val sp = LocalSpacing.current
+    val radii = LocalRadii.current
+    Column(
+        Modifier.fillMaxWidth().padding(top = sp.lg),
+        verticalArrangement = Arrangement.spacedBy(sp.sm),
+    ) {
+        ShimmerBox(Modifier.width(220.dp).height(30.dp), RoundedCornerShape(radii.sm))
+        ShimmerBox(Modifier.fillMaxWidth().height(46.dp), RoundedCornerShape(radii.md))   // streak ribbon
+        ShimmerBox(Modifier.fillMaxWidth().height(208.dp), RoundedCornerShape(radii.lg))  // continue-reading hero
+        Spacer(Modifier.height(sp.xs))
+        ShimmerBox(Modifier.width(160.dp).height(24.dp), RoundedCornerShape(radii.sm))    // shelf header
+    }
+}
+
+@Composable
+private fun SkeletonCoverCard() {
+    Column(Modifier.fillMaxWidth()) {
+        // Match the real 140×206 cover aspect so the grid keeps its shape.
+        ShimmerBox(
+            Modifier.fillMaxWidth().aspectRatio(140f / 206f),
+            RoundedCornerShape(4.dp),
+        )
+        Spacer(Modifier.height(6.dp))
+        ShimmerBox(Modifier.fillMaxWidth(0.9f).height(11.dp), RoundedCornerShape(2.dp))
+        Spacer(Modifier.height(4.dp))
+        ShimmerBox(Modifier.fillMaxWidth(0.6f).height(9.dp), RoundedCornerShape(2.dp))
     }
 }
 

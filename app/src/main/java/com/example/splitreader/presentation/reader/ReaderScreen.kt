@@ -4,7 +4,9 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,6 +15,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.MotionTokens
+import com.example.splitreader.presentation.theme.ShimmerBox
 import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -217,7 +220,7 @@ internal fun ReaderRoute(
             onRemoveBookmark = viewModel::removeBookmarkAt,
             onJumpToBookmark = viewModel::jumpToBookmark,
             onConsumeScrollRestore = viewModel::consumeScrollRestore,
-            onEnsureChapterTranslated = viewModel::ensureChapterTranslated,
+            onVisibleRange = viewModel::onVisibleRange,
             onSaveWord = viewModel::saveWord,
             onSpeak = viewModel::speak,
             onSelectWord = viewModel::selectWord,
@@ -286,7 +289,7 @@ private fun ReaderContent(
     onRemoveBookmark: (Int, Int) -> Unit,
     onJumpToBookmark: (Int, Int) -> Unit,
     onConsumeScrollRestore: () -> Unit,
-    onEnsureChapterTranslated: (Int) -> Unit,
+    onVisibleRange: (Int, Int, Int, Int) -> Unit,
     onSaveWord: (String, Int, Int) -> Unit,
     onSpeak: (String, String) -> Unit,
     onSelectWord: (String, Int, Int, Int, Int) -> Unit,
@@ -370,14 +373,23 @@ private fun ReaderContent(
             }
     }
 
-    // Translate the chapter that scrolls into view. Next-chapter preload (ML Kit) and paid
-    // look-ahead are owned by ChapterTranslationManager, so the UI only reports the visible chapter.
+    // Report the *visible paragraph span* (first→last visible item, which may cross chapter
+    // boundaries). ChapterTranslationManager translates that window plus a bounded look-ahead/behind,
+    // so everything on screen — including several short chapters at once — gets translated, and the
+    // look-ahead/behind owns the rest.
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
+        snapshotFlow {
+            val info = listState.layoutInfo.visibleItemsInfo
+            (info.firstOrNull()?.index ?: 0) to (info.lastOrNull()?.index ?: 0)
+        }
             .distinctUntilChanged()
-            .collect { globalIndex ->
-                val chapter = chapterItemStarts.indexOfLast { it <= globalIndex }.coerceAtLeast(0)
-                onEnsureChapterTranslated(chapter)
+            .debounce(120)
+            .collect { (firstIndex, lastIndex) ->
+                val startChapter = chapterItemStarts.indexOfLast { it <= firstIndex }.coerceAtLeast(0)
+                val startLocal = firstIndex - chapterItemStarts.getOrElse(startChapter) { 0 }
+                val endChapter = chapterItemStarts.indexOfLast { it <= lastIndex }.coerceAtLeast(0)
+                val endLocal = lastIndex - chapterItemStarts.getOrElse(endChapter) { 0 }
+                onVisibleRange(startChapter, startLocal, endChapter, endLocal)
             }
     }
 
@@ -437,6 +449,7 @@ private fun ReaderContent(
                     val progress = (state.translationState as TranslationState.Translating).progress
                     TranslationBanner(
                         label = if (progress <= 0) "Translating…" else "Translating… $progress%",
+                        progress = progress,
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }
@@ -942,23 +955,31 @@ private fun BookSpread(
                                 .padding(start = 12.dp, end = 32.dp)
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
                         ) {
-                            // Translation text always visible (dimmed when bubble is active)
+                            // Translation text always visible (dimmed when bubble is active).
+                            // Crossfade so the skeleton placeholder eases into the resolved
+                            // text instead of the translation snapping in at full opacity.
                             Box(Modifier.alpha(if (isSelected) 0.25f else 1f)) {
-                                if (awaitingTranslation) {
-                                    TranslationPlaceholder(style = style)
-                                } else {
-                                    ParagraphItem(
-                                        text = translated,
-                                        index = idx,
-                                        isFirstOfChapter = idx == 0,
-                                        isOriginal = false,
-                                        isActive = false,
-                                        selectedWordStart = -1,
-                                        selectedWordEnd = -1,
-                                        style = style,
-                                        onWordSelected = { _, _, _ -> },
-                                        onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
-                                    )
+                                Crossfade(
+                                    targetState = awaitingTranslation,
+                                    animationSpec = tween(MotionTokens.Medium, easing = MotionTokens.EaseStandard),
+                                    label = "translationResolve",
+                                ) { awaiting ->
+                                    if (awaiting) {
+                                        TranslationPlaceholder(style = style)
+                                    } else {
+                                        ParagraphItem(
+                                            text = translated,
+                                            index = idx,
+                                            isFirstOfChapter = idx == 0,
+                                            isOriginal = false,
+                                            isActive = false,
+                                            selectedWordStart = -1,
+                                            selectedWordEnd = -1,
+                                            style = style,
+                                            onWordSelected = { _, _, _ -> },
+                                            onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1053,24 +1074,26 @@ private fun Illustration(path: String) {
 }
 
 /**
- * Lightweight stand-in shown in the translation column while a paragraph's
- * translation is still being fetched, so the pane never appears blank on open.
+ * Shimmering skeleton shown in the translation column while a paragraph's
+ * translation is still being fetched, so the pane reads as "loading" (rather than
+ * blank or missing) and never appears empty on open.
  */
 @Composable
 private fun TranslationPlaceholder(
     style: ReadingStyle,
     modifier: Modifier = Modifier,
 ) {
-    val palette = LocalReaderPalette.current
-    Text(
-        text = "…",
-        modifier = modifier.alpha(0.4f),
-        fontFamily = style.font.fontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = style.textSize.sp,
-        lineHeight = (style.textSize * style.lineHeightMultiplier).sp,
-        color = palette.ink3,
-    )
+    val lineHeight = (style.textSize * style.lineHeightMultiplier)
+    val barHeight = (style.textSize * 0.78f).dp
+    val shape = RoundedCornerShape(3.dp)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy((lineHeight - style.textSize * 0.78f).coerceAtLeast(4f).dp),
+    ) {
+        ShimmerBox(Modifier.fillMaxWidth().height(barHeight), shape)
+        ShimmerBox(Modifier.fillMaxWidth().height(barHeight), shape)
+        ShimmerBox(Modifier.fillMaxWidth(0.6f).height(barHeight), shape)
+    }
 }
 
 @Composable
@@ -1380,15 +1403,16 @@ private fun ReaderStatusFooter(state: ReaderUiState.Success) {
 // ── Translation banner ────────────────────────────────────────────────────
 
 @Composable
-private fun TranslationBanner(label: String, modifier: Modifier = Modifier) {
+private fun TranslationBanner(label: String, modifier: Modifier = Modifier, progress: Int? = null) {
     val palette = LocalReaderPalette.current
-    Box(
+    Column(
         modifier = modifier
             .padding(top = 8.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(palette.bg2)
             .border(1.dp, palette.edge, RoundedCornerShape(20.dp))
             .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = label,
@@ -1397,6 +1421,31 @@ private fun TranslationBanner(label: String, modifier: Modifier = Modifier) {
             letterSpacing = 0.5.sp,
             color = palette.ink3,
         )
+        // Smoothly fill a thin bar as the percentage climbs, instead of the label
+        // text jumping 0% → 15% → … with nothing in between.
+        if (progress != null && progress > 0) {
+            val animated by animateFloatAsState(
+                targetValue = (progress / 100f).coerceIn(0f, 1f),
+                animationSpec = tween(MotionTokens.Medium, easing = MotionTokens.EaseStandard),
+                label = "translateProgress",
+            )
+            Spacer(Modifier.height(5.dp))
+            Box(
+                Modifier
+                    .width(120.dp)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(palette.bg3),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(animated)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(palette.accent),
+                )
+            }
+        }
     }
 }
 
