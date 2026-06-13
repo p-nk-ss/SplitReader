@@ -50,7 +50,7 @@
     <string name="account_verify_refresh">Refresh</string>
     <string name="account_sign_out">Sign out</string>
     <string name="account_delete">Delete account</string>
-    <string name="account_verification_sent">Verification email sent</string>
+    <string name="account_verification_sent">Verification email sent. If you don\'t see it within a minute, check your Spam/Junk folder.</string>
 
     <string name="auth_sign_in_title">Sign in</string>
     <string name="auth_register_title">Create account</string>
@@ -76,7 +76,8 @@
     <string name="auth_reset_title">Reset password</string>
     <string name="auth_reset_body">Enter your email and we\'ll send a password reset link.</string>
     <string name="auth_reset_action">Send link</string>
-    <string name="auth_reset_sent">If that email is registered, a reset link is on its way.</string>
+    <string name="auth_reset_spam_hint">The email arrives within a minute and may land in your Spam folder.</string>
+    <string name="auth_reset_sent">If that email is registered, a reset link is on its way. If you don\'t see it within a minute, check your Spam/Junk folder.</string>
 
     <!-- Re-authentication before deletion -->
     <string name="auth_reauth_title">Confirm it\'s you</string>

@@ -355,6 +355,14 @@ private fun PasswordResetDialog(
                 fontSize = 14.sp,
                 color = palette.ink2,
             )
+            Spacer(Modifier.height(sp.xs))
+            Text(
+                stringResource(R.string.auth_reset_spam_hint),
+                fontFamily = Newsreader,
+                fontStyle = FontStyle.Italic,
+                fontSize = 12.sp,
+                color = palette.ink3,
+            )
             Spacer(Modifier.height(sp.md))
             Box(
                 modifier = Modifier
