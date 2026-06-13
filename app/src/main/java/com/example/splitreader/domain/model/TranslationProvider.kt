@@ -22,6 +22,14 @@ enum class TranslationProvider(
         description = "On-device translation. Works offline once language packs download.",
         tracksUsage = false,
     ),
+    QUICK_TRANSLATE(
+        displayName = "Quick Translate (free, online)",
+        requiresApiKey = false,
+        requiresNetwork = true,
+        category = TranslationProviderCategory.FREE,
+        description = "Fast online translation. No setup; needs internet. May be unstable.",
+        tracksUsage = false,
+    ),
     LIBRE_TRANSLATE(
         displayName = "LibreTranslate",
         requiresApiKey = true,

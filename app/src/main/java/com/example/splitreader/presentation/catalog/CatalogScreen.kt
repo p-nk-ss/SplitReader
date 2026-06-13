@@ -11,6 +11,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,8 +41,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.domain.model.CatalogBook
+import com.example.splitreader.domain.model.CatalogSource
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -115,6 +121,7 @@ internal fun CatalogRoute(
         uiState = uiState,
         driveState = driveState,
         onQueryChange = viewModel::onQueryChange,
+        onSourceSelected = viewModel::onSourceSelected,
         onDownload = viewModel::downloadAndOpen,
         onRetry = viewModel::retry,
         onPickFromDrive = { driveViewModel.onPickFromDriveClicked(activity) },
@@ -127,6 +134,7 @@ private fun CatalogScreen(
     uiState: CatalogUiState,
     driveState: DriveUiState,
     onQueryChange: (String) -> Unit,
+    onSourceSelected: (CatalogSource) -> Unit,
     onDownload: (CatalogBook) -> Unit,
     onRetry: () -> Unit,
     onPickFromDrive: () -> Unit,
@@ -161,63 +169,137 @@ private fun CatalogScreen(
         )
         Spacer(Modifier.height(sp.md))
 
-        SearchField(query = uiState.query, onQueryChange = onQueryChange)
+        // Drive is a UI-only tab (its own pick/auth flow), not a CatalogSource — track it separately.
+        var driveSelected by rememberSaveable { mutableStateOf(false) }
+        SourceTabs(
+            selectedSource = uiState.selectedSource,
+            driveSelected = driveSelected,
+            onSelectSource = { driveSelected = false; onSourceSelected(it) },
+            onSelectDrive = { driveSelected = true },
+        )
         Spacer(Modifier.height(sp.md))
 
-        DriveSection(
-            state = driveState,
-            onPick = onPickFromDrive,
-            onSignInWithGoogle = onSignInWithGoogle,
-        )
+        if (driveSelected) {
+            DriveSection(
+                state = driveState,
+                onPick = onPickFromDrive,
+                onSignInWithGoogle = onSignInWithGoogle,
+            )
+        } else {
+            SearchField(query = uiState.query, onQueryChange = onQueryChange)
+            Spacer(Modifier.height(sp.md))
 
-        when {
-            uiState.errorMessage != null && uiState.books.isEmpty() ->
-                CenteredMessage(
-                    title = uiState.errorMessage,
-                    actionLabel = "Retry",
-                    onAction = onRetry,
-                )
-
-            uiState.isLoading && uiState.books.isEmpty() ->
-                CenteredLoader()
-
-            uiState.books.isEmpty() && uiState.hasSearched ->
-                CenteredMessage(title = "No books found", actionLabel = null, onAction = {})
-
-            uiState.books.isEmpty() ->
-                CenteredMessage(
-                    title = "Search by title or author to begin",
-                    actionLabel = null,
-                    onAction = {},
-                )
-
-            else -> LazyColumn(
-                contentPadding = PaddingValues(bottom = sp.xxl),
-                verticalArrangement = Arrangement.spacedBy(sp.sm),
-            ) {
-                item(key = "section-label") {
-                    Text(
-                        text = if (uiState.query.isBlank()) "POPULAR" else "RESULTS",
-                        fontFamily = JetBrainsMono,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 11.sp,
-                        letterSpacing = 0.5.sp,
-                        color = palette.ink3,
-                        modifier = Modifier.padding(bottom = sp.xs),
+            when {
+                uiState.errorMessage != null && uiState.books.isEmpty() ->
+                    CenteredMessage(
+                        title = uiState.errorMessage,
+                        actionLabel = "Retry",
+                        onAction = onRetry,
                     )
-                }
-                items(uiState.books, key = { it.id }) { book ->
-                    Box(Modifier.animateItem()) {
-                        CatalogRow(
-                            book = book,
-                            isDownloading = uiState.downloadingId == book.id,
-                            downloadEnabled = uiState.downloadingId == null,
-                            onDownload = { onDownload(book) },
+
+                uiState.isLoading && uiState.books.isEmpty() ->
+                    CenteredLoader()
+
+                uiState.books.isEmpty() && uiState.hasSearched ->
+                    CenteredMessage(title = "No books found", actionLabel = null, onAction = {})
+
+                uiState.books.isEmpty() ->
+                    CenteredMessage(
+                        title = "Search by title or author to begin",
+                        actionLabel = null,
+                        onAction = {},
+                    )
+
+                else -> LazyColumn(
+                    contentPadding = PaddingValues(bottom = sp.xxl),
+                    verticalArrangement = Arrangement.spacedBy(sp.sm),
+                ) {
+                    item(key = "section-label") {
+                        Text(
+                            text = if (uiState.query.isBlank()) "POPULAR" else "RESULTS",
+                            fontFamily = JetBrainsMono,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.5.sp,
+                            color = palette.ink3,
+                            modifier = Modifier.padding(bottom = sp.xs),
                         )
+                    }
+                    items(uiState.books, key = { "${it.source.name}/${it.id}" }) { book ->
+                        Box(Modifier.animateItem()) {
+                            CatalogRow(
+                                book = book,
+                                isDownloading = uiState.downloadingId == book.id,
+                                downloadEnabled = uiState.downloadingId == null,
+                                onDownload = { onDownload(book) },
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * Editorial source switcher: one pill per [CatalogSource] plus a Google Drive pill. The active one
+ * fills with the accent. Scrolls horizontally so the labels never clip on narrow screens.
+ */
+@Composable
+private fun SourceTabs(
+    selectedSource: CatalogSource,
+    driveSelected: Boolean,
+    onSelectSource: (CatalogSource) -> Unit,
+    onSelectDrive: () -> Unit,
+) {
+    val sp = LocalSpacing.current
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(sp.sm),
+    ) {
+        CatalogSource.entries.forEach { source ->
+            TabPill(
+                label = source.displayName,
+                selected = !driveSelected && source == selectedSource,
+                onClick = { onSelectSource(source) },
+            )
+        }
+        TabPill(
+            label = "Google Drive",
+            selected = driveSelected,
+            onClick = onSelectDrive,
+        )
+    }
+}
+
+/** A single accent-filled-when-selected pill used by [SourceTabs]. */
+@Composable
+private fun TabPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
+    val interaction = remember { MutableInteractionSource() }
+    val bg = animatedSelection(if (selected) palette.accent else palette.bg2, "tab-$label")
+    Box(
+        modifier = Modifier
+            .pressScale(interaction)
+            .clip(RoundedCornerShape(LocalRadii.current.sm))
+            .background(bg)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = sp.md, vertical = sp.xs),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Medium,
+            fontSize = 12.sp,
+            letterSpacing = 0.5.sp,
+            color = if (selected) palette.bg else palette.ink2,
+        )
     }
 }
 
@@ -279,15 +361,6 @@ private fun DriveSection(
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
     Column(Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.drive_section_label),
-            fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-            letterSpacing = 0.5.sp,
-            color = palette.ink3,
-            modifier = Modifier.padding(bottom = sp.xs),
-        )
         if (state.isSignedInWithGoogle) {
             Row(
                 modifier = Modifier
@@ -502,7 +575,7 @@ private fun DownloadButton(isDownloading: Boolean, enabled: Boolean, onClick: ()
     }
 }
 
-/** Cover image fetched directly from the Gutenberg cover URL; falls back to a book icon tile. */
+/** Cover image fetched directly from the source's cover URL; falls back to a book icon tile. */
 @Composable
 private fun CoverThumb(url: String?) {
     val palette = LocalReaderPalette.current

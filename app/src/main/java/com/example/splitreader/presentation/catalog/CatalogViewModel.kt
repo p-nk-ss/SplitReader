@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.catalog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.domain.model.CatalogBook
+import com.example.splitreader.domain.model.CatalogSource
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.CatalogRepository
@@ -22,10 +23,11 @@ private const val SEARCH_DEBOUNCE_MS = 350L
 
 data class CatalogUiState(
     val query: String = "",
+    val selectedSource: CatalogSource = CatalogSource.GUTENBERG,
     val books: List<CatalogBook> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val downloadingId: Int? = null,
+    val downloadingId: String? = null,
     val hasSearched: Boolean = false,
 )
 
@@ -59,14 +61,22 @@ class CatalogViewModel @Inject constructor(
         }
     }
 
+    /** Switches the active catalog source, clearing the current list and re-running the query under it. */
+    fun onSourceSelected(source: CatalogSource) {
+        if (source == _uiState.value.selectedSource) return
+        _uiState.update { it.copy(selectedSource = source, books = emptyList(), hasSearched = false) }
+        runSearch(_uiState.value.query)
+    }
+
     fun retry() = runSearch(_uiState.value.query)
 
     private fun runSearch(query: String) {
         searchJob?.cancel()
+        val source = _uiState.value.selectedSource
         searchJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                val page = catalogRepository.search(query, languages = emptyList(), page = 1)
+                val page = catalogRepository.search(query, source = source, page = 1)
                 _uiState.update {
                     it.copy(books = page.books, isLoading = false, hasSearched = true)
                 }
