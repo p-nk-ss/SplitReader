@@ -102,6 +102,10 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import com.example.splitreader.R
+import com.example.splitreader.presentation.ui.LibraryLimitDialog
 import com.example.splitreader.presentation.ui.LibraryTagButton
 import java.time.Instant
 import java.time.LocalDate
@@ -159,6 +163,8 @@ internal fun HomeRoute(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var showLimitDialog by remember { mutableStateOf(false) }
 
     val fileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -166,6 +172,19 @@ internal fun HomeRoute(
 
     LaunchedEffect(Unit) {
         viewModel.navigationEvent.collect { path -> onNavigateToReader(path) }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.limitReachedEvent.collect { showLimitDialog = true }
+    }
+
+    if (showLimitDialog) {
+        LibraryLimitDialog(
+            onDismiss = { showLimitDialog = false },
+            onUpgrade = {
+                showLimitDialog = false
+                Toast.makeText(context, R.string.library_upgrade_coming_soon, Toast.LENGTH_SHORT).show()
+            },
+        )
     }
 
     HomeScreen(

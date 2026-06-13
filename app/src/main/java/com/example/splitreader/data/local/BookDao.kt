@@ -19,4 +19,10 @@ interface BookDao {
 
     @Query("DELETE FROM books WHERE uri = :uri")
     suspend fun deleteByUri(uri: String)
+
+    @Query("SELECT COUNT(*) FROM books")
+    suspend fun count(): Int
+
+    @Query("SELECT EXISTS(SELECT 1 FROM books WHERE uri = :uri)")
+    suspend fun exists(uri: String): Boolean
 }

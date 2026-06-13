@@ -10,6 +10,7 @@ import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
+import com.example.splitreader.domain.repository.EntitlementRepository
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.presentation.reader.TranslatorConfigState
 import com.example.splitreader.presentation.reader.buildTranslatorConfigState
@@ -48,6 +49,8 @@ data class SettingsUiState(
     // Read aloud
     val ttsRate: Float = 1.0f,
     val ttsPitch: Float = 1.0f,
+    // Entitlement (debug-only toggle in the UI)
+    val isPremium: Boolean = false,
 )
 
 @HiltViewModel
@@ -58,6 +61,7 @@ class SettingsViewModel @Inject constructor(
     private val usageTracker: TranslationUsageTracker,
     private val translationDao: TranslationDao,
     private val textToSpeechManager: TextToSpeechManager,
+    private val entitlementRepository: EntitlementRepository,
     private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
 ) : ViewModel() {
 
@@ -69,6 +73,16 @@ class SettingsViewModel @Inject constructor(
 
     init {
         refreshCacheCount()
+        viewModelScope.launch {
+            entitlementRepository.isPremium.collect { premium ->
+                _state.update { it.copy(isPremium = premium) }
+            }
+        }
+    }
+
+    /** Debug-only: flip premium to test the unlocked (unlimited-library) state. */
+    fun setPremiumDebug(premium: Boolean) {
+        entitlementRepository.setPremium(premium)
     }
 
     private fun loadState(): SettingsUiState = SettingsUiState(

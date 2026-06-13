@@ -14,6 +14,8 @@ import com.example.splitreader.domain.repository.AuthRepository
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
+import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase
+import com.example.splitreader.domain.usecase.AddResult
 import com.example.splitreader.domain.usecase.GetStreakUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +36,7 @@ class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val parseBookUseCase: ParseBookUseCase,
     private val bookLibraryRepository: BookLibraryRepository,
+    private val addBookToLibraryUseCase: AddBookToLibraryUseCase,
     private val progressManager: ReadingProgressManager,
     private val sessionRepository: ReadingSessionRepository,
     private val savedWordRepository: SavedWordRepository,
@@ -106,16 +109,25 @@ class HomeViewModel @Inject constructor(
     private val _navigationEvent = Channel<String>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
+    /** Emitted when a free-tier user tries to add a book past the limit; the screen shows the dialog. */
+    private val _limitReachedEvent = Channel<Unit>(Channel.BUFFERED)
+    val limitReachedEvent = _limitReachedEvent.receiveAsFlow()
+
     private var parseJob: Job? = null
 
     fun openBook(uri: Uri) {
-        // Persist read permission so the URI stays accessible across app restarts
-        try {
-            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } catch (_: SecurityException) { }
-
         parseJob?.cancel()
         parseJob = viewModelScope.launch {
+            // Gate before parsing so we never do the work for a book we can't keep.
+            if (!addBookToLibraryUseCase.canAddNew(uri.toString())) {
+                _limitReachedEvent.trySend(Unit)
+                return@launch
+            }
+            // Persist read permission so the URI stays accessible across app restarts
+            try {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) { }
+
             parseBookUseCase(uri).collect { result ->
                 when (result) {
                     is ParseResult.Loading -> {
@@ -123,9 +135,11 @@ class HomeViewModel @Inject constructor(
                         _errorMessage.value = null
                     }
                     is ParseResult.Success -> {
-                        bookLibraryRepository.saveBook(result.book)
                         _isLoading.value = false
-                        _navigationEvent.trySend(result.book.filePath)
+                        when (addBookToLibraryUseCase.add(result.book)) {
+                            AddResult.Added -> _navigationEvent.trySend(result.book.filePath)
+                            AddResult.LimitReached -> _limitReachedEvent.trySend(Unit)
+                        }
                     }
                     is ParseResult.Error -> {
                         _isLoading.value = false

@@ -13,8 +13,9 @@ import com.example.splitreader.domain.model.AuthState
 import com.example.splitreader.domain.model.DrivePickedFile
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.repository.AuthRepository
-import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.DriveRepository
+import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase
+import com.example.splitreader.domain.usecase.AddResult
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,7 @@ data class DriveUiState(
     /** True while authorizing, picking, or downloading — drives the section's spinner. */
     val isBusy: Boolean = false,
     val errorMessage: String? = null,
+    val showLimitDialog: Boolean = false,
 )
 
 /** Asks the Composable to launch the Authorization PendingIntent (consent + Drive Picker UI). */
@@ -56,7 +58,7 @@ class DriveViewModel @Inject constructor(
     private val driveAuthClient: DriveAuthClient,
     private val driveRepository: DriveRepository,
     private val parseBookUseCase: ParseBookUseCase,
-    private val bookLibraryRepository: BookLibraryRepository,
+    private val addBookToLibraryUseCase: AddBookToLibraryUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DriveUiState())
@@ -135,15 +137,22 @@ class DriveViewModel @Inject constructor(
     }
 
     private suspend fun downloadAndOpen(file: DrivePickedFile, accessToken: String) {
+        // Gate before downloading so a free-tier user at the limit never pulls the file from Drive.
+        if (!addBookToLibraryUseCase.canAddNew(null)) {
+            _uiState.update { it.copy(isBusy = false, showLimitDialog = true) }
+            return
+        }
         try {
             val uri = driveRepository.downloadFile(file, accessToken)
             parseBookUseCase(uri).collect { result ->
                 when (result) {
                     is ParseResult.Loading -> Unit
                     is ParseResult.Success -> {
-                        bookLibraryRepository.saveBook(result.book)
                         _uiState.update { it.copy(isBusy = false) }
-                        _navigationEvent.trySend(result.book.filePath)
+                        when (addBookToLibraryUseCase.add(result.book)) {
+                            AddResult.Added -> _navigationEvent.trySend(result.book.filePath)
+                            AddResult.LimitReached -> _uiState.update { it.copy(showLimitDialog = true) }
+                        }
                     }
                     // Surface the parser's real reason (unsupported, corrupt, no chapters, …) so
                     // failures are diagnosable instead of hidden behind a generic message.
@@ -167,6 +176,10 @@ class DriveViewModel @Inject constructor(
 
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun dismissLimitDialog() {
+        _uiState.update { it.copy(showLimitDialog = false) }
     }
 
     private fun fail(resId: Int) {

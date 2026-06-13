@@ -32,4 +32,8 @@ class BookLibraryRepositoryImpl @Inject constructor(
         bookDao.updateLastOpenedAt(uri, System.currentTimeMillis())
 
     override suspend fun deleteBook(uri: String) = bookDao.deleteByUri(uri)
+
+    override suspend fun bookCount(): Int = bookDao.count()
+
+    override suspend fun exists(uri: String): Boolean = bookDao.exists(uri)
 }

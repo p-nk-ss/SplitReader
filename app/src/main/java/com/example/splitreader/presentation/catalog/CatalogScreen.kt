@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.catalog
 
 import android.app.Activity
 import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,6 +78,7 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
+import com.example.splitreader.presentation.ui.LibraryLimitDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URL
@@ -115,6 +117,20 @@ internal fun CatalogRoute(
                     )
             }
         }
+    }
+
+    if (uiState.showLimitDialog || driveState.showLimitDialog) {
+        LibraryLimitDialog(
+            onDismiss = {
+                viewModel.dismissLimitDialog()
+                driveViewModel.dismissLimitDialog()
+            },
+            onUpgrade = {
+                viewModel.dismissLimitDialog()
+                driveViewModel.dismissLimitDialog()
+                Toast.makeText(activity, R.string.library_upgrade_coming_soon, Toast.LENGTH_SHORT).show()
+            },
+        )
     }
 
     CatalogScreen(

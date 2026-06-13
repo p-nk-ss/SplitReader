@@ -5,6 +5,15 @@
     <string name="badge_english">English</string>
     <string name="downloading_model">Downloading language model…</string>
 
+    <!-- Free-tier library limit -->
+    <string name="library_limit_title">Library is full</string>
+    <string name="library_limit_body">The free version holds up to %1$d books. Delete one to make room — or upgrade for an unlimited library.</string>
+    <string name="library_limit_upgrade">Upgrade</string>
+    <string name="library_limit_dismiss">Got it</string>
+    <string name="library_upgrade_coming_soon">Upgrade is coming soon.</string>
+    <string name="settings_debug_premium">Premium (debug)</string>
+    <string name="settings_debug_premium_desc">Unlock unlimited library for testing. Debug builds only.</string>
+
     <!-- Words (dictionary) screen -->
     <string name="words_title">Words</string>
     <string name="words_empty_hint">Long-press any word in the reader\nto save it to your words.</string>

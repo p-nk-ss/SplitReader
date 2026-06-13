@@ -30,11 +30,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.splitreader.BuildConfig
+import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.presentation.reader.TranslatorPickerDialog
 import com.example.splitreader.presentation.theme.AmoledPalette
@@ -80,6 +83,7 @@ fun SettingsRoute(viewModel: SettingsViewModel = hiltViewModel()) {
         onSetTtsRate = viewModel::setTtsRate,
         onSetTtsPitch = viewModel::setTtsPitch,
         onTestVoice = viewModel::testVoice,
+        onSetPremiumDebug = viewModel::setPremiumDebug,
     )
 }
 
@@ -108,6 +112,7 @@ fun SettingsScreen(
     onSetTtsRate: (Float) -> Unit,
     onSetTtsPitch: (Float) -> Unit,
     onTestVoice: () -> Unit,
+    onSetPremiumDebug: (Boolean) -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
@@ -295,6 +300,19 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(sp.lg))
+
+        // ── Debug (debug builds only) ───────────────────────────────────────
+        if (BuildConfig.DEBUG) {
+            SettingsSection(title = "Debug") {
+                ToggleRow(
+                    label = stringResource(R.string.settings_debug_premium),
+                    sub = stringResource(R.string.settings_debug_premium_desc),
+                    checked = state.isPremium,
+                    onToggle = { onSetPremiumDebug(!state.isPremium) },
+                )
+            }
+            Spacer(Modifier.height(sp.lg))
+        }
 
         // ── About ───────────────────────────────────────────────────────────
         AboutSection()

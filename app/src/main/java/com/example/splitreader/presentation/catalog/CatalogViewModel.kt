@@ -5,8 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogSource
 import com.example.splitreader.domain.model.ParseResult
-import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.CatalogRepository
+import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase
+import com.example.splitreader.domain.usecase.AddResult
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -29,13 +30,14 @@ data class CatalogUiState(
     val errorMessage: String? = null,
     val downloadingId: String? = null,
     val hasSearched: Boolean = false,
+    val showLimitDialog: Boolean = false,
 )
 
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val parseBookUseCase: ParseBookUseCase,
-    private val bookLibraryRepository: BookLibraryRepository,
+    private val addBookToLibraryUseCase: AddBookToLibraryUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CatalogUiState())
@@ -96,6 +98,11 @@ class CatalogViewModel @Inject constructor(
         if (_uiState.value.downloadingId != null) return
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch {
+            // Gate before downloading so a free-tier user at the limit never pulls the file.
+            if (!addBookToLibraryUseCase.canAddNew(null)) {
+                _uiState.update { it.copy(showLimitDialog = true) }
+                return@launch
+            }
             _uiState.update { it.copy(downloadingId = book.id, errorMessage = null) }
             try {
                 val uri = catalogRepository.downloadEpub(book)
@@ -103,9 +110,11 @@ class CatalogViewModel @Inject constructor(
                     when (result) {
                         is ParseResult.Loading -> Unit
                         is ParseResult.Success -> {
-                            bookLibraryRepository.saveBook(result.book)
                             _uiState.update { it.copy(downloadingId = null) }
-                            _navigationEvent.trySend(result.book.filePath)
+                            when (addBookToLibraryUseCase.add(result.book)) {
+                                AddResult.Added -> _navigationEvent.trySend(result.book.filePath)
+                                AddResult.LimitReached -> _uiState.update { it.copy(showLimitDialog = true) }
+                            }
                         }
                         is ParseResult.Error -> _uiState.update {
                             it.copy(downloadingId = null, errorMessage = result.message)
@@ -123,5 +132,9 @@ class CatalogViewModel @Inject constructor(
 
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun dismissLimitDialog() {
+        _uiState.update { it.copy(showLimitDialog = false) }
     }
 }
