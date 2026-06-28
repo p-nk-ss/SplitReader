@@ -1,0 +1,49 @@
+Read any book in two languages at once. Mirrolit shows the original text and a live translation side by side, so you understand every line while you keep reading in the original.
+
+Open an EPUB, FB2, or classic MOBI file and Mirrolit detects the source language automatically and translates into the language you choose — paragraph by paragraph, right next to the original.
+
+WHY MIRROLIT
+
+• Side-by-side reading — original on one side, translation on the other. No copy-pasting, no switching apps.
+• Private by default — the built-in Google ML Kit engine translates fully on your device. Once a language pack is downloaded, it works offline and nothing you read is sent anywhere.
+• Auto language detection — just open a book; Mirrolit figures out the source language for you.
+• 12 target languages — English, Russian, German, French, Spanish, Italian, Chinese, Japanese, Portuguese, Arabic, Korean, and Turkish.
+
+TRANSLATION ENGINES, YOUR CHOICE
+
+• ML Kit (offline) — free, on-device, no setup.
+• Quick Translate — fast online translation, no account needed.
+• Bring your own key — DeepL, Google Cloud Translation, Microsoft Azure Translator, or LibreTranslate (including self-hosted) for advanced quality. API keys are stored encrypted on your device.
+
+A LIBRARY THAT FEELS LIKE READING
+
+• Beautiful, editorial typography — 4 themes (Paper, Sepia, Night, AMOLED) and 9 reading typefaces.
+• Fine-tune everything — font size, line height, paragraph and letter spacing, indent, justification, and hyphenation.
+• Inline illustrations in EPUB and FB2 books.
+• Read aloud — built-in text-to-speech with adjustable rate and pitch.
+
+FREE BOOKS BUILT IN
+
+• Browse and download public-domain classics from Project Gutenberg and Standard Ebooks, right inside the app — no account, no cost.
+• Import your own books from device storage or Google Drive.
+
+TOOLS FOR LANGUAGE LEARNERS
+
+• Tap and save words to your personal vocabulary.
+• Add notes and bookmarks as you read.
+• Track your progress in the Almanac — reading streak, minutes, pages, a 26-week activity heatmap, and time by book and language.
+• Your reading position is remembered for every book.
+
+PRIVACY FIRST
+
+• No account required to read.
+• Default translation runs on-device; your books and reading stats stay on your phone.
+• Optional online engines only send text when you choose to enable them.
+
+FREE & PREMIUM
+
+Mirrolit is free to use with a library of up to 3 books. Unlock an unlimited library with a single one-time Premium purchase — no subscription.
+
+Supported formats: EPUB, FB2, and classic MOBI. (DRM-protected files cannot be opened.)
+
+Start reading the world's books in your language — and the original — at the same time.
