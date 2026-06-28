@@ -23,6 +23,10 @@
 -keep class com.google.mlkit.** { *; }
 -keep class com.google.android.gms.** { *; }
 
+# ── Crashlytics: keep line numbers so deobfuscated stack traces are readable ───
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
 # ── Gson / Retrofit DTOs ──────────────────────────────────────────────────────
 # The online translators (DeepL, Azure, Google Cloud, LibreTranslate) serialize
 # request/response data classes through Gson (via Retrofit's GsonConverterFactory).

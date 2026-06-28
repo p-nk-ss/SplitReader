@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.parser.BookParser
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,6 +22,7 @@ import javax.inject.Inject
 class ParseBookUseCase @Inject constructor(
     private val parsers: Set<@JvmSuppressWildcards BookParser>,
     @ApplicationContext private val context: Context,
+    private val crashReporter: CrashReporter,
 ) {
     /** Parses the book at [uri], emitting loading → success/error. Runs on [Dispatchers.IO]. */
     operator fun invoke(uri: Uri): Flow<ParseResult> = flow {
@@ -44,6 +46,7 @@ class ParseBookUseCase @Inject constructor(
             emit(ParseResult.Success(book))
         } catch (e: Exception) {
             Log.e("PARSER", "Parse error: ${e.message}", e)
+            crashReporter.recordNonFatal(e, "Book parse failed")
             emit(ParseResult.Error(e.message ?: "Failed to open book"))
         }
     }.flowOn(Dispatchers.IO)

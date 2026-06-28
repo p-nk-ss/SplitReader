@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.catalog
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogSource
 import com.example.splitreader.domain.model.ParseResult
@@ -38,6 +39,7 @@ class CatalogViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val parseBookUseCase: ParseBookUseCase,
     private val addBookToLibraryUseCase: AddBookToLibraryUseCase,
+    private val crashReporter: CrashReporter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CatalogUiState())
@@ -123,6 +125,7 @@ class CatalogViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                crashReporter.recordNonFatal(e, "Catalog download failed: ${book.id}")
                 _uiState.update {
                     it.copy(downloadingId = null, errorMessage = e.message ?: "Download failed")
                 }

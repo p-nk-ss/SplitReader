@@ -279,7 +279,8 @@ backup-rules, но стоит решить осознанно.
   [x] 5. security-crypto (alpha) удалён — заменён на Keystore AES-GCM в ApiKeyManager
 
 🟡 Желательно до релиза:
-  [ ] 6. Firebase Crashlytics (release-only)
+  [x] 6. Firebase Crashlytics (release-only) — плагин+зависимость, gate в Application,
+         CrashReporter-seam в ParseBookUseCase + CatalogViewModel, mapping-upload в release
   [ ] 7. Проверить/решить allowBackup + exclude секретов
   [ ] 8. Log.* — снимется автоматически после R8
   [ ] 9. Хардкоженные строки → strings.xml
