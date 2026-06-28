@@ -22,3 +22,24 @@
 
 -keep class com.google.mlkit.** { *; }
 -keep class com.google.android.gms.** { *; }
+
+# ── Gson / Retrofit DTOs ──────────────────────────────────────────────────────
+# The online translators (DeepL, Azure, Google Cloud, LibreTranslate) serialize
+# request/response data classes through Gson (via Retrofit's GsonConverterFactory).
+# Gson maps JSON by reflection, so these model classes and their fields must survive
+# R8 renaming. They carry @SerializedName, but the annotation only helps if the
+# annotated members and the annotation metadata are kept.
+-keepattributes Signature, *Annotation*, EnclosingMethod, InnerClasses
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+# Translator request/response models (com.example.splitreader.data.translator.api.*Api.kt).
+-keep class com.example.splitreader.data.translator.api.** { *; }
+
+# ── Retrofit ──────────────────────────────────────────────────────────────────
+# Retrofit and OkHttp ship consumer rules, but suspend-fun service methods rely on
+# generic Signature metadata to resolve their return types — keep it for our APIs.
+-keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
