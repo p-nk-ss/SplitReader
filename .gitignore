@@ -13,6 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+# Release signing — keystore and its passwords must never be committed
+keystore.properties
+*.jks
+*.keystore
 .claude/
 graphify-out/
 .graphify_python
