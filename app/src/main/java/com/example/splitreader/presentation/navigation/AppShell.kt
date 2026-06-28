@@ -1,5 +1,6 @@
 package com.example.splitreader.presentation.navigation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,7 +42,7 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.ui.BrandIcon
+import com.example.splitreader.R
 
 @Composable
 fun AppShell(
@@ -225,10 +227,13 @@ private fun EditorialNavigationRail(
 
 @Composable
 private fun RailWordmark() {
-    // On dark themes use the inverted (cream) brand mark so the wordmark stays
-    // legible against the dark rail; the default ink tile is used on light themes.
-    val palette = LocalReaderPalette.current
-    BrandIcon(modifier = Modifier.size(44.dp), inverted = palette.isDark)
+    // The Mirrolit logo carries its own brown tile + transparent margins, so it reads on both
+    // light and dark rails without a theme-inverted variant.
+    Image(
+        painter = painterResource(R.drawable.mirrolit_logo),
+        contentDescription = "Mirrolit",
+        modifier = Modifier.size(44.dp),
+    )
 }
 
 @Composable
