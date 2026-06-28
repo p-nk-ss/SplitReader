@@ -6,9 +6,12 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!-- Never back up translation-provider secrets/endpoints. EncryptedSharedPreferences is also
-         keyed to this device's Keystore, so a restored copy would be undecryptable. -->
+    <!-- Never back up translation-provider secrets/endpoints. The keys are AES-GCM encrypted with a
+         device-bound Android Keystore key, so a restored copy would be undecryptable anyway. -->
     <exclude domain="sharedpref" path="translator_keys_enc.xml"/>
     <exclude domain="sharedpref" path="translator_keys.xml"/>
     <exclude domain="sharedpref" path="translator_endpoints.xml"/>
+    <!-- Premium entitlement is a local cache; the source of truth is Play Billing. Excluding it
+         stops a backup/restore from carrying over a stale or forced premium flag. -->
+    <exclude domain="sharedpref" path="entitlement.xml"/>
 </full-backup-content>
