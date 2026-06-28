@@ -272,18 +272,20 @@ backup-rules, но стоит решить осознанно.
 
 ```
 🔴 Код / сборка:
-  [ ] 1. Release signing config + keystore вне репозитория
-  [ ] 2. isMinifyEnabled = true + isShrinkResources = true
-  [ ] 3. Расширенные ProGuard-правила (Room, Gson, Hilt, Retrofit, Firebase)
+  [x] 1. Release signing config + keystore вне репозитория
+  [x] 2. isMinifyEnabled = true + isShrinkResources = true
+  [x] 3. Расширенные ProGuard-правила (Gson/Retrofit DTO + Crashlytics SourceFile)
   [ ] 4. Google Play Billing — реальная покупка премиума + restore (заменить Toast)
   [x] 5. security-crypto (alpha) удалён — заменён на Keystore AES-GCM в ApiKeyManager
 
 🟡 Желательно до релиза:
   [x] 6. Firebase Crashlytics (release-only) — плагин+зависимость, gate в Application,
          CrashReporter-seam в ParseBookUseCase + CatalogViewModel, mapping-upload в release
-  [ ] 7. Проверить/решить allowBackup + exclude секретов
-  [ ] 8. Log.* — снимется автоматически после R8
-  [ ] 9. Хардкоженные строки → strings.xml
+  [x] 7. allowBackup=true оставлен; секреты переводчиков + entitlement.xml исключены
+         из cloud-backup и device-transfer
+  [x] 8. Log.* — вырезается R8 в release (minify включён)
+  [x] 9. Хардкод-строки Almanac (empty/streak/heatmap/no-data) + Reader on-device
+         баннер → strings.xml. Полный UI-свип — в 1.1 (локализация)
 
 🔴 Процесс публикации:
   [ ] 10. Play Console: privacy policy, Data Safety, рейтинг, листинг, скриншоты,

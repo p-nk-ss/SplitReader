@@ -32,12 +32,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.splitreader.R
 import com.example.splitreader.data.local.DailyMinutes
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
@@ -165,8 +167,8 @@ private fun EmptyAlmanac() {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("BEGIN", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
-            Text("Open a book to start tracking your reading.", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = palette.ink)
-            Text("Your streak, minutes, and word counts will appear here.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
+            Text(stringResource(R.string.almanac_empty_title), fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 17.sp, color = palette.ink)
+            Text(stringResource(R.string.almanac_empty_body), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
         }
     }
 }
@@ -199,7 +201,7 @@ private fun StreakHeroCard(current: Int, longest: Int, modifier: Modifier = Modi
                 Row {
                     Text("Longest: ", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
                     Text("$longest days", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
-                    Text(" · keep going to beat it.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
+                    Text(stringResource(R.string.almanac_streak_encourage), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
                 }
             }
         }
@@ -283,7 +285,7 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("LAST 26 WEEKS", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
-            Text("$activeDays ACTIVE DAYS · ${totalMins} MIN", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+            Text(stringResource(R.string.almanac_heatmap_summary, activeDays, totalMins), fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
         }
         Spacer(Modifier.height(8.dp))
         Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
@@ -353,7 +355,7 @@ private fun TimeByBookCard(books: List<com.example.splitreader.data.local.BookMi
             Spacer(Modifier.height(8.dp))
         }
         if (books.isEmpty()) {
-            Text("No reading sessions yet.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
+            Text(stringResource(R.string.almanac_no_sessions), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
         }
     }
 }
@@ -376,7 +378,7 @@ private fun LanguagesCard(langs: List<com.example.splitreader.data.local.LangMin
             Spacer(Modifier.height(6.dp))
         }
         if (langs.isEmpty()) {
-            Text("No data yet.", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
+            Text(stringResource(R.string.almanac_no_data), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 14.sp, color = palette.ink3)
         }
     }
 }

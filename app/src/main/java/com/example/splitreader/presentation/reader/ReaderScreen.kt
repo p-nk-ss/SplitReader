@@ -1842,8 +1842,8 @@ private fun LanguagePickerDialog(
             Icon(Icons.Outlined.Language, null, tint = palette.ink3, modifier = Modifier.size(16.dp))
             Column {
                 Row {
-                    Text("On-device translation · ", fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
-                    Text("no cloud calls", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                    Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
+                    Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
                 }
                 Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
             }

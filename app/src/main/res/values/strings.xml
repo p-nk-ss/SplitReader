@@ -34,6 +34,18 @@
     <string name="action_delete">Delete</string>
     <string name="action_cancel">Cancel</string>
 
+    <!-- Almanac (reading stats) -->
+    <string name="almanac_empty_title">Open a book to start tracking your reading.</string>
+    <string name="almanac_empty_body">Your streak, minutes, and word counts will appear here.</string>
+    <string name="almanac_streak_encourage">" · keep going to beat it."</string>
+    <string name="almanac_heatmap_summary">%1$d ACTIVE DAYS · %2$d MIN</string>
+    <string name="almanac_no_sessions">No reading sessions yet.</string>
+    <string name="almanac_no_data">No data yet.</string>
+
+    <!-- Reader: on-device translation banner -->
+    <string name="reader_ondevice_translation">"On-device translation · "</string>
+    <string name="reader_no_cloud_calls">no cloud calls</string>
+
     <!-- Errors -->
     <string name="error_file_access">Can\'t access this file — reopen it via \"Open book\".</string>
 
