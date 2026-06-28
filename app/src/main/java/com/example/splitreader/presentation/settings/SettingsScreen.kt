@@ -43,6 +43,9 @@ import com.example.splitreader.presentation.reader.TranslatorPickerDialog
 import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
+import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase.Companion.FREE_BOOK_LIMIT
+import com.example.splitreader.presentation.premium.PremiumViewModel
+import com.example.splitreader.presentation.premium.PurchaseEventEffect
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
@@ -57,8 +60,12 @@ import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
 
 @Composable
-fun SettingsRoute(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsRoute(
+    viewModel: SettingsViewModel = hiltViewModel(),
+    premiumViewModel: PremiumViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsState()
+    PurchaseEventEffect(premiumViewModel)
     SettingsScreen(
         state = state,
         onSetReaderTheme = viewModel::setReaderTheme,
@@ -84,6 +91,7 @@ fun SettingsRoute(viewModel: SettingsViewModel = hiltViewModel()) {
         onSetTtsPitch = viewModel::setTtsPitch,
         onTestVoice = viewModel::testVoice,
         onSetPremiumDebug = viewModel::setPremiumDebug,
+        onRestorePurchase = premiumViewModel::restore,
     )
 }
 
@@ -113,6 +121,7 @@ fun SettingsScreen(
     onSetTtsPitch: (Float) -> Unit,
     onTestVoice: () -> Unit,
     onSetPremiumDebug: (Boolean) -> Unit,
+    onRestorePurchase: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
@@ -296,6 +305,25 @@ fun SettingsScreen(
                 label = "Test voice",
                 selected = false,
                 onClick = onTestVoice,
+            )
+        }
+
+        Spacer(Modifier.height(sp.lg))
+
+        // ── Premium ─────────────────────────────────────────────────────────
+        SettingsSection(title = stringResource(R.string.premium_section)) {
+            Text(
+                text = if (state.isPremium) stringResource(R.string.premium_active)
+                    else stringResource(R.string.premium_inactive, FREE_BOOK_LIMIT),
+                fontFamily = Newsreader,
+                fontSize = 14.sp,
+                color = palette.ink2,
+            )
+            Spacer(Modifier.height(sp.sm))
+            SelectChip(
+                label = stringResource(R.string.premium_restore),
+                selected = false,
+                onClick = onRestorePurchase,
             )
         }
 

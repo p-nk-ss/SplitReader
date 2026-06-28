@@ -102,9 +102,10 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import android.widget.Toast
+import android.app.Activity
 import androidx.compose.ui.platform.LocalContext
-import com.example.splitreader.R
+import com.example.splitreader.presentation.premium.PremiumViewModel
+import com.example.splitreader.presentation.premium.PurchaseEventEffect
 import com.example.splitreader.presentation.ui.LibraryLimitDialog
 import com.example.splitreader.presentation.ui.LibraryTagButton
 import java.time.Instant
@@ -163,7 +164,10 @@ internal fun HomeRoute(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val activity = LocalContext.current as Activity
+    val premiumViewModel: PremiumViewModel = hiltViewModel()
+    val price by premiumViewModel.priceText.collectAsStateWithLifecycle()
+    PurchaseEventEffect(premiumViewModel)
     var showLimitDialog by remember { mutableStateOf(false) }
 
     val fileLauncher = rememberLauncherForActivityResult(
@@ -182,8 +186,9 @@ internal fun HomeRoute(
             onDismiss = { showLimitDialog = false },
             onUpgrade = {
                 showLimitDialog = false
-                Toast.makeText(context, R.string.library_upgrade_coming_soon, Toast.LENGTH_SHORT).show()
+                premiumViewModel.upgrade(activity)
             },
+            priceText = price,
         )
     }
 

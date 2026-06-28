@@ -2,7 +2,6 @@ package com.example.splitreader.presentation.catalog
 
 import android.app.Activity
 import android.graphics.BitmapFactory
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -78,6 +77,8 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
+import com.example.splitreader.presentation.premium.PremiumViewModel
+import com.example.splitreader.presentation.premium.PurchaseEventEffect
 import com.example.splitreader.presentation.ui.LibraryLimitDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -95,6 +96,9 @@ internal fun CatalogRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val driveState by driveViewModel.uiState.collectAsStateWithLifecycle()
     val activity = LocalContext.current as Activity
+    val premiumViewModel: PremiumViewModel = hiltViewModel()
+    val price by premiumViewModel.priceText.collectAsStateWithLifecycle()
+    PurchaseEventEffect(premiumViewModel)
 
     // The Authorization PendingIntent (consent + Drive Picker) must be launched from the UI layer,
     // not the ViewModel; the picked file id rides back on the same result.
@@ -128,8 +132,9 @@ internal fun CatalogRoute(
             onUpgrade = {
                 viewModel.dismissLimitDialog()
                 driveViewModel.dismissLimitDialog()
-                Toast.makeText(activity, R.string.library_upgrade_coming_soon, Toast.LENGTH_SHORT).show()
+                premiumViewModel.upgrade(activity)
             },
+            priceText = price,
         )
     }
 

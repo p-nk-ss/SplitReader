@@ -275,7 +275,11 @@ backup-rules, но стоит решить осознанно.
   [x] 1. Release signing config + keystore вне репозитория
   [x] 2. isMinifyEnabled = true + isShrinkResources = true
   [x] 3. Расширенные ProGuard-правила (Gson/Retrofit DTO + Crashlytics SourceFile)
-  [ ] 4. Google Play Billing — реальная покупка премиума + restore (заменить Toast)
+  [~] 4. Google Play Billing — код готов: BillingManager (one-time premium_unlimited),
+         EntitlementRepositoryImpl = billing∨debug, PremiumViewModel, Upgrade в лимит-диалоге
+         (Home/Catalog) + Restore в Settings. Проверено на эмуляторе: подключение к Play,
+         restore-запрос, события/тосты, без краша. ОСТАЛОСЬ: создать продукт в Play Console +
+         тест покупки через license-tester (sheet нельзя проверить до публикации).
   [x] 5. security-crypto (alpha) удалён — заменён на Keystore AES-GCM в ApiKeyManager
 
 🟡 Желательно до релиза:

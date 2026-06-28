@@ -10,9 +10,20 @@
     <string name="library_limit_body">The free version holds up to %1$d books. Delete one to make room — or upgrade for an unlimited library.</string>
     <string name="library_limit_upgrade">Upgrade</string>
     <string name="library_limit_dismiss">Got it</string>
-    <string name="library_upgrade_coming_soon">Upgrade is coming soon.</string>
+    <string name="library_limit_upgrade_priced">Upgrade · %1$s</string>
     <string name="settings_debug_premium">Premium (debug)</string>
     <string name="settings_debug_premium_desc">Unlock unlimited library for testing. Debug builds only.</string>
+
+    <!-- Premium / billing -->
+    <string name="premium_section">Premium</string>
+    <string name="premium_active">Premium active · unlimited library</string>
+    <string name="premium_inactive">Free tier · up to %1$d books</string>
+    <string name="premium_restore">Restore purchase</string>
+    <string name="purchase_success">Premium unlocked — enjoy your unlimited library.</string>
+    <string name="purchase_pending">Purchase pending — premium unlocks once it completes.</string>
+    <string name="purchase_store_not_ready">Store isn\'t ready yet. Try again in a moment.</string>
+    <string name="purchase_failed">Purchase failed. Please try again.</string>
+    <string name="restore_none">No previous purchase found.</string>
 
     <!-- Words (dictionary) screen -->
     <string name="words_title">Words</string>

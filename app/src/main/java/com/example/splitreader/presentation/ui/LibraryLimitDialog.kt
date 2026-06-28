@@ -14,13 +14,15 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.Newsreader
 
 /**
- * Shown when a free-tier user tries to add a book past [FREE_BOOK_LIMIT]. Offers to upgrade
- * (Phase 1: placeholder) or dismiss and free up a slot by deleting an existing book.
+ * Shown when a free-tier user tries to add a book past [FREE_BOOK_LIMIT]. Offers to upgrade via
+ * Play Billing (the button shows the price once [priceText] loads) or to dismiss and free up a slot
+ * by deleting an existing book.
  */
 @Composable
 fun LibraryLimitDialog(
     onDismiss: () -> Unit,
     onUpgrade: () -> Unit,
+    priceText: String? = null,
 ) {
     val palette = LocalReaderPalette.current
     AlertDialog(
@@ -47,7 +49,9 @@ fun LibraryLimitDialog(
         confirmButton = {
             TextButton(onClick = onUpgrade) {
                 Text(
-                    text = stringResource(R.string.library_limit_upgrade),
+                    text = if (priceText != null)
+                        stringResource(R.string.library_limit_upgrade_priced, priceText)
+                    else stringResource(R.string.library_limit_upgrade),
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
