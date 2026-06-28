@@ -42,6 +42,7 @@ Instrumented (`app/src/androidTest`):
 |---|------|---------------|-----|--------|
 | 1 | `AddBookToLibraryUseCase` | premium-bypass, re-open при лимите, count < limit | `src/test` | ✅ Готово |
 | 2 | `EntitlementRepositoryImpl` | persist флага через SharedPreferences, дефолт `false`, эмиссия Flow при `setPremium` | Robolectric/`androidTest` | ⬜ |
+| 2b | ✅ `ApiKeyManager` (Keystore) | encrypt round-trip, выживание после рестарта, на диске не плейнтекст, очистка blank/null, диспетч по провайдеру | `androidTest` | ✅ Готово |
 | 3 | `TranslateTextUseCase` + кэш | cache-hit не зовёт ML Kit; cache-miss пишет в кэш; ключ по хэшу текста | `src/test` (фейк DAO/repo) | ⬜ |
 | 4 | Маппинг ответов переводчиков | DeepL/Azure/GoogleCloud/Libre DTO → доменная строка; пустой/`null` ответ; **(страхует R8 Gson-путь)** | `src/test` | ⬜ |
 | 5 | `Language` / детектор | маппинг кодов ML Kit ↔ `Language` enum; неизвестный код | `src/test` (чистая часть) | ⬜ |

@@ -276,7 +276,7 @@ backup-rules, но стоит решить осознанно.
   [ ] 2. isMinifyEnabled = true + isShrinkResources = true
   [ ] 3. Расширенные ProGuard-правила (Room, Gson, Hilt, Retrofit, Firebase)
   [ ] 4. Google Play Billing — реальная покупка премиума + restore (заменить Toast)
-  [ ] 5. security-crypto: alpha → стабильная
+  [x] 5. security-crypto (alpha) удалён — заменён на Keystore AES-GCM в ApiKeyManager
 
 🟡 Желательно до релиза:
   [ ] 6. Firebase Crashlytics (release-only)
