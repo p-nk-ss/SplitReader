@@ -1,0 +1,6 @@
+Read in two languages at once. Original + live translation, on-device.
+
+--- Alternatives (all under the 80-char limit) ---
+Read EPUB & FB2 with a live side-by-side translation in 12 languages.
+Side-by-side book translation — original and live, in 12 languages.
+Books in two languages at once: original + live, on-device translation.

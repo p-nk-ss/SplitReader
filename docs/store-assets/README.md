@@ -11,20 +11,14 @@ Mirrolit branding and a real book (public-domain *Alice's Adventures in Wonderla
 | `02-reading-stats.png` | Screenshot — Almanac (streak, minutes, heatmap, by-book/language) | ✅ ready |
 | `03-translation-engines.png` | Screenshot — translator picker (ML Kit + 5 providers) | ✅ ready |
 | `04-appearance.png` | Screenshot — Settings (themes + 9 typefaces + typography) | ✅ ready |
-| `05-reader-draft.png` | Screenshot — Reader split-pane | ⚠️ **retake on a real device** |
+| `05-reader.png` | Screenshot — Reader split-pane (EN original + live translation) | ✅ ready |
 | `ic_launcher-playstore.png` (in `app/src/main/`) | App icon (512×512) | ✅ ready |
+| `full-description.txt` | Listing full description (EN, <4000 chars) | ✅ ready |
+| `short-description.txt` | Listing short description (EN, <80 chars) | ✅ ready |
 
-## ⚠️ The reader screenshot (`05-reader-draft.png`)
-
-The split-pane is real (original on the left, translation column on the right), but the
-**translation didn't render** in this capture: the emulator couldn't download the ML Kit
-offline language model (an emulator SSL/IPv6 limitation — `DownloadManager` failed with
-`DECRYPTION_FAILED_OR_BAD_RECORD_MAC`), so the right pane shows the loading shimmer.
-
-**Action:** retake this one shot on a **real device with normal network** — open Alice
-(or any book), set the target language (e.g. EN → RU), wait a few seconds for the model
-to download, and capture once the right pane fills with the live translation. That filled
-side-by-side view is the app's hero shot.
+`05-reader.png` is the hero shot: the English original on the left and a live on-device
+translation on the right, side by side (captured once the ML Kit language model finished
+downloading).
 
 ## Play Console requirements (reminder)
 
