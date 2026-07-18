@@ -2,8 +2,8 @@ package com.example.splitreader.presentation.words
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitreader.data.local.SavedWordEntity
 import com.example.splitreader.data.local.TextToSpeechManager
+import com.example.splitreader.domain.model.SavedWord
 import com.example.splitreader.domain.repository.SavedWordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,7 +31,7 @@ class WordsViewModel @Inject constructor(
     val langFilter = MutableStateFlow<LangFilter>(LangFilter.All)
     val query = MutableStateFlow("")
 
-    val words: StateFlow<List<SavedWordEntity>> = combine(langFilter, query) { filter, q ->
+    val words: StateFlow<List<SavedWord>> = combine(langFilter, query) { filter, q ->
         filter to q
     }.flatMapLatest { (filter, q) ->
         when {
@@ -41,13 +41,13 @@ class WordsViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val selectedWord = MutableStateFlow<SavedWordEntity?>(null)
+    val selectedWord = MutableStateFlow<SavedWord?>(null)
 
-    fun select(word: SavedWordEntity) { selectedWord.value = word }
+    fun select(word: SavedWord) { selectedWord.value = word }
     fun setFilter(filter: LangFilter) { langFilter.value = filter }
     fun setQuery(q: String) { query.value = q }
 
-    fun updateNote(word: SavedWordEntity, note: String) {
+    fun updateNote(word: SavedWord, note: String) {
         viewModelScope.launch {
             val updated = word.copy(note = note)
             repository.update(updated)
@@ -56,7 +56,7 @@ class WordsViewModel @Inject constructor(
         }
     }
 
-    fun delete(word: SavedWordEntity) {
+    fun delete(word: SavedWord) {
         viewModelScope.launch {
             repository.delete(word)
             if (selectedWord.value?.id == word.id) selectedWord.value = null

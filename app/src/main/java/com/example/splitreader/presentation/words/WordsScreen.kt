@@ -59,7 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.splitreader.R
-import com.example.splitreader.data.local.SavedWordEntity
+import com.example.splitreader.domain.model.SavedWord
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
@@ -96,15 +96,15 @@ fun WordsRoute(viewModel: WordsViewModel = hiltViewModel()) {
 
 @Composable
 fun WordsScreen(
-    words: List<SavedWordEntity>,
-    selectedWord: SavedWordEntity?,
+    words: List<SavedWord>,
+    selectedWord: SavedWord?,
     langFilter: LangFilter,
     query: String,
-    onSelectWord: (SavedWordEntity) -> Unit,
+    onSelectWord: (SavedWord) -> Unit,
     onSetFilter: (LangFilter) -> Unit,
     onSetQuery: (String) -> Unit,
-    onUpdateNote: (SavedWordEntity, String) -> Unit,
-    onDelete: (SavedWordEntity) -> Unit,
+    onUpdateNote: (SavedWord, String) -> Unit,
+    onDelete: (SavedWord) -> Unit,
     onSpeak: (String, String) -> Unit,
 ) {
     val palette = LocalReaderPalette.current
@@ -112,8 +112,8 @@ fun WordsScreen(
     val context = LocalContext.current
 
     // Deletion goes through a confirmation dialog instead of removing the word immediately
-    var wordPendingDelete by remember { mutableStateOf<SavedWordEntity?>(null) }
-    val requestDelete: (SavedWordEntity) -> Unit = { wordPendingDelete = it }
+    var wordPendingDelete by remember { mutableStateOf<SavedWord?>(null) }
+    val requestDelete: (SavedWord) -> Unit = { wordPendingDelete = it }
 
     Row(Modifier.fillMaxSize()) {
         // Master pane — 380dp
@@ -203,14 +203,14 @@ fun WordsScreen(
 
 @Composable
 private fun MasterPane(
-    words: List<SavedWordEntity>,
-    selectedWord: SavedWordEntity?,
+    words: List<SavedWord>,
+    selectedWord: SavedWord?,
     langFilter: LangFilter,
     query: String,
-    onSelectWord: (SavedWordEntity) -> Unit,
+    onSelectWord: (SavedWord) -> Unit,
     onSetFilter: (LangFilter) -> Unit,
     onSetQuery: (String) -> Unit,
-    onDelete: (SavedWordEntity) -> Unit,
+    onDelete: (SavedWord) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalReaderPalette.current
@@ -412,7 +412,7 @@ private fun DateGroupHeader(label: String) {
 
 @Composable
 private fun WordListItem(
-    word: SavedWordEntity,
+    word: SavedWord,
     selected: Boolean,
     onSelect: () -> Unit,
     onDelete: () -> Unit,
@@ -526,9 +526,9 @@ private fun EmptyMaster(modifier: Modifier = Modifier) {
 
 @Composable
 private fun DetailPane(
-    word: SavedWordEntity?,
-    onUpdateNote: (SavedWordEntity, String) -> Unit,
-    onDelete: (SavedWordEntity) -> Unit,
+    word: SavedWord?,
+    onUpdateNote: (SavedWord, String) -> Unit,
+    onDelete: (SavedWord) -> Unit,
     onSpeak: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -573,9 +573,9 @@ private fun EmptyDetail(modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WordDetail(
-    word: SavedWordEntity,
-    onUpdateNote: (SavedWordEntity, String) -> Unit,
-    onDelete: (SavedWordEntity) -> Unit,
+    word: SavedWord,
+    onUpdateNote: (SavedWord, String) -> Unit,
+    onDelete: (SavedWord) -> Unit,
     onSpeak: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -717,7 +717,7 @@ private fun WordDetail(
 }
 
 @Composable
-private fun ContextQuoteCard(word: SavedWordEntity) {
+private fun ContextQuoteCard(word: SavedWord) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
     Row(
@@ -757,7 +757,7 @@ private fun ContextQuoteCard(word: SavedWordEntity) {
 }
 
 @Composable
-private fun BookInfoRow(word: SavedWordEntity) {
+private fun BookInfoRow(word: SavedWord) {
     val palette = LocalReaderPalette.current
     Row(
         verticalAlignment = Alignment.CenterVertically,

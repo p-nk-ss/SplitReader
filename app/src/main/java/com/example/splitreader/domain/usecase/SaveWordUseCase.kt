@@ -1,7 +1,7 @@
 package com.example.splitreader.domain.usecase
 
-import com.example.splitreader.data.local.SavedWordEntity
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.SavedWord
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.SavedWordRepository
 import javax.inject.Inject
@@ -51,7 +51,7 @@ class SaveWordUseCase @Inject constructor(
             }
         }
         savedWordRepository.save(
-            SavedWordEntity(
+            SavedWord(
                 word = normalized,
                 sourceLang = sourceLang.code,
                 targetLang = targetLang.code,
@@ -61,6 +61,7 @@ class SaveWordUseCase @Inject constructor(
                 chapterIndex = chapterIndex,
                 paragraphIndex = paragraphIndex,
                 contextSnippet = contextSnippet.take(120),
+                savedAt = System.currentTimeMillis(),
             )
         )
         return SaveWordResult.SAVED
