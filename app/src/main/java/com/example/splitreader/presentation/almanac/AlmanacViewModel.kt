@@ -39,17 +39,17 @@ class AlmanacViewModel @Inject constructor(
     val streak: StateFlow<StreakResult> = getStreakUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StreakResult(0, 0))
 
-    val dailyMinutes: StateFlow<List<DailyMinutes>> = selectedRange
+    private val dailyMinutesShared: StateFlow<List<DailyMinutes>> = selectedRange
         .flatMapLatest { range -> sessionRepository.observeDailyMinutes(range.daysBack) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val rangeMinutes: StateFlow<Int> = selectedRange
-        .flatMapLatest { range -> sessionRepository.observeDailyMinutes(range.daysBack) }
+    val dailyMinutes: StateFlow<List<DailyMinutes>> = dailyMinutesShared
+
+    val rangeMinutes: StateFlow<Int> = dailyMinutesShared
         .map { days -> days.sumOf { it.minutes } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    val rangePages: StateFlow<Int> = selectedRange
-        .flatMapLatest { range -> sessionRepository.observeDailyMinutes(range.daysBack) }
+    val rangePages: StateFlow<Int> = dailyMinutesShared
         .map { days -> days.sumOf { it.minutes * 2 } } // rough approx: 2 pages/min
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 

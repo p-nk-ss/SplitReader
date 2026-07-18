@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.home
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.viewModelScope
@@ -45,6 +46,10 @@ class HomeViewModel @Inject constructor(
     private val getStreakUseCase: GetStreakUseCase,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
+
+    private companion object {
+        private const val TAG = "HomeViewModel"
+    }
 
     private val _isLoading = MutableStateFlow(false)
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -129,7 +134,9 @@ class HomeViewModel @Inject constructor(
             // Persist read permission so the URI stays accessible across app restarts
             try {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: SecurityException) { }
+            } catch (e: SecurityException) {
+                Log.w(TAG, "takePersistableUriPermission denied for $uri", e)
+            }
 
             parseBookUseCase(uri).collect { result ->
                 when (result) {
