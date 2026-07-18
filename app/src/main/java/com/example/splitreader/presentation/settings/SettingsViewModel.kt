@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.domain.repository.TranslatorKeyStore
 import com.example.splitreader.domain.repository.ReadingPreferences
-import com.example.splitreader.data.local.TranslationDao
+import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
@@ -60,7 +60,7 @@ class SettingsViewModel @Inject constructor(
     private val apiKeyManager: TranslatorKeyStore,
     private val translatorEndpoints: TranslatorEndpointStore,
     private val usageTracker: TranslationUsageStats,
-    private val translationDao: TranslationDao,
+    private val translationRepository: TranslationRepository,
     private val textToSpeechManager: SpeechSynthesizer,
     private val entitlementRepository: EntitlementRepository,
     private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
@@ -234,14 +234,14 @@ class SettingsViewModel @Inject constructor(
 
     fun refreshCacheCount() {
         viewModelScope.launch {
-            val count = translationDao.count()
+            val count = translationRepository.cachedCount()
             _state.update { it.copy(cachedTranslationCount = count) }
         }
     }
 
     fun clearTranslationCache() {
         viewModelScope.launch {
-            translationDao.clearAll()
+            translationRepository.clearCache()
             _state.update { it.copy(cachedTranslationCount = 0) }
         }
     }

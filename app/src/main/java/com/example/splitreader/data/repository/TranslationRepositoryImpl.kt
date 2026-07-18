@@ -29,6 +29,10 @@ class TranslationRepositoryImpl @Inject constructor(
         return translated
     }
 
+    override suspend fun cachedCount(): Int = dao.count()
+
+    override suspend fun clearCache() = dao.clearAll()
+
     private fun resolveProvider(source: Language, target: Language): TranslationProviderApi {
         val selected = settings.getTranslatorProvider()
         val candidate = providers[selected]
