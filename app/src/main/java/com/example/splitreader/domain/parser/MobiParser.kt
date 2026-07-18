@@ -9,6 +9,8 @@ import com.example.splitreader.domain.parser.util.stableId
 import java.io.File
 import java.nio.charset.Charset
 import javax.inject.Inject
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 /**
  * Parser for classic MOBI / PalmDOC e-books (MOBI 6, `.mobi`/`.prc`).
@@ -42,9 +44,9 @@ class MobiParser @Inject constructor() : BookParser {
         val rec0 = pdb.record(0)
 
         // ── PalmDOC header (first 16 bytes of record 0) ──
-        val compression = u16(rec0, 0)          // 1 = none, 2 = PalmDOC, 17480 = HUFF/CDIC
-        val textRecordCount = u16(rec0, 8)
-        val encryption = u16(rec0, 12)
+        val compression = MobiCodec.u16(rec0, 0)          // 1 = none, 2 = PalmDOC, 17480 = HUFF/CDIC
+        val textRecordCount = MobiCodec.u16(rec0, 8)
+        val encryption = MobiCodec.u16(rec0, 12)
         if (encryption != 0) throw IllegalStateException("This MOBI is DRM-protected and can't be opened.")
         if (compression == 17480) {
             throw IllegalStateException("This MOBI uses HUFF/CDIC compression, which isn't supported yet.")
@@ -52,20 +54,20 @@ class MobiParser @Inject constructor() : BookParser {
 
         // ── MOBI header (starts at offset 16 of record 0), if present ──
         val hasMobiHeader = rec0.size >= 20 && String(rec0, 16, 4, Charsets.US_ASCII) == "MOBI"
-        val mobiHeaderLength = if (hasMobiHeader) u32(rec0, 20) else 0
+        val mobiHeaderLength = if (hasMobiHeader) MobiCodec.u32(rec0, 20).toInt() else 0
         // File version at 0x24: 8 = KF8/AZW3, which we don't parse yet. A combo MOBI6+KF8 file keeps
         // a v6 header in record 0, so it falls through here and is read as plain MOBI6.
-        val fileVersion = if (hasMobiHeader && rec0.size >= 40) u32(rec0, 36) else 6
+        val fileVersion = if (hasMobiHeader && rec0.size >= 40) MobiCodec.u32(rec0, 36).toInt() else 6
         if (fileVersion >= 8) {
             throw IllegalStateException("This looks like an AZW3/KF8 file, which isn't supported yet.")
         }
-        val textEncoding = if (hasMobiHeader) u32(rec0, 28) else 1252
+        val textEncoding = if (hasMobiHeader) MobiCodec.u32(rec0, 28).toInt() else 1252
         val charset: Charset = if (textEncoding == 65001) Charsets.UTF_8 else CP1252
-        val firstImageIndex = if (hasMobiHeader && mobiHeaderLength >= 0x70) u32(rec0, 108) else -1
+        val firstImageIndex = if (hasMobiHeader && mobiHeaderLength >= 0x70) MobiCodec.u32(rec0, 108).toInt() else -1
         // "Extra data flags" mark trailing bytes appended to each text record (must be stripped).
-        val extraDataFlags = if (hasMobiHeader && mobiHeaderLength >= 0xE4) u16(rec0, 0xF2) else 0
+        val extraDataFlags = if (hasMobiHeader && mobiHeaderLength >= 0xE4) MobiCodec.u16(rec0, 0xF2) else 0
 
-        val exth = if (hasMobiHeader && (u32(rec0, 0x80) and 0x40) != 0) {
+        val exth = if (hasMobiHeader && (MobiCodec.u32(rec0, 0x80) and 0x40L) != 0L) {
             parseExth(rec0, 16 + mobiHeaderLength)
         } else emptyMap()
 
@@ -73,11 +75,12 @@ class MobiParser @Inject constructor() : BookParser {
         val textBytes = java.io.ByteArrayOutputStream()
         val lastTextRecord = textRecordCount.coerceAtMost(pdb.recordCount - 1)
         for (i in 1..lastTextRecord) {
+            coroutineContext.ensureActive()
             val data = pdb.record(i)
-            var size = data.size - trailingDataSize(data, data.size, extraDataFlags)
+            var size = data.size - MobiCodec.trailingDataSize(data, data.size, extraDataFlags)
             if (size < 0) size = 0
             val chunk = when (compression) {
-                2 -> palmDocDecompress(data, size)
+                2 -> MobiCodec.palmDocDecompress(data, size)
                 else -> data.copyOf(size) // compression == 1 (none)
             }
             textBytes.write(chunk)
@@ -140,13 +143,13 @@ class MobiParser @Inject constructor() : BookParser {
     /** Parses the EXTH header at [start] in record 0, returning the record-type → string map. */
     private fun parseExth(rec0: ByteArray, start: Int): Map<Int, String> {
         if (start + 12 > rec0.size || String(rec0, start, 4, Charsets.US_ASCII) != "EXTH") return emptyMap()
-        val count = u32(rec0, start + 8)
+        val count = MobiCodec.u32(rec0, start + 8).toInt()
         val out = HashMap<Int, String>()
         var p = start + 12
         repeat(count) {
             if (p + 8 > rec0.size) return@repeat
-            val type = u32(rec0, p)
-            val len = u32(rec0, p + 4)
+            val type = MobiCodec.u32(rec0, p).toInt()
+            val len = MobiCodec.u32(rec0, p + 4).toInt()
             if (len < 8 || p + len > rec0.size) return@repeat
             val data = rec0.copyOfRange(p + 8, p + len)
             when (type) {
@@ -192,8 +195,8 @@ class MobiParser @Inject constructor() : BookParser {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun readFullName(rec0: ByteArray, charset: Charset): String? {
-        val off = u32(rec0, 0x54)
-        val len = u32(rec0, 0x58)
+        val off = MobiCodec.u32(rec0, 0x54).toInt()
+        val len = MobiCodec.u32(rec0, 0x58).toInt()
         if (off <= 0 || len <= 0 || off + len > rec0.size) return null
         return String(rec0, off, len, charset).trim().ifBlank { null }
     }
@@ -208,84 +211,6 @@ class MobiParser @Inject constructor() : BookParser {
         var v = 0
         for (b in data) v = (v shl 8) or (b.toInt() and 0xFF)
         return v
-    }
-
-    private fun u16(b: ByteArray, off: Int): Int =
-        ((b[off].toInt() and 0xFF) shl 8) or (b[off + 1].toInt() and 0xFF)
-
-    private fun u32(b: ByteArray, off: Int): Int =
-        ((b[off].toInt() and 0xFF) shl 24) or
-            ((b[off + 1].toInt() and 0xFF) shl 16) or
-            ((b[off + 2].toInt() and 0xFF) shl 8) or
-            (b[off + 3].toInt() and 0xFF)
-
-    /**
-     * Size of the trailing data entries appended to a text record, which must be stripped before
-     * decompression. Ported from the MOBI spec / kindleunpack `getSizeOfTrailingDataEntries`.
-     */
-    private fun trailingDataSize(data: ByteArray, size: Int, flags: Int): Int {
-        fun entrySize(end: Int): Int {
-            var bitpos = 0
-            var result = 0
-            var pos = end
-            if (pos <= 0) return 0
-            while (true) {
-                val v = data[pos - 1].toInt() and 0xFF
-                result = result or ((v and 0x7F) shl bitpos)
-                bitpos += 7
-                pos -= 1
-                if (v and 0x80 != 0 || bitpos >= 28 || pos == 0) return result
-            }
-        }
-        var num = 0
-        var testFlags = flags shr 1
-        while (testFlags != 0) {
-            if (testFlags and 1 == 1) num += entrySize(size - num)
-            testFlags = testFlags shr 1
-        }
-        if (flags and 1 == 1 && size - num - 1 >= 0) {
-            num += (data[size - num - 1].toInt() and 0x3) + 1
-        }
-        return num
-    }
-
-    /** PalmDOC (LZ77 variant) decompression. */
-    private fun palmDocDecompress(input: ByteArray, length: Int): ByteArray {
-        var out = ByteArray(maxOf(64, length * 8))
-        var outLen = 0
-        fun put(b: Int) {
-            if (outLen >= out.size) out = out.copyOf(out.size * 2)
-            out[outLen++] = b.toByte()
-        }
-        var i = 0
-        while (i < length) {
-            val c = input[i].toInt() and 0xFF
-            i++
-            when {
-                c == 0x00 -> put(0)
-                c in 0x01..0x08 -> {
-                    var j = 0
-                    while (j < c && i < length) { put(input[i].toInt() and 0xFF); i++; j++ }
-                }
-                c in 0x09..0x7F -> put(c)
-                c in 0x80..0xBF -> {
-                    if (i < length) {
-                        val c2 = input[i].toInt() and 0xFF
-                        i++
-                        val pair = ((c shl 8) or c2) and 0x3FFF
-                        val distance = pair shr 3
-                        val copyLen = (pair and 0x07) + 3
-                        var src = outLen - distance
-                        if (src >= 0) {
-                            var k = 0
-                            while (k < copyLen) { put(out[src].toInt() and 0xFF); src++; k++ }
-                        }
-                    }
-                }
-                else -> { put(' '.code); put(c xor 0x80) } // 0xC0..0xFF: space + (c & 0x7F)
-            }
-        }
-        return out.copyOf(outLen)
     }
 
     companion object {
