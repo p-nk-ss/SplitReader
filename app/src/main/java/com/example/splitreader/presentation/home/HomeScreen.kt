@@ -303,12 +303,13 @@ private fun HomeScreen(
         }
 
         // Continue reading hero — full width, only when there are books
-        if (uiState.lastBook != null) {
+        val lastBook = uiState.lastBook
+        if (lastBook != null) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 ContinueReadingHero(
-                    book = uiState.lastBook!!,
+                    book = lastBook,
                     minutesToday = uiState.minutesToday,
-                    onContinue = { onOpenFromLibrary(uiState.lastBook!!.uri) },
+                    onContinue = { onOpenFromLibrary(lastBook.uri) },
                 )
             }
         }
@@ -1151,9 +1152,10 @@ fun BookCover(
             .clip(RoundedCornerShape(radius))
             .background(bgColor),
     ) {
-        if (coverBitmap != null) {
+        val bitmap = coverBitmap
+        if (bitmap != null) {
             Image(
-                bitmap = coverBitmap!!,
+                bitmap = bitmap,
                 contentDescription = title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
