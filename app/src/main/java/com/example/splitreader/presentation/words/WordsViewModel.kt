@@ -2,7 +2,7 @@ package com.example.splitreader.presentation.words
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitreader.data.local.TextToSpeechManager
+import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.model.SavedWord
 import com.example.splitreader.domain.repository.SavedWordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,7 +25,7 @@ sealed interface LangFilter {
 @HiltViewModel
 class WordsViewModel @Inject constructor(
     private val repository: SavedWordRepository,
-    private val textToSpeechManager: TextToSpeechManager,
+    private val textToSpeechManager: SpeechSynthesizer,
 ) : ViewModel() {
 
     val langFilter = MutableStateFlow<LangFilter>(LangFilter.All)

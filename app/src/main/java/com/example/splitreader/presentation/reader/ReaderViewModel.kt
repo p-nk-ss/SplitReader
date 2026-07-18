@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.data.local.TranslationUsageTracker
-import com.example.splitreader.data.local.TextToSpeechManager
+import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
@@ -61,7 +61,7 @@ class ReaderViewModel @Inject constructor(
     private val apiKeyManager: ApiKeyManager,
     private val translatorEndpoints: TranslatorEndpoints,
     private val usageTracker: TranslationUsageTracker,
-    private val textToSpeechManager: TextToSpeechManager,
+    private val textToSpeechManager: SpeechSynthesizer,
     private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {

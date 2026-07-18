@@ -2,6 +2,7 @@ package com.example.splitreader.data.local
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import com.example.splitreader.domain.repository.SpeechSynthesizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import javax.inject.Inject
@@ -18,7 +19,7 @@ import javax.inject.Singleton
 class TextToSpeechManager @Inject constructor(
     @ApplicationContext context: Context,
     private val progressManager: ReadingProgressManager,
-) {
+) : SpeechSynthesizer {
     private val appContext = context.applicationContext
     private var ready = false
     private var pending: Pair<String, String>? = null
@@ -35,7 +36,7 @@ class TextToSpeechManager @Inject constructor(
         }.also { tts = it }
 
     /** Speaks [text] using the voice matching [langCode] (an ISO code such as "en", "fr", "ru"). */
-    fun speak(text: String, langCode: String) {
+    override fun speak(text: String, langCode: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         ensureEngine()
@@ -47,19 +48,19 @@ class TextToSpeechManager @Inject constructor(
     }
 
     /** Persists and immediately applies the speech rate (1.0 = normal). */
-    fun setRate(rate: Float) {
+    override fun setRate(rate: Float) {
         progressManager.saveTtsRate(rate)
         if (ready) tts?.setSpeechRate(rate)
     }
 
     /** Persists and immediately applies the voice pitch (1.0 = normal). */
-    fun setPitch(pitch: Float) {
+    override fun setPitch(pitch: Float) {
         progressManager.saveTtsPitch(pitch)
         if (ready) tts?.setPitch(pitch)
     }
 
     /** Releases the underlying engine. Safe to call repeatedly; a later [speak] re-initializes it. */
-    fun shutdown() {
+    override fun shutdown() {
         tts?.stop()
         tts?.shutdown()
         tts = null
