@@ -46,9 +46,11 @@ class Fb2DocumentBuilder {
                     // no-op
                 } else if (elementStack.contains("coverpage")) {
                     if (coverBinaryId == null) coverBinaryId = id
-                } else if (sectionStack.isNotEmpty()) {
-                    top()!!.imageRefs.add(top()!!.directParagraphs.size to id)
-                    referencedImageIds.add(id)
+                } else {
+                    top()?.let { frame ->
+                        frame.imageRefs.add(frame.directParagraphs.size to id)
+                        referencedImageIds.add(id)
+                    }
                 }
             }
             "binary" -> {
@@ -106,6 +108,7 @@ class Fb2DocumentBuilder {
     /** Routes a paragraph to preamble / section epigraph / section body by current context. */
     private fun addParagraph(value: String) {
         when {
+            // Preamble epigraph: FB2 places <epigraph> only in <body>/<section>, so "no open section" => body-level.
             elementStack.contains("epigraph") && sectionStack.isEmpty() -> preambleParagraphs.add(value)
             elementStack.contains("epigraph") -> top()?.epigraphParagraphs?.add(value)
             else -> top()?.directParagraphs?.add(value)

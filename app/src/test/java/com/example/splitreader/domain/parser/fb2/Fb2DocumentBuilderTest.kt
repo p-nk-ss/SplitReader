@@ -158,6 +158,22 @@ class Fb2DocumentBuilderTest {
         assertEquals(listOf("Prose"), doc.chapters[0].paragraphs) // title NOT duplicated into body
     }
 
+    @Test fun epigraphTitleDoesNotClobberSectionTitle() {
+        val doc = build(
+            start("body"), start("section"),
+            start("title"), start("p"), text("Real Title"), end("p"), end("title"),
+            start("epigraph"),
+            start("title"), start("p"), text("Epigraph Heading"), end("p"), end("title"),
+            start("p"), text("Epi line"), end("p"),
+            end("epigraph"),
+            start("p"), text("Body"), end("p"),
+            end("section"), end("body"),
+        )
+        assertEquals("Real Title", doc.chapters[0].title)         // section title NOT clobbered
+        assertTrue(doc.chapters[0].paragraphs.contains("Epigraph Heading")) // epigraph title kept as epigraph para
+        assertEquals("Body", doc.chapters[0].paragraphs.last())
+    }
+
     @Test fun wrappedTitle_multiP_capturedNotEmittedAsParagraphs() {
         val doc = build(
             start("body"), start("section"),
