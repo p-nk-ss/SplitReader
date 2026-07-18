@@ -23,6 +23,12 @@ CLAUDE.md
 memory.md
 .agents/
 skills-lock.json
+# Claude Code process artifacts (brainstorm specs / writing-plans / audit) — local only.
+# Note: docs/store-assets/ and the release runbooks (release_plan/play_console_release/
+# test_plan/privacy_policy) stay tracked — those are real project deliverables.
+docs/superpowers/
+docs/plans/
+docs/refactor_plan.md
 graphify-out/
 .graphify_python
 Screenshot*.png
