@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
+    alias(libs.plugins.room)
 }
 
 // Release signing is configured via `keystore.properties` at the project root (gitignored).
@@ -69,6 +70,10 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
@@ -136,6 +141,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.coroutines.test)
+    androidTestImplementation(libs.room.testing)
 }
 
 // ── QA test fixtures ──────────────────────────────────────────────────────────
@@ -167,6 +173,7 @@ val stageQaFixtures = tasks.register<Copy>("stageQaFixtures") {
 }
 
 android.sourceSets.getByName("androidTest").assets.srcDir(qaStagedRoot)
+android.sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 // Stage fixtures before any androidTest asset-merge/packaging task consumes the srcDir.
 tasks.matching { it.name.contains("AndroidTest") && it.name.contains("Assets") }
     .configureEach { dependsOn(stageQaFixtures) }
