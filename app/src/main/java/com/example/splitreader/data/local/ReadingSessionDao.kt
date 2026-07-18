@@ -5,9 +5,9 @@ import androidx.room.Insert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-data class DailyMinutes(val day: String, val minutes: Int)
-data class BookMinutes(val title: String, val minutes: Int)
-data class LangMinutes(val lang: String, val minutes: Int)
+data class DailyMinutesRow(val day: String, val minutes: Int)
+data class BookMinutesRow(val title: String, val minutes: Int)
+data class LangMinutesRow(val lang: String, val minutes: Int)
 
 @Dao
 interface ReadingSessionDao {
@@ -20,7 +20,7 @@ interface ReadingSessionDao {
         WHERE startedAt >= :sinceMillis
         GROUP BY day ORDER BY day
     """)
-    fun observeDailyMinutes(sinceMillis: Long): Flow<List<DailyMinutes>>
+    fun observeDailyMinutes(sinceMillis: Long): Flow<List<DailyMinutesRow>>
 
     @Query("""
         SELECT bookTitle AS title, SUM(durationSeconds) / 60 AS minutes
@@ -28,7 +28,7 @@ interface ReadingSessionDao {
         WHERE startedAt >= :sinceMillis AND bookTitle IS NOT NULL
         GROUP BY bookTitle ORDER BY minutes DESC LIMIT 8
     """)
-    fun observeTimeByBook(sinceMillis: Long): Flow<List<BookMinutes>>
+    fun observeTimeByBook(sinceMillis: Long): Flow<List<BookMinutesRow>>
 
     @Query("""
         SELECT sourceLang AS lang, SUM(durationSeconds) / 60 AS minutes
@@ -36,5 +36,5 @@ interface ReadingSessionDao {
         WHERE startedAt >= :sinceMillis
         GROUP BY sourceLang
     """)
-    fun observeTimeByLang(sinceMillis: Long): Flow<List<LangMinutes>>
+    fun observeTimeByLang(sinceMillis: Long): Flow<List<LangMinutesRow>>
 }

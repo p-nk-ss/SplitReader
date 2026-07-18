@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.R
-import com.example.splitreader.data.local.DailyMinutes
+import com.example.splitreader.domain.model.stats.DailyMinutes
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -337,7 +337,7 @@ private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier)
 }
 
 @Composable
-private fun TimeByBookCard(books: List<com.example.splitreader.data.local.BookMinutes>, modifier: Modifier = Modifier) {
+private fun TimeByBookCard(books: List<com.example.splitreader.domain.model.stats.BookMinutes>, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
         Text("TIME BY BOOK", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
@@ -361,7 +361,7 @@ private fun TimeByBookCard(books: List<com.example.splitreader.data.local.BookMi
 }
 
 @Composable
-private fun LanguagesCard(langs: List<com.example.splitreader.data.local.LangMinutes>, modifier: Modifier = Modifier) {
+private fun LanguagesCard(langs: List<com.example.splitreader.domain.model.stats.LangMinutes>, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
         Text("LANGUAGES", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)

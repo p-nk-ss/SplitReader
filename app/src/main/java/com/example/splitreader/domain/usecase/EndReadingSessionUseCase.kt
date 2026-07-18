@@ -1,6 +1,6 @@
 package com.example.splitreader.domain.usecase
 
-import com.example.splitreader.data.local.ReadingSessionEntity
+import com.example.splitreader.domain.model.ReadingSession
 import com.example.splitreader.domain.repository.ReadingSessionRepository
 import javax.inject.Inject
 
@@ -22,7 +22,7 @@ class EndReadingSessionUseCase @Inject constructor(
         val duration = ((now - startedAt) / 1000).toInt()
         if (duration < MIN_SESSION_SECONDS) return
         repository.record(
-            ReadingSessionEntity(
+            ReadingSession(
                 bookUri = bookUri,
                 bookTitle = bookTitle,
                 sourceLang = sourceLang,

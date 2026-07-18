@@ -2,9 +2,9 @@ package com.example.splitreader.presentation.almanac
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitreader.data.local.BookMinutes
-import com.example.splitreader.data.local.DailyMinutes
-import com.example.splitreader.data.local.LangMinutes
+import com.example.splitreader.domain.model.stats.BookMinutes
+import com.example.splitreader.domain.model.stats.DailyMinutes
+import com.example.splitreader.domain.model.stats.LangMinutes
 import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
 import com.example.splitreader.domain.usecase.GetStreakUseCase
