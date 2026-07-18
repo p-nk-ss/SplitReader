@@ -48,4 +48,18 @@ class MobiChapterSplitterTest {
         assertTrue(frags[0].contains("front matter"))
         assertTrue(frags[1].startsWith("<h2"))
     }
+
+    @Test fun pageBreakBeforeAvoid_doesNotSplit() {
+        // "avoid" means DON'T break — must not be treated as a page break.
+        val html = "<p>a</p><div style=\"page-break-before:avoid\">b</div>"
+        assertEquals(1, MobiChapterSplitter.split(html).size)
+    }
+
+    @Test fun h2FallbackWhenNoH1() {
+        // No h1 present -> shallowest present level is h2.
+        val html = "<h2>A</h2><p>a</p><h2>B</h2><p>b</p>"
+        val frags = MobiChapterSplitter.split(html)
+        assertEquals(2, frags.size)
+        assertTrue(frags.all { it.startsWith("<h2") })
+    }
 }

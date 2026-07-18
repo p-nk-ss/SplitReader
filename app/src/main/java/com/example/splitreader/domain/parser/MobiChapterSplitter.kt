@@ -10,7 +10,7 @@ package com.example.splitreader.domain.parser
 object MobiChapterSplitter {
 
     private val PAGE_BREAK = Regex(
-        "<\\s*mbp:pagebreak\\b[^>]*>|<[^>]*\\bpage-break-before\\b[^>]*>",
+        "<\\s*mbp:pagebreak\\b[^>]*>|<[^>]*page-break-before\\s*:\\s*(?:always|left|right)\\b[^>]*>",
         RegexOption.IGNORE_CASE,
     )
     private val HEADING_LEVELS = listOf("h1", "h2", "h3")
