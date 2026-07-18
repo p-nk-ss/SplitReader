@@ -1,7 +1,7 @@
 package com.example.splitreader.domain.usecase
 
-import com.example.splitreader.data.local.BookEntity
 import com.example.splitreader.domain.model.Book
+import com.example.splitreader.domain.model.LibraryBook
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.EntitlementRepository
 import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase.Companion.FREE_BOOK_LIMIT
@@ -38,7 +38,7 @@ class AddBookToLibraryUseCaseTest {
         }
         override suspend fun bookCount(): Int = count
         override suspend fun exists(uri: String): Boolean = uri in existing
-        override fun getAllBooks(): Flow<List<BookEntity>> = flowOf(emptyList())
+        override fun getAllBooks(): Flow<List<LibraryBook>> = flowOf(emptyList())
         override suspend fun touchBook(uri: String) = Unit
         override suspend fun deleteBook(uri: String) = Unit
     }

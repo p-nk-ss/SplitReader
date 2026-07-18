@@ -2,8 +2,12 @@ package com.example.splitreader.data.repository
 
 import com.example.splitreader.data.local.BookDao
 import com.example.splitreader.data.local.BookEntity
+import com.example.splitreader.data.repository.mapper.toDomain
 import com.example.splitreader.domain.model.Book
+import com.example.splitreader.domain.model.LibraryBook
 import com.example.splitreader.domain.repository.BookLibraryRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,7 +16,8 @@ class BookLibraryRepositoryImpl @Inject constructor(
     private val bookDao: BookDao,
 ) : BookLibraryRepository {
 
-    override fun getAllBooks() = bookDao.getAllBooks()
+    override fun getAllBooks(): Flow<List<LibraryBook>> =
+        bookDao.getAllBooks().map { list -> list.map { it.toDomain() } }
 
     override suspend fun saveBook(book: Book) {
         bookDao.upsert(
