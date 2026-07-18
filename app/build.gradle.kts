@@ -32,6 +32,10 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Play Console → Monetization setup → Licensing → base64 RSA public key. Blank in dev
+        // builds: PurchaseVerifier fails open (skips the check) until this is set. See P15.
+        buildConfigField("String", "BILLING_PUBLIC_KEY", "\"\"")
     }
 
     signingConfigs {

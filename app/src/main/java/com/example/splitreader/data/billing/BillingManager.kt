@@ -15,6 +15,7 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import com.example.splitreader.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -155,7 +156,7 @@ class BillingManager @Inject constructor(
                 return@queryPurchasesAsync
             }
             val ownedPremium = purchases.filter {
-                it.isPremium() && it.purchaseState == Purchase.PurchaseState.PURCHASED
+                it.isPremium() && it.purchaseState == Purchase.PurchaseState.PURCHASED && it.signatureOk()
             }
             ownedPremium.forEach { acknowledgeIfNeeded(it) }
             setPremium(ownedPremium.isNotEmpty())
@@ -184,6 +185,11 @@ class BillingManager @Inject constructor(
         if (!purchase.isPremium()) return
         when (purchase.purchaseState) {
             Purchase.PurchaseState.PURCHASED -> {
+                if (!purchase.signatureOk()) {
+                    Log.w(TAG, "Purchase signature verification failed; not granting premium")
+                    _events.tryEmit(PurchaseEvent.Failed(FALLBACK_ERR))
+                    return
+                }
                 acknowledgeIfNeeded(purchase)
                 setPremium(true)
                 _events.tryEmit(PurchaseEvent.Success)
@@ -206,6 +212,20 @@ class BillingManager @Inject constructor(
     }
 
     private fun Purchase.isPremium() = products.contains(PREMIUM_PRODUCT_ID)
+
+    /**
+     * True if the purchase's signature verifies against BILLING_PUBLIC_KEY. Fail-open: when the key
+     * is unset (dev builds), verification is skipped so the purchase flow still works. TODO(P15):
+     * set BILLING_PUBLIC_KEY before release so forged purchases are rejected.
+     */
+    private fun Purchase.signatureOk(): Boolean {
+        val key = BuildConfig.BILLING_PUBLIC_KEY
+        if (key.isBlank()) {
+            Log.w(TAG, "BILLING_PUBLIC_KEY unset — skipping signature check (TODO before release)")
+            return true
+        }
+        return PurchaseVerifier.verify(key, originalJson, signature)
+    }
 
     private fun setPremium(value: Boolean) {
         if (_premium.value == value && prefs.getBoolean(KEY_PREMIUM, false) == value) return

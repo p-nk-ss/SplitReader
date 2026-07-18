@@ -134,6 +134,11 @@
 - Эти аккаунты на тестовых треках платят «тестовой» картой — деньги не списываются, поток покупки настоящий.
 - Тестировщик должен быть и в списке тестеров трека (Шаг 5), и в License testing.
 
+### 4.3 Set `BILLING_PUBLIC_KEY` (purchase signature verification)
+- **Set `BILLING_PUBLIC_KEY`** (Play Console → Monetization setup → Licensing → base64 RSA public key)
+  in the release build config before `bundleRelease`. While it is blank, purchase-signature
+  verification is **skipped** (fail-open) — a forged purchase would not be rejected. (P15)
+
 ---
 
 ## Шаг 5 — Internal testing → закрытое/открытое → production
@@ -172,6 +177,7 @@
 - [ ] Все секции **App content** зелёные (Privacy policy, Data safety, Content rating, Target audience, Ads, Government).
 - [ ] Store listing заполнен (иконка, feature graphic, ≥2 скриншота, описания).
 - [ ] Продукт `premium_unlimited` = Active, Payments profile настроен.
+- [ ] `BILLING_PUBLIC_KEY` set to the real Licensing key (not blank) — see 4.3 (P15).
 - [ ] Платный поток + restore проверены на тест-треке.
 - [ ] versionCode уникален (для след. релизов инкрементить `versionCode`).
 
