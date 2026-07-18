@@ -2,6 +2,7 @@ package com.example.splitreader.data.local
 
 import android.content.Context
 import com.example.splitreader.domain.model.TranslationProvider
+import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -10,7 +11,7 @@ import javax.inject.Singleton
 @Singleton
 class TranslatorEndpoints @Inject constructor(
     @ApplicationContext context: Context,
-) {
+) : TranslatorEndpointStore {
     private val prefs = context.getSharedPreferences("translator_endpoints", Context.MODE_PRIVATE)
 
     fun getLibreTranslateBaseUrl(): String =
@@ -40,14 +41,14 @@ class TranslatorEndpoints @Inject constructor(
     }
 
     /** Provider-keyed accessor for the secondary config value (region / base URL). */
-    fun getSecondary(provider: TranslationProvider): String = when (provider) {
+    override fun getSecondary(provider: TranslationProvider): String = when (provider) {
         TranslationProvider.AZURE -> getAzureRegion()
         TranslationProvider.LIBRE_TRANSLATE -> getLibreTranslateBaseUrl()
         else -> ""
     }
 
     /** Provider-keyed mutator; delegates to existing setters (preserving normalize/lowercase). */
-    fun setSecondary(provider: TranslationProvider, value: String?) {
+    override fun setSecondary(provider: TranslationProvider, value: String?) {
         when (provider) {
             TranslationProvider.AZURE -> setAzureRegion(value)
             TranslationProvider.LIBRE_TRANSLATE -> setLibreTranslateBaseUrl(value)

@@ -1,11 +1,11 @@
 package com.example.splitreader.presentation.reader
 
 import androidx.compose.runtime.Immutable
-import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProviderCategory
 import com.example.splitreader.domain.model.TranslationUsage
 import com.example.splitreader.domain.repository.TranslationUsageStats
+import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.translator.TranslationProviderApi
 
 @Immutable
@@ -28,7 +28,7 @@ data class TranslatorConfigState(
  */
 fun buildTranslatorConfigState(
     providers: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
-    endpoints: TranslatorEndpoints,
+    endpoints: TranslatorEndpointStore,
     usageTracker: TranslationUsageStats,
     current: TranslationProvider,
 ): TranslatorConfigState {

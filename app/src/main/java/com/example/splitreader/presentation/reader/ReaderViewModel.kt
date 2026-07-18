@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitreader.domain.repository.TranslatorKeyStore
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.SpeechSynthesizer
-import com.example.splitreader.data.local.TranslatorEndpoints
+import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
@@ -59,7 +59,7 @@ class ReaderViewModel @Inject constructor(
     private val progressManager: ReadingPreferences,
     private val languageDetector: LanguageDetector,
     private val apiKeyManager: TranslatorKeyStore,
-    private val translatorEndpoints: TranslatorEndpoints,
+    private val translatorEndpoints: TranslatorEndpointStore,
     private val usageTracker: TranslationUsageStats,
     private val textToSpeechManager: SpeechSynthesizer,
     private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,

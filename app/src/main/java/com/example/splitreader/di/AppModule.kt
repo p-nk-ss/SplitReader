@@ -4,6 +4,7 @@ import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslationUsageTracker
+import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.data.repository.BookLibraryRepositoryImpl
 import com.example.splitreader.data.repository.EntitlementRepositoryImpl
 import com.example.splitreader.data.repository.BookmarkRepositoryImpl
@@ -19,6 +20,7 @@ import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
 import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
+import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.repository.TranslatorKeyStore
 import dagger.Module
 import dagger.Provides
@@ -59,4 +61,7 @@ object AppModule {
 
     @Provides @Singleton
     fun provideTranslatorKeyStore(impl: ApiKeyManager): TranslatorKeyStore = impl
+
+    @Provides @Singleton
+    fun provideTranslatorEndpointStore(impl: TranslatorEndpoints): TranslatorEndpointStore = impl
 }
