@@ -112,8 +112,7 @@ class MobiParser @Inject constructor() : BookParser {
     // PalmDOC text stream has no surviving <img> anchors (image records are addressed by index via
     // EXTH), so there is nothing to anchor into the chapter flow. Only the cover is extracted.
     private fun buildChapters(html: String): List<Chapter> {
-        val fragments = PAGEBREAK.split(html).map { it.trim() }.filter { it.isNotEmpty() }
-            .ifEmpty { listOf(html) }
+        val fragments = MobiChapterSplitter.split(html)
 
         val chapters = mutableListOf<Chapter>()
         for (fragment in fragments) {
@@ -217,6 +216,5 @@ class MobiParser @Inject constructor() : BookParser {
 
     companion object {
         private val CP1252: Charset = Charset.forName("windows-1252")
-        private val PAGEBREAK = Regex("<\\s*mbp:pagebreak[^>]*>", RegexOption.IGNORE_CASE)
     }
 }
