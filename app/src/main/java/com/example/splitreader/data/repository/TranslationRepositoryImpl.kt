@@ -21,8 +21,8 @@ class TranslationRepositoryImpl @Inject constructor(
 
     override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
         val provider = resolveProvider(sourceLanguage, targetLanguage)
-        val cacheKey = cacheKey(provider.id, text, sourceLanguage, targetLanguage)
-        dao.getCached(cacheKey)?.let { return it.translatedText }
+        val cacheKey = TranslationCacheKey.compute(provider.id, text, sourceLanguage, targetLanguage)
+        dao.getCached(cacheKey)?.takeIf { it.originalText == text }?.let { return it.translatedText }
         val translated = provider.translate(text, sourceLanguage, targetLanguage)
         if (provider.id.tracksUsage) usageTracker.record(provider.id, text.length)
         dao.insert(TranslationCacheEntity(cacheKey, text, translated, targetLanguage.code))
@@ -38,7 +38,4 @@ class TranslationRepositoryImpl @Inject constructor(
         return providers[TranslationProvider.MLKIT]
             ?: error("MLKit translation provider is missing from DI")
     }
-
-    private fun cacheKey(provider: TranslationProvider, text: String, source: Language, target: Language): String =
-        "${provider.name}_${text.hashCode()}_${source.code}_${target.code}"
 }
