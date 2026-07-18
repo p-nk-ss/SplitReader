@@ -37,6 +37,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.data.local.TranslationUsage
+import com.example.splitreader.data.local.UrlResult
+import com.example.splitreader.data.local.normalizeLibreUrl
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProviderCategory
 import com.example.splitreader.presentation.theme.DangerTone
@@ -284,6 +286,7 @@ internal fun ApiKeyDialog(
     val sp = LocalSpacing.current
     var input by remember { mutableStateOf("") }
     var secondaryInput by remember { mutableStateOf(secondaryValue) }
+    var urlError by remember { mutableStateOf<String?>(null) }
 
     EditorialDialog(eyebrow = provider.displayName, title = "API key", onDismiss = onDismiss) {
         Text(
@@ -361,6 +364,15 @@ internal fun ApiKeyDialog(
                     },
                 )
             }
+            if (urlError != null) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = urlError!!,
+                    fontFamily = Newsreader,
+                    fontSize = 11.sp,
+                    color = DangerTone,
+                )
+            }
         }
         Spacer(Modifier.height(sp.md))
         val saveEnabled = input.isNotBlank() || existingPresent ||
@@ -371,10 +383,15 @@ internal fun ApiKeyDialog(
                 primary = true,
                 enabled = saveEnabled,
                 onClick = {
-                    onSave(
-                        input.trim().ifBlank { null },
-                        if (secondaryLabel != null) secondaryInput.trim() else null,
-                    )
+                    val secondary = if (secondaryLabel != null) secondaryInput.trim() else null
+                    val invalid = if (secondaryIsUrl && !secondary.isNullOrBlank())
+                        (normalizeLibreUrl(secondary) as? UrlResult.Invalid)?.reason else null
+                    if (invalid != null) {
+                        urlError = invalid
+                    } else {
+                        urlError = null
+                        onSave(input.trim().ifBlank { null }, secondary)
+                    }
                 },
             )
             if (existingPresent) {

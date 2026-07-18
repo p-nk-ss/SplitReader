@@ -17,9 +17,15 @@ class TranslatorEndpoints @Inject constructor(
         prefs.getString(KEY_LIBRE, null)?.takeIf { it.isNotBlank() } ?: DEFAULT_LIBRE_URL
 
     fun setLibreTranslateBaseUrl(url: String?) {
-        prefs.edit().apply {
-            if (url.isNullOrBlank()) remove(KEY_LIBRE) else putString(KEY_LIBRE, normalize(url))
-        }.apply()
+        if (url.isNullOrBlank()) {
+            prefs.edit().remove(KEY_LIBRE).apply()
+            return
+        }
+        // Invalid (http://) URLs are not persisted; the UI validates first and shows the reason.
+        val result = normalizeLibreUrl(url)
+        if (result is UrlResult.Valid) {
+            prefs.edit().putString(KEY_LIBRE, result.url).apply()
+        }
     }
 
     fun getAzureRegion(): String =
@@ -47,12 +53,6 @@ class TranslatorEndpoints @Inject constructor(
             TranslationProvider.LIBRE_TRANSLATE -> setLibreTranslateBaseUrl(value)
             else -> Unit
         }
-    }
-
-    private fun normalize(url: String): String {
-        val trimmed = url.trim().trimEnd('/')
-        return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) trimmed
-        else "https://$trimmed"
     }
 
     companion object {
