@@ -13,6 +13,7 @@ enum class TranslationProvider(
     val secondaryPlaceholder: String? = null,
     val secondaryIsUrl: Boolean = false,
     val helpUrl: String? = null,
+    val stabilityNote: String? = null,
 ) {
     MLKIT(
         displayName = "ML Kit (offline)",
@@ -27,8 +28,9 @@ enum class TranslationProvider(
         requiresApiKey = false,
         requiresNetwork = true,
         category = TranslationProviderCategory.FREE,
-        description = "Fast online translation. No setup; needs internet. May be unstable.",
+        description = "Fast online translation. No setup; needs internet.",
         tracksUsage = false,
+        stabilityNote = "Unofficial endpoint — may be rate-limited or break without notice.",
     ),
     LIBRE_TRANSLATE(
         displayName = "LibreTranslate",

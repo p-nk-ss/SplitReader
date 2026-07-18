@@ -222,6 +222,16 @@ private fun ProviderRow(
                 fontSize = 11.sp,
                 color = if (selected) palette.bg.copy(alpha = 0.75f) else palette.ink3,
             )
+            if (provider.stabilityNote != null) {
+                Spacer(Modifier.height(sp.xxs))
+                Text(
+                    text = provider.stabilityNote!!,
+                    fontFamily = JetBrainsMono,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.3.sp,
+                    color = if (selected) palette.bg.copy(alpha = 0.85f) else WarnTone,
+                )
+            }
             if (provider.requiresApiKey) {
                 Spacer(Modifier.height(sp.xxs))
                 val statusText = if (configured) "Key configured" else "Tap to add API key"
