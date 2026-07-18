@@ -29,6 +29,7 @@ import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -67,6 +68,18 @@ class ReaderViewModel @Inject constructor(
 
     private fun buildTranslatorConfig(current: TranslationProvider): TranslatorConfigState =
         buildTranslatorConfigState(translationProviders, translatorEndpoints, usageTracker, current)
+
+    /**
+     * Rebuilds [TranslatorConfigState] off the main thread — [buildTranslatorConfig] reads
+     * [ApiKeyManager] (Android Keystore IPC), which must not run at construction/on the caller's
+     * (often main) thread.
+     */
+    private fun refreshTranslatorConfig(provider: TranslationProvider) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val cfg = buildTranslatorConfig(provider)
+            _state.update { it.copy(translatorConfig = cfg) }
+        }
+    }
 
     private data class InternalState(
         val book: Book? = null,
@@ -122,7 +135,7 @@ class ReaderViewModel @Inject constructor(
             showIllustrations = progressManager.getShowIllustrations(),
             horizontalMargin = progressManager.getHorizontalMargin(),
             translatorProvider = progressManager.getTranslatorProvider(),
-            translatorConfig = buildTranslatorConfig(progressManager.getTranslatorProvider()),
+            translatorConfig = TranslatorConfigState(current = progressManager.getTranslatorProvider(), configs = emptyMap()),
         )
     )
 
@@ -187,6 +200,9 @@ class ReaderViewModel @Inject constructor(
     private var lastScrollOffset = 0
 
     init {
+        // Populate the real translator config (Keystore read) off the main thread; the field
+        // initializer above only seeds a cheap prefs-only placeholder.
+        refreshTranslatorConfig(progressManager.getTranslatorProvider())
         // Fold the translation engine's snapshots (translated text + foreground banner state) into UI state.
         viewModelScope.launch {
             translationManager.updates.collect { update ->
@@ -454,25 +470,26 @@ class ReaderViewModel @Inject constructor(
     fun selectProvider(provider: TranslationProvider) {
         if (_state.value.translatorProvider == provider) return
         progressManager.setTranslatorProvider(provider)
-        _state.update { it.copy(translatorProvider = provider, translatorConfig = buildTranslatorConfig(provider)) }
+        _state.update { it.copy(translatorProvider = provider) }
+        refreshTranslatorConfig(provider)
         retranslateCurrentChapter()
     }
 
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
         if (key != null) apiKeyManager.setKey(provider, key)
         if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
-        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        refreshTranslatorConfig(_state.value.translatorProvider)
         if (provider == _state.value.translatorProvider) retranslateCurrentChapter()
     }
 
     fun clearProvider(provider: TranslationProvider) {
         apiKeyManager.setKey(provider, null)
-        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        refreshTranslatorConfig(_state.value.translatorProvider)
         if (provider == _state.value.translatorProvider) retranslateCurrentChapter()
     }
 
     fun refreshTranslationUsage() {
-        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        refreshTranslatorConfig(_state.value.translatorProvider)
     }
 
     fun resetTranslationUsage(provider: TranslationProvider) {

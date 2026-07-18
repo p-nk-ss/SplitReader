@@ -17,6 +17,7 @@ import com.example.splitreader.presentation.reader.buildTranslatorConfigState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -71,8 +72,23 @@ class SettingsViewModel @Inject constructor(
     private fun buildTranslatorConfig(current: TranslationProvider): TranslatorConfigState =
         buildTranslatorConfigState(translationProviders, translatorEndpoints, usageTracker, current)
 
+    /**
+     * Rebuilds [TranslatorConfigState] off the main thread — [buildTranslatorConfig] reads
+     * [ApiKeyManager] (Android Keystore IPC), which must not run at construction/on the caller's
+     * (often main) thread.
+     */
+    private fun refreshTranslatorConfig(provider: TranslationProvider) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val cfg = buildTranslatorConfig(provider)
+            _state.update { it.copy(translatorConfig = cfg) }
+        }
+    }
+
     init {
         refreshCacheCount()
+        // Populate the real translator config (Keystore read) off the main thread; loadState()
+        // above only seeds a cheap prefs-only placeholder.
+        refreshTranslatorConfig(progressManager.getTranslatorProvider())
         viewModelScope.launch {
             entitlementRepository.isPremium.collect { premium ->
                 _state.update { it.copy(isPremium = premium) }
@@ -105,7 +121,7 @@ class SettingsViewModel @Inject constructor(
         paragraphSpacing = progressManager.getParagraphSpacing(),
         justifyText = progressManager.getJustifyText(),
         translatorProvider = progressManager.getTranslatorProvider(),
-        translatorConfig = buildTranslatorConfig(progressManager.getTranslatorProvider()),
+        translatorConfig = TranslatorConfigState(current = progressManager.getTranslatorProvider(), configs = emptyMap()),
         ttsRate = progressManager.getTtsRate(),
         ttsPitch = progressManager.getTtsPitch(),
     )
@@ -190,22 +206,23 @@ class SettingsViewModel @Inject constructor(
 
     fun selectProvider(provider: TranslationProvider) {
         progressManager.setTranslatorProvider(provider)
-        _state.update { it.copy(translatorProvider = provider, translatorConfig = buildTranslatorConfig(provider)) }
+        _state.update { it.copy(translatorProvider = provider) }
+        refreshTranslatorConfig(provider)
     }
 
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
         if (key != null) apiKeyManager.setKey(provider, key)
         if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
-        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        refreshTranslatorConfig(_state.value.translatorProvider)
     }
 
     fun clearProvider(provider: TranslationProvider) {
         apiKeyManager.setKey(provider, null)
-        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        refreshTranslatorConfig(_state.value.translatorProvider)
     }
 
     fun refreshTranslationUsage() {
-        _state.update { it.copy(translatorConfig = buildTranslatorConfig(it.translatorProvider)) }
+        refreshTranslatorConfig(_state.value.translatorProvider)
     }
 
     fun resetTranslationUsage(provider: TranslationProvider) {
