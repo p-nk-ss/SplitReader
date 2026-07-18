@@ -19,12 +19,13 @@ object MobiChapterSplitter {
         val byBreaks = PAGE_BREAK.split(html).map { it.trim() }.filter { it.isNotEmpty() }
         if (byBreaks.size >= 2) return byBreaks
 
-        val level = HEADING_LEVELS.firstOrNull {
-            Regex("<\\s*$it[\\s/>]", RegexOption.IGNORE_CASE).containsMatchIn(html)
-        } ?: return listOf(html)
-
-        val fragments = html.split(Regex("(?=<\\s*$level[\\s/>])", RegexOption.IGNORE_CASE))
-            .map { it.trim() }.filter { it.isNotEmpty() }
-        return fragments.ifEmpty { listOf(html) }
+        // Fall back to headings: use the shallowest level that actually divides the book into >=2
+        // fragments (so a lone <h1> title page above <h2> chapters doesn't still collapse to one).
+        for (level in HEADING_LEVELS) {
+            val fragments = html.split(Regex("(?=<\\s*$level[\\s/>])", RegexOption.IGNORE_CASE))
+                .map { it.trim() }.filter { it.isNotEmpty() }
+            if (fragments.size >= 2) return fragments
+        }
+        return listOf(html)
     }
 }

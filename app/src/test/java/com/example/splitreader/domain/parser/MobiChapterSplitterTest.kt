@@ -62,4 +62,10 @@ class MobiChapterSplitterTest {
         assertEquals(2, frags.size)
         assertTrue(frags.all { it.startsWith("<h2") })
     }
+
+    @Test fun singleH1TitleAboveH2Chapters_splitsOnH2() {
+        // A lone <h1> title page + multiple <h2> chapters: h1 can't divide, so fall through to h2.
+        val html = "<h1>Book Title</h1><h2>Ch1</h2><p>a</p><h2>Ch2</h2><p>b</p>"
+        assertEquals(3, MobiChapterSplitter.split(html).size) // title page + 2 chapters
+    }
 }
