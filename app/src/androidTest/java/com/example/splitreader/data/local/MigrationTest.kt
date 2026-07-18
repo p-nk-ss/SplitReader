@@ -75,7 +75,7 @@ class MigrationTest {
                 assertTrue(c.moveToFirst())
             }
 
-            // 4. New v3 tables exist and enforce the FK to books.
+            // 4. New v3 tables exist and accept a row referencing the surviving book via its FK column.
             sdb.execSQL(
                 "INSERT INTO bookmarks (bookUri, chapterIndex, paragraphIndex, label, createdAt) " +
                     "VALUES ('content://book/1', 0, 5, 'ch1', 333)"

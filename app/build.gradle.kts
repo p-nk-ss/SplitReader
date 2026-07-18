@@ -173,6 +173,7 @@ val stageQaFixtures = tasks.register<Copy>("stageQaFixtures") {
 }
 
 android.sourceSets.getByName("androidTest").assets.srcDir(qaStagedRoot)
+// Exported Room schemas staged as androidTest assets for future MigrationTestHelper-based tests.
 android.sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 // Stage fixtures before any androidTest asset-merge/packaging task consumes the srcDir.
 tasks.matching { it.name.contains("AndroidTest") && it.name.contains("Assets") }
