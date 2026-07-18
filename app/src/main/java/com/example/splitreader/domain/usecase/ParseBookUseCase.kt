@@ -18,8 +18,9 @@ import javax.inject.Inject
 
 /**
  * Resolves the book format by asking each registered [BookParser] whether it [BookParser.canParse]
- * the file (name, MIME type, and a small header peek), then delegates to the first match. Adding a
- * format requires no change here — just a new parser in the registry. Emits [ParseResult].
+ * the file (name, MIME type, and a small header peek), then delegates to the highest-priority match
+ * (see [selectParser]). Adding a format requires no change here — just a new parser in the registry.
+ * Emits [ParseResult].
  */
 class ParseBookUseCase @Inject constructor(
     private val parsers: Set<@JvmSuppressWildcards BookParser>,
