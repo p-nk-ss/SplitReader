@@ -20,6 +20,7 @@ val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) load(FileInputStream(keystorePropertiesFile))
 }
 val hasReleaseKeystore = keystorePropertiesFile.exists()
+val billingPublicKey = keystoreProperties.getProperty("billingPublicKey", "")
 
 android {
     namespace = "com.example.splitreader"
@@ -33,9 +34,10 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Play Console → Monetization setup → Licensing → base64 RSA public key. Blank in dev
-        // builds: PurchaseVerifier fails open (skips the check) until this is set. See P15.
-        buildConfigField("String", "BILLING_PUBLIC_KEY", "\"\"")
+        // Play Console → Monetization setup → Licensing → base64 RSA public key, supplied via
+        // `billingPublicKey` in keystore.properties (gitignored). Blank in dev/CI builds:
+        // PurchaseVerifier fails open (skips the check) until this is set. See P15.
+        buildConfigField("String", "BILLING_PUBLIC_KEY", "\"$billingPublicKey\"")
     }
 
     signingConfigs {
@@ -78,6 +80,21 @@ android {
 
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+// P15: a genuine signed release must not ship with purchase-signature verification disabled.
+// Gated on hasReleaseKeystore so CI / fresh clones (unsigned release, blank key) still build.
+if (hasReleaseKeystore && billingPublicKey.isBlank()) {
+    tasks.matching { it.name == "bundleRelease" || it.name == "assembleRelease" }.configureEach {
+        doFirst {
+            throw GradleException(
+                "BILLING_PUBLIC_KEY is blank but a release upload keystore is present. Set " +
+                    "`billingPublicKey` in keystore.properties (Play Console → Monetization setup → " +
+                    "Licensing → base64 RSA public key) before building a signed release — otherwise " +
+                    "P15 purchase-signature verification ships disabled (fail-open).",
+            )
+        }
+    }
 }
 
 dependencies {
