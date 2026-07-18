@@ -1,6 +1,7 @@
 package com.example.splitreader.data.local
 
 import android.content.Context
+import android.util.Log
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,9 +24,9 @@ class TranslatorEndpoints @Inject constructor(
             return
         }
         // Invalid (http://) URLs are not persisted; the UI validates first and shows the reason.
-        val result = normalizeLibreUrl(url)
-        if (result is UrlResult.Valid) {
-            prefs.edit().putString(KEY_LIBRE, result.url).apply()
+        when (val result = normalizeLibreUrl(url)) {
+            is UrlResult.Valid -> prefs.edit().putString(KEY_LIBRE, result.url).apply()
+            is UrlResult.Invalid -> Log.w(TAG, "Rejected LibreTranslate URL: ${result.reason}")
         }
     }
 
@@ -61,5 +62,6 @@ class TranslatorEndpoints @Inject constructor(
         const val DEFAULT_AZURE_REGION = "global"
         private const val KEY_LIBRE = "libre_base_url"
         private const val KEY_AZURE_REGION = "azure_region"
+        private const val TAG = "TranslatorEndpoints"
     }
 }

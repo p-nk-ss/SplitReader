@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 // TODO(architecture): this ViewModel has several responsibilities (book loading, translation +
@@ -477,16 +478,24 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
-        if (key != null) apiKeyManager.setKey(provider, key)
-        if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
-        refreshTranslatorConfig(_state.value.translatorProvider)
-        if (provider == _state.value.translatorProvider) retranslateCurrentChapter()
+        viewModelScope.launch(Dispatchers.Default) {
+            if (key != null) apiKeyManager.setKey(provider, key)
+            if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
+            val cfg = buildTranslatorConfig(_state.value.translatorProvider)
+            _state.update { if (it.translatorProvider == provider) it.copy(translatorConfig = cfg) else it }
+            // retranslateCurrentChapter touches ChapterTranslationManager's non-thread-safe internal
+            // state, which is only ever mutated from the Main thread — hop back for it.
+            if (provider == _state.value.translatorProvider) withContext(Dispatchers.Main) { retranslateCurrentChapter() }
+        }
     }
 
     fun clearProvider(provider: TranslationProvider) {
-        apiKeyManager.setKey(provider, null)
-        refreshTranslatorConfig(_state.value.translatorProvider)
-        if (provider == _state.value.translatorProvider) retranslateCurrentChapter()
+        viewModelScope.launch(Dispatchers.Default) {
+            apiKeyManager.setKey(provider, null)
+            val cfg = buildTranslatorConfig(_state.value.translatorProvider)
+            _state.update { if (it.translatorProvider == provider) it.copy(translatorConfig = cfg) else it }
+            if (provider == _state.value.translatorProvider) withContext(Dispatchers.Main) { retranslateCurrentChapter() }
+        }
     }
 
     fun refreshTranslationUsage() {

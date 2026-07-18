@@ -5,8 +5,8 @@ import com.example.splitreader.domain.model.DrivePickedFile
 
 /**
  * Downloads books the user picked from Google Drive. The authorize + pick step lives in
- * [com.example.splitreader.data.auth.DriveAuthClient] (it needs an Activity + ActivityResultLauncher);
- * this repository owns only the side-effect-free download so it slots into the existing
+ * the Drive auth client (it needs an Activity + ActivityResultLauncher); this repository owns only
+ * the side-effect-free download so it slots into the existing
  * [com.example.splitreader.domain.usecase.ParseBookUseCase] pipeline.
  */
 interface DriveRepository {

@@ -7,8 +7,8 @@ import com.example.splitreader.domain.model.CatalogSource
 
 /**
  * Discovery + download for a single catalog [source]. Implementations own the source's networking
- * and parsing; [com.example.splitreader.data.repository.CatalogRepositoryImpl] routes to them by
- * source. Mirrors the [com.example.splitreader.domain.translator.TranslationProviderApi] multibinding.
+ * and parsing; the catalog repository implementation routes to them by source. Mirrors the
+ * [com.example.splitreader.domain.translator.TranslationProviderApi] multibinding.
  */
 interface CatalogSourceClient {
     val source: CatalogSource
