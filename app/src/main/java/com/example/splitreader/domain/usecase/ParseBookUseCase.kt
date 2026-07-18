@@ -8,6 +8,7 @@ import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.parser.BookParser
 import com.example.splitreader.domain.parser.util.readUpTo
+import com.example.splitreader.domain.parser.util.selectParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -35,7 +36,7 @@ class ParseBookUseCase @Inject constructor(
 
             Log.d("PARSER", "File: $fileName, MIME: $mimeType, parsers: ${parsers.size}")
 
-            val parser = parsers.firstOrNull { it.canParse(fileName, mimeType, header) }
+            val parser = selectParser(parsers, fileName, mimeType, header)
                 ?: throw IllegalArgumentException(
                     "Unsupported format: $fileName\nSupported: " +
                         parsers.flatMap { it.supportedExtensions }

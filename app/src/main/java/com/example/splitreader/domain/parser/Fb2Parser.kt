@@ -17,6 +17,7 @@ import javax.inject.Inject
 class Fb2Parser @Inject constructor() : BookParser {
 
     override val supportedExtensions = listOf("fb2", "fb2.xml")
+    override val priority = 5
 
     override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
         fileName.endsWith(".fb2", ignoreCase = true) ||

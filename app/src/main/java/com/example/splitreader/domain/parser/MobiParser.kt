@@ -23,6 +23,7 @@ import javax.inject.Inject
 class MobiParser @Inject constructor() : BookParser {
 
     override val supportedExtensions = listOf("mobi", "prc", "azw")
+    override val priority = 10
 
     override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
         supportedExtensions.any { fileName.endsWith(".$it", ignoreCase = true) } ||

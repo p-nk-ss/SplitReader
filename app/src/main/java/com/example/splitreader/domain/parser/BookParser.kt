@@ -14,6 +14,9 @@ interface BookParser {
     /** File extensions this parser claims, without the dot — e.g. `["epub"]`, `["fb2", "fb2.xml"]`. */
     val supportedExtensions: List<String>
 
+    /** Selection priority when multiple parsers match; higher wins. Magic-byte parsers set this high. */
+    val priority: Int get() = 0
+
     /**
      * Cheap pre-parse check used by the registry to route a file to this parser. The default
      * matches on [supportedExtensions]; override to also sniff MIME type or magic bytes.

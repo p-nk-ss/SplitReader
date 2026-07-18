@@ -15,6 +15,7 @@ import javax.inject.Inject
 class EpubParser @Inject constructor() : BookParser {
 
     override val supportedExtensions = listOf("epub")
+    override val priority = 10
 
     override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
         fileName.endsWith(".epub", ignoreCase = true) ||
