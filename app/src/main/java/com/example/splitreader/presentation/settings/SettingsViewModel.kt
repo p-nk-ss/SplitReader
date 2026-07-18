@@ -215,16 +215,18 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             if (key != null) apiKeyManager.setKey(provider, key)
             if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
-            val cfg = buildTranslatorConfig(_state.value.translatorProvider)
-            _state.update { if (it.translatorProvider == provider) it.copy(translatorConfig = cfg) else it }
+            val current = _state.value.translatorProvider
+            val cfg = buildTranslatorConfig(current)
+            _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
         }
     }
 
     fun clearProvider(provider: TranslationProvider) {
         viewModelScope.launch(Dispatchers.Default) {
             apiKeyManager.setKey(provider, null)
-            val cfg = buildTranslatorConfig(_state.value.translatorProvider)
-            _state.update { if (it.translatorProvider == provider) it.copy(translatorConfig = cfg) else it }
+            val current = _state.value.translatorProvider
+            val cfg = buildTranslatorConfig(current)
+            _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
         }
     }
 
