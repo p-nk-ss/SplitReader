@@ -36,11 +36,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.splitreader.data.local.TranslationUsage
 import com.example.splitreader.data.local.UrlResult
 import com.example.splitreader.data.local.normalizeLibreUrl
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProviderCategory
+import com.example.splitreader.domain.model.TranslationUsage
 import com.example.splitreader.presentation.theme.DangerTone
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii

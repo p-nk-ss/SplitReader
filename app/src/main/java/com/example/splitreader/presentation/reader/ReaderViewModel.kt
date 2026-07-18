@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.domain.repository.ReadingPreferences
-import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.LanguageDetector
@@ -18,6 +17,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
+import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
@@ -60,7 +60,7 @@ class ReaderViewModel @Inject constructor(
     private val languageDetector: LanguageDetector,
     private val apiKeyManager: ApiKeyManager,
     private val translatorEndpoints: TranslatorEndpoints,
-    private val usageTracker: TranslationUsageTracker,
+    private val usageTracker: TranslationUsageStats,
     private val textToSpeechManager: SpeechSynthesizer,
     private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
     @ApplicationContext private val context: Context,

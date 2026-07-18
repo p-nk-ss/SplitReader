@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.data.local.TranslationDao
-import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.domain.repository.SpeechSynthesizer
+import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
@@ -59,7 +59,7 @@ class SettingsViewModel @Inject constructor(
     private val progressManager: ReadingPreferences,
     private val apiKeyManager: ApiKeyManager,
     private val translatorEndpoints: TranslatorEndpoints,
-    private val usageTracker: TranslationUsageTracker,
+    private val usageTracker: TranslationUsageStats,
     private val translationDao: TranslationDao,
     private val textToSpeechManager: SpeechSynthesizer,
     private val entitlementRepository: EntitlementRepository,

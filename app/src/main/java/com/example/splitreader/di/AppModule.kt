@@ -2,6 +2,7 @@ package com.example.splitreader.di
 
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TextToSpeechManager
+import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.data.repository.BookLibraryRepositoryImpl
 import com.example.splitreader.data.repository.EntitlementRepositoryImpl
 import com.example.splitreader.data.repository.BookmarkRepositoryImpl
@@ -16,6 +17,7 @@ import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
 import com.example.splitreader.domain.repository.SpeechSynthesizer
+import com.example.splitreader.domain.repository.TranslationUsageStats
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -49,4 +51,7 @@ object AppModule {
 
     @Provides @Singleton
     fun provideSpeechSynthesizer(impl: TextToSpeechManager): SpeechSynthesizer = impl
+
+    @Provides @Singleton
+    fun provideTranslationUsageStats(impl: TranslationUsageTracker): TranslationUsageStats = impl
 }

@@ -2,23 +2,19 @@ package com.example.splitreader.data.local
 
 import android.content.Context
 import com.example.splitreader.domain.model.TranslationProvider
+import com.example.splitreader.domain.model.TranslationUsage
+import com.example.splitreader.domain.repository.TranslationUsageStats
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Calendar
 import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Characters translated in the current UTC month and the provider's monthly limit (if any). */
-data class TranslationUsage(
-    val charactersThisMonth: Long,
-    val monthlyLimit: Long?,
-)
-
 /** Tracks per-provider monthly character usage (UTC month boundaries) for quota display. */
 @Singleton
 class TranslationUsageTracker @Inject constructor(
     @ApplicationContext context: Context,
-) {
+) : TranslationUsageStats {
     private val prefs = context.getSharedPreferences("translation_usage", Context.MODE_PRIVATE)
 
     fun record(provider: TranslationProvider, characters: Int) {
@@ -28,12 +24,12 @@ class TranslationUsageTracker @Inject constructor(
         prefs.edit().putLong(key, current + characters).apply()
     }
 
-    fun usage(provider: TranslationProvider): TranslationUsage {
+    override fun usage(provider: TranslationProvider): TranslationUsage {
         val chars = prefs.getLong(monthKey(provider), 0L)
         return TranslationUsage(chars, limitFor(provider))
     }
 
-    fun reset(provider: TranslationProvider) {
+    override fun reset(provider: TranslationProvider) {
         prefs.edit().putLong(monthKey(provider), 0L).apply()
     }
 
