@@ -77,7 +77,7 @@ class ReaderViewModel @Inject constructor(
     private fun refreshTranslatorConfig(provider: TranslationProvider) {
         viewModelScope.launch(Dispatchers.Default) {
             val cfg = buildTranslatorConfig(provider)
-            _state.update { it.copy(translatorConfig = cfg) }
+            _state.update { if (it.translatorProvider == provider) it.copy(translatorConfig = cfg) else it }
         }
     }
 
