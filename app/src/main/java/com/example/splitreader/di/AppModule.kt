@@ -1,5 +1,6 @@
 package com.example.splitreader.di
 
+import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslationUsageTracker
@@ -18,6 +19,7 @@ import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
 import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
+import com.example.splitreader.domain.repository.TranslatorKeyStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -54,4 +56,7 @@ object AppModule {
 
     @Provides @Singleton
     fun provideTranslationUsageStats(impl: TranslationUsageTracker): TranslationUsageStats = impl
+
+    @Provides @Singleton
+    fun provideTranslatorKeyStore(impl: ApiKeyManager): TranslatorKeyStore = impl
 }

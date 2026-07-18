@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitreader.data.local.ApiKeyManager
+import com.example.splitreader.domain.repository.TranslatorKeyStore
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.data.local.TranslatorEndpoints
@@ -58,7 +58,7 @@ class ReaderViewModel @Inject constructor(
     private val endReadingSessionUseCase: EndReadingSessionUseCase,
     private val progressManager: ReadingPreferences,
     private val languageDetector: LanguageDetector,
-    private val apiKeyManager: ApiKeyManager,
+    private val apiKeyManager: TranslatorKeyStore,
     private val translatorEndpoints: TranslatorEndpoints,
     private val usageTracker: TranslationUsageStats,
     private val textToSpeechManager: SpeechSynthesizer,
@@ -71,7 +71,7 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * Rebuilds [TranslatorConfigState] off the main thread — [buildTranslatorConfig] reads
-     * [ApiKeyManager] (Android Keystore IPC), which must not run at construction/on the caller's
+     * [TranslatorKeyStore] (Android Keystore IPC), which must not run at construction/on the caller's
      * (often main) thread.
      */
     private fun refreshTranslatorConfig(provider: TranslationProvider) {

@@ -7,6 +7,7 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
 import com.example.splitreader.domain.model.TranslationProvider
+import com.example.splitreader.domain.repository.TranslatorKeyStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -28,7 +29,7 @@ import javax.inject.Singleton
 @Singleton
 class ApiKeyManager @Inject constructor(
     @ApplicationContext context: Context,
-) {
+) : TranslatorKeyStore {
     /** Plain prefs holding only encrypted blobs; kept under the old name so backup rules still exclude it. */
     private val prefs: SharedPreferences =
         context.getSharedPreferences(ENCRYPTED_PREFS_NAME, Context.MODE_PRIVATE)
@@ -136,7 +137,7 @@ class ApiKeyManager @Inject constructor(
     fun setAzureKey(value: String?) = write(KEY_AZURE, value)
 
     /** Provider-keyed accessor; dispatches to the matching per-provider getter. */
-    fun getKey(provider: TranslationProvider): String? = when (provider) {
+    override fun getKey(provider: TranslationProvider): String? = when (provider) {
         TranslationProvider.GOOGLE_CLOUD -> getGoogleCloudKey()
         TranslationProvider.DEEPL -> getDeepLKey()
         TranslationProvider.LIBRE_TRANSLATE -> getLibreTranslateKey()
@@ -145,7 +146,7 @@ class ApiKeyManager @Inject constructor(
     }
 
     /** Provider-keyed mutator; dispatches to the matching per-provider setter. */
-    fun setKey(provider: TranslationProvider, value: String?) {
+    override fun setKey(provider: TranslationProvider, value: String?) {
         when (provider) {
             TranslationProvider.GOOGLE_CLOUD -> setGoogleCloudKey(value)
             TranslationProvider.DEEPL -> setDeepLKey(value)
