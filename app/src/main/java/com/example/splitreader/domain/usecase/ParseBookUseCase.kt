@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Resolves the book format by asking each registered [BookParser] whether it [BookParser.canParse]
@@ -47,6 +48,8 @@ class ParseBookUseCase @Inject constructor(
 
             val book = parser.parse(uri, context)
             emit(ParseResult.Success(book))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("PARSER", "Parse error: ${e.message}", e)
             crashReporter.recordNonFatal(e, "Book parse failed")
