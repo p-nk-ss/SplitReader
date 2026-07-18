@@ -7,6 +7,7 @@ import android.util.Log
 import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.parser.BookParser
+import com.example.splitreader.domain.parser.util.readUpTo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -65,8 +66,6 @@ class ParseBookUseCase @Inject constructor(
     /** Reads the first [byteCount] bytes (or fewer) of the file for magic-byte format detection. */
     private fun readHeaderBytes(uri: Uri, byteCount: Int): ByteArray =
         context.contentResolver.openInputStream(uri)?.use { stream ->
-            val bytes = ByteArray(byteCount)
-            val read = stream.read(bytes)
-            if (read <= 0) ByteArray(0) else bytes.copyOf(read)
+            readUpTo(stream, byteCount)
         } ?: ByteArray(0)
 }
