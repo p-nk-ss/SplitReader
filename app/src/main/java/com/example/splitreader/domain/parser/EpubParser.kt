@@ -5,6 +5,7 @@ import android.net.Uri
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
+import com.example.splitreader.domain.parser.util.stableId
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.io.File
@@ -67,7 +68,7 @@ class EpubParser @Inject constructor() : BookParser {
             if (it.isEmpty()) "" else "$it/"
         }
 
-        val bookHash = uri.toString().hashCode().toLong().and(0x7FFFFFFFL)
+        val bookHash = stableId(uri.toString())
         val chapters = mutableListOf<Chapter>()
         opf.spineIds.filter { id -> id !in opf.navItemIds }.forEach { id ->
             val href = opf.manifestMap[id] ?: return@forEach
@@ -190,7 +191,7 @@ class EpubParser @Inject constructor() : BookParser {
             coversDir.mkdirs()
             val ext = coverEntryPath.substringAfterLast('.', "jpg").lowercase()
                 .takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"
-            val hash = uri.toString().hashCode().toLong().and(0x7FFFFFFFL)
+            val hash = stableId(uri.toString())
             val coverFile = File(coversDir, "$hash.$ext")
 
             context.contentResolver.openInputStream(uri)?.use { input ->

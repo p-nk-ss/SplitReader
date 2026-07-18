@@ -7,6 +7,7 @@ import android.util.Log
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
+import com.example.splitreader.domain.parser.util.stableId
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.File
@@ -239,7 +240,7 @@ class Fb2Parser @Inject constructor() : BookParser {
 
         // All <binary> blobs are now known: decode referenced inline images and attach by chapter.
         if (pendingChapterImages.isNotEmpty()) {
-            val bookHash = filePath.hashCode().toLong().and(0x7FFFFFFFL)
+            val bookHash = stableId(filePath)
             pendingChapterImages.forEach { (chIdx, refs) ->
                 val i = chapters.indexOfFirst { it.index == chIdx }
                 if (i < 0) return@forEach
@@ -274,7 +275,7 @@ class Fb2Parser @Inject constructor() : BookParser {
             val bytes = Base64.decode(raw, Base64.DEFAULT)
             val coversDir = File(context.filesDir, "covers")
             coversDir.mkdirs()
-            val hash = filePath.hashCode().toLong().and(0x7FFFFFFFL)
+            val hash = stableId(filePath)
             val coverFile = File(coversDir, "$hash.jpg")
             coverFile.writeBytes(bytes)
             coverFile.absolutePath

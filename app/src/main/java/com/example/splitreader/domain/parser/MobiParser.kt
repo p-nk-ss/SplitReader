@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
+import com.example.splitreader.domain.parser.util.stableId
 import java.io.File
 import java.nio.charset.Charset
 import javax.inject.Inject
@@ -178,7 +179,7 @@ class MobiParser @Inject constructor() : BookParser {
                 else -> "jpg"
             }
             val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
-            val hash = filePath.hashCode().toLong().and(0x7FFFFFFFL)
+            val hash = stableId(filePath)
             val coverFile = File(coversDir, "$hash.$ext")
             coverFile.writeBytes(img)
             coverFile.absolutePath
