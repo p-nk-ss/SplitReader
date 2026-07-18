@@ -1,6 +1,7 @@
 package com.example.splitreader.presentation.reader
 
 import com.example.splitreader.domain.model.Book
+import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
@@ -59,7 +60,7 @@ sealed interface ReaderUiState {
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = 12f,
-        val bookmarks: List<com.example.splitreader.data.local.BookmarkEntity> = emptyList(),
+        val bookmarks: List<Bookmark> = emptyList(),
         val isCurrentPositionBookmarked: Boolean = false,
         val wordSelection: WordSelection? = null,
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,

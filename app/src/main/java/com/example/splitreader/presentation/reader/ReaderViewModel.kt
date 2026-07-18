@@ -5,13 +5,13 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
-import com.example.splitreader.data.local.BookmarkEntity
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
+import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.TranslationProvider
@@ -106,7 +106,7 @@ class ReaderViewModel @Inject constructor(
         val isLoading: Boolean = false,
         val error: String? = null,
         val currentParagraph: Int = 0,
-        val bookmarks: List<BookmarkEntity> = emptyList(),
+        val bookmarks: List<Bookmark> = emptyList(),
         val wordSelection: WordSelection? = null,
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val translatorConfig: TranslatorConfigState =

@@ -117,6 +117,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.R
+import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -2023,7 +2024,7 @@ private fun ChapterPickerDialog(
 @Composable
 private fun BookmarksDialog(
     book: com.example.splitreader.domain.model.Book,
-    bookmarks: List<com.example.splitreader.data.local.BookmarkEntity>,
+    bookmarks: List<Bookmark>,
     isCurrentBookmarked: Boolean,
     onToggleCurrent: () -> Unit,
     onRemove: (Int, Int) -> Unit,
