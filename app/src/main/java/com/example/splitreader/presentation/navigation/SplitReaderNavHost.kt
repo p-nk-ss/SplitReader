@@ -27,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.example.splitreader.presentation.almanac.AlmanacRoute
 import com.example.splitreader.presentation.auth.AuthRoute
 import com.example.splitreader.presentation.catalog.CatalogRoute
@@ -52,6 +53,15 @@ private val NavSlideSpring = spring(
     visibilityThreshold = IntOffset.VisibilityThreshold,
 )
 
+/** Navigates to a top-level tab with saved-state restore and a single instance on the back stack. */
+private fun NavHostController.navigateToTab(route: String) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
 @Composable
 fun SplitReaderNavHost(
     modifier: Modifier = Modifier,
@@ -74,11 +84,11 @@ fun SplitReaderNavHost(
         currentRoute = currentRoute,
         avatarLabel = avatarLabel,
         avatarSubtitle = avatarSubtitle,
-        onNavigateToHome = { navController.navigate(HOME_ROUTE) { launchSingleTop = true } },
-        onNavigateToCatalog = { navController.navigate(CATALOG_ROUTE) { launchSingleTop = true } },
-        onNavigateToAlmanac = { navController.navigate(ALMANAC_ROUTE) { launchSingleTop = true } },
-        onNavigateToWords = { navController.navigate(WORDS_ROUTE) { launchSingleTop = true } },
-        onNavigateToSettings = { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } },
+        onNavigateToHome = { navController.navigateToTab(HOME_ROUTE) },
+        onNavigateToCatalog = { navController.navigateToTab(CATALOG_ROUTE) },
+        onNavigateToAlmanac = { navController.navigateToTab(ALMANAC_ROUTE) },
+        onNavigateToWords = { navController.navigateToTab(WORDS_ROUTE) },
+        onNavigateToSettings = { navController.navigateToTab(SETTINGS_ROUTE) },
         onNavigateToAccount = {
             val target = if (signedInUser != null) PROFILE_ROUTE else AUTH_ROUTE
             navController.navigate(target) { launchSingleTop = true }
