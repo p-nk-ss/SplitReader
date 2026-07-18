@@ -2,6 +2,7 @@ package com.example.splitreader.di
 
 import android.content.Context
 import androidx.room.Room
+import com.example.splitreader.BuildConfig
 import com.example.splitreader.data.local.AppDatabase
 import com.example.splitreader.data.local.BookDao
 import com.example.splitreader.data.local.BookmarkDao
@@ -26,7 +27,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "splitreader.db")
             .addMigrations(*Migrations.ALL)
-            .fallbackToDestructiveMigration()
+            .apply { if (BuildConfig.DEBUG) fallbackToDestructiveMigration(dropAllTables = true) }
             .build()
 
     @Provides @Singleton
