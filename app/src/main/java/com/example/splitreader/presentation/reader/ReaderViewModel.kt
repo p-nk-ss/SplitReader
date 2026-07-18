@@ -13,6 +13,7 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParseResult
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.parser.SynopsisExtractor
@@ -90,19 +91,19 @@ class ReaderViewModel @Inject constructor(
         val chapterTranslations: Map<Int, List<String>> = emptyMap(),
         val pendingScrollPosition: Int = -1,
         val pendingScrollOffset: Int = 0,
-        val textSize: Float = 16f,
-        val lineHeightMultiplier: Float = 1.5f,
+        val textSize: Float = ReadingDefaults.TEXT_SIZE,
+        val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
         val readingFont: ReadingFont = ReadingFont.SERIF,
-        val letterSpacing: Float = 0f,
-        val textIndent: Float = 0f,
-        val paragraphSpacing: Float = 18f,
-        val justifyText: Boolean = true,
-        val splitRatio: Float = 0.5f,
-        val showTranslation: Boolean = true,
-        val showIllustrations: Boolean = true,
+        val letterSpacing: Float = ReadingDefaults.LETTER_SPACING,
+        val textIndent: Float = ReadingDefaults.TEXT_INDENT,
+        val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
+        val justifyText: Boolean = ReadingDefaults.JUSTIFY_TEXT,
+        val splitRatio: Float = ReadingDefaults.SPLIT_RATIO,
+        val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
+        val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
-        val horizontalMargin: Float = 12f,
+        val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
         val isLoading: Boolean = false,
         val error: String? = null,
         val currentParagraph: Int = 0,
@@ -389,7 +390,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun adjustTextSize(delta: Float) {
-        val newSize = (_state.value.textSize + delta).coerceIn(14f, 30f)
+        val newSize = (_state.value.textSize + delta).coerceIn(ReadingDefaults.TEXT_SIZE_RANGE)
         progressManager.saveTextSize(newSize)
         _state.update { it.copy(textSize = newSize) }
     }
@@ -400,19 +401,19 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun setLetterSpacing(spacing: Float) {
-        val clamped = spacing.coerceIn(0f, 2f)
+        val clamped = spacing.coerceIn(ReadingDefaults.LETTER_SPACING_RANGE)
         progressManager.saveLetterSpacing(clamped)
         _state.update { it.copy(letterSpacing = clamped) }
     }
 
     fun setTextIndent(indent: Float) {
-        val clamped = indent.coerceIn(0f, 48f)
+        val clamped = indent.coerceIn(ReadingDefaults.TEXT_INDENT_RANGE)
         progressManager.saveTextIndent(clamped)
         _state.update { it.copy(textIndent = clamped) }
     }
 
     fun setParagraphSpacing(spacing: Float) {
-        val clamped = spacing.coerceIn(4f, 48f)
+        val clamped = spacing.coerceIn(ReadingDefaults.PARAGRAPH_SPACING_RANGE)
         progressManager.saveParagraphSpacing(clamped)
         _state.update { it.copy(paragraphSpacing = clamped) }
     }
@@ -433,13 +434,13 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun adjustLineHeight(delta: Float) {
-        val newMultiplier = (_state.value.lineHeightMultiplier + delta).coerceIn(1.1f, 2.5f)
+        val newMultiplier = (_state.value.lineHeightMultiplier + delta).coerceIn(ReadingDefaults.LINE_HEIGHT_RANGE)
         progressManager.saveLineHeightMultiplier(newMultiplier)
         _state.update { it.copy(lineHeightMultiplier = newMultiplier) }
     }
 
     fun setSplitRatio(ratio: Float) {
-        val clamped = ratio.coerceIn(0.3f, 0.7f)
+        val clamped = ratio.coerceIn(ReadingDefaults.SPLIT_RATIO_RANGE)
         progressManager.saveSplitRatio(clamped)
         _state.update { it.copy(splitRatio = clamped) }
     }
@@ -462,7 +463,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun setHorizontalMargin(margin: Float) {
-        val clamped = margin.coerceIn(4f, 32f)
+        val clamped = margin.coerceIn(ReadingDefaults.HORIZONTAL_MARGIN_RANGE)
         progressManager.saveHorizontalMargin(clamped)
         _state.update { it.copy(horizontalMargin = clamped) }
     }

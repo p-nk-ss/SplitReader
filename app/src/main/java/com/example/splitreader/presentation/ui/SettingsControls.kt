@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -126,7 +127,7 @@ fun TypographyControls(
         label = "Font size",
         value = textSize,
         valueLabel = "${textSize.toInt()}sp",
-        valueRange = 14f..24f,
+        valueRange = ReadingDefaults.TEXT_SIZE_RANGE,
         onValueChange = onSetTextSize,
     )
     Spacer(Modifier.height(sp.sm))

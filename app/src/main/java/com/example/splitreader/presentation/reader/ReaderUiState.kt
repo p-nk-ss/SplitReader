@@ -4,6 +4,7 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
@@ -17,12 +18,12 @@ enum class SelectionType { WORD, SENTENCE }
  */
 data class ReadingStyle(
     val font: ReadingFont = ReadingFont.SERIF,
-    val textSize: Float = 16f,
-    val lineHeightMultiplier: Float = 1.5f,
-    val letterSpacing: Float = 0f,
-    val textIndent: Float = 0f,
-    val paragraphSpacing: Float = 18f,
-    val justify: Boolean = true,
+    val textSize: Float = ReadingDefaults.TEXT_SIZE,
+    val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
+    val letterSpacing: Float = ReadingDefaults.LETTER_SPACING,
+    val textIndent: Float = ReadingDefaults.TEXT_INDENT,
+    val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
+    val justify: Boolean = ReadingDefaults.JUSTIFY_TEXT,
 )
 
 data class WordSelection(
@@ -47,19 +48,19 @@ sealed interface ReaderUiState {
         val chapterTranslations: Map<Int, List<String>>,
         val pendingScrollPosition: Int = -1,
         val pendingScrollOffset: Int = 0,
-        val textSize: Float = 16f,
-        val lineHeightMultiplier: Float = 1.5f,
+        val textSize: Float = ReadingDefaults.TEXT_SIZE,
+        val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
         val readingFont: ReadingFont = ReadingFont.SERIF,
-        val letterSpacing: Float = 0f,
-        val textIndent: Float = 0f,
-        val paragraphSpacing: Float = 18f,
-        val justifyText: Boolean = true,
-        val splitRatio: Float = 0.5f,
-        val showTranslation: Boolean = true,
-        val showIllustrations: Boolean = true,
+        val letterSpacing: Float = ReadingDefaults.LETTER_SPACING,
+        val textIndent: Float = ReadingDefaults.TEXT_INDENT,
+        val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
+        val justifyText: Boolean = ReadingDefaults.JUSTIFY_TEXT,
+        val splitRatio: Float = ReadingDefaults.SPLIT_RATIO,
+        val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
+        val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
-        val horizontalMargin: Float = 12f,
+        val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
         val bookmarks: List<Bookmark> = emptyList(),
         val isCurrentPositionBookmarked: Boolean = false,
         val wordSelection: WordSelection? = null,

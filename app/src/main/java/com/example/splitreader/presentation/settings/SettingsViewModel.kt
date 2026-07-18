@@ -9,6 +9,7 @@ import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.EntitlementRepository
 import com.example.splitreader.domain.translator.TranslationProviderApi
@@ -29,18 +30,18 @@ data class SettingsUiState(
     // Appearance
     val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
     val targetLanguage: Language = Language.ENGLISH,
-    val splitRatio: Float = 0.5f,
-    val showTranslation: Boolean = true,
-    val showIllustrations: Boolean = true,
-    val horizontalMargin: Float = 12f,
+    val splitRatio: Float = ReadingDefaults.SPLIT_RATIO,
+    val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
+    val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
+    val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
     // Typography
     val readingFont: ReadingFont = ReadingFont.SERIF,
-    val textSize: Float = 16f,
-    val lineHeightMultiplier: Float = 1.5f,
-    val letterSpacing: Float = 0f,
-    val textIndent: Float = 0f,
-    val paragraphSpacing: Float = 18f,
-    val justifyText: Boolean = true,
+    val textSize: Float = ReadingDefaults.TEXT_SIZE,
+    val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
+    val letterSpacing: Float = ReadingDefaults.LETTER_SPACING,
+    val textIndent: Float = ReadingDefaults.TEXT_INDENT,
+    val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
+    val justifyText: Boolean = ReadingDefaults.JUSTIFY_TEXT,
     // Translation engine
     val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
     val translatorConfig: TranslatorConfigState =
@@ -48,8 +49,8 @@ data class SettingsUiState(
     // Storage
     val cachedTranslationCount: Int = 0,
     // Read aloud
-    val ttsRate: Float = 1.0f,
-    val ttsPitch: Float = 1.0f,
+    val ttsRate: Float = ReadingDefaults.TTS_RATE,
+    val ttsPitch: Float = ReadingDefaults.TTS_PITCH,
     // Entitlement (debug-only toggle in the UI)
     val isPremium: Boolean = false,
 )
@@ -139,7 +140,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setSplitRatio(ratio: Float) {
-        val clamped = ratio.coerceIn(0.3f, 0.7f)
+        val clamped = ratio.coerceIn(ReadingDefaults.SPLIT_RATIO_RANGE)
         progressManager.saveSplitRatio(clamped)
         _state.update { it.copy(splitRatio = clamped) }
     }
@@ -155,7 +156,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setHorizontalMargin(margin: Float) {
-        val clamped = margin.coerceIn(4f, 32f)
+        val clamped = margin.coerceIn(ReadingDefaults.HORIZONTAL_MARGIN_RANGE)
         progressManager.saveHorizontalMargin(clamped)
         _state.update { it.copy(horizontalMargin = clamped) }
     }
@@ -168,31 +169,31 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setTextSize(size: Float) {
-        val clamped = size.coerceIn(14f, 24f)
+        val clamped = size.coerceIn(ReadingDefaults.TEXT_SIZE_RANGE)
         progressManager.saveTextSize(clamped)
         _state.update { it.copy(textSize = clamped) }
     }
 
     fun setLineHeight(multiplier: Float) {
-        val clamped = multiplier.coerceIn(1.1f, 2.5f)
+        val clamped = multiplier.coerceIn(ReadingDefaults.LINE_HEIGHT_RANGE)
         progressManager.saveLineHeightMultiplier(clamped)
         _state.update { it.copy(lineHeightMultiplier = clamped) }
     }
 
     fun setLetterSpacing(spacing: Float) {
-        val clamped = spacing.coerceIn(0f, 2f)
+        val clamped = spacing.coerceIn(ReadingDefaults.LETTER_SPACING_RANGE)
         progressManager.saveLetterSpacing(clamped)
         _state.update { it.copy(letterSpacing = clamped) }
     }
 
     fun setTextIndent(indent: Float) {
-        val clamped = indent.coerceIn(0f, 48f)
+        val clamped = indent.coerceIn(ReadingDefaults.TEXT_INDENT_RANGE)
         progressManager.saveTextIndent(clamped)
         _state.update { it.copy(textIndent = clamped) }
     }
 
     fun setParagraphSpacing(spacing: Float) {
-        val clamped = spacing.coerceIn(4f, 48f)
+        val clamped = spacing.coerceIn(ReadingDefaults.PARAGRAPH_SPACING_RANGE)
         progressManager.saveParagraphSpacing(clamped)
         _state.update { it.copy(paragraphSpacing = clamped) }
     }
@@ -249,13 +250,13 @@ class SettingsViewModel @Inject constructor(
     // ── Read aloud ────────────────────────────────────────────────────────────
 
     fun setTtsRate(rate: Float) {
-        val clamped = rate.coerceIn(0.5f, 2.0f)
+        val clamped = rate.coerceIn(ReadingDefaults.TTS_RATE_RANGE)
         textToSpeechManager.setRate(clamped)
         _state.update { it.copy(ttsRate = clamped) }
     }
 
     fun setTtsPitch(pitch: Float) {
-        val clamped = pitch.coerceIn(0.5f, 2.0f)
+        val clamped = pitch.coerceIn(ReadingDefaults.TTS_PITCH_RANGE)
         textToSpeechManager.setPitch(clamped)
         _state.update { it.copy(ttsPitch = clamped) }
     }

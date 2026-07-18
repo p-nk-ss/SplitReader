@@ -2,6 +2,7 @@ package com.example.splitreader.data.local
 
 import android.content.Context
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.ReadingPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -75,7 +76,8 @@ class ReadingProgressManager @Inject constructor(
         prefs.edit().putBoolean("navigation_side_left", isLeft).apply()
     }
 
-    override fun isNavigationLeft(): Boolean = prefs.getBoolean("navigation_side_left", false)
+    override fun isNavigationLeft(): Boolean =
+        prefs.getBoolean("navigation_side_left", ReadingDefaults.NAVIGATION_SIDE_LEFT)
 
     private val _readerThemeName = MutableStateFlow(getReaderThemeName())
 
@@ -88,37 +90,42 @@ class ReadingProgressManager @Inject constructor(
         _readerThemeName.value = themeName
     }
 
-    override fun getReaderThemeName(): String = prefs.getString("reader_theme", "DEFAULT") ?: "DEFAULT"
+    override fun getReaderThemeName(): String =
+        prefs.getString("reader_theme", ReadingDefaults.READER_THEME) ?: ReadingDefaults.READER_THEME
 
     override fun saveLineHeightMultiplier(multiplier: Float) {
         prefs.edit().putFloat("line_height_multiplier", multiplier).apply()
     }
 
-    override fun getLineHeightMultiplier(): Float = prefs.getFloat("line_height_multiplier", 1.5f)
+    override fun getLineHeightMultiplier(): Float =
+        prefs.getFloat("line_height_multiplier", ReadingDefaults.LINE_HEIGHT)
 
     override fun saveSplitRatio(ratio: Float) {
         prefs.edit().putFloat("split_ratio", ratio).apply()
     }
 
-    override fun getSplitRatio(): Float = prefs.getFloat("split_ratio", 0.5f)
+    override fun getSplitRatio(): Float = prefs.getFloat("split_ratio", ReadingDefaults.SPLIT_RATIO)
 
     override fun saveShowTranslation(show: Boolean) {
         prefs.edit().putBoolean("show_translation", show).apply()
     }
 
-    override fun getShowTranslation(): Boolean = prefs.getBoolean("show_translation", true)
+    override fun getShowTranslation(): Boolean =
+        prefs.getBoolean("show_translation", ReadingDefaults.SHOW_TRANSLATION)
 
     override fun saveShowIllustrations(show: Boolean) {
         prefs.edit().putBoolean("show_illustrations", show).apply()
     }
 
-    override fun getShowIllustrations(): Boolean = prefs.getBoolean("show_illustrations", true)
+    override fun getShowIllustrations(): Boolean =
+        prefs.getBoolean("show_illustrations", ReadingDefaults.SHOW_ILLUSTRATIONS)
 
     override fun saveHorizontalMargin(margin: Float) {
         prefs.edit().putFloat("horizontal_margin", margin).apply()
     }
 
-    override fun getHorizontalMargin(): Float = prefs.getFloat("horizontal_margin", 12f)
+    override fun getHorizontalMargin(): Float =
+        prefs.getFloat("horizontal_margin", ReadingDefaults.HORIZONTAL_MARGIN)
 
     override fun setTranslatorProvider(provider: TranslationProvider) {
         prefs.edit().putString("translator_provider", provider.name).apply()
@@ -133,38 +140,41 @@ class ReadingProgressManager @Inject constructor(
         prefs.edit().putFloat("text_size", size).apply()
     }
 
-    override fun getTextSize(): Float = prefs.getFloat("text_size", 16f)
+    override fun getTextSize(): Float = prefs.getFloat("text_size", ReadingDefaults.TEXT_SIZE)
 
     /** Persisted reading typeface name; falls back to SERIF for unknown/legacy values. */
     override fun saveReadingFont(name: String) {
         prefs.edit().putString("reading_font", name).apply()
     }
 
-    override fun getReadingFontName(): String = prefs.getString("reading_font", "SERIF") ?: "SERIF"
+    override fun getReadingFontName(): String =
+        prefs.getString("reading_font", ReadingDefaults.READING_FONT) ?: ReadingDefaults.READING_FONT
 
     override fun saveParagraphSpacing(spacing: Float) {
         prefs.edit().putFloat("paragraph_spacing", spacing).apply()
     }
 
-    override fun getParagraphSpacing(): Float = prefs.getFloat("paragraph_spacing", 8f)
+    override fun getParagraphSpacing(): Float =
+        prefs.getFloat("paragraph_spacing", ReadingDefaults.PARAGRAPH_SPACING)
 
     override fun saveLetterSpacing(spacing: Float) {
         prefs.edit().putFloat("letter_spacing", spacing).apply()
     }
 
-    override fun getLetterSpacing(): Float = prefs.getFloat("letter_spacing", 0f)
+    override fun getLetterSpacing(): Float =
+        prefs.getFloat("letter_spacing", ReadingDefaults.LETTER_SPACING)
 
     override fun saveTextIndent(indent: Float) {
         prefs.edit().putFloat("text_indent", indent).apply()
     }
 
-    override fun getTextIndent(): Float = prefs.getFloat("text_indent", 0f)
+    override fun getTextIndent(): Float = prefs.getFloat("text_indent", ReadingDefaults.TEXT_INDENT)
 
     override fun saveJustifyText(justify: Boolean) {
         prefs.edit().putBoolean("justify_text", justify).apply()
     }
 
-    override fun getJustifyText(): Boolean = prefs.getBoolean("justify_text", true)
+    override fun getJustifyText(): Boolean = prefs.getBoolean("justify_text", ReadingDefaults.JUSTIFY_TEXT)
 
     // ── Read-aloud (TTS) ───────────────────────────────────────────────────────
 
@@ -172,11 +182,11 @@ class ReadingProgressManager @Inject constructor(
         prefs.edit().putFloat("tts_rate", rate).apply()
     }
 
-    override fun getTtsRate(): Float = prefs.getFloat("tts_rate", 1.0f)
+    override fun getTtsRate(): Float = prefs.getFloat("tts_rate", ReadingDefaults.TTS_RATE)
 
     override fun saveTtsPitch(pitch: Float) {
         prefs.edit().putFloat("tts_pitch", pitch).apply()
     }
 
-    override fun getTtsPitch(): Float = prefs.getFloat("tts_pitch", 1.0f)
+    override fun getTtsPitch(): Float = prefs.getFloat("tts_pitch", ReadingDefaults.TTS_PITCH)
 }
