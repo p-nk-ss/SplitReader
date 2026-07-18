@@ -1,6 +1,6 @@
 package com.example.splitreader.domain.usecase
 
-import com.example.splitreader.data.local.NoteEntity
+import com.example.splitreader.domain.model.Note
 import com.example.splitreader.domain.repository.NoteRepository
 import javax.inject.Inject
 
@@ -15,14 +15,16 @@ class AddNoteUseCase @Inject constructor(
         body: String,
         isHighlight: Boolean = false,
     ) {
+        val now = System.currentTimeMillis()
         repository.upsert(
-            NoteEntity(
+            Note(
                 bookUri = bookUri,
                 chapterIndex = chapterIndex,
                 paragraphIndex = paragraphIndex,
                 body = body,
                 isHighlight = isHighlight,
-                updatedAt = System.currentTimeMillis(),
+                createdAt = now,
+                updatedAt = now,
             )
         )
     }
