@@ -37,7 +37,8 @@ class Fb2DocumentBuilder {
 
     private fun onStart(e: Fb2Event.Start) {
         val name = e.name
-        if (name in TEXT_LEAVES) text = StringBuilder()   // start a fresh text buffer for this leaf
+        // A <p>/<v> inside a <title> is transparent — its text feeds the title, so don't reset here.
+        if (name in TEXT_LEAVES && !elementStack.contains("title")) text = StringBuilder()
         when (name) {
             "image" -> {
                 val id = e.href
@@ -89,8 +90,11 @@ class Fb2DocumentBuilder {
                 }
             }
             "p", "v", "subtitle" -> {
-                val v = flush()
-                if (v.isNotBlank()) addParagraph(v)
+                // Inside a <title> these are transparent: their text already fed the title buffer.
+                if (!elementStack.contains("title")) {
+                    val v = flush()
+                    if (v.isNotBlank()) addParagraph(v)
+                }
             }
             "binary" -> currentBinaryId = null
             "section" -> emitSection()

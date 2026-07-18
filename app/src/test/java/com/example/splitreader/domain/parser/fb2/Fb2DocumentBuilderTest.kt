@@ -18,7 +18,7 @@ class Fb2DocumentBuilderTest {
 
     /** Wraps a single leaf-section body: <body><section><title>T</title> ...content... </section></body> */
     private fun section(title: String, vararg content: Fb2Event): List<Fb2Event> =
-        listOf(start("body"), start("section"), start("title"), text(title), end("title")) +
+        listOf(start("body"), start("section"), start("title"), start("p"), text(title), end("p"), end("title")) +
             content.toList() + listOf(end("section"), end("body"))
 
     @Test fun p4_longParagraphIsKept() {
@@ -145,5 +145,31 @@ class Fb2DocumentBuilderTest {
     @Test fun emptyInput_producesNoChapters() {
         val doc = build(start("body"), end("body"))
         assertTrue(doc.chapters.isEmpty())
+    }
+
+    @Test fun wrappedTitle_singleP_setsTitleWithoutDuplicateParagraph() {
+        val doc = build(
+            start("body"), start("section"),
+            start("title"), start("p"), text("Chapter 1"), end("p"), end("title"),
+            start("p"), text("Prose"), end("p"),
+            end("section"), end("body"),
+        )
+        assertEquals("Chapter 1", doc.chapters[0].title)
+        assertEquals(listOf("Prose"), doc.chapters[0].paragraphs) // title NOT duplicated into body
+    }
+
+    @Test fun wrappedTitle_multiP_capturedNotEmittedAsParagraphs() {
+        val doc = build(
+            start("body"), start("section"),
+            start("title"),
+            start("p"), text("Book One"), end("p"),
+            start("p"), text("The Journey"), end("p"),
+            end("title"),
+            start("p"), text("Prose"), end("p"),
+            end("section"), end("body"),
+        )
+        assertEquals(listOf("Prose"), doc.chapters[0].paragraphs) // no spurious title paragraphs
+        assertTrue(doc.chapters[0].title.contains("Book One"))
+        assertTrue(doc.chapters[0].title.contains("The Journey"))
     }
 }
