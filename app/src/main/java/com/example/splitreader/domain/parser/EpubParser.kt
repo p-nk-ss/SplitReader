@@ -5,11 +5,12 @@ import android.net.Uri
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
+import com.example.splitreader.domain.parser.util.MAX_DECOMPRESSED
+import com.example.splitreader.domain.parser.util.readZipEntries
 import com.example.splitreader.domain.parser.util.stableId
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.io.File
-import java.util.zip.ZipInputStream
 import javax.inject.Inject
 
 class EpubParser @Inject constructor() : BookParser {
@@ -39,21 +40,18 @@ class EpubParser @Inject constructor() : BookParser {
         val textExtensions = setOf("xml", "html", "xhtml", "opf", "ncx", "htm")
         val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "webp", "svg")
 
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            ZipInputStream(input).use { zip ->
-                var entry = zip.nextEntry
-                while (entry != null) {
-                    if (!entry.isDirectory) {
-                        when (entry.name.substringAfterLast('.').lowercase()) {
-                            in textExtensions -> entryMap[entry.name] = zip.readBytes()
-                            in imageExtensions -> imageMap[entry.name] = zip.readBytes()
-                        }
-                    }
-                    zip.closeEntry()
-                    entry = zip.nextEntry
-                }
+        val allEntries = context.contentResolver.openInputStream(uri)?.use { input ->
+            readZipEntries(input, MAX_DECOMPRESSED) { name ->
+                val ext = name.substringAfterLast('.').lowercase()
+                ext in textExtensions || ext in imageExtensions
             }
         } ?: throw IllegalStateException("Cannot open file")
+        allEntries.forEach { (name, bytes) ->
+            when (name.substringAfterLast('.').lowercase()) {
+                in textExtensions -> entryMap[name] = bytes
+                in imageExtensions -> imageMap[name] = bytes
+            }
+        }
 
         val containerXml = entryMap["META-INF/container.xml"]
             ?: entryMap.entries.firstOrNull { it.key.equals("META-INF/container.xml", ignoreCase = true) }?.value
@@ -108,7 +106,9 @@ class EpubParser @Inject constructor() : BookParser {
 
         val coverPath = opf.coverHref?.let { href ->
             val fullCoverPath = if (opfDir.isEmpty()) href else "$opfDir$href"
-            extractCoverFromZip(uri, context, fullCoverPath)
+            val coverBytes = resolveImageBytes(href, opfDir, imageMap)
+                ?: imageMap[fullCoverPath]
+            coverBytes?.let { saveCover(context, it, uri.toString(), fullCoverPath) }
         }
 
         val synopsis = SynopsisExtractor.build(opf.description, chapters.flatMap { it.paragraphs })
@@ -186,33 +186,16 @@ class EpubParser @Inject constructor() : BookParser {
         return imageMap.entries.firstOrNull { it.key.endsWith("/$basename", ignoreCase = true) }?.value
     }
 
-    private fun extractCoverFromZip(uri: Uri, context: Context, coverEntryPath: String): String? {
-        return try {
-            val coversDir = File(context.filesDir, "covers")
-            coversDir.mkdirs()
+    /** Writes cover [bytes] to filesDir/covers/<stableId>.<ext> and returns its absolute path. */
+    private fun saveCover(context: Context, bytes: ByteArray, uriKey: String, coverEntryPath: String): String? =
+        try {
+            val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
             val ext = coverEntryPath.substringAfterLast('.', "jpg").lowercase()
                 .takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"
-            val hash = stableId(uri.toString())
-            val coverFile = File(coversDir, "$hash.$ext")
-
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                ZipInputStream(input).use { zip ->
-                    var entry = zip.nextEntry
-                    while (entry != null) {
-                        if (entry.name == coverEntryPath ||
-                            entry.name.endsWith("/$coverEntryPath")
-                        ) {
-                            coverFile.outputStream().use { zip.copyTo(it) }
-                            return coverFile.absolutePath
-                        }
-                        zip.closeEntry()
-                        entry = zip.nextEntry
-                    }
-                }
-            }
-            null
+            val coverFile = File(coversDir, "${stableId(uriKey)}.$ext")
+            coverFile.writeBytes(bytes)
+            coverFile.absolutePath
         } catch (_: Exception) {
             null
         }
-    }
 }

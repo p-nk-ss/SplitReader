@@ -13,6 +13,8 @@ import org.xmlpull.v1.XmlPullParserFactory
 import java.io.File
 import java.io.InputStream
 import javax.inject.Inject
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 class Fb2Parser @Inject constructor() : BookParser {
 
@@ -40,7 +42,7 @@ class Fb2Parser @Inject constructor() : BookParser {
         }
     }
 
-    private fun parseInternal(inputStream: InputStream, filePath: String, context: Context): Book {
+    private suspend fun parseInternal(inputStream: InputStream, filePath: String, context: Context): Book {
         var title = "Unknown Title"
         var firstName = ""
         var lastName = ""
@@ -90,6 +92,7 @@ class Fb2Parser @Inject constructor() : BookParser {
 
         var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
+            coroutineContext.ensureActive()
             val tagName = parser.name?.lowercase() ?: ""
 
             when (eventType) {
