@@ -18,6 +18,11 @@ keystore.properties
 *.jks
 *.keystore
 .claude/
+# Claude Code working files — kept local, not part of the project
+CLAUDE.md
+memory.md
+.agents/
+skills-lock.json
 graphify-out/
 .graphify_python
 Screenshot*.png
