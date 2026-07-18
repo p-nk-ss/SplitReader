@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.R
-import com.example.splitreader.data.local.ReadingProgressManager
+import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.model.AuthState
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.repository.AuthRepository
@@ -39,7 +39,7 @@ class HomeViewModel @Inject constructor(
     private val parseBookUseCase: ParseBookUseCase,
     private val bookLibraryRepository: BookLibraryRepository,
     private val addBookToLibraryUseCase: AddBookToLibraryUseCase,
-    private val progressManager: ReadingProgressManager,
+    private val progressManager: ReadingPreferences,
     private val sessionRepository: ReadingSessionRepository,
     private val savedWordRepository: SavedWordRepository,
     private val getStreakUseCase: GetStreakUseCase,

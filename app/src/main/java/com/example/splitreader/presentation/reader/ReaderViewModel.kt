@@ -5,7 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
-import com.example.splitreader.data.local.ReadingProgressManager
+import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslatorEndpoints
@@ -56,7 +56,7 @@ class ReaderViewModel @Inject constructor(
     private val toggleBookmarkUseCase: ToggleBookmarkUseCase,
     private val bookmarkRepository: BookmarkRepository,
     private val endReadingSessionUseCase: EndReadingSessionUseCase,
-    private val progressManager: ReadingProgressManager,
+    private val progressManager: ReadingPreferences,
     private val languageDetector: LanguageDetector,
     private val apiKeyManager: ApiKeyManager,
     private val translatorEndpoints: TranslatorEndpoints,

@@ -2,7 +2,7 @@ package com.example.splitreader.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitreader.data.local.ReadingProgressManager
+import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +18,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class AppThemeViewModel @Inject constructor(
-    progressManager: ReadingProgressManager,
+    progressManager: ReadingPreferences,
 ) : ViewModel() {
 
     val themeKey: StateFlow<ReaderThemeKey> = progressManager.readerThemeName

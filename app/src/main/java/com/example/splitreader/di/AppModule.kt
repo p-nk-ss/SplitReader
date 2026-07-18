@@ -1,5 +1,6 @@
 package com.example.splitreader.di
 
+import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.repository.BookLibraryRepositoryImpl
 import com.example.splitreader.data.repository.EntitlementRepositoryImpl
 import com.example.splitreader.data.repository.BookmarkRepositoryImpl
@@ -10,6 +11,7 @@ import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.EntitlementRepository
 import com.example.splitreader.domain.repository.BookmarkRepository
 import com.example.splitreader.domain.repository.NoteRepository
+import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
 import dagger.Module
@@ -39,4 +41,7 @@ object AppModule {
 
     @Provides @Singleton
     fun provideReadingSessionRepository(impl: ReadingSessionRepositoryImpl): ReadingSessionRepository = impl
+
+    @Provides @Singleton
+    fun provideReadingPreferences(impl: ReadingProgressManager): ReadingPreferences = impl
 }

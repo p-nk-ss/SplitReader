@@ -1,6 +1,6 @@
 package com.example.splitreader.domain.usecase
 
-import com.example.splitreader.data.local.ReadingProgressManager
+import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -20,7 +20,7 @@ import javax.inject.Inject
  */
 class TranslateTextUseCase @Inject constructor(
     private val repository: TranslationRepository,
-    private val settings: ReadingProgressManager,
+    private val settings: ReadingPreferences,
 ) {
     /**
      * Translates paragraphs in the given index range.

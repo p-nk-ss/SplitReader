@@ -3,7 +3,7 @@ package com.example.splitreader.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.data.local.ApiKeyManager
-import com.example.splitreader.data.local.ReadingProgressManager
+import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.data.local.TranslationDao
 import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.data.local.TextToSpeechManager
@@ -56,7 +56,7 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val progressManager: ReadingProgressManager,
+    private val progressManager: ReadingPreferences,
     private val apiKeyManager: ApiKeyManager,
     private val translatorEndpoints: TranslatorEndpoints,
     private val usageTracker: TranslationUsageTracker,
