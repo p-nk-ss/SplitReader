@@ -14,4 +14,8 @@
     <!-- Premium entitlement is a local cache; the source of truth is Play Billing. Excluding it
          stops a backup/restore from carrying over a stale or forced premium flag. -->
     <exclude domain="sharedpref" path="entitlement.xml"/>
+    <!-- Premium purchase cache written by BillingManager (prefs name "billing"); source of truth is
+         Play Billing. Excluding it stops a backup/restore from carrying a stale/forced premium flag
+         to another device before the next Play sync. -->
+    <exclude domain="sharedpref" path="billing.xml"/>
 </full-backup-content>
