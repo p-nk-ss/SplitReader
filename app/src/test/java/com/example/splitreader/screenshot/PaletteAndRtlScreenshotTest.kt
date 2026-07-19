@@ -104,6 +104,54 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
         )
     }
 
+    /**
+     * Non-default split ratio under RTL: catches the class of bug where the painted gutter rule,
+     * the mirrored pane weights, and the drag-handle offset disagree on which coordinate system
+     * "ratio" is defined in. At the default 0.5 ratio all three coincide by symmetry, so
+     * [reader_rtl_1x] alone cannot catch a mismatch.
+     */
+    @Test
+    fun reader_split035_rtl_1x() = captureScreen("reader_split035_rtl_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f, rtl = true) {
+        ReaderContent(
+            state = readerFullyTranslated.copy(splitRatio = 0.35f),
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
     @Test
     fun words_rtl_1x() = captureScreen("words_rtl_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f, rtl = true) {
         WordsScreen(

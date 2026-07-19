@@ -62,6 +62,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -74,6 +75,7 @@ import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.R
@@ -341,7 +343,15 @@ internal fun BookSpread(
                 if (showTranslation) {
                     Row(
                         modifier = Modifier.fillMaxWidth().drawBehind {
-                            val gutterX = size.width * effectiveRatio
+                            // The Row mirrors under RTL (original pane on the right), but
+                            // drawBehind's DrawScope does not mirror automatically, so the
+                            // gutter position must be flipped explicitly to match the true
+                            // pane boundary.
+                            val gutterX = if (layoutDirection == LayoutDirection.Rtl) {
+                                size.width * (1f - effectiveRatio)
+                            } else {
+                                size.width * effectiveRatio
+                            }
                             drawLine(ruleColor, Offset(gutterX, 0f), Offset(gutterX, size.height), 1.dp.toPx())
                         },
                     ) {
@@ -497,6 +507,7 @@ private fun DividerHandle(
     val currentOnVerticalScroll by rememberUpdatedState(onVerticalScroll)
     val currentOnTap by rememberUpdatedState(onTap)
     val stripWidthPx = with(LocalDensity.current) { 24.dp.toPx() }
+    val layoutDirection = LocalLayoutDirection.current
 
     Box(
         modifier = Modifier
@@ -533,8 +544,13 @@ private fun DividerHandle(
                             when (axis) {
                                 DividerAxis.HORIZONTAL -> {
                                     change.consume()
+                                    // Pointer deltas are never mirrored under RTL, but the ratio
+                                    // is defined as the start-pane fraction (which visually grows
+                                    // to the left under RTL), so the delta must be flipped to keep
+                                    // the handle tracking the finger.
+                                    val dx = if (layoutDirection == LayoutDirection.Rtl) -delta.x else delta.x
                                     gestureRatio = DividerDragMath.newRatio(
-                                        gestureRatio, delta.x, paneWidthPx.toFloat(),
+                                        gestureRatio, dx, paneWidthPx.toFloat(),
                                     )
                                     currentOnDrag(gestureRatio)
                                 }
