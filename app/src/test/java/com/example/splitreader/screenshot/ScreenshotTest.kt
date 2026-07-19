@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.SplitReaderTheme
+import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
+import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.runner.RunWith
@@ -41,6 +43,16 @@ abstract class ScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    // Text-heavy Material chrome (Home/Words/Catalog/Almanac lists + labels) shows sub-pixel
+    // anti-aliasing jitter on glyph edges that varies run-to-run — a handful of pixels flip even
+    // between a record and an immediately-following verify. An exact (0-tolerance) compare fails on
+    // that noise. A small changed-pixel fraction absorbs the AA jitter while still catching real
+    // visual regressions (a palette swap, layout shift, or text change moves far more than this).
+    @OptIn(ExperimentalRoborazziApi::class)
+    private val roborazziOptions = RoborazziOptions(
+        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
+    )
+
     fun captureScreen(
         name: String,
         theme: ReaderThemeKey = ReaderThemeKey.PAPER,
@@ -61,6 +73,6 @@ abstract class ScreenshotTest {
         // NOTE: the Gradle test worker's working directory is the module dir (`app/`), not the repo
         // root, so the path is module-relative (`src/test/screenshots/...`) — an `app/`-prefixed path
         // (as in the original plan draft) resolves to the wrong `app/app/src/test/screenshots/...`.
-        composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
+        composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png", roborazziOptions = roborazziOptions)
     }
 }
