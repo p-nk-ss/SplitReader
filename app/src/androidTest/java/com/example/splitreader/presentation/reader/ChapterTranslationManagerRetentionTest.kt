@@ -53,6 +53,10 @@ class ChapterTranslationManagerRetentionTest {
     private val fakeRepo = object : TranslationRepository {
         override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String =
             "<<$text>>"
+
+        override suspend fun cachedCount(): Int = 0
+
+        override suspend fun clearCache() = Unit
     }
 
     @Test
