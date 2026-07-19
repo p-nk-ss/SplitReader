@@ -1,34 +1,29 @@
+@file:OptIn(ExperimentalTextApi::class)
+
 package com.example.splitreader.presentation.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
-import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.R
 
-// Google Fonts integration. Requires:
-//   implementation("androidx.compose.ui:ui-text-google-fonts") in build.gradle.kts
-//   res/values/font_certs.xml with the GMS fonts certs array
-
-private val gfProvider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs,
-)
-
-private val jetbrainsMonoGF = GoogleFont("JetBrains Mono")
-
-// Newsreader (the app's serif) is bundled as a res/font resource — see ReadingFonts.kt — so the
-// editorial typography renders reliably offline and on emulators without Google Play Services.
+// JetBrains Mono (the app's monospace chrome face) is bundled as a variable-font res/font
+// resource — same idiom as Newsreader (see ReadingFonts.kt) — so it renders reliably offline, on
+// emulators without Google Play Services, and in JVM screenshot tests, with no visual change from
+// the previously downloadable Google Font.
+private fun jetbrainsMono(weight: FontWeight, axis: Int) =
+    Font(R.font.jetbrainsmono, weight = weight, variationSettings = FontVariation.Settings(FontVariation.weight(axis)))
 
 val JetBrainsMono = FontFamily(
-    Font(googleFont = jetbrainsMonoGF, fontProvider = gfProvider, weight = FontWeight.Normal),
-    Font(googleFont = jetbrainsMonoGF, fontProvider = gfProvider, weight = FontWeight.Medium),
-    Font(googleFont = jetbrainsMonoGF, fontProvider = gfProvider, weight = FontWeight.SemiBold),
+    jetbrainsMono(FontWeight.Normal, 400),
+    jetbrainsMono(FontWeight.Medium, 500),
+    jetbrainsMono(FontWeight.SemiBold, 600),
 )
 
 // Material 3 Typography slots mapped to the editorial palette.
