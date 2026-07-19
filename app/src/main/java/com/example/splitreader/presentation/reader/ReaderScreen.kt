@@ -347,6 +347,8 @@ internal fun ReaderContent(
                     onSpeak = onSpeak,
                     onDismiss = onClearWordSelection,
                     onToggleBars = { barsVisible = !barsVisible },
+                    onSetSplitRatio = onSetSplitRatio,
+                    barsVisible = barsVisible,
                     sourceLang = state.sourceLanguage,
                     targetLang = state.targetLanguage,
                 )

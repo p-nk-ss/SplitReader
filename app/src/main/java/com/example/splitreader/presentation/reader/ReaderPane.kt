@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.reader
 
 import android.graphics.BitmapFactory
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -36,6 +38,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
@@ -52,7 +56,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
@@ -67,6 +73,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.R
@@ -81,6 +88,8 @@ import com.example.splitreader.presentation.theme.ShimmerBox
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.BreakIterator
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 // ── Page edge tap targets ─────────────────────────────────────────────────
 
@@ -285,13 +294,21 @@ internal fun BookSpread(
     onSpeak: (text: String, langCode: String) -> Unit,
     onDismiss: () -> Unit,
     onToggleBars: () -> Unit,
+    onSetSplitRatio: (Float) -> Unit,
+    barsVisible: Boolean,
     sourceLang: Language,
     targetLang: Language,
 ) {
     val palette = LocalReaderPalette.current
     val ruleColor = palette.rule
 
-    Box(modifier = modifier) {
+    // Live divider drag: ratio changes are local state during the gesture (recomposes only this
+    // spread), committed to the VM (clamp + persist) once on release. NaN = no drag in progress.
+    var dragRatio by remember { mutableFloatStateOf(Float.NaN) }
+    val effectiveRatio = if (dragRatio.isNaN()) splitRatio else dragRatio
+    var paneWidthPx by remember { mutableIntStateOf(0) }
+
+    Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width }) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(palette.bg)) {
         book.chapters.forEachIndexed { chapterIndex, chapter ->
 
@@ -324,11 +341,11 @@ internal fun BookSpread(
                 if (showTranslation) {
                     Row(
                         modifier = Modifier.fillMaxWidth().drawBehind {
-                            val gutterX = size.width * splitRatio
+                            val gutterX = size.width * effectiveRatio
                             drawLine(ruleColor, Offset(gutterX, 0f), Offset(gutterX, size.height), 1.dp.toPx())
                         },
                     ) {
-                        Box(Modifier.weight(splitRatio).padding(start = 32.dp, end = 12.dp)) {
+                        Box(Modifier.weight(effectiveRatio).padding(start = 32.dp, end = 12.dp)) {
                             ParagraphItem(
                                 text = original,
                                 index = idx,
@@ -346,7 +363,7 @@ internal fun BookSpread(
                         }
                         Box(
                             Modifier
-                                .weight(1f - splitRatio)
+                                .weight(1f - effectiveRatio)
                                 .padding(start = 12.dp, end = 32.dp)
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
                         ) {
@@ -414,6 +431,23 @@ internal fun BookSpread(
         }
     }
 
+    if (showTranslation && paneWidthPx > 0) {
+        DividerHandle(
+            ratio = effectiveRatio,
+            paneWidthPx = paneWidthPx,
+            prominent = barsVisible || !dragRatio.isNaN(),
+            onDrag = { newRatio -> dragRatio = newRatio },
+            onDragFinished = {
+                if (!dragRatio.isNaN()) {
+                    onSetSplitRatio(dragRatio)
+                    dragRatio = Float.NaN
+                }
+            },
+            onVerticalScroll = { dy -> listState.dispatchRawDelta(dy) },
+            onTap = onToggleBars,
+        )
+    }
+
     if (wordSelection != null) {
         TranslationBubble(
             wordSelection = wordSelection,
@@ -428,6 +462,103 @@ internal fun BookSpread(
                 .navigationBarsPadding(),
         )
     }
+    }
+}
+
+private enum class DividerAxis { HORIZONTAL, VERTICAL }
+
+/**
+ * Drag strip over the split gutter: 24dp wide, spans the pane height, centered on the painted
+ * gutter line (which sits inside the 12dp+12dp gutter padding, so no reading text is under it).
+ * Gestures, decided at touch slop:
+ *  - horizontal drag -> live ratio via [onDrag], committed once by [onDragFinished] (also on cancel)
+ *  - vertical drag   -> forwarded to the list via [onVerticalScroll] (the strip occludes the
+ *                       LazyColumn, so without this the gutter band would deaden scrolling)
+ *  - tap (no slop)   -> [onTap], preserving tap-anywhere-to-toggle-bars
+ */
+@Composable
+private fun DividerHandle(
+    ratio: Float,
+    paneWidthPx: Int,
+    prominent: Boolean,
+    onDrag: (Float) -> Unit,
+    onDragFinished: () -> Unit,
+    onVerticalScroll: (Float) -> Unit,
+    onTap: () -> Unit,
+) {
+    val palette = LocalReaderPalette.current
+    val gripAlpha by animateFloatAsState(
+        targetValue = if (prominent) 0.9f else 0.25f,
+        label = "dividerHandleAlpha",
+    )
+    val currentRatio by rememberUpdatedState(ratio)
+    val currentOnDrag by rememberUpdatedState(onDrag)
+    val currentOnDragFinished by rememberUpdatedState(onDragFinished)
+    val currentOnVerticalScroll by rememberUpdatedState(onVerticalScroll)
+    val currentOnTap by rememberUpdatedState(onTap)
+    val stripWidthPx = with(LocalDensity.current) { 24.dp.toPx() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(24.dp)
+            .offset { IntOffset((paneWidthPx * currentRatio - stripWidthPx / 2f).roundToInt(), 0) }
+            .pointerInput(paneWidthPx) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val slop = viewConfiguration.touchSlop
+                    var axis: DividerAxis? = null
+                    var accX = 0f
+                    var accY = 0f
+                    // Local running ratio: avoids the one-frame lag of reading recomposed state
+                    // back inside the gesture loop (per-frame deltas would otherwise be lost).
+                    var gestureRatio = currentRatio
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) {
+                            if (axis == null) currentOnTap()
+                            break
+                        }
+                        val delta = change.positionChange()
+                        if (axis == null) {
+                            accX += delta.x
+                            accY += delta.y
+                            when {
+                                abs(accX) > slop -> axis = DividerAxis.HORIZONTAL
+                                abs(accY) > slop -> axis = DividerAxis.VERTICAL
+                            }
+                        }
+                        when (axis) {
+                            DividerAxis.HORIZONTAL -> {
+                                change.consume()
+                                gestureRatio = DividerDragMath.newRatio(
+                                    gestureRatio, delta.x, paneWidthPx.toFloat(),
+                                )
+                                currentOnDrag(gestureRatio)
+                            }
+                            DividerAxis.VERTICAL -> {
+                                change.consume()
+                                currentOnVerticalScroll(-delta.y)
+                            }
+                            null -> Unit
+                        }
+                    }
+                    // Reached on finger-up AND on cancellation (change disappears from the event
+                    // stream): commits an in-progress ratio drag, no-op otherwise.
+                    currentOnDragFinished()
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .width(4.dp)
+                .height(32.dp)
+                .alpha(gripAlpha)
+                .clip(RoundedCornerShape(2.dp))
+                .background(palette.ink3),
+        )
     }
 }
 
