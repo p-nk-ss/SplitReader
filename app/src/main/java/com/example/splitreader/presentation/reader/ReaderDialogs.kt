@@ -45,9 +45,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import kotlin.math.roundToInt
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -60,6 +62,7 @@ import com.example.splitreader.presentation.theme.NightPalette
 import com.example.splitreader.presentation.theme.PaperPalette
 import com.example.splitreader.presentation.theme.SepiaPalette
 import com.example.splitreader.presentation.ui.SectionEyebrow
+import com.example.splitreader.presentation.ui.SliderRow
 import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
 
@@ -303,6 +306,17 @@ internal fun DisplaySettingsDialog(
             justify = state.justifyText,
             onSetJustify = onSetJustifyText,
         )
+
+        if (state.showTranslation) {
+            Spacer(Modifier.height(sp.sm))
+            SliderRow(
+                label = "Split position",
+                value = state.splitRatio,
+                valueLabel = "${(state.splitRatio * 100).roundToInt()} / ${100 - (state.splitRatio * 100).roundToInt()}",
+                valueRange = ReadingDefaults.SPLIT_RATIO_RANGE,
+                onValueChange = onSetSplitRatio,
+            )
+        }
 
         Spacer(Modifier.height(sp.md))
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
