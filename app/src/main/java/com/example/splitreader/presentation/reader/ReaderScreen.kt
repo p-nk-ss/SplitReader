@@ -177,7 +177,7 @@ private fun ReaderErrorScreen(message: String, onBack: () -> Unit) {
 private const val READER_BARS_AUTO_HIDE_MS = 3500L
 
 @Composable
-private fun ReaderContent(
+internal fun ReaderContent(
     state: ReaderUiState.Success,
     onNavigateBack: () -> Unit,
     onSelectChapter: (Int) -> Unit,
