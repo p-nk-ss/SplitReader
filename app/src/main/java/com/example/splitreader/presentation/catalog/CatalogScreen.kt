@@ -151,7 +151,7 @@ internal fun CatalogRoute(
 }
 
 @Composable
-private fun CatalogScreen(
+internal fun CatalogScreen(
     uiState: CatalogUiState,
     driveState: DriveUiState,
     onQueryChange: (String) -> Unit,

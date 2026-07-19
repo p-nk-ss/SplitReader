@@ -162,7 +162,7 @@ internal fun HomeRoute(
 }
 
 @Composable
-private fun HomeScreen(
+internal fun HomeScreen(
     uiState: HomeUiState,
     onOpenFilePicker: () -> Unit,
     onOpenFromLibrary: (String) -> Unit,
