@@ -513,40 +513,44 @@ private fun DividerHandle(
                     // Local running ratio: avoids the one-frame lag of reading recomposed state
                     // back inside the gesture loop (per-frame deltas would otherwise be lost).
                     var gestureRatio = currentRatio
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!change.pressed) {
-                            if (axis == null) currentOnTap()
-                            break
-                        }
-                        val delta = change.positionChange()
-                        if (axis == null) {
-                            accX += delta.x
-                            accY += delta.y
-                            when {
-                                abs(accX) > slop -> axis = DividerAxis.HORIZONTAL
-                                abs(accY) > slop -> axis = DividerAxis.VERTICAL
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                if (axis == null) currentOnTap()
+                                break
+                            }
+                            val delta = change.positionChange()
+                            if (axis == null) {
+                                accX += delta.x
+                                accY += delta.y
+                                when {
+                                    abs(accX) > slop -> axis = DividerAxis.HORIZONTAL
+                                    abs(accY) > slop -> axis = DividerAxis.VERTICAL
+                                }
+                            }
+                            when (axis) {
+                                DividerAxis.HORIZONTAL -> {
+                                    change.consume()
+                                    gestureRatio = DividerDragMath.newRatio(
+                                        gestureRatio, delta.x, paneWidthPx.toFloat(),
+                                    )
+                                    currentOnDrag(gestureRatio)
+                                }
+                                DividerAxis.VERTICAL -> {
+                                    change.consume()
+                                    currentOnVerticalScroll(-delta.y)
+                                }
+                                null -> Unit
                             }
                         }
-                        when (axis) {
-                            DividerAxis.HORIZONTAL -> {
-                                change.consume()
-                                gestureRatio = DividerDragMath.newRatio(
-                                    gestureRatio, delta.x, paneWidthPx.toFloat(),
-                                )
-                                currentOnDrag(gestureRatio)
-                            }
-                            DividerAxis.VERTICAL -> {
-                                change.consume()
-                                currentOnVerticalScroll(-delta.y)
-                            }
-                            null -> Unit
-                        }
+                    } finally {
+                        // Commit an in-progress ratio drag on finger-up, pointer-id disappearance, or
+                        // gesture-coroutine cancellation (e.g., paneWidthPx key restart on multi-window resize).
+                        // No-op if no drag is in progress.
+                        currentOnDragFinished()
                     }
-                    // Reached on finger-up AND on cancellation (change disappears from the event
-                    // stream): commits an in-progress ratio drag, no-op otherwise.
-                    currentOnDragFinished()
                 }
             },
         contentAlignment = Alignment.Center,
