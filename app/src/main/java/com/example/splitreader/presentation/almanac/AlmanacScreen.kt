@@ -40,7 +40,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.R
+import com.example.splitreader.domain.model.stats.BookMinutes
 import com.example.splitreader.domain.model.stats.DailyMinutes
+import com.example.splitreader.domain.model.stats.LangMinutes
+import com.example.splitreader.domain.usecase.StreakResult
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -55,11 +58,6 @@ import java.util.Locale
 
 @Composable
 fun AlmanacRoute(viewModel: AlmanacViewModel = hiltViewModel()) {
-    AlmanacScreen(viewModel = viewModel)
-}
-
-@Composable
-fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
     val streak by viewModel.streak.collectAsStateWithLifecycle()
     val dailyMinutes by viewModel.dailyMinutes.collectAsStateWithLifecycle()
     val rangeMinutes by viewModel.rangeMinutes.collectAsStateWithLifecycle()
@@ -68,6 +66,31 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
     val timeByBook by viewModel.timeByBook.collectAsStateWithLifecycle()
     val timeByLang by viewModel.timeByLang.collectAsStateWithLifecycle()
     val selectedRange by viewModel.selectedRange.collectAsStateWithLifecycle()
+    AlmanacScreen(
+        streak = streak,
+        dailyMinutes = dailyMinutes,
+        rangeMinutes = rangeMinutes,
+        rangePages = rangePages,
+        rangeWords = rangeWords,
+        timeByBook = timeByBook,
+        timeByLang = timeByLang,
+        selectedRange = selectedRange,
+        onSelectRange = viewModel::selectRange,
+    )
+}
+
+@Composable
+fun AlmanacScreen(
+    streak: StreakResult,
+    dailyMinutes: List<DailyMinutes>,
+    rangeMinutes: Int,
+    rangePages: Int,
+    rangeWords: Int,
+    timeByBook: List<BookMinutes>,
+    timeByLang: List<LangMinutes>,
+    selectedRange: TimeRange,
+    onSelectRange: (TimeRange) -> Unit,
+) {
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
     val palette = LocalReaderPalette.current
@@ -108,7 +131,7 @@ fun AlmanacScreen(viewModel: AlmanacViewModel = hiltViewModel()) {
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(animatedSelection(if (selected) palette.ink else palette.bg2, "rangeBg"))
-                            .clickable { viewModel.selectRange(range) }
+                            .clickable { onSelectRange(range) }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     ) {
                         Text(range.label, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp,
