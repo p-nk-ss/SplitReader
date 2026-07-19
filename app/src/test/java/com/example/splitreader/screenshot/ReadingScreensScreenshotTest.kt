@@ -151,6 +151,49 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
         )
     }
 
+    /** Non-default split (35/65): pane weights and the divider handle must follow the ratio. */
+    @Test
+    fun reader_split035_paper_1x() = captureScreen("reader_split035_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+        ReaderContent(
+            state = readerFullyTranslated.copy(splitRatio = 0.35f),
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
     @Test
     fun reader_night_1x() = captureScreen("reader_night_1x", theme = ReaderThemeKey.NIGHT, fontScale = 1f) {
         ReaderContent(
