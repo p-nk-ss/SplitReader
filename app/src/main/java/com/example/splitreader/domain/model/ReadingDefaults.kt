@@ -22,6 +22,7 @@ object ReadingDefaults {
     const val TTS_PITCH = 1.0f
     const val READER_THEME = "DEFAULT"
     const val NAVIGATION_SIDE_LEFT = false
+    const val TABLET_MIN_SW_DP = 600 // smallestScreenWidthDp at/above which we treat the device as a tablet
 
     // Clamp ranges (used by coerceIn and matching sliders)
     val TEXT_SIZE_RANGE = 14f..30f // unified (Settings used 14..24, Reader used 14..30)
