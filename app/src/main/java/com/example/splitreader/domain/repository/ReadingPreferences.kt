@@ -1,6 +1,7 @@
 package com.example.splitreader.domain.repository
 
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.TranslationProvider
 import kotlinx.coroutines.flow.StateFlow
 
@@ -23,6 +24,9 @@ interface ReadingPreferences {
     val readerThemeName: StateFlow<String>
     fun saveReaderTheme(themeName: String)
     fun getReaderThemeName(): String
+    val orientationLock: StateFlow<OrientationLock>
+    fun saveOrientationLock(lock: OrientationLock)
+    fun getOrientationLock(): OrientationLock
     fun saveLineHeightMultiplier(multiplier: Float)
     fun getLineHeightMultiplier(): Float
     fun saveSplitRatio(ratio: Float)

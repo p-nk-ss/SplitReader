@@ -2,8 +2,10 @@ package com.example.splitreader.data.local
 
 import android.content.Context
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
+import com.example.splitreader.domain.model.defaultOrientationLock
 import com.example.splitreader.domain.repository.ReadingPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +20,10 @@ class ReadingProgressManager @Inject constructor(
     @ApplicationContext context: Context
 ) : ReadingPreferences {
     private val prefs = context.getSharedPreferences("reading_progress", Context.MODE_PRIVATE)
+
+    // Device form factor, read once. Drives the first-launch orientation default only.
+    private val isTablet =
+        context.resources.configuration.smallestScreenWidthDp >= ReadingDefaults.TABLET_MIN_SW_DP
 
     override fun saveProgress(bookUri: String, chapterIndex: Int, scrollPosition: Int, scrollOffset: Int) {
         prefs.edit()
@@ -92,6 +98,27 @@ class ReadingProgressManager @Inject constructor(
 
     override fun getReaderThemeName(): String =
         prefs.getString("reader_theme", ReadingDefaults.READER_THEME) ?: ReadingDefaults.READER_THEME
+
+    private val _orientationLock = MutableStateFlow(getOrientationLock())
+
+    /** Reactive stream of the orientation policy so [MainActivity] can re-apply it without a restart. */
+    override val orientationLock: StateFlow<OrientationLock> = _orientationLock.asStateFlow()
+
+    override fun saveOrientationLock(lock: OrientationLock) {
+        prefs.edit().putString("orientation_lock", lock.name).apply()
+        _orientationLock.value = lock
+    }
+
+    /**
+     * No stored value ⇒ the user has not chosen ⇒ derive from form factor every read. The seed is
+     * deliberately NOT written back on read, so the choice stays "unset" (and would re-derive
+     * correctly if prefs were restored onto a different-form-factor device) until an explicit save.
+     */
+    override fun getOrientationLock(): OrientationLock {
+        val name = prefs.getString("orientation_lock", null)
+            ?: return defaultOrientationLock(isTablet)
+        return OrientationLock.entries.find { it.name == name } ?: defaultOrientationLock(isTablet)
+    }
 
     override fun saveLineHeightMultiplier(multiplier: Float) {
         prefs.edit().putFloat("line_height_multiplier", multiplier).apply()
