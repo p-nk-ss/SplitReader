@@ -9,6 +9,7 @@ import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.EntitlementRepository
@@ -34,6 +35,7 @@ data class SettingsUiState(
     val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
     val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
     val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
+    val orientationLock: OrientationLock = OrientationLock.AUTO,
     // Typography
     val readingFont: ReadingFont = ReadingFont.SERIF,
     val textSize: Float = ReadingDefaults.TEXT_SIZE,
@@ -113,6 +115,7 @@ class SettingsViewModel @Inject constructor(
         showTranslation = progressManager.getShowTranslation(),
         showIllustrations = progressManager.getShowIllustrations(),
         horizontalMargin = progressManager.getHorizontalMargin(),
+        orientationLock = progressManager.getOrientationLock(),
         readingFont = ReadingFont.entries.find { it.name == progressManager.getReadingFontName() }
             ?: ReadingFont.SERIF,
         textSize = progressManager.getTextSize(),
@@ -159,6 +162,11 @@ class SettingsViewModel @Inject constructor(
         val clamped = margin.coerceIn(ReadingDefaults.HORIZONTAL_MARGIN_RANGE)
         progressManager.saveHorizontalMargin(clamped)
         _state.update { it.copy(horizontalMargin = clamped) }
+    }
+
+    fun setOrientationLock(lock: OrientationLock) {
+        progressManager.saveOrientationLock(lock)
+        _state.update { it.copy(orientationLock = lock) }
     }
 
     // ── Typography ───────────────────────────────────────────────────────────

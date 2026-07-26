@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.splitreader.BuildConfig
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.presentation.reader.TranslatorPickerDialog
 import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.JetBrainsMono
@@ -74,6 +75,7 @@ fun SettingsRoute(
         onSetShowTranslation = viewModel::setShowTranslation,
         onSetShowIllustrations = viewModel::setShowIllustrations,
         onSetHorizontalMargin = viewModel::setHorizontalMargin,
+        onSetOrientationLock = viewModel::setOrientationLock,
         onSetReadingFont = viewModel::setReadingFont,
         onSetTextSize = viewModel::setTextSize,
         onSetLineHeight = viewModel::setLineHeight,
@@ -104,6 +106,7 @@ fun SettingsScreen(
     onSetShowTranslation: (Boolean) -> Unit,
     onSetShowIllustrations: (Boolean) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
+    onSetOrientationLock: (OrientationLock) -> Unit,
     onSetReadingFont: (com.example.splitreader.presentation.theme.ReadingFont) -> Unit,
     onSetTextSize: (Float) -> Unit,
     onSetLineHeight: (Float) -> Unit,
@@ -240,6 +243,51 @@ fun SettingsScreen(
                 label = state.targetLanguage.displayName,
                 action = "Change",
                 onClick = { showLanguagePicker = true },
+            )
+        }
+
+        Spacer(Modifier.height(sp.lg))
+
+        // ── Orientation ─────────────────────────────────────────────────────
+        SettingsSection(title = "Orientation") {
+            SectionEyebrow("Screen orientation")
+            Spacer(Modifier.height(sp.xs))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OrientationLock.entries.forEach { opt ->
+                    val selected = state.orientationLock == opt
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(LocalRadii.current.md))
+                            .border(
+                                if (selected) 2.dp else 1.dp,
+                                animatedSelection(
+                                    if (selected) palette.ink else palette.edge,
+                                    "orientationBorder_${opt.name}",
+                                ),
+                                RoundedCornerShape(LocalRadii.current.md),
+                            )
+                            .clickable { onSetOrientationLock(opt) }
+                            .padding(vertical = sp.sm),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = opt.name,
+                            fontFamily = JetBrainsMono,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp,
+                            color = if (selected) palette.ink else palette.ink2,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(sp.xs))
+            Text(
+                text = "Auto follows your device's rotation. Phones default to portrait, tablets to landscape.",
+                fontFamily = Newsreader,
+                fontStyle = FontStyle.Italic,
+                fontSize = 12.sp,
+                color = palette.ink3,
             )
         }
 
