@@ -32,11 +32,6 @@ class AppThemeViewModel @Inject constructor(
 
     /** App-wide screen-orientation policy, applied by [MainActivity] to requestedOrientation. */
     val orientationLock: StateFlow<OrientationLock> = progressManager.orientationLock
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = progressManager.getOrientationLock(),
-        )
 
     private companion object {
         fun themeKeyFromName(name: String): ReaderThemeKey = when (name) {

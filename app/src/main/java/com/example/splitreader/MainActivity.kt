@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        requestedOrientation = themeViewModel.orientationLock.value.toActivityInfo()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 themeViewModel.orientationLock.collect { lock ->
