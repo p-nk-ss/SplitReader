@@ -2,6 +2,7 @@ package com.example.splitreader.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +28,14 @@ class AppThemeViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = themeKeyFromName(progressManager.getReaderThemeName()),
+        )
+
+    /** App-wide screen-orientation policy, applied by [MainActivity] to requestedOrientation. */
+    val orientationLock: StateFlow<OrientationLock> = progressManager.orientationLock
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = progressManager.getOrientationLock(),
         )
 
     private companion object {

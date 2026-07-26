@@ -6,13 +6,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.splitreader.data.local.TextToSpeechManager
+import com.example.splitreader.domain.model.toActivityInfo
 import com.example.splitreader.presentation.AppThemeViewModel
 import com.example.splitreader.presentation.navigation.SplitReaderNavHost
 import com.example.splitreader.presentation.theme.SplitReaderTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -23,6 +28,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.CREATED) {
+                themeViewModel.orientationLock.collect { lock ->
+                    requestedOrientation = lock.toActivityInfo()
+                }
+            }
+        }
         setContent {
             val themeKey by themeViewModel.themeKey.collectAsStateWithLifecycle()
             SplitReaderTheme(readerThemeKey = themeKey) {
