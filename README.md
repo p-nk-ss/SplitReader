@@ -19,6 +19,11 @@ Kotlin · Jetpack (Hilt, Room, Navigation) · ML Kit Translate · Coroutines + F
 
 - Android 8.0+ (API 26)
 
+## Building
+
+See **[docs/SETUP.md](docs/SETUP.md)** — prerequisites, the required `app/google-services.json`,
+build and test commands, release signing.
+
 ## Status
 
 Active development — more features coming.
