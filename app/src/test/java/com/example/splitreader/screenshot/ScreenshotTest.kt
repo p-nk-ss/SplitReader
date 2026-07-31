@@ -76,3 +76,21 @@ abstract class ScreenshotTest {
         composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png", roborazziOptions = roborazziOptions)
     }
 }
+
+// Device qualifiers for per-method `@Config` overrides. Robolectric merges a method-level @Config
+// over the class-level one, so a test annotated with any of these inherits `sdk = [34]` and the
+// stub `application = Application::class` from ScreenshotTest and only swaps the device.
+// These must be `const` to be usable in an annotation argument.
+
+/** Pixel-class phone in portrait — the reference device for the compact layout. */
+const val PHONE_PORTRAIT = "w411dp-h891dp-420dpi"
+
+/** Narrowest width we support. Stress case: labels and grid cells fail here first. */
+const val PHONE_NARROW = "w360dp-h640dp-xhdpi"
+
+/**
+ * Phone width, absurd height. Not a real device — a way to render a long scrolling column in
+ * full, because `captureRoboImage` snapshots `onRoot()` and is therefore clipped to the device
+ * height. Used to cover content that sits below the fold on every real device.
+ */
+const val PHONE_TALL = "w411dp-h2000dp-420dpi"
