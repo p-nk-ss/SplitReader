@@ -23,6 +23,9 @@ data class Spacing(
     // Outer chrome
     val railWidth:  Dp = 88.dp,
     val statusBar:  Dp = 30.dp,
+    // Compact shell puts the account avatar in the strip; 30dp cannot hold a 24dp circle
+    // plus breathing room.
+    val statusBarCompact: Dp = 44.dp,
 )
 
 @Immutable

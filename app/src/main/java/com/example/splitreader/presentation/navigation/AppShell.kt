@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.presentation.theme.JetBrainsMono
@@ -87,13 +89,20 @@ fun AppShell(
 }
 
 @Composable
-private fun AppStatusStrip() {
+private fun AppStatusStrip(
+    height: Dp = LocalSpacing.current.statusBar,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(LocalSpacing.current.statusBar)
+            // Order matters. background BEFORE statusBarsPadding so the strip's colour extends
+            // up underneath the system status bar (edge-to-edge is on — MainActivity.kt:32);
+            // statusBarsPadding BEFORE height so `height` measures the content, not the inset.
             .background(palette.bg)
+            .statusBarsPadding()
+            .height(height)
             .drawBehind {
                 drawLine(
                     color = palette.edge,
@@ -118,15 +127,21 @@ private fun AppStatusStrip() {
                 color = palette.ink3,
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                text = "ML KIT READY",
-                fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.Medium,
-                fontSize = 11.sp,
-                letterSpacing = 0.5.sp,
-                color = palette.ink3,
-                textAlign = TextAlign.End,
-            )
+            if (trailing != null) {
+                // Compact: the avatar takes the right slot. "ML KIT READY" is decorative, not a
+                // state indicator, and at 360dp it would fight the avatar for room.
+                trailing()
+            } else {
+                Text(
+                    text = "ML KIT READY",
+                    fontFamily = JetBrainsMono,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.5.sp,
+                    color = palette.ink3,
+                    textAlign = TextAlign.End,
+                )
+            }
         }
     }
 }
