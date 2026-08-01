@@ -4,13 +4,17 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -44,6 +48,7 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
+import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.R
 
 @Composable
@@ -63,26 +68,58 @@ fun AppShell(
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
 
-    Column(Modifier.fillMaxSize().background(palette.bg)) {
-        // App status strip
-        AppStatusStrip()
-
-        Row(Modifier.weight(1f).fillMaxWidth()) {
-            if (!isReader) {
-                EditorialNavigationRail(
-                    currentRoute = currentRoute,
-                    avatarLabel = avatarLabel,
-                    avatarSubtitle = avatarSubtitle,
-                    onNavigateToHome = onNavigateToHome,
-                    onNavigateToCatalog = onNavigateToCatalog,
-                    onNavigateToAlmanac = onNavigateToAlmanac,
-                    onNavigateToWords = onNavigateToWords,
-                    onNavigateToSettings = onNavigateToSettings,
-                    onNavigateToAccount = onNavigateToAccount,
+    BoxWithConstraints(Modifier.fillMaxSize().background(palette.bg)) {
+        if (isCompactWidth(maxWidth)) {
+            Column(Modifier.fillMaxSize()) {
+                AppStatusStrip(
+                    height = sp.statusBarCompact,
+                    trailing = {
+                        CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
+                    },
                 )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        // imePadding goes on the content, NOT on the bar: otherwise the bar rides
+                        // up on top of the keyboard and covers the field being typed into
+                        // (Words/Catalog search).
+                        .imePadding(),
+                ) {
+                    content()
+                }
+                if (!isReader) {
+                    EditorialBottomBar(
+                        currentRoute = currentRoute,
+                        onNavigateToHome = onNavigateToHome,
+                        onNavigateToCatalog = onNavigateToCatalog,
+                        onNavigateToAlmanac = onNavigateToAlmanac,
+                        onNavigateToWords = onNavigateToWords,
+                        onNavigateToSettings = onNavigateToSettings,
+                    )
+                }
             }
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                content()
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                AppStatusStrip()
+                Row(Modifier.weight(1f).fillMaxWidth()) {
+                    if (!isReader) {
+                        EditorialNavigationRail(
+                            currentRoute = currentRoute,
+                            avatarLabel = avatarLabel,
+                            avatarSubtitle = avatarSubtitle,
+                            onNavigateToHome = onNavigateToHome,
+                            onNavigateToCatalog = onNavigateToCatalog,
+                            onNavigateToAlmanac = onNavigateToAlmanac,
+                            onNavigateToWords = onNavigateToWords,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToAccount = onNavigateToAccount,
+                        )
+                    }
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        content()
+                    }
+                }
             }
         }
     }
@@ -240,6 +277,85 @@ private fun EditorialNavigationRail(
     }
 }
 
+/**
+ * Compact counterpart to [EditorialNavigationRail]. Same five destinations, same navigateToTab
+ * callbacks, same selection rule (derived from currentRoute — no new state).
+ *
+ * Account is deliberately NOT a sixth item: six cells at 360dp leave 60dp each, and the labels
+ * start clipping at fontScale 1.3. Account lives in the status strip instead (see CompactAvatar).
+ */
+@Composable
+private fun EditorialBottomBar(
+    currentRoute: String?,
+    onNavigateToHome: () -> Unit,
+    onNavigateToCatalog: () -> Unit,
+    onNavigateToAlmanac: () -> Unit,
+    onNavigateToWords: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+) {
+    val palette = LocalReaderPalette.current
+    val edgeColor = palette.edge
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            // background BEFORE navigationBarsPadding so the bar's colour extends down under the
+            // gesture bar; padding BEFORE height so `height` measures the content.
+            .background(palette.bg2)
+            .navigationBarsPadding()
+            .height(56.dp)
+            .drawBehind {
+                drawLine(
+                    color = edgeColor,
+                    start = Offset(0f, 0f),
+                    end = Offset(size.width, 0f),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            },
+    ) {
+        BottomTab(Icons.Outlined.MenuBook, "Library", currentRoute == HOME_ROUTE, onNavigateToHome)
+        BottomTab(Icons.Outlined.Explore, "Catalog", currentRoute == CATALOG_ROUTE, onNavigateToCatalog)
+        BottomTab(Icons.Outlined.BarChart, "Almanac", currentRoute == ALMANAC_ROUTE, onNavigateToAlmanac)
+        BottomTab(Icons.Outlined.StickyNote2, "Words", currentRoute == WORDS_ROUTE, onNavigateToWords)
+        BottomTab(Icons.Outlined.Settings, "Settings", currentRoute == SETTINGS_ROUTE, onNavigateToSettings)
+    }
+}
+
+@Composable
+private fun RowScope.BottomTab(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val palette = LocalReaderPalette.current
+    val accentColor = palette.accent
+
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .background(if (selected) palette.bg3 else palette.bg2)
+            .drawBehind {
+                if (selected) {
+                    // Accent runs along the TOP edge. The rail puts it on the left; the bottom of
+                    // a bottom bar is where the gesture pill lives, so it would be swallowed there.
+                    drawLine(
+                        color = accentColor,
+                        start = Offset(size.width * 0.2f, 0f),
+                        end = Offset(size.width * 0.8f, 0f),
+                        strokeWidth = 2.dp.toPx(),
+                    )
+                }
+            }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        // maxLines = 1: a wrapped label would push the cell past the 56dp bar height.
+        TabContent(icon = icon, label = label, selected = selected, maxLines = 1)
+    }
+}
+
 @Composable
 private fun RailWordmark() {
     // The Mirrolit logo carries its own brown tile + transparent margins, so it reads on both
@@ -249,6 +365,44 @@ private fun RailWordmark() {
         contentDescription = "Mirrolit",
         modifier = Modifier.size(44.dp),
     )
+}
+
+/**
+ * The icon-over-label column shared by [RailTab] and [BottomTab]. The two differ only in their
+ * outer shell and which edge draws the accent, so only the shell lives in each of them.
+ *
+ * [maxLines] defaults to unbounded to preserve the rail's existing behaviour exactly: at
+ * fontScale 1.3 a long label like "Settings" wraps to two lines inside the 56dp cell, and that
+ * is what ships today. The bottom bar passes 1 because a wrapped label there would push the
+ * cell past the bar height.
+ */
+@Composable
+private fun TabContent(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    val palette = LocalReaderPalette.current
+    val contentColor = if (selected) palette.ink else palette.ink3
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = contentColor,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = label,
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Normal,
+            fontStyle = FontStyle.Italic,
+            fontSize = 11.sp,
+            color = contentColor,
+            maxLines = maxLines,
+        )
+    }
 }
 
 @Composable
@@ -280,23 +434,7 @@ private fun RailTab(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = if (selected) palette.ink else palette.ink3,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = label,
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.Normal,
-                fontStyle = FontStyle.Italic,
-                fontSize = 11.sp,
-                color = if (selected) palette.ink else palette.ink3,
-            )
-        }
+        TabContent(icon = icon, label = label, selected = selected)
     }
 }
 
@@ -334,6 +472,33 @@ private fun RailAvatar(label: String, subtitle: String, onClick: () -> Unit) {
             fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
+        )
+    }
+}
+
+/**
+ * Compact-shell counterpart to [RailAvatar]: same letter, same accent fill, no caption — the
+ * caption is a luxury the vertical rail can afford and a 44dp strip cannot. Same destination:
+ * Profile when signed in, Auth when not (resolved in SplitReaderNavHost).
+ */
+@Composable
+private fun CompactAvatar(label: String, onClick: () -> Unit) {
+    val palette = LocalReaderPalette.current
+    Box(
+        modifier = Modifier
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(palette.accent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Medium,
+            fontStyle = FontStyle.Italic,
+            fontSize = 12.sp,
+            color = palette.bg,
         )
     }
 }

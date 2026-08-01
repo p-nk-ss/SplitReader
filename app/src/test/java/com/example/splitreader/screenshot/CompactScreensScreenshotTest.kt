@@ -1,8 +1,12 @@
 package com.example.splitreader.screenshot
 
+import androidx.compose.runtime.Composable
 import com.example.splitreader.presentation.almanac.AlmanacScreen
 import com.example.splitreader.presentation.auth.AuthScreen
 import com.example.splitreader.presentation.catalog.CatalogScreen
+import com.example.splitreader.presentation.home.HomeScreen
+import com.example.splitreader.presentation.navigation.AppShell
+import com.example.splitreader.presentation.navigation.HOME_ROUTE
 import com.example.splitreader.presentation.profile.ProfileScreen
 import com.example.splitreader.presentation.settings.SettingsScreen
 import com.example.splitreader.presentation.theme.ReaderThemeKey
@@ -179,4 +183,69 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
             onDismissReauth = {},
         )
     }
+
+    // ── Compact shell ───────────────────────────────────────────────────────
+    //
+    // The only frame where the grid, the bottom bar and the status strip meet, so it gets the
+    // full palette x fontScale matrix. AppShell is stateless and Hilt-free, so it renders
+    // directly; `content` is Home because that is the start destination.
+
+    @Composable
+    private fun ShellWithHome() {
+        AppShell(
+            currentRoute = HOME_ROUTE,
+            avatarLabel = "M",
+            avatarSubtitle = "mirrolit",
+            onNavigateToHome = {},
+            onNavigateToCatalog = {},
+            onNavigateToAlmanac = {},
+            onNavigateToWords = {},
+            onNavigateToSettings = {},
+            onNavigateToAccount = {},
+        ) {
+            HomeScreen(
+                uiState = ScreenFixtures.homeUiStateRich,
+                onOpenFilePicker = {},
+                onOpenFromLibrary = {},
+                onDeleteBook = {},
+                onDismissError = {},
+            )
+        }
+    }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun shell_home_paper_1x() =
+        captureScreen("shell_home_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+            ShellWithHome()
+        }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun shell_home_night_1x() =
+        captureScreen("shell_home_night_1x", theme = ReaderThemeKey.NIGHT, fontScale = 1f) {
+            ShellWithHome()
+        }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun shell_home_paper_13x() =
+        captureScreen("shell_home_paper_13x", theme = ReaderThemeKey.PAPER, fontScale = 1.3f) {
+            ShellWithHome()
+        }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun shell_home_night_13x() =
+        captureScreen("shell_home_night_13x", theme = ReaderThemeKey.NIGHT, fontScale = 1.3f) {
+            ShellWithHome()
+        }
+
+    /** Narrowest width AND largest supported text at once — where bar labels clip first. */
+    @Test
+    @Config(qualifiers = PHONE_NARROW)
+    fun shell_home_narrow360_paper_13x() =
+        captureScreen("shell_home_narrow360_paper_13x", theme = ReaderThemeKey.PAPER, fontScale = 1.3f) {
+            ShellWithHome()
+        }
 }
