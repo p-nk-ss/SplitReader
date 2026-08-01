@@ -197,10 +197,16 @@ internal fun HomeScreen(
         // Skeleton stand-in that mirrors the real grid metrics, so the layout doesn't
         // jump when books arrive (vs. a centered spinner over a blank screen).
         LazyVerticalGrid(
-            // Adaptive rather than Fixed(7) so the grid reflows on a phone (2 columns at 360-411dp).
-            // 132dp is chosen to keep exactly 7 columns on the 1280dp tablet reference — accounting
-            // for contentPadding.xxl (36dp each side) in the test setup. Changing it moves
-            // every Home golden.
+            // Adaptive rather than Fixed(7) so the grid reflows on a phone. 132dp is not a free choice:
+            // Compose computes columns = (available + spacing) / (minSize + spacing) with integer
+            // division, where available = width - 2 * sp.xxl and spacing = sp.lg. Four contexts pin it:
+            //   golden tablet 1280dp, rendered bare without AppShell -> 7 cols needs 131.75 < m
+            //   production tablet, 88dp rail subtracted              -> 7 cols needs 120.75 < m <= 141.14
+            //   phone 411dp                                          -> 2 cols needs  98.3  < m <= 158.5
+            //   phone 360dp                                          -> 2 cols needs          m <= 133
+            // The intersection is 131.75 < m <= 133 - only 132 and 133 work. Raising this to a rounder
+            // 136dp drops a 360dp phone to ONE column; lowering it to 131 gives the tablet eight columns
+            // and moves every Home golden.
             columns = GridCells.Adaptive(132.dp),
             modifier = Modifier.fillMaxSize().background(palette.bg),
             contentPadding = PaddingValues(sp.xxl),
@@ -215,10 +221,16 @@ internal fun HomeScreen(
     }
 
     LazyVerticalGrid(
-        // Adaptive rather than Fixed(7) so the grid reflows on a phone (2 columns at 360-411dp).
-        // 132dp is chosen to keep exactly 7 columns on the 1280dp tablet reference — accounting
-        // for contentPadding.xxl (36dp each side) in the test setup. Changing it moves
-        // every Home golden.
+        // Adaptive rather than Fixed(7) so the grid reflows on a phone. 132dp is not a free choice:
+        // Compose computes columns = (available + spacing) / (minSize + spacing) with integer
+        // division, where available = width - 2 * sp.xxl and spacing = sp.lg. Four contexts pin it:
+        //   golden tablet 1280dp, rendered bare without AppShell -> 7 cols needs 131.75 < m
+        //   production tablet, 88dp rail subtracted              -> 7 cols needs 120.75 < m <= 141.14
+        //   phone 411dp                                          -> 2 cols needs  98.3  < m <= 158.5
+        //   phone 360dp                                          -> 2 cols needs          m <= 133
+        // The intersection is 131.75 < m <= 133 - only 132 and 133 work. Raising this to a rounder
+        // 136dp drops a 360dp phone to ONE column; lowering it to 131 gives the tablet eight columns
+        // and moves every Home golden.
         columns = GridCells.Adaptive(132.dp),
         modifier = Modifier.fillMaxSize().background(palette.bg),
         contentPadding = PaddingValues(sp.xxl),
