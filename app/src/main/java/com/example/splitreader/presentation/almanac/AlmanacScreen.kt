@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -50,6 +51,7 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.FadeInOnAppear
 import com.example.splitreader.presentation.theme.animatedSelection
+import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.Newsreader
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -92,85 +94,123 @@ fun AlmanacScreen(
     onSelectRange: (TimeRange) -> Unit,
 ) {
     val sp = LocalSpacing.current
-    val radii = LocalRadii.current
     val palette = LocalReaderPalette.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.bg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = sp.xxl, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(sp.md),
-    ) {
-        // Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = isCompactWidth(maxWidth)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(palette.bg)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = sp.xxl, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(sp.md),
         ) {
-            Column {
-                Text("READING", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text("Your ", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 20.sp, color = palette.ink)
-                    Text("almanac", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontStyle = FontStyle.Italic, fontSize = 20.sp, color = palette.accent)
+            // Header. On a phone the title and the range selector cannot share a line — together they
+            // exceed the 339dp content width and overlap — so the selector drops below the title.
+            if (compact) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.sm)) {
+                    AlmanacTitle()
+                    RangeSelector(selectedRange, onSelectRange)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    AlmanacTitle()
+                    RangeSelector(selectedRange, onSelectRange)
                 }
             }
-            // Range selector
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(radii.md))
-                    .background(palette.bg2)
-                    .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                TimeRange.entries.forEach { range ->
-                    val selected = selectedRange == range
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(animatedSelection(if (selected) palette.ink else palette.bg2, "rangeBg"))
-                            .clickable { onSelectRange(range) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                    ) {
-                        Text(range.label, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp,
-                            color = animatedSelection(if (selected) palette.bg else palette.ink2, "rangeText"))
+
+            val hasData = streak.current > 0 || rangeMinutes > 0
+
+            // Captions track the selected range: "this week/month/year" or "all time".
+            val periodLabel = if (selectedRange == TimeRange.ALL) "all time"
+                else "this ${selectedRange.label.lowercase()}"
+            // The 180-minute goal is a weekly target, so only surface it for the Week range.
+            val minutesCaption = if (selectedRange == TimeRange.WEEK) "of 180 this week" else periodLabel
+
+            if (!hasData) {
+                // Empty state
+                FadeInOnAppear { EmptyAlmanac() }
+            } else {
+                if (compact) {
+                    // One card per line. The three StatBlocks stay side by side: at ~102dp each their
+                    // captions wrap by word, which reads fine — it was the ~74dp of the four-across
+                    // row that forced one-character-per-line wrapping.
+                    StreakHeroCard(streak.current, streak.longest, modifier = Modifier.fillMaxWidth())
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
+                        StatBlock("$rangeMinutes", "minutes", minutesCaption, Modifier.weight(1f))
+                        StatBlock("$rangePages", "pages", periodLabel, Modifier.weight(1f))
+                        StatBlock("$rangeWords", "words", "saved $periodLabel", Modifier.weight(1f))
+                    }
+                    WeeklyBarChartCard(dailyMinutes.takeLast(7), modifier = Modifier.fillMaxWidth())
+                    HeatmapCard(dailyMinutes, modifier = Modifier.fillMaxWidth())
+                    TimeByBookCard(timeByBook, modifier = Modifier.fillMaxWidth())
+                    LanguagesCard(timeByLang, modifier = Modifier.fillMaxWidth())
+                } else {
+                    // Top row: streak hero + 3 stat blocks
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
+                        StreakHeroCard(streak.current, streak.longest, modifier = Modifier.weight(1.4f))
+                        StatBlock("$rangeMinutes", "minutes", minutesCaption, Modifier.weight(1f))
+                        StatBlock("$rangePages", "pages", periodLabel, Modifier.weight(1f))
+                        StatBlock("$rangeWords", "words", "saved $periodLabel", Modifier.weight(1f))
+                    }
+
+                    // Middle row: weekly bar chart + 26-week heatmap
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
+                        WeeklyBarChartCard(dailyMinutes.takeLast(7), modifier = Modifier.weight(1f))
+                        HeatmapCard(dailyMinutes, modifier = Modifier.weight(1.6f))
+                    }
+
+                    // Bottom row: time by book + languages
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
+                        TimeByBookCard(timeByBook, modifier = Modifier.weight(1.5f))
+                        LanguagesCard(timeByLang, modifier = Modifier.weight(1f))
                     }
                 }
             }
         }
+    }
+}
 
-        val hasData = streak.current > 0 || rangeMinutes > 0
+@Composable
+private fun AlmanacTitle() {
+    val palette = LocalReaderPalette.current
+    Column {
+        Text("READING", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("Your ", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 20.sp, color = palette.ink)
+            Text("almanac", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontStyle = FontStyle.Italic, fontSize = 20.sp, color = palette.accent)
+        }
+    }
+}
 
-        // Captions track the selected range: "this week/month/year" or "all time".
-        val periodLabel = if (selectedRange == TimeRange.ALL) "all time"
-            else "this ${selectedRange.label.lowercase()}"
-        // The 180-minute goal is a weekly target, so only surface it for the Week range.
-        val minutesCaption = if (selectedRange == TimeRange.WEEK) "of 180 this week" else periodLabel
-
-        if (!hasData) {
-            // Empty state
-            FadeInOnAppear { EmptyAlmanac() }
-        } else {
-            // Top row: streak hero + 3 stat blocks
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
-                StreakHeroCard(streak.current, streak.longest, modifier = Modifier.weight(1.4f))
-                StatBlock("$rangeMinutes", "minutes", minutesCaption, Modifier.weight(1f))
-                StatBlock("$rangePages", "pages", periodLabel, Modifier.weight(1f))
-                StatBlock("$rangeWords", "words", "saved $periodLabel", Modifier.weight(1f))
-            }
-
-            // Middle row: weekly bar chart + 26-week heatmap
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
-                WeeklyBarChartCard(dailyMinutes.takeLast(7), modifier = Modifier.weight(1f))
-                HeatmapCard(dailyMinutes, modifier = Modifier.weight(1.6f))
-            }
-
-            // Bottom row: time by book + languages
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
-                TimeByBookCard(timeByBook, modifier = Modifier.weight(1.5f))
-                LanguagesCard(timeByLang, modifier = Modifier.weight(1f))
+@Composable
+private fun RangeSelector(selectedRange: TimeRange, onSelectRange: (TimeRange) -> Unit) {
+    val palette = LocalReaderPalette.current
+    val radii = LocalRadii.current
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(radii.md))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        TimeRange.entries.forEach { range ->
+            val selected = selectedRange == range
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(animatedSelection(if (selected) palette.ink else palette.bg2, "rangeBg"))
+                    .clickable { onSelectRange(range) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            ) {
+                Text(range.label, fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 13.sp,
+                    color = animatedSelection(if (selected) palette.bg else palette.ink2, "rangeText"))
             }
         }
     }
