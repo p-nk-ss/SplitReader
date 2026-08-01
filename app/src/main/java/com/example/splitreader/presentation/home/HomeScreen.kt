@@ -197,7 +197,11 @@ internal fun HomeScreen(
         // Skeleton stand-in that mirrors the real grid metrics, so the layout doesn't
         // jump when books arrive (vs. a centered spinner over a blank screen).
         LazyVerticalGrid(
-            columns = GridCells.Fixed(7),
+            // Adaptive rather than Fixed(7) so the grid reflows on a phone (2 columns at 360-411dp).
+            // 132dp is chosen to keep exactly 7 columns on the 1280dp tablet reference — accounting
+            // for contentPadding.xxl (36dp each side) in the test setup. Changing it moves
+            // every Home golden.
+            columns = GridCells.Adaptive(132.dp),
             modifier = Modifier.fillMaxSize().background(palette.bg),
             contentPadding = PaddingValues(sp.xxl),
             verticalArrangement = Arrangement.spacedBy(sp.lg),
@@ -211,7 +215,11 @@ internal fun HomeScreen(
     }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(7),
+        // Adaptive rather than Fixed(7) so the grid reflows on a phone (2 columns at 360-411dp).
+        // 132dp is chosen to keep exactly 7 columns on the 1280dp tablet reference — accounting
+        // for contentPadding.xxl (36dp each side) in the test setup. Changing it moves
+        // every Home golden.
+        columns = GridCells.Adaptive(132.dp),
         modifier = Modifier.fillMaxSize().background(palette.bg),
         contentPadding = PaddingValues(sp.xxl),
         verticalArrangement = Arrangement.spacedBy(sp.lg),
