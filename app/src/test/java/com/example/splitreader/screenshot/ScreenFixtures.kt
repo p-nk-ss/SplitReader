@@ -512,7 +512,7 @@ object ScreenFixtures {
 
     val almanacStreak = StreakResult(current = 12, longest = 30)
 
-    /** Bundles the 8 stateless-`AlmanacScreen` values so a screenshot test can pass one fixture. */
+    /** Bundles the stateless-`AlmanacScreen` parameters so a screenshot test can pass one fixture. */
     data class AlmanacFixture(
         val streak: StreakResult,
         val dailyMinutes: List<DailyMinutes>,
@@ -534,6 +534,11 @@ object ScreenFixtures {
         timeByBook = almanacTimeByBook,
         timeByLang = almanacTimeByLang,
         selectedRange = TimeRange.WEEK,
+        // Must be the last day covered by almanacDailyMinutes: WeeklyBarChartCard and HeatmapCard
+        // build their day-window backwards from `today`, then look up minutes by absolute date
+        // string. Move this date without moving almanacDailyMinutes (or vice versa) and every
+        // lookup misses, every bar/cell renders empty again - the exact defect this fixture exists
+        // to prevent.
         today = LocalDate.of(2023, 11, 14),
     )
 
@@ -546,6 +551,8 @@ object ScreenFixtures {
         timeByBook = emptyList(),
         timeByLang = emptyList(),
         selectedRange = TimeRange.WEEK,
+        // dailyMinutes is empty here, so this value doesn't affect what renders - but it's pinned
+        // to the same date as almanacRich.today for consistency between the two fixtures.
         today = LocalDate.of(2023, 11, 14),
     )
 }
