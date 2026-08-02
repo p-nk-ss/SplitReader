@@ -26,7 +26,8 @@ val COMPACT_WIDTH_THRESHOLD: Dp = 600.dp
 fun isCompactWidth(width: Dp): Boolean = width < COMPACT_WIDTH_THRESHOLD
 
 /**
- * Minimum **window** height for the rail to render without clipping.
+ * Minimum **window** height for the full labeled navigation rail (`EditorialNavigationRail`) to
+ * render without clipping.
  *
  * This is compared against `BoxWithConstraints.maxHeight` in `AppShell` — i.e. the whole window —
  * NOT the height the rail itself actually receives. The rail lives in a `Row(weight(1f))` *below*
@@ -41,9 +42,11 @@ fun isCompactWidth(width: Dp): Boolean = width < COMPACT_WIDTH_THRESHOLD
  *
  * 450 + 30 + 48 = 528, rounded up to 530dp. A phone in landscape (e.g. 891 x 411dp) offers a
  * window height well under that, so width alone is not enough to decide: a wide-but-short window
- * must still fall back to the bottom bar.
+ * must still fall back off the full rail — but not all the way to the bottom bar. At compact
+ * height a bottom bar spends the scarce axis while a rail spends the plentiful one, so this case
+ * still gets a rail: the icon-only one, which scrolls instead of needing the same 530dp headroom.
  */
 val RAIL_MIN_HEIGHT: Dp = 530.dp
 
-/** True when [height] is too short to show the rail without clipping its lower items. */
+/** True when [height] is too short to show the full rail without clipping its lower items. */
 fun isRailTooTall(height: Dp): Boolean = height < RAIL_MIN_HEIGHT

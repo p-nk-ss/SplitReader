@@ -22,6 +22,9 @@ data class Spacing(
     val pageInner:  Dp = 64.dp, // outer edge
     // Outer chrome
     val railWidth:  Dp = 88.dp,
+    // Icon-only rail for short windows: wide enough for a 22dp icon with breathing room, with
+    // no label to fit.
+    val railWidthCompact: Dp = 56.dp,
     val statusBar:  Dp = 30.dp,
     // Compact shell puts the account avatar in the strip; 30dp cannot hold a 24dp circle
     // plus breathing room.

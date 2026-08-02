@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Explore
@@ -74,70 +76,102 @@ fun AppShell(
     val palette = LocalReaderPalette.current
 
     BoxWithConstraints(Modifier.fillMaxSize().background(palette.bg)) {
-        if (isCompactWidth(maxWidth) || isRailTooTall(maxHeight)) {
-            Column(Modifier.fillMaxSize()) {
-                if (isReader) {
-                    // The strip is pure chrome — wordmark and either "ML KIT READY" or the
-                    // avatar — and while reading it is only lost page area. But it is also the
-                    // app's only consumer of the top inset, so it cannot simply vanish: without
-                    // this spacer the first line of text would run under the system clock.
-                    // Reclaims the strip's 30/44dp and keeps the inset.
-                    Spacer(Modifier.fillMaxWidth().statusBarsPadding())
-                } else {
-                    AppStatusStrip(
-                        height = sp.statusBarCompact,
-                        trailing = {
-                            CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
-                        },
-                    )
-                }
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        // imePadding goes on the content, NOT on the bar: otherwise the bar rides
-                        // up on top of the keyboard and covers the field being typed into
-                        // (Words/Catalog search).
-                        .imePadding(),
-                ) {
-                    content()
-                }
-                if (!isReader) {
-                    EditorialBottomBar(
-                        currentRoute = currentRoute,
-                        onNavigateToHome = onNavigateToHome,
-                        onNavigateToCatalog = onNavigateToCatalog,
-                        onNavigateToAlmanac = onNavigateToAlmanac,
-                        onNavigateToWords = onNavigateToWords,
-                        onNavigateToSettings = onNavigateToSettings,
-                    )
-                }
-            }
-        } else {
-            Column(Modifier.fillMaxSize()) {
-                if (isReader) {
-                    // Same inset trap as the compact branch above: the strip is the only
-                    // consumer of the top inset, so the reader still needs a bare spacer for it.
-                    Spacer(Modifier.fillMaxWidth().statusBarsPadding())
-                } else {
-                    AppStatusStrip()
-                }
-                Row(Modifier.weight(1f).fillMaxWidth()) {
+        when {
+            isCompactWidth(maxWidth) -> {
+                Column(Modifier.fillMaxSize()) {
+                    if (isReader) {
+                        // The strip is pure chrome — wordmark and either "ML KIT READY" or the
+                        // avatar — and while reading it is only lost page area. But it is also
+                        // the app's only consumer of the top inset, so it cannot simply vanish:
+                        // without this spacer the first line of text would run under the system
+                        // clock. Reclaims the strip's 30/44dp and keeps the inset.
+                        Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                    } else {
+                        AppStatusStrip(
+                            height = sp.statusBarCompact,
+                            trailing = {
+                                CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
+                            },
+                        )
+                    }
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            // imePadding goes on the content, NOT on the bar: otherwise the bar
+                            // rides up on top of the keyboard and covers the field being typed
+                            // into (Words/Catalog search).
+                            .imePadding(),
+                    ) {
+                        content()
+                    }
                     if (!isReader) {
-                        EditorialNavigationRail(
+                        EditorialBottomBar(
                             currentRoute = currentRoute,
-                            avatarLabel = avatarLabel,
-                            avatarSubtitle = avatarSubtitle,
                             onNavigateToHome = onNavigateToHome,
                             onNavigateToCatalog = onNavigateToCatalog,
                             onNavigateToAlmanac = onNavigateToAlmanac,
                             onNavigateToWords = onNavigateToWords,
                             onNavigateToSettings = onNavigateToSettings,
-                            onNavigateToAccount = onNavigateToAccount,
                         )
                     }
-                    Box(Modifier.weight(1f).fillMaxHeight()) {
-                        content()
+                }
+            }
+            isRailTooTall(maxHeight) -> {
+                // Wide but short (e.g. a phone in landscape): a bottom bar would spend the
+                // scarce axis, so this posture gets a rail instead — just the icon-only one,
+                // which doesn't need the full rail's 530dp of headroom. No status strip here in
+                // either the reader or elsewhere: the account avatar lives in the rail, so the
+                // strip would hold only the wordmark and "ML KIT READY" — decoration, in the
+                // posture with the least room. The bare inset spacer keeps the top inset
+                // consumed without spending height on chrome.
+                Column(Modifier.fillMaxSize()) {
+                    Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        if (!isReader) {
+                            CompactNavigationRail(
+                                currentRoute = currentRoute,
+                                avatarLabel = avatarLabel,
+                                onNavigateToHome = onNavigateToHome,
+                                onNavigateToCatalog = onNavigateToCatalog,
+                                onNavigateToAlmanac = onNavigateToAlmanac,
+                                onNavigateToWords = onNavigateToWords,
+                                onNavigateToSettings = onNavigateToSettings,
+                                onNavigateToAccount = onNavigateToAccount,
+                            )
+                        }
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            content()
+                        }
+                    }
+                }
+            }
+            else -> {
+                Column(Modifier.fillMaxSize()) {
+                    if (isReader) {
+                        // Same inset trap as the branches above: the strip is the only consumer
+                        // of the top inset, so the reader still needs a bare spacer for it.
+                        Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                    } else {
+                        AppStatusStrip()
+                    }
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        if (!isReader) {
+                            EditorialNavigationRail(
+                                currentRoute = currentRoute,
+                                avatarLabel = avatarLabel,
+                                avatarSubtitle = avatarSubtitle,
+                                onNavigateToHome = onNavigateToHome,
+                                onNavigateToCatalog = onNavigateToCatalog,
+                                onNavigateToAlmanac = onNavigateToAlmanac,
+                                onNavigateToWords = onNavigateToWords,
+                                onNavigateToSettings = onNavigateToSettings,
+                                onNavigateToAccount = onNavigateToAccount,
+                            )
+                        }
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            content()
+                        }
                     }
                 }
             }
@@ -298,6 +332,83 @@ private fun EditorialNavigationRail(
 }
 
 /**
+ * Icon-only rail for windows too short for the full rail. At compact height a bottom bar costs
+ * the scarce axis; a rail costs the plentiful one. Labels are dropped — each icon keeps its
+ * contentDescription, so nothing is lost to TalkBack.
+ *
+ * Scrolls, unlike [EditorialNavigationRail], which is protected from clipping only by a height
+ * threshold. Scrolling removes that failure mode outright for this rail. The consequence is that
+ * the avatar cannot be pinned to the bottom with `Spacer(weight(1f))` — weight does not work
+ * inside a scrolling column — so it simply follows the tabs after a fixed gap.
+ */
+@Composable
+private fun CompactNavigationRail(
+    currentRoute: String?,
+    avatarLabel: String,
+    onNavigateToHome: () -> Unit,
+    onNavigateToCatalog: () -> Unit,
+    onNavigateToAlmanac: () -> Unit,
+    onNavigateToWords: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToAccount: () -> Unit,
+) {
+    val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
+    val edgeColor = palette.edge
+
+    Column(
+        modifier = Modifier
+            .width(sp.railWidthCompact)
+            .fillMaxHeight()
+            .background(palette.bg2)
+            .drawBehind {
+                drawLine(
+                    color = edgeColor,
+                    start = Offset(size.width, 0f),
+                    end = Offset(size.width, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = sp.xs),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        IconRailTab(Icons.Outlined.MenuBook, "Library", currentRoute == HOME_ROUTE, onNavigateToHome)
+        IconRailTab(Icons.Outlined.Explore, "Catalog", currentRoute == CATALOG_ROUTE, onNavigateToCatalog)
+        IconRailTab(Icons.Outlined.BarChart, "Almanac", currentRoute == ALMANAC_ROUTE, onNavigateToAlmanac)
+        IconRailTab(Icons.Outlined.StickyNote2, "Words", currentRoute == WORDS_ROUTE, onNavigateToWords)
+        IconRailTab(Icons.Outlined.Settings, "Settings", currentRoute == SETTINGS_ROUTE, onNavigateToSettings)
+        Spacer(Modifier.height(sp.md))
+        CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
+    }
+}
+
+@Composable
+private fun IconRailTab(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+    val palette = LocalReaderPalette.current
+    val accentColor = palette.accent
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .background(if (selected) palette.bg3 else palette.bg2)
+            .drawBehind {
+                if (selected) {
+                    drawLine(
+                        color = accentColor,
+                        start = Offset(0f, size.height * 0.2f),
+                        end = Offset(0f, size.height * 0.8f),
+                        strokeWidth = 2.dp.toPx(),
+                    )
+                }
+            }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        TabContent(icon = icon, label = label, selected = selected, showLabel = false)
+    }
+}
+
+/**
  * Compact counterpart to [EditorialNavigationRail]. Same five destinations, same navigateToTab
  * callbacks, same selection rule (derived from currentRoute — no new state).
  *
@@ -397,6 +508,11 @@ private fun RailWordmark() {
  * fontScale 1.3 a long label like "Settings" wraps to two lines inside the 56dp cell, and that
  * is what ships today. The bottom bar passes 1 because a wrapped label there would push the
  * cell past the bar height.
+ *
+ * [showLabel] defaults to `true` so existing callers (the full rail and the bottom bar) are
+ * unchanged. When `false` (the icon-only rail), the label `Text`/`Spacer` are skipped but the
+ * icon's `contentDescription` is not — with the visible text gone, that is the only thing
+ * TalkBack has left to announce.
  */
 @Composable
 private fun TabContent(
@@ -404,6 +520,7 @@ private fun TabContent(
     label: String,
     selected: Boolean,
     maxLines: Int = Int.MAX_VALUE,
+    showLabel: Boolean = true,
 ) {
     val palette = LocalReaderPalette.current
     val contentColor = if (selected) palette.ink else palette.ink3
@@ -414,16 +531,18 @@ private fun TabContent(
             tint = contentColor,
             modifier = Modifier.size(22.dp),
         )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text = label,
-            fontFamily = Newsreader,
-            fontWeight = FontWeight.Normal,
-            fontStyle = FontStyle.Italic,
-            fontSize = 11.sp,
-            color = contentColor,
-            maxLines = maxLines,
-        )
+        if (showLabel) {
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = label,
+                fontFamily = Newsreader,
+                fontWeight = FontWeight.Normal,
+                fontStyle = FontStyle.Italic,
+                fontSize = 11.sp,
+                color = contentColor,
+                maxLines = maxLines,
+            )
+        }
     }
 }
 
