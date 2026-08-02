@@ -63,6 +63,27 @@ import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.isRailTooTall
 import com.example.splitreader.R
 
+// Where each window inset is consumed. Every region is padded exactly once; chrome backgrounds
+// reach the physical screen edge and only their content is inset, so no bare band appears beside
+// the rail or under the system bars.
+//
+//   arm            reader  top                     bottom                  start                 end
+//   compact        no      AppStatusStrip          EditorialBottomBar      strip / content / bar (each Horizontal, disjoint bands)
+//   compact        yes     bare Spacer             reader's own            content Box (Horizontal)
+//   short (rail)   no      bare Spacer             not consumed (1)        CompactNavigationRail  content Box (End)
+//   short (rail)   yes     bare Spacer             reader's own            content Box (Horizontal)
+//   full rail      no      AppStatusStrip          not consumed (1)        EditorialNavigationRail content Box (End)
+//   full rail      yes     bare Spacer             reader's own            content Box (Horizontal)
+//
+// (1) Known pre-existing gap: neither rail arm consumes the bottom inset, so the rail's avatar can
+//     sit flush against a gesture bar. Tracked as a follow-up, not introduced here.
+//
+// The reader arms hand the bottom edge to the reader's own navigationBarsPadding
+// (ReaderPane.kt / ReaderDialogs.kt) rather than consuming it in the shell.
+//
+// NOTHING IN THIS TABLE IS TESTABLE. Robolectric reports zero insets and a cutout is not a
+// resource qualifier, so goldens prove only that nothing broke where insets are zero. Changes
+// here are verified on a device or not at all.
 /**
  * System bars plus the display cutout — everything that can physically occlude the shell.
  *
