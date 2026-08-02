@@ -87,7 +87,7 @@ class AdaptiveTest {
     }
 
     @Test
-    fun `phone landscape gets the bottom bar on height`() {
+    fun `phone landscape is too short for the full rail`() {
         assertFalse(isCompactWidth(891.dp))
         assertTrue(isRailTooTall(411.dp))
     }

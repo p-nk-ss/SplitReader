@@ -254,10 +254,10 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
 
     /**
      * Wide-but-short window (891 x 411dp, [PHONE_LANDSCAPE]): [isCompactWidth] alone would pick
-     * the rail at that width, but [isRailTooTall] still forces the bottom-bar fallback (the fix
-     * this task applied to `RAIL_MIN_HEIGHT` in `Adaptive.kt`). Proves `AppShell` actually applies
-     * that fallback — the bottom bar is present and the rail is absent — not just that the pure
-     * predicate computes correctly.
+     * the full rail at that width, but [isRailTooTall] still forces the icon-only rail fallback
+     * (the fix this task applied to `RAIL_MIN_HEIGHT` in `Adaptive.kt`). Proves `AppShell`
+     * actually applies that fallback — the icon-only rail is present, with no top strip and no
+     * bottom bar — not just that the pure predicate computes correctly.
      */
     @Test
     @Config(qualifiers = PHONE_LANDSCAPE)
