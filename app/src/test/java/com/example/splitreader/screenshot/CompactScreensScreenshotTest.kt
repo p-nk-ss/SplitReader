@@ -7,7 +7,9 @@ import com.example.splitreader.presentation.catalog.CatalogScreen
 import com.example.splitreader.presentation.home.HomeScreen
 import com.example.splitreader.presentation.navigation.AppShell
 import com.example.splitreader.presentation.navigation.HOME_ROUTE
+import com.example.splitreader.presentation.navigation.READER_ROUTE
 import com.example.splitreader.presentation.profile.ProfileScreen
+import com.example.splitreader.presentation.reader.ReaderContent
 import com.example.splitreader.presentation.settings.SettingsScreen
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.words.WordsScreen
@@ -250,6 +252,20 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
             ShellWithHome()
         }
 
+    /**
+     * Wide-but-short window (891 x 411dp, [PHONE_LANDSCAPE]): [isCompactWidth] alone would pick
+     * the rail at that width, but [isRailTooTall] still forces the bottom-bar fallback (the fix
+     * this task applied to `RAIL_MIN_HEIGHT` in `Adaptive.kt`). Proves `AppShell` actually applies
+     * that fallback — the bottom bar is present and the rail is absent — not just that the pure
+     * predicate computes correctly.
+     */
+    @Test
+    @Config(qualifiers = PHONE_LANDSCAPE)
+    fun shell_home_landscape_short_paper_1x() =
+        captureScreen("shell_home_landscape_short_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+            ShellWithHome()
+        }
+
     // ── Words compact (master/detail) ───────────────────────────────────────
 
     @Test
@@ -295,4 +311,98 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
             onSpeak = { _, _ -> },
         )
     }
+
+    // ── Reader route ─────────────────────────────────────────────────────────
+    //
+    // AppShell.isReader matches `currentRoute?.startsWith("reader")`; READER_ROUTE
+    // ("reader?path={path}") satisfies that. This is the only golden that renders AppShell with
+    // isReader = true, proving both the app status strip and the bottom bar are dropped in favor
+    // of the bare inset spacer described in AppShell.kt.
+
+    /**
+     * [ScreenFixtures.readerContentState] only carries translations for chapter 0
+     * ([ScreenFixtures.readerChapterTranslations]); the fixture book has 2 chapters, so chapter-1
+     * translations are added here too (mirrors `ReadingScreensScreenshotTest.readerFullyTranslated`)
+     * so `BookSpread` never falls back to the shimmering `TranslationPlaceholder` for chapter 1.
+     */
+    private val readerFullyTranslated = ScreenFixtures.readerContentState.copy(
+        chapterTranslations = ScreenFixtures.readerChapterTranslations + mapOf(
+            1 to listOf(
+                "Я запихнул рубашку или две в свой старый саквояж, сунул его под мышку и " +
+                    "отправился к мысу Горн и в Тихий океан.",
+                "Покинув добрый город старого Манхэтто, я благополучно прибыл в Нью-Бедфорд.",
+            ),
+        ),
+    )
+
+    @Composable
+    private fun ShellWithReader() {
+        AppShell(
+            currentRoute = READER_ROUTE,
+            avatarLabel = "M",
+            avatarSubtitle = "mirrolit",
+            onNavigateToHome = {},
+            onNavigateToCatalog = {},
+            onNavigateToAlmanac = {},
+            onNavigateToWords = {},
+            onNavigateToSettings = {},
+            onNavigateToAccount = {},
+        ) {
+            ReaderContent(
+                state = readerFullyTranslated,
+                onNavigateBack = {},
+                onSelectChapter = {},
+                onSetTargetLanguage = {},
+                onSetReaderTheme = {},
+                onAdjustTextSize = {},
+                onAdjustLineHeight = {},
+                onSetReadingFont = {},
+                onSetLetterSpacing = {},
+                onSetTextIndent = {},
+                onSetParagraphSpacing = {},
+                onSetJustifyText = {},
+                onSetSplitRatio = {},
+                onToggleTranslation = {},
+                onToggleIllustrations = {},
+                onSetNavigationSide = {},
+                onSetHorizontalMargin = {},
+                onSetOrientationLock = {},
+                onUpdateScrollPosition = { _, _, _ -> },
+                onMarkFinished = {},
+                onToggleBookmark = {},
+                onRemoveBookmark = { _, _ -> },
+                onJumpToBookmark = { _, _ -> },
+                onConsumeScrollRestore = {},
+                onVisibleRange = { _, _, _, _ -> },
+                onSaveWord = { _, _, _ -> },
+                onSpeak = { _, _ -> },
+                onSelectWord = { _, _, _, _, _ -> },
+                onClearWordSelection = {},
+                onSelectionDragged = { _, _ -> },
+                onSelectProvider = {},
+                onConfigureProvider = { _, _, _ -> },
+                onClearProvider = {},
+                onRefreshTranslationUsage = {},
+                onResetTranslationUsage = {},
+                onRetryTranslation = {},
+                onTranslateWholeChapter = {},
+            )
+        }
+    }
+
+    /**
+     * `AppShell` with `currentRoute = READER_ROUTE`, wrapping `ReaderContent`. Proves the reader
+     * route drops both the app status strip and the bottom bar, leaving only the bare inset
+     * spacer ahead of the reader's own content — see the strip-vs-spacer comment in `AppShell.kt`.
+     *
+     * Robolectric reports zero window insets, so that spacer collapses to 0dp in this golden;
+     * what the golden proves is that the strip's chrome is gone and the layout does not break,
+     * not that the inset itself works (that needs a real device or an instrumented run).
+     */
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun shell_reader_paper_1x() =
+        captureScreen("shell_reader_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+            ShellWithReader()
+        }
 }
