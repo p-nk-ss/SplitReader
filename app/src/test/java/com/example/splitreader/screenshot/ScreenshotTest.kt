@@ -102,3 +102,6 @@ const val PHONE_TALL = "w411dp-h2000dp-420dpi"
  * not just that the pure predicate computes correctly.
  */
 const val PHONE_LANDSCAPE = "w891dp-h411dp-420dpi"
+
+/** Phone width, absurd height — for screens whose content exceeds even PHONE_TALL. */
+const val PHONE_XTALL = "w411dp-h4000dp-420dpi"
