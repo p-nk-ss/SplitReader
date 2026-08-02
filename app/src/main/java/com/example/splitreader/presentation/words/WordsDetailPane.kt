@@ -17,12 +17,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.EditNote
@@ -78,6 +80,9 @@ internal fun DetailPane(
     onDelete: (SavedWord) -> Unit,
     onSpeak: (String, String) -> Unit,
     modifier: Modifier = Modifier,
+    // Non-null only in the compact branch: in wide, both panes are on screen and a back arrow
+    // would be a lie. Defaulting to null keeps the wide goldens byte-identical.
+    onBack: (() -> Unit)? = null,
 ) {
     if (word == null) {
         FadeInOnAppear(modifier) { EmptyDetail(Modifier.fillMaxSize()) }
@@ -88,6 +93,7 @@ internal fun DetailPane(
             onDelete = onDelete,
             onSpeak = onSpeak,
             modifier = modifier,
+            onBack = onBack,
         )
     }
 }
@@ -125,6 +131,7 @@ private fun WordDetail(
     onDelete: (SavedWord) -> Unit,
     onSpeak: (String, String) -> Unit,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
@@ -140,6 +147,17 @@ private fun WordDetail(
         // Word hero block
         item {
             Column {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "Back to word list",
+                            tint = palette.ink3,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+
                 // Eyebrow
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -445,7 +463,9 @@ private fun NoteDialog(
     BasicAlertDialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
-                .width(480.dp)
+                // Capped, not pinned: 480dp on a tablet as before, shrinks to fit a 360dp phone.
+                .widthIn(max = 480.dp)
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
                 .background(palette.bg)
                 .border(1.dp, palette.edge, RoundedCornerShape(18.dp))

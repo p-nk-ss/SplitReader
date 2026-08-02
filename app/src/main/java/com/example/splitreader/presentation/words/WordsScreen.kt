@@ -1,11 +1,13 @@
 package com.example.splitreader.presentation.words
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -66,6 +68,7 @@ import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.FadeInOnAppear
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.animatedSelection
+import com.example.splitreader.presentation.theme.isCompactWidth
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,6 +86,7 @@ fun WordsRoute(viewModel: WordsViewModel = hiltViewModel()) {
         langFilter = langFilter,
         query = query,
         onSelectWord = viewModel::select,
+        onClearSelection = viewModel::clearSelection,
         onSetFilter = viewModel::setFilter,
         onSetQuery = viewModel::setQuery,
         onUpdateNote = viewModel::updateNote,
@@ -98,6 +102,7 @@ fun WordsScreen(
     langFilter: LangFilter,
     query: String,
     onSelectWord: (SavedWord) -> Unit,
+    onClearSelection: () -> Unit,
     onSetFilter: (LangFilter) -> Unit,
     onSetQuery: (String) -> Unit,
     onUpdateNote: (SavedWord, String) -> Unit,
@@ -112,35 +117,67 @@ fun WordsScreen(
     var wordPendingDelete by remember { mutableStateOf<SavedWord?>(null) }
     val requestDelete: (SavedWord) -> Unit = { wordPendingDelete = it }
 
-    Row(Modifier.fillMaxSize()) {
-        // Master pane — 380dp
-        MasterPane(
-            words = words,
-            selectedWord = selectedWord,
-            langFilter = langFilter,
-            query = query,
-            onSelectWord = onSelectWord,
-            onSetFilter = onSetFilter,
-            onSetQuery = onSetQuery,
-            onDelete = requestDelete,
-            modifier = Modifier
-                .width(380.dp)
-                .fillMaxHeight()
-                .background(palette.bg2)
-                .border(width = 1.dp, color = palette.edge, shape = RoundedCornerShape(0.dp)),
-        )
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (isCompactWidth(maxWidth)) {
+            // Only one pane fits. Back returns to the list; the handler is registered ONLY here,
+            // because in the wide branch both panes are visible and intercepting back would strand
+            // the user on the screen.
+            BackHandler(enabled = selectedWord != null, onBack = onClearSelection)
 
-        // Detail pane — fills remaining width
-        DetailPane(
-            word = selectedWord,
-            onUpdateNote = onUpdateNote,
-            onDelete = requestDelete,
-            onSpeak = onSpeak,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(palette.bg),
-        )
+            if (selectedWord == null) {
+                MasterPane(
+                    words = words,
+                    selectedWord = null,
+                    langFilter = langFilter,
+                    query = query,
+                    onSelectWord = onSelectWord,
+                    onSetFilter = onSetFilter,
+                    onSetQuery = onSetQuery,
+                    onDelete = requestDelete,
+                    modifier = Modifier.fillMaxSize().background(palette.bg2),
+                )
+            } else {
+                DetailPane(
+                    word = selectedWord,
+                    onUpdateNote = onUpdateNote,
+                    onDelete = requestDelete,
+                    onSpeak = onSpeak,
+                    modifier = Modifier.fillMaxSize().background(palette.bg),
+                    onBack = onClearSelection,
+                )
+            }
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                // Master pane — 380dp
+                MasterPane(
+                    words = words,
+                    selectedWord = selectedWord,
+                    langFilter = langFilter,
+                    query = query,
+                    onSelectWord = onSelectWord,
+                    onSetFilter = onSetFilter,
+                    onSetQuery = onSetQuery,
+                    onDelete = requestDelete,
+                    modifier = Modifier
+                        .width(380.dp)
+                        .fillMaxHeight()
+                        .background(palette.bg2)
+                        .border(width = 1.dp, color = palette.edge, shape = RoundedCornerShape(0.dp)),
+                )
+
+                // Detail pane — fills remaining width
+                DetailPane(
+                    word = selectedWord,
+                    onUpdateNote = onUpdateNote,
+                    onDelete = requestDelete,
+                    onSpeak = onSpeak,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(palette.bg),
+                )
+            }
+        }
     }
 
     wordPendingDelete?.let { word ->

@@ -160,6 +160,7 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
             langFilter = ScreenFixtures.wordsLangFilterAll,
             query = "",
             onSelectWord = {},
+            onClearSelection = {},
             onSetFilter = {},
             onSetQuery = {},
             onUpdateNote = { _, _ -> },

@@ -10,6 +10,7 @@ import com.example.splitreader.presentation.navigation.HOME_ROUTE
 import com.example.splitreader.presentation.profile.ProfileScreen
 import com.example.splitreader.presentation.settings.SettingsScreen
 import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.presentation.words.WordsScreen
 import org.junit.Test
 import org.robolectric.annotation.Config
 
@@ -248,4 +249,50 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
         captureScreen("shell_home_narrow360_paper_13x", theme = ReaderThemeKey.PAPER, fontScale = 1.3f) {
             ShellWithHome()
         }
+
+    // ── Words compact (master/detail) ───────────────────────────────────────
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun words_compact_master_paper_1x() = captureScreen(
+        "words_compact_master_paper_1x",
+        theme = ReaderThemeKey.PAPER,
+        fontScale = 1f,
+    ) {
+        WordsScreen(
+            words = ScreenFixtures.wordsRich,
+            selectedWord = null,
+            langFilter = ScreenFixtures.wordsLangFilterAll,
+            query = "",
+            onSelectWord = {},
+            onClearSelection = {},
+            onSetFilter = {},
+            onSetQuery = {},
+            onUpdateNote = { _, _ -> },
+            onDelete = {},
+            onSpeak = { _, _ -> },
+        )
+    }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun words_compact_detail_paper_1x() = captureScreen(
+        "words_compact_detail_paper_1x",
+        theme = ReaderThemeKey.PAPER,
+        fontScale = 1f,
+    ) {
+        WordsScreen(
+            words = ScreenFixtures.wordsRich,
+            selectedWord = ScreenFixtures.wordsSelectedWord,
+            langFilter = ScreenFixtures.wordsLangFilterAll,
+            query = "",
+            onSelectWord = {},
+            onClearSelection = {},
+            onSetFilter = {},
+            onSetQuery = {},
+            onUpdateNote = { _, _ -> },
+            onDelete = {},
+            onSpeak = { _, _ -> },
+        )
+    }
 }

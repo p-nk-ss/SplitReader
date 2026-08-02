@@ -44,6 +44,7 @@ class WordsViewModel @Inject constructor(
     val selectedWord = MutableStateFlow<SavedWord?>(null)
 
     fun select(word: SavedWord) { selectedWord.value = word }
+    fun clearSelection() { selectedWord.value = null }
     fun setFilter(filter: LangFilter) { langFilter.value = filter }
     fun setQuery(q: String) { query.value = q }
 
