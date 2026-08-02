@@ -75,12 +75,21 @@ fun AppShell(
     BoxWithConstraints(Modifier.fillMaxSize().background(palette.bg)) {
         if (isCompactWidth(maxWidth)) {
             Column(Modifier.fillMaxSize()) {
-                AppStatusStrip(
-                    height = sp.statusBarCompact,
-                    trailing = {
-                        CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
-                    },
-                )
+                if (isReader) {
+                    // The strip is pure chrome — wordmark and either "ML KIT READY" or the
+                    // avatar — and while reading it is only lost page area. But it is also the
+                    // app's only consumer of the top inset, so it cannot simply vanish: without
+                    // this spacer the first line of text would run under the system clock.
+                    // Reclaims the strip's 30/44dp and keeps the inset.
+                    Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                } else {
+                    AppStatusStrip(
+                        height = sp.statusBarCompact,
+                        trailing = {
+                            CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
+                        },
+                    )
+                }
                 Box(
                     Modifier
                         .weight(1f)
@@ -105,7 +114,13 @@ fun AppShell(
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                AppStatusStrip()
+                if (isReader) {
+                    // Same inset trap as the compact branch above: the strip is the only
+                    // consumer of the top inset, so the reader still needs a bare spacer for it.
+                    Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                } else {
+                    AppStatusStrip()
+                }
                 Row(Modifier.weight(1f).fillMaxWidth()) {
                     if (!isReader) {
                         EditorialNavigationRail(
