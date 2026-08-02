@@ -49,6 +49,7 @@ import kotlin.math.roundToInt
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
@@ -254,6 +255,7 @@ internal fun DisplaySettingsDialog(
     onToggleIllustrations: () -> Unit,
     wordHighlightEnabled: Boolean,
     onToggleWordHighlight: () -> Unit,
+    onSetOrientationLock: (OrientationLock) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
@@ -281,6 +283,38 @@ internal fun DisplaySettingsDialog(
                         Text("Aa", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 16.sp, color = p.ink)
                         Text(p.displayName.uppercase(), fontFamily = JetBrainsMono, fontSize = 11.sp, color = p.ink2)
                     }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(sp.md))
+
+        // Orientation
+        SectionEyebrow("Orientation")
+        Spacer(Modifier.height(sp.xs))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OrientationLock.entries.forEach { opt ->
+                val selected = state.orientationLock == opt
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(radii.md))
+                        .border(
+                            if (selected) 2.dp else 1.dp,
+                            animatedSelection(if (selected) palette.ink else palette.edge, "orientationBorder_${opt.name}"),
+                            RoundedCornerShape(radii.md),
+                        )
+                        .clickable { onSetOrientationLock(opt) }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = opt.name,
+                        fontFamily = JetBrainsMono,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 11.sp,
+                        color = if (selected) palette.ink else palette.ink2,
+                    )
                 }
             }
         }

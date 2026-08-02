@@ -12,6 +12,7 @@ import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
@@ -105,6 +106,7 @@ class ReaderViewModel @Inject constructor(
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
+        val orientationLock: OrientationLock = OrientationLock.AUTO,
         val isLoading: Boolean = false,
         val error: String? = null,
         val currentParagraph: Int = 0,
@@ -136,6 +138,7 @@ class ReaderViewModel @Inject constructor(
             showTranslation = progressManager.getShowTranslation(),
             showIllustrations = progressManager.getShowIllustrations(),
             horizontalMargin = progressManager.getHorizontalMargin(),
+            orientationLock = progressManager.getOrientationLock(),
             translatorProvider = progressManager.getTranslatorProvider(),
             translatorConfig = TranslatorConfigState(current = progressManager.getTranslatorProvider(), configs = emptyMap()),
         )
@@ -175,6 +178,7 @@ class ReaderViewModel @Inject constructor(
                     readerTheme = s.readerTheme,
                     navigationSide = s.navigationSide,
                     horizontalMargin = s.horizontalMargin,
+                    orientationLock = s.orientationLock,
                     bookmarks = s.bookmarks,
                     isCurrentPositionBookmarked = s.bookmarks.any {
                         it.chapterIndex == s.currentChapterIndex && it.paragraphIndex == s.currentParagraph
@@ -467,6 +471,19 @@ class ReaderViewModel @Inject constructor(
         val clamped = margin.coerceIn(ReadingDefaults.HORIZONTAL_MARGIN_RANGE)
         progressManager.saveHorizontalMargin(clamped)
         _state.update { it.copy(horizontalMargin = clamped) }
+    }
+
+    /**
+     * The saved value is picked up reactively by [com.example.splitreader.presentation.AppThemeViewModel]
+     * (which exposes [ReadingPreferences.orientationLock] directly) and applied to
+     * `Activity.requestedOrientation` by `MainActivity` — no extra wiring needed here, same as a
+     * write from Settings. Note: since the manifest declares no `configChanges`, an orientation
+     * change recreates the Activity; the reader re-composes and restores scroll by item index
+     * rather than a pixel-exact offset. That is the same path a physical rotation already takes.
+     */
+    fun setOrientationLock(lock: OrientationLock) {
+        progressManager.saveOrientationLock(lock)
+        _state.update { it.copy(orientationLock = lock) }
     }
 
     fun selectProvider(provider: TranslationProvider) {

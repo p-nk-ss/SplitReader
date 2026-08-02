@@ -4,6 +4,7 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -61,6 +62,7 @@ sealed interface ReaderUiState {
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
         val navigationSide: NavigationSide = NavigationSide.RIGHT,
         val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
+        val orientationLock: OrientationLock = OrientationLock.AUTO,
         val bookmarks: List<Bookmark> = emptyList(),
         val isCurrentPositionBookmarked: Boolean = false,
         val wordSelection: WordSelection? = null,

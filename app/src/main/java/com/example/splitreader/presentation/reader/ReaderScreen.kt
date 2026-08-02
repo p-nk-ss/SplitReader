@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.SaveWordResult
@@ -126,6 +127,7 @@ internal fun ReaderRoute(
             onToggleIllustrations = viewModel::toggleIllustrations,
             onSetNavigationSide = viewModel::setNavigationSide,
             onSetHorizontalMargin = viewModel::setHorizontalMargin,
+            onSetOrientationLock = viewModel::setOrientationLock,
             onUpdateScrollPosition = viewModel::updateScrollPosition,
             onMarkFinished = viewModel::markFinished,
             onToggleBookmark = viewModel::toggleBookmarkAtCurrentPosition,
@@ -195,6 +197,7 @@ internal fun ReaderContent(
     onToggleIllustrations: () -> Unit,
     onSetNavigationSide: (NavigationSide) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
+    onSetOrientationLock: (OrientationLock) -> Unit,
     onUpdateScrollPosition: (Int, Int, Int) -> Unit,
     onMarkFinished: () -> Unit,
     onToggleBookmark: () -> Unit,
@@ -412,6 +415,7 @@ internal fun ReaderContent(
                 onToggleIllustrations = onToggleIllustrations,
                 wordHighlightEnabled = wordHighlightEnabled,
                 onToggleWordHighlight = { wordHighlightEnabled = !wordHighlightEnabled },
+                onSetOrientationLock = onSetOrientationLock,
                 onDismiss = { showDisplaySettings = false },
             )
         }
