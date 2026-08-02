@@ -39,6 +39,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -486,19 +490,29 @@ private fun CompactAvatar(label: String, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
-            .size(24.dp)
-            .clip(CircleShape)
-            .background(palette.accent)
-            .clickable(onClick = onClick),
+            .size(44.dp)
+            .clickable(onClick = onClick)
+            .semantics {
+                role = Role.Button
+                contentDescription = "Account"
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            fontFamily = Newsreader,
-            fontWeight = FontWeight.Medium,
-            fontStyle = FontStyle.Italic,
-            fontSize = 12.sp,
-            color = palette.bg,
-        )
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(palette.accent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                fontFamily = Newsreader,
+                fontWeight = FontWeight.Medium,
+                fontStyle = FontStyle.Italic,
+                fontSize = 12.sp,
+                color = palette.bg,
+            )
+        }
     }
 }
