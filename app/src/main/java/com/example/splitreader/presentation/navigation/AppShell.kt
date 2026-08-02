@@ -9,16 +9,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +63,16 @@ import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.isRailTooTall
 import com.example.splitreader.R
 
+/**
+ * System bars plus the display cutout — everything that can physically occlude the shell.
+ *
+ * Deliberately NOT `WindowInsets.safeDrawing`, which also folds in the IME: the keyboard is
+ * handled separately and on purpose (the content is padded for it, the bottom bar is not), and
+ * bundling it here would silently undo that.
+ */
+private val shellInsets: WindowInsets
+    @Composable get() = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+
 @Composable
 fun AppShell(
     currentRoute: String?,
@@ -75,7 +90,12 @@ fun AppShell(
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(palette.bg)) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .background(palette.bg)
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Horizontal)),
+    ) {
         when {
             isCompactWidth(maxWidth) -> {
                 Column(Modifier.fillMaxSize()) {
@@ -85,7 +105,7 @@ fun AppShell(
                         // the app's only consumer of the top inset, so it cannot simply vanish:
                         // without this spacer the first line of text would run under the system
                         // clock. Reclaims the strip's 30/44dp and keeps the inset.
-                        Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                        Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
                     } else {
                         AppStatusStrip(
                             height = sp.statusBarCompact,
@@ -126,7 +146,7 @@ fun AppShell(
                 // posture with the least room. The bare inset spacer keeps the top inset
                 // consumed without spending height on chrome.
                 Column(Modifier.fillMaxSize()) {
-                    Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                    Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
                     Row(Modifier.weight(1f).fillMaxWidth()) {
                         if (!isReader) {
                             CompactNavigationRail(
@@ -151,7 +171,7 @@ fun AppShell(
                     if (isReader) {
                         // Same inset trap as the branches above: the strip is the only consumer
                         // of the top inset, so the reader still needs a bare spacer for it.
-                        Spacer(Modifier.fillMaxWidth().statusBarsPadding())
+                        Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
                     } else {
                         AppStatusStrip()
                     }
@@ -188,11 +208,12 @@ private fun AppStatusStrip(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            // Order matters. background BEFORE statusBarsPadding so the strip's colour extends
-            // up underneath the system status bar (edge-to-edge is on — MainActivity.kt:32);
-            // statusBarsPadding BEFORE height so `height` measures the content, not the inset.
+            // Order matters. background BEFORE the inset padding so the strip's colour extends
+            // up underneath the system status bar and cutout (edge-to-edge is on —
+            // MainActivity.kt:32); the inset padding BEFORE height so `height` measures the
+            // content, not the inset.
             .background(palette.bg)
-            .statusBarsPadding()
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top))
             .height(height)
             .drawBehind {
                 drawLine(
@@ -430,10 +451,10 @@ private fun EditorialBottomBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // background BEFORE navigationBarsPadding so the bar's colour extends down under the
+            // background BEFORE the inset padding so the bar's colour extends down under the
             // gesture bar; padding BEFORE height so `height` measures the content.
             .background(palette.bg2)
-            .navigationBarsPadding()
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Bottom))
             // 64dp keeps the 56dp of content the tabs need while making the system gesture
             // inset a smaller share of the bar's visible height.
             .height(64.dp)
