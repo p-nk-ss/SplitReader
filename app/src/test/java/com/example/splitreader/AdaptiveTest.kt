@@ -2,7 +2,9 @@ package com.example.splitreader
 
 import androidx.compose.ui.unit.dp
 import com.example.splitreader.presentation.theme.COMPACT_WIDTH_THRESHOLD
+import com.example.splitreader.presentation.theme.RAIL_MIN_HEIGHT
 import com.example.splitreader.presentation.theme.isCompactWidth
+import com.example.splitreader.presentation.theme.isRailTooTall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -44,5 +46,55 @@ class AdaptiveTest {
     @Test
     fun `degenerate zero width is compact`() {
         assertTrue(isCompactWidth(0.dp))
+    }
+
+    @Test
+    fun `rail min height is 450dp`() {
+        assertEquals(450.dp, RAIL_MIN_HEIGHT)
+    }
+
+    @Test
+    fun `height just below the rail minimum is too tall for the rail`() {
+        assertTrue(isRailTooTall(449.dp))
+    }
+
+    @Test
+    fun `height exactly at the rail minimum fits the rail`() {
+        assertFalse(isRailTooTall(450.dp))
+    }
+
+    @Test
+    fun `height above the rail minimum fits the rail`() {
+        assertFalse(isRailTooTall(451.dp))
+    }
+
+    @Test
+    fun `tablet landscape gets the rail`() {
+        assertFalse(isCompactWidth(1280.dp))
+        assertFalse(isRailTooTall(800.dp))
+    }
+
+    @Test
+    fun `tablet portrait gets the rail`() {
+        assertFalse(isCompactWidth(800.dp))
+        assertFalse(isRailTooTall(1280.dp))
+    }
+
+    @Test
+    fun `phone portrait gets the bottom bar on width`() {
+        assertTrue(isCompactWidth(411.dp))
+        assertFalse(isRailTooTall(891.dp))
+    }
+
+    @Test
+    fun `phone landscape gets the bottom bar on height`() {
+        assertFalse(isCompactWidth(891.dp))
+        assertTrue(isRailTooTall(411.dp))
+    }
+
+    @Test
+    fun `tablet split-screen half gets the rail`() {
+        assertFalse(isCompactWidth(640.dp))
+        assertFalse(isRailTooTall(800.dp))
     }
 }

@@ -53,6 +53,7 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.isCompactWidth
+import com.example.splitreader.presentation.theme.isRailTooTall
 import com.example.splitreader.R
 
 @Composable
@@ -73,7 +74,7 @@ fun AppShell(
     val palette = LocalReaderPalette.current
 
     BoxWithConstraints(Modifier.fillMaxSize().background(palette.bg)) {
-        if (isCompactWidth(maxWidth)) {
+        if (isCompactWidth(maxWidth) || isRailTooTall(maxHeight)) {
             Column(Modifier.fillMaxSize()) {
                 if (isReader) {
                     // The strip is pure chrome — wordmark and either "ML KIT READY" or the

@@ -24,3 +24,15 @@ val COMPACT_WIDTH_THRESHOLD: Dp = 600.dp
  * and the predicate stays unit-testable on the JVM.
  */
 fun isCompactWidth(width: Dp): Boolean = width < COMPACT_WIDTH_THRESHOLD
+
+/**
+ * Minimum height the navigation rail needs to render without clipping: 32dp of vertical padding,
+ * the 44dp wordmark, 25dp of separators, four 56dp tabs, a flexible spacer, the 56dp Settings tab,
+ * a 12dp gap and the ~57dp avatar — about 450dp. A phone in landscape (e.g. 891 x 411dp) offers
+ * roughly 360-380dp of usable height once the strip and insets are taken, so width alone is not
+ * enough to decide: a wide-but-short window must still fall back to the bottom bar.
+ */
+val RAIL_MIN_HEIGHT: Dp = 450.dp
+
+/** True when [height] is too short to show the rail without clipping its lower items. */
+fun isRailTooTall(height: Dp): Boolean = height < RAIL_MIN_HEIGHT
