@@ -49,23 +49,23 @@ class AdaptiveTest {
     }
 
     @Test
-    fun `rail min height is 450dp`() {
-        assertEquals(450.dp, RAIL_MIN_HEIGHT)
+    fun `rail min height is 530dp`() {
+        assertEquals(530.dp, RAIL_MIN_HEIGHT)
     }
 
     @Test
     fun `height just below the rail minimum is too tall for the rail`() {
-        assertTrue(isRailTooTall(449.dp))
+        assertTrue(isRailTooTall(529.dp))
     }
 
     @Test
     fun `height exactly at the rail minimum fits the rail`() {
-        assertFalse(isRailTooTall(450.dp))
+        assertFalse(isRailTooTall(530.dp))
     }
 
     @Test
     fun `height above the rail minimum fits the rail`() {
-        assertFalse(isRailTooTall(451.dp))
+        assertFalse(isRailTooTall(531.dp))
     }
 
     @Test
