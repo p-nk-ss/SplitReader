@@ -323,7 +323,9 @@ private fun EditorialBottomBar(
             // gesture bar; padding BEFORE height so `height` measures the content.
             .background(palette.bg2)
             .navigationBarsPadding()
-            .height(56.dp)
+            // 64dp keeps the 56dp of content the tabs need while making the system gesture
+            // inset a smaller share of the bar's visible height.
+            .height(64.dp)
             .drawBehind {
                 drawLine(
                     color = edgeColor,
