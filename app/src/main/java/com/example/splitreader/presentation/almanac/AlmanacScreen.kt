@@ -78,6 +78,7 @@ fun AlmanacRoute(viewModel: AlmanacViewModel = hiltViewModel()) {
         timeByLang = timeByLang,
         selectedRange = selectedRange,
         onSelectRange = viewModel::selectRange,
+        today = LocalDate.now(),
     )
 }
 
@@ -92,6 +93,7 @@ fun AlmanacScreen(
     timeByLang: List<LangMinutes>,
     selectedRange: TimeRange,
     onSelectRange: (TimeRange) -> Unit,
+    today: LocalDate,
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
@@ -146,8 +148,8 @@ fun AlmanacScreen(
                         StatBlock("$rangePages", "pages", periodLabel, Modifier.weight(1f))
                         StatBlock("$rangeWords", "words", "saved $periodLabel", Modifier.weight(1f))
                     }
-                    WeeklyBarChartCard(dailyMinutes.takeLast(7), modifier = Modifier.fillMaxWidth())
-                    HeatmapCard(dailyMinutes, modifier = Modifier.fillMaxWidth())
+                    WeeklyBarChartCard(dailyMinutes.takeLast(7), today, modifier = Modifier.fillMaxWidth())
+                    HeatmapCard(dailyMinutes, today, modifier = Modifier.fillMaxWidth())
                     TimeByBookCard(timeByBook, modifier = Modifier.fillMaxWidth())
                     LanguagesCard(timeByLang, modifier = Modifier.fillMaxWidth())
                 } else {
@@ -161,8 +163,8 @@ fun AlmanacScreen(
 
                     // Middle row: weekly bar chart + 26-week heatmap
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
-                        WeeklyBarChartCard(dailyMinutes.takeLast(7), modifier = Modifier.weight(1f))
-                        HeatmapCard(dailyMinutes, modifier = Modifier.weight(1.6f))
+                        WeeklyBarChartCard(dailyMinutes.takeLast(7), today, modifier = Modifier.weight(1f))
+                        HeatmapCard(dailyMinutes, today, modifier = Modifier.weight(1.6f))
                     }
 
                     // Bottom row: time by book + languages
@@ -283,10 +285,9 @@ private fun StatBlock(value: String, unit: String, sub: String, modifier: Modifi
 }
 
 @Composable
-private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Modifier) {
+private fun WeeklyBarChartCard(days: List<DailyMinutes>, today: LocalDate, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
-        val today = LocalDate.now()
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val dayLabels = (6 downTo 0).map { today.minusDays(it.toLong()) }
         val maxMinutes = days.maxOfOrNull { it.minutes } ?: 1
@@ -336,11 +337,10 @@ private fun WeeklyBarChartCard(days: List<DailyMinutes>, modifier: Modifier = Mo
 }
 
 @Composable
-private fun HeatmapCard(days: List<DailyMinutes>, modifier: Modifier = Modifier) {
+private fun HeatmapCard(days: List<DailyMinutes>, today: LocalDate, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     AlmanacCard(modifier) {
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-        val today = LocalDate.now()
         val sinceDay = today.minusWeeks(26)
         val minuteMap = days.associate { it.day to it.minutes }
         val activeDays = days.count { it.minutes > 0 }

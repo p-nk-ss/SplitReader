@@ -33,6 +33,7 @@ import com.example.splitreader.presentation.settings.SettingsUiState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont
 import com.example.splitreader.presentation.words.LangFilter
+import java.time.LocalDate
 
 /**
  * Deterministic, ready-made fake state for the screen screenshot tests (Tasks 6-9). Every fixture is
@@ -521,6 +522,7 @@ object ScreenFixtures {
         val timeByBook: List<BookMinutes>,
         val timeByLang: List<LangMinutes>,
         val selectedRange: TimeRange,
+        val today: LocalDate,
     )
 
     val almanacRich = AlmanacFixture(
@@ -532,6 +534,7 @@ object ScreenFixtures {
         timeByBook = almanacTimeByBook,
         timeByLang = almanacTimeByLang,
         selectedRange = TimeRange.WEEK,
+        today = LocalDate.of(2023, 11, 14),
     )
 
     val almanacEmpty = AlmanacFixture(
@@ -543,5 +546,6 @@ object ScreenFixtures {
         timeByBook = emptyList(),
         timeByLang = emptyList(),
         selectedRange = TimeRange.WEEK,
+        today = LocalDate.of(2023, 11, 14),
     )
 }

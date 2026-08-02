@@ -62,6 +62,7 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
             timeByLang = ScreenFixtures.almanacRich.timeByLang,
             selectedRange = ScreenFixtures.almanacRich.selectedRange,
             onSelectRange = {},
+            today = ScreenFixtures.almanacRich.today,
         )
     }
 

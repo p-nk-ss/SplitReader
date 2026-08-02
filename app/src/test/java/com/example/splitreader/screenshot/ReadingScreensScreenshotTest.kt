@@ -59,6 +59,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             timeByLang = ScreenFixtures.almanacRich.timeByLang,
             selectedRange = ScreenFixtures.almanacRich.selectedRange,
             onSelectRange = {},
+            today = ScreenFixtures.almanacRich.today,
         )
     }
 
@@ -74,6 +75,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             timeByLang = ScreenFixtures.almanacRich.timeByLang,
             selectedRange = ScreenFixtures.almanacRich.selectedRange,
             onSelectRange = {},
+            today = ScreenFixtures.almanacRich.today,
         )
     }
 
@@ -89,6 +91,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             timeByLang = ScreenFixtures.almanacRich.timeByLang,
             selectedRange = ScreenFixtures.almanacRich.selectedRange,
             onSelectRange = {},
+            today = ScreenFixtures.almanacRich.today,
         )
     }
 
@@ -104,6 +107,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             timeByLang = ScreenFixtures.almanacRich.timeByLang,
             selectedRange = ScreenFixtures.almanacRich.selectedRange,
             onSelectRange = {},
+            today = ScreenFixtures.almanacRich.today,
         )
     }
 
