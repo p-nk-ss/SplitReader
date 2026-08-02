@@ -90,11 +90,18 @@ fun AppShell(
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
 
+    // No horizontal windowInsetsPadding here on purpose: that would shift every child inward,
+    // including each chrome piece's own background, and leave the app background exposed beside
+    // it — a bare band as wide as the cutout. Instead each chrome piece (rails, status strip,
+    // bottom bar, content box) applies its own background first and insets only its own content
+    // afterward, so backgrounds reach the physical edge and only content clears the cutout.
+    // Side effect, and it is intentional: maxWidth/maxHeight below report the raw window again,
+    // not post-inset space. That's correct — the breakpoint classifies the window; insetting is
+    // each chrome piece's job. Do not re-add horizontal padding here to "fix" the breakpoint.
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .background(palette.bg)
-            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Horizontal)),
+            .background(palette.bg),
     ) {
         when {
             isCompactWidth(maxWidth) -> {
@@ -118,6 +125,8 @@ fun AppShell(
                         Modifier
                             .weight(1f)
                             .fillMaxWidth()
+                            // No rail beside this arm's content, so it takes both sides.
+                            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Horizontal))
                             // imePadding goes on the content, NOT on the bar: otherwise the bar
                             // rides up on top of the keyboard and covers the field being typed
                             // into (Words/Catalog search).
@@ -160,7 +169,16 @@ fun AppShell(
                                 onNavigateToAccount = onNavigateToAccount,
                             )
                         }
-                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                        // The rail (when present) already consumed the Start inset for itself.
+                        // With no rail (isReader) nothing else consumes it, so the content takes
+                        // both sides instead of just the End.
+                        val contentInsetSides = if (isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .windowInsetsPadding(shellInsets.only(contentInsetSides)),
+                        ) {
                             content()
                         }
                     }
@@ -189,7 +207,16 @@ fun AppShell(
                                 onNavigateToAccount = onNavigateToAccount,
                             )
                         }
-                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                        // Same asymmetry as the compact-height arm above: the rail (when present)
+                        // already consumed the Start inset, so content only needs the End — unless
+                        // the rail is hidden (isReader), in which case content takes both sides.
+                        val contentInsetSides = if (isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .windowInsetsPadding(shellInsets.only(contentInsetSides)),
+                        ) {
                             content()
                         }
                     }
@@ -209,11 +236,11 @@ private fun AppStatusStrip(
         modifier = Modifier
             .fillMaxWidth()
             // Order matters. background BEFORE the inset padding so the strip's colour extends
-            // up underneath the system status bar and cutout (edge-to-edge is on —
-            // MainActivity.kt:32); the inset padding BEFORE height so `height` measures the
-            // content, not the inset.
+            // up underneath the system status bar and cutout, and out to a side cutout too
+            // (edge-to-edge is on — MainActivity.kt:32); the inset padding BEFORE height so
+            // `height` measures the content, not the inset.
             .background(palette.bg)
-            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top))
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
             .height(height)
             .drawBehind {
                 drawLine(
@@ -276,9 +303,14 @@ private fun EditorialNavigationRail(
 
     Column(
         modifier = Modifier
-            .width(sp.railWidth)
             .fillMaxHeight()
+            // background BEFORE the inset padding so the rail's colour reaches the physical
+            // edge; the inset padding BEFORE width so `width` measures the content, not the
+            // inset (rotation-aware: on the other rotation the cutout is on the End side, where
+            // this Start inset is zero and the content box takes it instead).
             .background(palette.bg2)
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Start))
+            .width(sp.railWidth)
             .drawBehind {
                 drawLine(
                     color = edgeColor,
@@ -379,9 +411,12 @@ private fun CompactNavigationRail(
 
     Column(
         modifier = Modifier
-            .width(sp.railWidthCompact)
             .fillMaxHeight()
+            // Same ordering as EditorialNavigationRail: background reaches the physical edge,
+            // then the Start inset clears the cutout, then width measures content only.
             .background(palette.bg2)
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Start))
+            .width(sp.railWidthCompact)
             .drawBehind {
                 drawLine(
                     color = edgeColor,
@@ -452,9 +487,10 @@ private fun EditorialBottomBar(
         modifier = Modifier
             .fillMaxWidth()
             // background BEFORE the inset padding so the bar's colour extends down under the
-            // gesture bar; padding BEFORE height so `height` measures the content.
+            // gesture bar and out to a side cutout too; padding BEFORE height so `height`
+            // measures the content.
             .background(palette.bg2)
-            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Bottom))
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
             // 64dp keeps the 56dp of content the tabs need while making the system gesture
             // inset a smaller share of the bar's visible height.
             .height(64.dp)
