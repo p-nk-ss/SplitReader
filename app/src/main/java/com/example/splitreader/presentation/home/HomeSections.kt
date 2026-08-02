@@ -22,7 +22,9 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -715,44 +717,79 @@ internal fun ShelfHeader(
     val palette = LocalReaderPalette.current
 
     Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = sp.lg, bottom = sp.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
-                Text(
-                    text = "Your shelf",
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 24.sp,
-                    color = palette.ink,
-                )
-                Text(
-                    text = "· $totalCount VOLUMES",
-                    fontFamily = JetBrainsMono,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.5.sp,
-                    color = palette.ink3,
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
-                listOf("All · $totalCount", "Reading · $readingCount", "Finished · $finishedCount", "Unread · $unreadCount")
-                    .forEachIndexed { index, label ->
-                        FilterPill(
-                            label = label,
-                            selected = selectedFilter == index,
-                            onClick = { onFilterSelected(index) },
-                        )
-                    }
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (isCompactWidth(maxWidth)) {
+                // Title and pills cannot share a line: neither has a weight, so they measure at their
+                // intrinsic widths (~220dp + ~320dp) against 339dp and the pills get squeezed.
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = sp.lg, bottom = sp.sm),
+                    verticalArrangement = Arrangement.spacedBy(sp.sm),
+                ) {
+                    ShelfTitle(totalCount)
+                    ShelfFilters(totalCount, readingCount, finishedCount, unreadCount, selectedFilter, onFilterSelected)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = sp.lg, bottom = sp.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    ShelfTitle(totalCount)
+                    ShelfFilters(totalCount, readingCount, finishedCount, unreadCount, selectedFilter, onFilterSelected)
+                }
             }
         }
         // Hairline divider
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
         Spacer(Modifier.height(sp.sm))
+    }
+}
+
+@Composable
+private fun ShelfTitle(totalCount: Int) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
+        Text(
+            text = "Your shelf",
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Medium,
+            fontSize = 24.sp,
+            color = palette.ink,
+        )
+        Text(
+            text = "· $totalCount VOLUMES",
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            letterSpacing = 0.5.sp,
+            color = palette.ink3,
+        )
+    }
+}
+
+@Composable
+private fun ShelfFilters(
+    totalCount: Int,
+    readingCount: Int,
+    finishedCount: Int,
+    unreadCount: Int,
+    selectedFilter: Int,
+    onFilterSelected: (Int) -> Unit,
+) {
+    val sp = LocalSpacing.current
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(sp.xs),
+    ) {
+        listOf("All · $totalCount", "Reading · $readingCount", "Finished · $finishedCount", "Unread · $unreadCount")
+            .forEachIndexed { index, label ->
+                FilterPill(
+                    label = label,
+                    selected = selectedFilter == index,
+                    onClick = { onFilterSelected(index) },
+                )
+            }
     }
 }
 
@@ -776,6 +813,8 @@ private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
             fontSize = 11.sp,
             letterSpacing = if (selected) 0.sp else 0.3.sp,
             color = animatedSelection(if (selected) palette.bg else palette.ink2, "filterPillText"),
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
