@@ -115,32 +115,21 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
 import kotlin.math.abs
 // ── Library header ───────────────────────────────────────────────────────
 
 @Composable
 internal fun LibraryHeader(
+    dateEyebrow: String,
+    greetingText: String,
     weeklyMinutes: Int,
     savedWords: Int,
-    userName: String?,
     onOpenFilePicker: () -> Unit,
     searchActive: Boolean,
     onToggleSearch: () -> Unit,
 ) {
     val sp = LocalSpacing.current
-    val today = LocalDate.now()
-    val dayName = today.dayOfWeek.getDisplayName(JTextStyle.FULL, Locale.ENGLISH).uppercase()
-    val monthName = today.month.getDisplayName(JTextStyle.SHORT, Locale.ENGLISH).uppercase()
-    val eyebrow = "$dayName · ${today.dayOfMonth} $monthName"
-    val hour = java.time.LocalTime.now().hour
-    val greeting = when {
-        hour < 12 -> "Good morning"
-        hour < 17 -> "Good afternoon"
-        else      -> "Good evening"
-    }
-    val greetingText = if (!userName.isNullOrBlank()) "$greeting, $userName" else greeting
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         if (isCompactWidth(maxWidth)) {
@@ -148,7 +137,7 @@ internal fun LibraryHeader(
             // fixed-width, so the weighted greeting column collapses to a few dp and wraps
             // mid-word. Stack them instead.
             Column(Modifier.fillMaxWidth().padding(top = sp.lg, bottom = sp.xs)) {
-                GreetingBlock(eyebrow, greetingText, weeklyMinutes, savedWords, Modifier.fillMaxWidth())
+                GreetingBlock(dateEyebrow, greetingText, weeklyMinutes, savedWords, Modifier.fillMaxWidth())
                 Spacer(Modifier.height(sp.sm))
                 HeaderActions(searchActive, onToggleSearch, onOpenFilePicker)
             }
@@ -160,7 +149,7 @@ internal fun LibraryHeader(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                GreetingBlock(eyebrow, greetingText, weeklyMinutes, savedWords, Modifier.weight(1f))
+                GreetingBlock(dateEyebrow, greetingText, weeklyMinutes, savedWords, Modifier.weight(1f))
                 Spacer(Modifier.width(sp.md))
                 HeaderActions(searchActive, onToggleSearch, onOpenFilePicker)
             }

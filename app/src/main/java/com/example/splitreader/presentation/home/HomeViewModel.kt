@@ -106,6 +106,8 @@ class HomeViewModel @Inject constructor(
             savedWordsThisWeek = stats.savedWordsThisWeek,
             minutesToday = stats.minutesToday,
             userName = userName,
+            dateEyebrow = formatDateEyebrow(java.time.LocalDate.now()),
+            greetingText = formatGreeting(java.time.LocalTime.now().hour, userName),
         )
     }.flowOn(Dispatchers.Default)
         .stateIn(

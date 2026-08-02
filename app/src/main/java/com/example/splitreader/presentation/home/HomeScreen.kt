@@ -240,9 +240,10 @@ internal fun HomeScreen(
         // Header — full width
         item(span = { GridItemSpan(maxLineSpan) }) {
             LibraryHeader(
+                dateEyebrow = uiState.dateEyebrow,
+                greetingText = uiState.greetingText,
                 weeklyMinutes = uiState.weeklyMinutes,
                 savedWords = uiState.savedWordsThisWeek,
-                userName = uiState.userName,
                 onOpenFilePicker = onOpenFilePicker,
                 searchActive = searchActive,
                 onToggleSearch = {

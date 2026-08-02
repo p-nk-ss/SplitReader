@@ -23,6 +23,10 @@ data class HomeUiState(
     val minutesToday: Int = 0,
     val weeklyGoal: Int = 180,
     val userName: String? = null,
+    // Rendered strings rather than a timestamp: the composable should not ask the system what
+    // time it is, and pinning these in fixtures is what makes the Home goldens deterministic.
+    val dateEyebrow: String = "",
+    val greetingText: String = "",
 ) {
     val lastBook: BookItem? get() = books.firstOrNull()
 }

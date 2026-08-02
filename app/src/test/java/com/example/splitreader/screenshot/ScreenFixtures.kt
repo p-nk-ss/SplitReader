@@ -129,6 +129,8 @@ object ScreenFixtures {
         minutesToday = 18,
         weeklyGoal = 180,
         userName = "Alex",
+        dateEyebrow = "SUNDAY · 2 AUG",
+        greetingText = "Good morning, Alex",
     )
 
     val homeUiStateEmpty = HomeUiState(
@@ -141,6 +143,8 @@ object ScreenFixtures {
         minutesToday = 0,
         weeklyGoal = 180,
         userName = null,
+        dateEyebrow = "SUNDAY · 2 AUG",
+        greetingText = "Good morning",
     )
 
     // ── Words (words/WordsScreen.kt public WordsScreen) ────────────────────────
