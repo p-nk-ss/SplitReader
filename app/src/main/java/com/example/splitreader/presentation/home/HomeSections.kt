@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -129,7 +130,6 @@ internal fun LibraryHeader(
     onToggleSearch: () -> Unit,
 ) {
     val sp = LocalSpacing.current
-    val palette = LocalReaderPalette.current
     val today = LocalDate.now()
     val dayName = today.dayOfWeek.getDisplayName(JTextStyle.FULL, Locale.ENGLISH).uppercase()
     val monthName = today.month.getDisplayName(JTextStyle.SHORT, Locale.ENGLISH).uppercase()
@@ -492,151 +492,219 @@ internal fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: 
     val spec = coverSpec(book.title, book.uri)
     val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(radii.lg))
-            .background(palette.bg2)
-            .border(1.dp, palette.edge, RoundedCornerShape(radii.lg))
-            .padding(sp.lg),
-        horizontalArrangement = Arrangement.spacedBy(sp.md),
-        verticalAlignment = Alignment.Top,
-    ) {
-        // Book cover
-        BookCover(
-            title = book.title,
-            author = book.author,
-            bgColor = spec.bg,
-            inkColor = spec.ink,
-            motif = spec.motif,
-            width = 120.dp,
-            height = 176.dp,
-            coverFilePath = book.coverPath,
-        )
+    // Hoisted so both branches carry an identical container.
+    val container = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(radii.lg))
+        .background(palette.bg2)
+        .border(1.dp, palette.edge, RoundedCornerShape(radii.lg))
+        .padding(sp.lg)
 
-        // Title block — at least the cover height so a short/absent synopsis still
-        // pins the progress block to the bottom; grows (no clip) when the synopsis is tall.
-        Column(modifier = Modifier.weight(1f).heightIn(min = 176.dp)) {
-            Text(
-                text = "CONTINUE READING",
-                fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 11.sp,
-                letterSpacing = 0.5.sp,
-                color = palette.accent,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = book.title,
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.Medium,
-                fontSize = 28.sp,
-                letterSpacing = (-0.3).sp,
-                lineHeight = 32.sp,
-                color = palette.ink,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "by ${book.author}",
-                fontFamily = Newsreader,
-                fontWeight = FontWeight.Normal,
-                fontStyle = FontStyle.Italic,
-                fontSize = 14.sp,
-                color = palette.ink2,
-            )
-            // Prefer the passage the reader stopped on; fall back to the book's description.
-            val excerpt = book.excerpt ?: book.synopsis
-            if (excerpt != null) {
-                Spacer(Modifier.height(sp.sm))
-                Text(
-                    text = excerpt,
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Normal,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = palette.ink2,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (isCompactWidth(maxWidth)) {
+            // The three-across row is over budget before the weighted child gets anything: at
+            // 411dp the content box is 295dp and the fixed cover (120dp) plus the fixed right
+            // column (190dp) plus two sp.md gaps already demand 342dp, so the title column
+            // resolved to zero width and its eyebrow wrapped one letter per line. Stack instead.
+            Column(container, verticalArrangement = Arrangement.spacedBy(sp.md)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(sp.md),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    BookCover(
+                        title = book.title,
+                        author = book.author,
+                        bgColor = spec.bg,
+                        inkColor = spec.ink,
+                        motif = spec.motif,
+                        width = 120.dp,
+                        height = 176.dp,
+                        coverFilePath = book.coverPath,
+                    )
+                    Column(Modifier.weight(1f)) {
+                        HeroTitleBlock(book)
+                    }
+                }
+                Column(Modifier.fillMaxWidth()) {
+                    HeroExcerpt(book)
+                    Spacer(Modifier.height(sp.sm))
+                    HeroProgress(book, progress)
+                }
+                HeroLastOpenedCard(book, minutesToday, Modifier.fillMaxWidth())
+                LibraryTagButton(
+                    text = "Continue reading",
+                    onClick = onContinue,
+                    showPlus = false,
+                    filled = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Spacer(Modifier.weight(1f))
-            // Progress bar
-            ProgressRule(progress = progress, modifier = Modifier.fillMaxWidth().height(3.dp))
-            Spacer(Modifier.height(6.dp))
+        } else {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = container,
+                horizontalArrangement = Arrangement.spacedBy(sp.md),
+                verticalAlignment = Alignment.Top,
             ) {
-                Text(
-                    text = "CH ${book.lastChapterIndex + 1} OF ${book.chapterCount}",
-                    fontFamily = JetBrainsMono,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.5.sp,
-                    color = palette.ink3,
+                // Book cover
+                BookCover(
+                    title = book.title,
+                    author = book.author,
+                    bgColor = spec.bg,
+                    inkColor = spec.ink,
+                    motif = spec.motif,
+                    width = 120.dp,
+                    height = 176.dp,
+                    coverFilePath = book.coverPath,
                 )
-                Text(
-                    text = "${(progress * 100).toInt()}%",
-                    fontFamily = JetBrainsMono,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.5.sp,
-                    color = palette.ink3,
-                )
-            }
-        }
 
-        // Right column
-        Column(
-            modifier = Modifier.width(190.dp),
-            verticalArrangement = Arrangement.spacedBy(sp.sm),
-        ) {
-            // Last opened card
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(radii.md))
-                    .background(palette.bg3)
-                    .padding(sp.sm),
-            ) {
-                Text(
-                    text = "LAST OPENED",
-                    fontFamily = JetBrainsMono,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.5.sp,
-                    color = palette.ink3,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = formatLastOpened(book.lastOpenedAt),
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Normal,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 14.sp,
-                    color = palette.ink,
-                )
-                if (minutesToday > 0) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "+$minutesToday MIN TODAY",
-                        fontFamily = JetBrainsMono,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 11.sp,
-                        letterSpacing = 0.5.sp,
-                        color = palette.ink3,
+                // Title block — at least the cover height so a short/absent synopsis still
+                // pins the progress block to the bottom; grows (no clip) when the synopsis is tall.
+                Column(modifier = Modifier.weight(1f).heightIn(min = 176.dp)) {
+                    HeroTitleBlock(book)
+                    HeroExcerpt(book)
+                    Spacer(Modifier.weight(1f))
+                    HeroProgress(book, progress)
+                }
+
+                // Right column
+                Column(
+                    modifier = Modifier.width(190.dp),
+                    verticalArrangement = Arrangement.spacedBy(sp.sm),
+                ) {
+                    HeroLastOpenedCard(book, minutesToday, Modifier.fillMaxWidth())
+                    LibraryTagButton(
+                        text = "Continue reading",
+                        onClick = onContinue,
+                        showPlus = false,
+                        filled = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
-            // Continue button — solid black tag, primary CTA in the "Open book" vocabulary
-            LibraryTagButton(
-                text = "Continue reading",
-                onClick = onContinue,
-                showPlus = false,
-                filled = true,
-                modifier = Modifier.fillMaxWidth(),
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.HeroTitleBlock(book: BookItem) {
+    val palette = LocalReaderPalette.current
+    Text(
+        text = "CONTINUE READING",
+        fontFamily = JetBrainsMono,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        letterSpacing = 0.5.sp,
+        color = palette.accent,
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        text = book.title,
+        fontFamily = Newsreader,
+        fontWeight = FontWeight.Medium,
+        fontSize = 28.sp,
+        letterSpacing = (-0.3).sp,
+        lineHeight = 32.sp,
+        color = palette.ink,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
+    Text(
+        text = "by ${book.author}",
+        fontFamily = Newsreader,
+        fontWeight = FontWeight.Normal,
+        fontStyle = FontStyle.Italic,
+        fontSize = 14.sp,
+        color = palette.ink2,
+    )
+}
+
+@Composable
+private fun ColumnScope.HeroExcerpt(book: BookItem) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    // Prefer the passage the reader stopped on; fall back to the book's description.
+    val excerpt = book.excerpt ?: book.synopsis
+    if (excerpt != null) {
+        Spacer(Modifier.height(sp.sm))
+        Text(
+            text = excerpt,
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Normal,
+            fontStyle = FontStyle.Italic,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            color = palette.ink2,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.HeroProgress(book: BookItem, progress: Float) {
+    val palette = LocalReaderPalette.current
+    ProgressRule(progress = progress, modifier = Modifier.fillMaxWidth().height(3.dp))
+    Spacer(Modifier.height(6.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "CH ${book.lastChapterIndex + 1} OF ${book.chapterCount}",
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Normal,
+            fontSize = 11.sp,
+            letterSpacing = 0.5.sp,
+            color = palette.ink3,
+        )
+        Text(
+            text = "${(progress * 100).toInt()}%",
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Normal,
+            fontSize = 11.sp,
+            letterSpacing = 0.5.sp,
+            color = palette.ink3,
+        )
+    }
+}
+
+@Composable
+private fun HeroLastOpenedCard(book: BookItem, minutesToday: Int, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    val radii = LocalRadii.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(radii.md))
+            .background(palette.bg3)
+            .padding(sp.sm),
+    ) {
+        Text(
+            text = "LAST OPENED",
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            letterSpacing = 0.5.sp,
+            color = palette.ink3,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = formatLastOpened(book.lastOpenedAt),
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Normal,
+            fontStyle = FontStyle.Italic,
+            fontSize = 14.sp,
+            color = palette.ink,
+        )
+        if (minutesToday > 0) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "+$minutesToday MIN TODAY",
+                fontFamily = JetBrainsMono,
+                fontWeight = FontWeight.Normal,
+                fontSize = 11.sp,
+                letterSpacing = 0.5.sp,
+                color = palette.ink3,
             )
         }
     }
