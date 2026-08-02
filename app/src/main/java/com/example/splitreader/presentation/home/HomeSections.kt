@@ -25,6 +25,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -83,6 +84,7 @@ import com.example.splitreader.presentation.theme.MotionTokens
 import com.example.splitreader.presentation.theme.ShimmerBox
 import com.example.splitreader.presentation.theme.StaggeredAppear
 import com.example.splitreader.presentation.theme.animatedSelection
+import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.pressScale
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -140,59 +142,97 @@ internal fun LibraryHeader(
     }
     val greetingText = if (!userName.isNullOrBlank()) "$greeting, $userName" else greeting
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = sp.lg, bottom = sp.xs),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(Modifier.weight(1f)) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (isCompactWidth(maxWidth)) {
+            // On a phone the greeting and the action row cannot share a line: the actions are
+            // fixed-width, so the weighted greeting column collapses to a few dp and wraps
+            // mid-word. Stack them instead.
+            Column(Modifier.fillMaxWidth().padding(top = sp.lg, bottom = sp.xs)) {
+                GreetingBlock(eyebrow, greetingText, weeklyMinutes, savedWords, Modifier.fillMaxWidth())
+                Spacer(Modifier.height(sp.sm))
+                HeaderActions(searchActive, onToggleSearch, onOpenFilePicker)
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = sp.lg, bottom = sp.xs),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                GreetingBlock(eyebrow, greetingText, weeklyMinutes, savedWords, Modifier.weight(1f))
+                Spacer(Modifier.width(sp.md))
+                HeaderActions(searchActive, onToggleSearch, onOpenFilePicker)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GreetingBlock(
+    eyebrow: String,
+    greetingText: String,
+    weeklyMinutes: Int,
+    savedWords: Int,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalReaderPalette.current
+    Column(modifier) {
+        Text(
+            text = eyebrow,
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            letterSpacing = 0.5.sp,
+            color = palette.ink3,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = greetingText,
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Medium,
+            fontSize = 28.sp,
+            color = palette.ink,
+        )
+        if (weeklyMinutes > 0 || savedWords > 0) {
+            Spacer(Modifier.height(2.dp))
             Text(
-                text = eyebrow,
-                fontFamily = JetBrainsMono,
-                fontWeight = FontWeight.Medium,
-                fontSize = 11.sp,
-                letterSpacing = 0.5.sp,
-                color = palette.ink3,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = greetingText,
+                text = "$weeklyMinutes minutes of reading this week · $savedWords words saved.",
                 fontFamily = Newsreader,
-                fontWeight = FontWeight.Medium,
-                fontSize = 28.sp,
-                color = palette.ink,
+                fontWeight = FontWeight.Normal,
+                fontStyle = FontStyle.Italic,
+                fontSize = 14.sp,
+                color = palette.ink2,
             )
-            if (weeklyMinutes > 0 || savedWords > 0) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "$weeklyMinutes minutes of reading this week · $savedWords words saved.",
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Normal,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 14.sp,
-                    color = palette.ink2,
+        }
+    }
+}
+
+@Composable
+private fun HeaderActions(
+    searchActive: Boolean,
+    onToggleSearch: () -> Unit,
+    onOpenFilePicker: () -> Unit,
+) {
+    val palette = LocalReaderPalette.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
+    ) {
+        IconButton(onClick = onToggleSearch) {
+            Crossfade(
+                targetState = searchActive,
+                animationSpec = tween(MotionTokens.Fast, easing = MotionTokens.EaseStandard),
+                label = "searchIcon",
+            ) { active ->
+                Icon(
+                    imageVector = if (active) Icons.Outlined.Close else Icons.Outlined.Search,
+                    contentDescription = if (active) "Close search" else "Search books",
+                    tint = animatedSelection(if (active) palette.accent else palette.ink2, "searchIconTint"),
                 )
             }
         }
-        Spacer(Modifier.width(sp.md))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sp.xs)) {
-            IconButton(onClick = onToggleSearch) {
-                Crossfade(
-                    targetState = searchActive,
-                    animationSpec = tween(MotionTokens.Fast, easing = MotionTokens.EaseStandard),
-                    label = "searchIcon",
-                ) { active ->
-                    Icon(
-                        imageVector = if (active) Icons.Outlined.Close else Icons.Outlined.Search,
-                        contentDescription = if (active) "Close search" else "Search books",
-                        tint = animatedSelection(if (active) palette.accent else palette.ink2, "searchIconTint"),
-                    )
-                }
-            }
-            LibraryTagButton(text = "Open book", onClick = onOpenFilePicker)
-        }
+        LibraryTagButton(text = "Open book", onClick = onOpenFilePicker)
     }
 }
 
@@ -306,60 +346,102 @@ internal fun StreakRibbon(streakDays: Int, weeklyMinutes: Int, weeklyGoal: Int) 
     val radii = LocalRadii.current
     val palette = LocalReaderPalette.current
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(radii.md))
-            .background(palette.bg2)
-            .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
-            .padding(horizontal = sp.md, vertical = sp.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(sp.sm),
-    ) {
-        // Flame icon
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(palette.accentSoft),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Outlined.LocalFireDepartment, contentDescription = null,
-                tint = palette.accent, modifier = Modifier.size(18.dp))
-        }
-        Column(Modifier.weight(1f)) {
-            Row {
-                Text(
-                    text = if (streakDays > 0) "$streakDays-day streak" else "Start your streak",
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
-                    color = palette.ink,
-                )
-                if (streakDays > 0) {
-                    Text(
-                        text = " · keep it warm",
-                        fontFamily = Newsreader,
-                        fontWeight = FontWeight.Normal,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 12.sp,
-                        color = palette.ink3,
-                    )
+    // Hoisted so both branches carry an identical container; the wide branch must stay
+    // pixel-identical to what shipped.
+    val container = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(radii.md))
+        .background(palette.bg2)
+        .border(1.dp, palette.edge, RoundedCornerShape(radii.md))
+        .padding(horizontal = sp.md, vertical = sp.sm)
+
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (isCompactWidth(maxWidth)) {
+            // Four children across leaves the weighted label column a few dp wide, which is what
+            // turns " . keep it warm" into a vertical letter ribbon. Two rows instead of one.
+            Column(container, verticalArrangement = Arrangement.spacedBy(sp.sm)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(sp.sm),
+                ) {
+                    FlameIcon()
+                    StreakLabel(streakDays, Modifier.weight(1f))
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(sp.sm),
+                ) {
+                    StreakBar(streakDays = streakDays)
+                    MinutesRatio(weeklyMinutes, weeklyGoal)
                 }
             }
+        } else {
+            Row(
+                modifier = container,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(sp.sm),
+            ) {
+                FlameIcon()
+                StreakLabel(streakDays, Modifier.weight(1f))
+                StreakBar(streakDays = streakDays)
+                MinutesRatio(weeklyMinutes, weeklyGoal)
+            }
         }
-        // 7-day bar
-        StreakBar(streakDays = streakDays)
-        // Minutes ratio
-        Text(
-            text = "$weeklyMinutes/${weeklyGoal}m",
-            fontFamily = JetBrainsMono,
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-            letterSpacing = 0.5.sp,
-            color = palette.ink3,
-        )
     }
+}
+
+@Composable
+private fun FlameIcon() {
+    val palette = LocalReaderPalette.current
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(palette.accentSoft),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Outlined.LocalFireDepartment, contentDescription = null,
+            tint = palette.accent, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun StreakLabel(streakDays: Int, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
+    Column(modifier) {
+        Row {
+            Text(
+                text = if (streakDays > 0) "$streakDays-day streak" else "Start your streak",
+                fontFamily = Newsreader,
+                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp,
+                color = palette.ink,
+            )
+            if (streakDays > 0) {
+                Text(
+                    text = " · keep it warm",
+                    fontFamily = Newsreader,
+                    fontWeight = FontWeight.Normal,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 12.sp,
+                    color = palette.ink3,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MinutesRatio(weeklyMinutes: Int, weeklyGoal: Int) {
+    val palette = LocalReaderPalette.current
+    Text(
+        text = "$weeklyMinutes/${weeklyGoal}m",
+        fontFamily = JetBrainsMono,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        letterSpacing = 0.5.sp,
+        color = palette.ink3,
+    )
 }
 
 @Composable
