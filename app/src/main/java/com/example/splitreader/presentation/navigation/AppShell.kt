@@ -45,6 +45,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -144,6 +145,7 @@ fun AppShell(
                     }
                     Box(
                         Modifier
+                            .testTag(ShellTestTags.CONTENT)
                             .weight(1f)
                             .fillMaxWidth()
                             // No rail beside this arm's content, so it takes both sides.
@@ -196,6 +198,7 @@ fun AppShell(
                         val contentInsetSides = if (isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
                         Box(
                             Modifier
+                                .testTag(ShellTestTags.CONTENT)
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .windowInsetsPadding(shellInsets.only(contentInsetSides)),
@@ -234,6 +237,7 @@ fun AppShell(
                         val contentInsetSides = if (isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
                         Box(
                             Modifier
+                                .testTag(ShellTestTags.CONTENT)
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .windowInsetsPadding(shellInsets.only(contentInsetSides)),
@@ -255,6 +259,7 @@ private fun AppStatusStrip(
     val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
+            .testTag(ShellTestTags.STATUS_STRIP)
             .fillMaxWidth()
             // Order matters. background BEFORE the inset padding so the strip's colour extends
             // up underneath the system status bar and cutout, and out to a side cutout too
@@ -324,6 +329,7 @@ private fun EditorialNavigationRail(
 
     Column(
         modifier = Modifier
+            .testTag(ShellTestTags.FULL_RAIL)
             .fillMaxHeight()
             // background BEFORE the inset padding so the rail's colour reaches the physical
             // edge; the inset padding BEFORE width so `width` measures the content, not the
@@ -432,6 +438,7 @@ private fun CompactNavigationRail(
 
     Column(
         modifier = Modifier
+            .testTag(ShellTestTags.COMPACT_RAIL)
             .fillMaxHeight()
             // Same ordering as EditorialNavigationRail: background reaches the physical edge,
             // then the Start inset clears the cutout, then width measures content only.
@@ -506,6 +513,7 @@ private fun EditorialBottomBar(
 
     Row(
         modifier = Modifier
+            .testTag(ShellTestTags.BOTTOM_BAR)
             .fillMaxWidth()
             // background BEFORE the inset padding so the bar's colour extends down under the
             // gesture bar and out to a side cutout too; padding BEFORE height so `height`
