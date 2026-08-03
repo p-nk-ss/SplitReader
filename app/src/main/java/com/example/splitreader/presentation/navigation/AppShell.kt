@@ -82,9 +82,21 @@ import com.example.splitreader.R
 // The reader arms hand the bottom edge to the reader's own navigationBarsPadding
 // (ReaderPane.kt / ReaderDialogs.kt) rather than consuming it in the shell.
 //
-// NOTHING IN THIS TABLE IS TESTABLE. Robolectric reports zero insets and a cutout is not a
-// resource qualifier, so goldens prove only that nothing broke where insets are zero. Changes
-// here are verified on a device or not at all.
+// THIS TABLE IS COVERED BY JVM TESTS. Robolectric can deliver window insets after all: the inset
+// invariant tests compose this file under each arm's device qualifiers, dispatch a synthetic
+// WindowInsetsCompat straight at the AndroidComposeView, and assert the resulting layout
+// coordinates — status-bar top, cutout Start, rail fit, bottom bar. They address the chrome by the
+// tags in ShellTestTags and run on every commit. So: change an inset here and a test should fail.
+// If none does, the edge you touched is NOT covered — write the test, do not fall back on "verified
+// on a device or not at all", which is exactly how four inset defects shipped from this file.
+//
+// What those tests genuinely cannot prove, so that nobody over-reads the line above:
+//  - They prove the shell reacts correctly to the insets it is TOLD about, not that real hardware
+//    reports those insets. A wrong window flag or a decor-level consumer is still device-only.
+//  - They assert layout bounds, so anything that does not move a node's bounds is invisible:
+//    draw-only modifiers (`background`), offsets inside a fixed-size chain, and clipping — a
+//    squeezed child reports either its natural rect or a zero rect, never a short one, so
+//    "is it clipped" has to be asked as "is it still its natural size".
 /**
  * System bars plus the display cutout — everything that can physically occlude the shell.
  *

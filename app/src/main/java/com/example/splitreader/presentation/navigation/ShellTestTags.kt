@@ -6,9 +6,10 @@ package com.example.splitreader.presentation.navigation
  * One object so production and tests cannot drift apart: renaming a tag here is a compile error at
  * both ends, whereas a string literal duplicated into a test silently stops matching.
  *
- * These address nodes for the window-inset invariant tests — the shell's inset handling is
- * otherwise untestable, and four separate inset defects shipped in Phase 2b because of it. See the
- * arm x edge table above `shellInsets` in AppShell.kt.
+ * These address nodes for the window-inset invariant tests, which is how the shell's inset handling
+ * is now covered — four separate inset defects shipped in Phase 2b while it was not. See the
+ * arm x edge table above `shellInsets` in AppShell.kt for what is covered and what those tests
+ * still cannot see.
  */
 object ShellTestTags {
     const val STATUS_STRIP = "shell:statusStrip"
