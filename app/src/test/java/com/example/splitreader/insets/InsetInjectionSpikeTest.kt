@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,10 +74,17 @@ class InsetInjectionSpikeTest {
 
         val after = composeRule.onNodeWithTag("probe").fetchSemanticsNode().boundsInRoot.top
 
-        assertTrue(
-            "Expected the box to move down by the dispatched status-bar inset. " +
+        // Exact, not merely directional: the phase's whole go/no-go rests on the dispatched inset
+        // arriving at full magnitude, and a directional check would also pass on a 1px shift from
+        // some unrelated cause. Insets.of and boundsInRoot are both raw pixels and Compose's
+        // inset-padding modifiers consume raw px without a density round trip, so px-for-px is
+        // structural here, not a density coincidence.
+        assertEquals(
+            "Expected the box to move down by exactly the 63px dispatched status-bar inset. " +
                 "before=$before after=$after",
-            after > before,
+            before + 63f,
+            after,
+            0.5f,
         )
     }
 }
