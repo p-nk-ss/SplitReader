@@ -16,4 +16,5 @@ object ShellTestTags {
     const val COMPACT_RAIL = "shell:compactRail"
     const val FULL_RAIL = "shell:fullRail"
     const val CONTENT = "shell:content"
+    const val RAIL_AVATAR = "shell:railAvatar"
 }

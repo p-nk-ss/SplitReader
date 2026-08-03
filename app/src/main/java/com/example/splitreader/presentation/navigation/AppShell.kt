@@ -671,6 +671,7 @@ private fun RailAvatar(label: String, subtitle: String, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .testTag(ShellTestTags.RAIL_AVATAR)
             .clip(RoundedCornerShape(LocalRadii.current.sm))
             .clickable(onClick = onClick)
             .padding(4.dp),
@@ -713,6 +714,7 @@ private fun CompactAvatar(label: String, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
     Box(
         modifier = Modifier
+            .testTag(ShellTestTags.RAIL_AVATAR)
             .size(44.dp)
             .clickable(onClick = onClick)
             .semantics {
