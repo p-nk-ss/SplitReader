@@ -41,6 +41,33 @@ class RailInsetInvariantTest : ShellInsetTest() {
         )
     }
 
+    /**
+     * The same invariant for the *other* rail. Both rails consume the Start inset themselves, and
+     * both got it wrong in Phase 2b; covering only the icon rail left the full rail's copy of
+     * defect #3 (icons under the camera hole) free to come back unnoticed.
+     */
+    @Test
+    @Config(qualifiers = TABLET)
+    fun `full rail background reaches the edge while its avatar clears the cutout`() {
+        composeShell(shellInsets(statusBars = 0, cutoutLeft = cutoutPx))
+
+        val rail = boundsOf(ShellTestTags.FULL_RAIL)
+        assertEquals(
+            "The rail's background must reach the physical edge; a non-zero left means the inset " +
+                "was applied outside the rail and a bare band will show beside it.",
+            0f,
+            rail.left,
+            0.5f,
+        )
+
+        val avatar = boundsOf(ShellTestTags.RAIL_AVATAR)
+        assertTrue(
+            "Rail content starts at ${avatar.left}, inside the ${cutoutPx}px cutout — it would be " +
+                "drawn under the camera hole.",
+            avatar.left >= cutoutPx,
+        )
+    }
+
     @Test
     @Config(qualifiers = PHONE_LANDSCAPE)
     fun `icon rail contains its own last child`() {
