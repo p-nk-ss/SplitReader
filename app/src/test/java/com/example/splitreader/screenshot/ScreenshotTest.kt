@@ -97,9 +97,10 @@ const val PHONE_TALL = "w411dp-h2000dp-420dpi"
 
 /**
  * Phone in landscape: wide enough that [com.example.splitreader.presentation.theme.isCompactWidth]
- * alone would pick the rail, but short enough that [com.example.splitreader.presentation.theme.isRailTooTall]
- * still forces the bottom-bar fallback. Used to prove `AppShell` actually applies that fallback,
- * not just that the pure predicate computes correctly.
+ * alone would pick the full rail, but short enough that
+ * [com.example.splitreader.presentation.theme.isRailTooTall] still forces the icon-only rail
+ * fallback. Used to prove `AppShell` actually applies that fallback, not just that the pure
+ * predicate computes correctly.
  */
 const val PHONE_LANDSCAPE = "w891dp-h411dp-420dpi"
 
