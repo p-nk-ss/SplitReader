@@ -94,9 +94,10 @@ import com.example.splitreader.R
 //  - They prove the shell reacts correctly to the insets it is TOLD about, not that real hardware
 //    reports those insets. A wrong window flag or a decor-level consumer is still device-only.
 //  - They assert layout bounds, so anything that does not move a node's bounds is invisible:
-//    draw-only modifiers (`background`), offsets inside a fixed-size chain, and clipping — a
-//    squeezed child reports either its natural rect or a zero rect, never a short one, so
-//    "is it clipped" has to be asked as "is it still its natural size".
+//    draw-only modifiers (`background`) and offsets inside a fixed-size chain. Clipping IS visible,
+//    but not where you look for it: a squeezed child reports a SHORT rect, down to zero, while
+//    still sitting inside its parent. So "is it clipped" has to be asked as "is it still its
+//    natural size" — asking "is it inside its parent" is an identity that cannot fail.
 /**
  * System bars plus the display cutout — everything that can physically occlude the shell.
  *
