@@ -105,3 +105,6 @@ const val PHONE_LANDSCAPE = "w891dp-h411dp-420dpi"
 
 /** Phone width, absurd height — for screens whose content exceeds even PHONE_TALL. */
 const val PHONE_XTALL = "w411dp-h4000dp-420dpi"
+
+/** The tablet reference device — the same one ScreenshotTest's class-level @Config uses. */
+const val TABLET = "w1280dp-h800dp-xhdpi"

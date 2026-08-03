@@ -4,6 +4,7 @@ import com.example.splitreader.presentation.navigation.READER_ROUTE
 import com.example.splitreader.presentation.navigation.ShellTestTags
 import com.example.splitreader.screenshot.PHONE_LANDSCAPE
 import com.example.splitreader.screenshot.PHONE_PORTRAIT
+import com.example.splitreader.screenshot.TABLET
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.annotation.Config
@@ -58,12 +59,14 @@ class TopInsetInvariantTest : ShellInsetTest() {
     }
 
     @Test
+    @Config(qualifiers = TABLET)
     fun `full rail arm consumes the top inset`() {
         composeShell(shellInsets(statusBars = statusBarPx))
         assertContentClearsStatusBar()
     }
 
     @Test
+    @Config(qualifiers = TABLET)
     fun `full rail reader arm consumes the top inset`() {
         composeShell(shellInsets(statusBars = statusBarPx), currentRoute = READER_ROUTE)
         assertContentClearsStatusBar()
