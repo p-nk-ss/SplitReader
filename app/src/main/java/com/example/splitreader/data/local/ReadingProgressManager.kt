@@ -133,6 +133,20 @@ class ReadingProgressManager @Inject constructor(
 
     override fun getSplitRatio(): Float = prefs.getFloat("split_ratio", ReadingDefaults.SPLIT_RATIO)
 
+    override fun saveVerticalSplitRatio(ratio: Float) {
+        prefs.edit().putFloat("vertical_split_ratio", ratio).apply()
+    }
+
+    override fun getVerticalSplitRatio(): Float =
+        prefs.getFloat("vertical_split_ratio", ReadingDefaults.VERTICAL_SPLIT_RATIO)
+
+    override fun savePortraitHintDismissed(dismissed: Boolean) {
+        prefs.edit().putBoolean("portrait_hint_dismissed", dismissed).apply()
+    }
+
+    override fun getPortraitHintDismissed(): Boolean =
+        prefs.getBoolean("portrait_hint_dismissed", ReadingDefaults.PORTRAIT_HINT_DISMISSED)
+
     override fun saveShowTranslation(show: Boolean) {
         prefs.edit().putBoolean("show_translation", show).apply()
     }

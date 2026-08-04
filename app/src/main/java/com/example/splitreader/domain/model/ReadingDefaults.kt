@@ -9,6 +9,14 @@ object ReadingDefaults {
     // Defaults
     const val LINE_HEIGHT = 1.5f
     const val SPLIT_RATIO = 0.5f
+    /**
+     * Stacked (top/bottom) split, used when the reader is too narrow for side-by-side panes.
+     * Deliberately NOT shared with [SPLIT_RATIO]: a "more translation" preference set in
+     * landscape must not silently dictate the layout on a phone, where the trade-off is height
+     * rather than width.
+     */
+    const val VERTICAL_SPLIT_RATIO = 0.5f
+    const val PORTRAIT_HINT_DISMISSED = false
     const val SHOW_TRANSLATION = true
     const val SHOW_ILLUSTRATIONS = true
     const val HORIZONTAL_MARGIN = 12f
@@ -27,6 +35,7 @@ object ReadingDefaults {
     // Clamp ranges (used by coerceIn and matching sliders)
     val TEXT_SIZE_RANGE = 14f..30f // unified (Settings used 14..24, Reader used 14..30)
     val SPLIT_RATIO_RANGE = 0.3f..0.7f
+    val VERTICAL_SPLIT_RATIO_RANGE = 0.3f..0.7f
     val HORIZONTAL_MARGIN_RANGE = 4f..32f
     val LINE_HEIGHT_RANGE = 1.1f..2.5f
     val LETTER_SPACING_RANGE = 0f..2f

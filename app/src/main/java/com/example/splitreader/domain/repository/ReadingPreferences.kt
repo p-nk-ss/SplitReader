@@ -31,6 +31,12 @@ interface ReadingPreferences {
     fun getLineHeightMultiplier(): Float
     fun saveSplitRatio(ratio: Float)
     fun getSplitRatio(): Float
+
+    fun saveVerticalSplitRatio(ratio: Float)
+    fun getVerticalSplitRatio(): Float
+
+    fun savePortraitHintDismissed(dismissed: Boolean)
+    fun getPortraitHintDismissed(): Boolean
     fun saveShowTranslation(show: Boolean)
     fun getShowTranslation(): Boolean
     fun saveShowIllustrations(show: Boolean)

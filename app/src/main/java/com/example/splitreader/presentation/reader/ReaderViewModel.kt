@@ -101,6 +101,8 @@ class ReaderViewModel @Inject constructor(
         val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
         val justifyText: Boolean = ReadingDefaults.JUSTIFY_TEXT,
         val splitRatio: Float = ReadingDefaults.SPLIT_RATIO,
+        val verticalSplitRatio: Float = ReadingDefaults.VERTICAL_SPLIT_RATIO,
+        val portraitHintDismissed: Boolean = ReadingDefaults.PORTRAIT_HINT_DISMISSED,
         val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
         val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
@@ -135,6 +137,8 @@ class ReaderViewModel @Inject constructor(
             paragraphSpacing = progressManager.getParagraphSpacing(),
             justifyText = progressManager.getJustifyText(),
             splitRatio = progressManager.getSplitRatio(),
+            verticalSplitRatio = progressManager.getVerticalSplitRatio(),
+            portraitHintDismissed = progressManager.getPortraitHintDismissed(),
             showTranslation = progressManager.getShowTranslation(),
             showIllustrations = progressManager.getShowIllustrations(),
             horizontalMargin = progressManager.getHorizontalMargin(),
@@ -173,6 +177,8 @@ class ReaderViewModel @Inject constructor(
                     paragraphSpacing = s.paragraphSpacing,
                     justifyText = s.justifyText,
                     splitRatio = s.splitRatio,
+                    verticalSplitRatio = s.verticalSplitRatio,
+                    portraitHintDismissed = s.portraitHintDismissed,
                     showTranslation = s.showTranslation,
                     showIllustrations = s.showIllustrations,
                     readerTheme = s.readerTheme,
@@ -448,6 +454,18 @@ class ReaderViewModel @Inject constructor(
         val clamped = ratio.coerceIn(ReadingDefaults.SPLIT_RATIO_RANGE)
         progressManager.saveSplitRatio(clamped)
         _state.update { it.copy(splitRatio = clamped) }
+    }
+
+    fun setVerticalSplitRatio(ratio: Float) {
+        val clamped = ratio.coerceIn(ReadingDefaults.VERTICAL_SPLIT_RATIO_RANGE)
+        progressManager.saveVerticalSplitRatio(clamped)
+        _state.update { it.copy(verticalSplitRatio = clamped) }
+    }
+
+    /** [dontShowAgain] persists; otherwise the hint simply does not reappear this entry. */
+    fun dismissPortraitHint(dontShowAgain: Boolean) {
+        if (dontShowAgain) progressManager.savePortraitHintDismissed(true)
+        _state.update { it.copy(portraitHintDismissed = it.portraitHintDismissed || dontShowAgain) }
     }
 
     fun toggleTranslation() {

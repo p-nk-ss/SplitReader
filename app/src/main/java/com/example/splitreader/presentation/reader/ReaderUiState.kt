@@ -57,6 +57,8 @@ sealed interface ReaderUiState {
         val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
         val justifyText: Boolean = ReadingDefaults.JUSTIFY_TEXT,
         val splitRatio: Float = ReadingDefaults.SPLIT_RATIO,
+        val verticalSplitRatio: Float = ReadingDefaults.VERTICAL_SPLIT_RATIO,
+        val portraitHintDismissed: Boolean = ReadingDefaults.PORTRAIT_HINT_DISMISSED,
         val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
         val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
         val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
