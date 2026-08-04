@@ -312,24 +312,14 @@ internal fun BookSpread(
 
     Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width }) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(palette.bg)) {
-        book.chapters.forEachIndexed { chapterIndex, chapter ->
-
-            // Compact chapter masthead
-            item(key = "masthead_$chapterIndex") {
+        bookItems(
+            book = book,
+            showIllustrations = showIllustrations,
+            masthead = { chapterIndex, chapter ->
                 ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex)
-            }
-
-            // Paragraph rows, with inline illustrations interleaved at their anchors. Each paragraph
-            // item still uses `idx` (the paragraph index) for translation lookup, so alignment is
-            // unchanged; images are separate full-width items that span both panes.
-            val images = if (showIllustrations) chapter.images else emptyList()
-            chapter.paragraphs.forEachIndexed { idx, original ->
-                images.forEachIndexed { imgIdx, img ->
-                    if (img.anchorParagraph == idx) {
-                        item(key = "img_${chapterIndex}_$imgIdx") { Illustration(path = img.path) }
-                    }
-                }
-                item(key = "p_${chapterIndex}_$idx") {
+            },
+            image = { _, _, img -> Illustration(path = img.path) },
+            paragraph = { chapterIndex, idx, original ->
                 val translated = if (showTranslation)
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
                 else ""
@@ -425,20 +415,8 @@ internal fun BookSpread(
                     }
                 }
                 Spacer(Modifier.height(style.paragraphSpacing.dp))
-                }
-            }
-            // Illustrations anchored after the last paragraph
-            images.forEachIndexed { imgIdx, img ->
-                if (img.anchorParagraph >= chapter.paragraphs.size) {
-                    item(key = "img_${chapterIndex}_$imgIdx") { Illustration(path = img.path) }
-                }
-            }
-        }
-
-        // End padding
-        item(key = "end_padding") {
-            Spacer(Modifier.height(48.dp))
-        }
+            },
+        )
     }
 
     if (showTranslation && paneWidthPx > 0) {
