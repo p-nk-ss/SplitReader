@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Language
@@ -152,6 +153,13 @@ internal fun VerticalBookSpread(
                                 .padding(horizontal = 32.dp)
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
                         ) {
+                            // Two nested alphas, matching the landscape spread exactly: the outer
+                            // one dims OTHER paragraphs' translations while a bubble is open, this
+                            // inner one dims THE SELECTED paragraph's, because the bubble already
+                            // shows that translation and would otherwise compete with it. Without
+                            // it the selected row is the brightest thing on the pane — the inverse
+                            // of the intent.
+                            Box(Modifier.alpha(if (isSelected) 0.25f else 1f)) {
                             Crossfade(
                                 targetState = awaiting,
                                 animationSpec = tween(MotionTokens.Medium, easing = MotionTokens.EaseStandard),
@@ -173,6 +181,7 @@ internal fun VerticalBookSpread(
                                         onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
                                     )
                                 }
+                            }
                             }
                         }
                         Spacer(Modifier.height(style.paragraphSpacing.dp))
@@ -203,6 +212,9 @@ internal fun VerticalBookSpread(
  * landscape [DividerHandle], nothing scrolls underneath it, so it does not need to forward
  * vertical drags into a list — the vertical drag here *is* the ratio gesture.
  */
+/** The divider row's own height. The drag math subtracts it, so the two must not drift apart. */
+private val HANDLE_HEIGHT = 28.dp
+
 @Composable
 private fun HorizontalDividerHandle(
     ratio: Float,
@@ -217,6 +229,8 @@ private fun HorizontalDividerHandle(
         targetValue = if (prominent) 0.9f else 0.25f,
         label = "verticalDividerHandleAlpha",
     )
+    val handleHeightPx = with(LocalDensity.current) { HANDLE_HEIGHT.toPx() }
+    val currentPaneAreaHeightPx by rememberUpdatedState(paneAreaHeightPx.toFloat())
     val currentRatio by rememberUpdatedState(ratio)
     val currentOnDrag by rememberUpdatedState(onDrag)
     val currentOnDragFinished by rememberUpdatedState(onDragFinished)
@@ -225,16 +239,26 @@ private fun HorizontalDividerHandle(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(28.dp)
+            .height(HANDLE_HEIGHT)
             .pointerInput(Unit) { detectTapGestures { currentOnTap() } }
-            .pointerInput(paneAreaHeightPx) {
+            // Keyed on Unit, NOT on the height: re-keying restarts the pointerInput coroutine, and
+            // a coroutine cancelled mid-drag fires neither onDragEnd nor onDragCancel — leaving
+            // dragRatio non-NaN forever, so the divider stays pinned to an uncommitted value and
+            // the grip stays lit after the bars hide. A window resize, the IME or a fold does
+            // exactly that. The height is read through rememberUpdatedState instead, like the
+            // other four values here. The landscape handle guards the same case with try/finally.
+            .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragEnd = { currentOnDragFinished() },
                     onDragCancel = { currentOnDragFinished() },
                 ) { _, dy ->
-                    if (paneAreaHeightPx > 0) {
+                    // The two panes share the area MINUS this handle's own row, so the ratio must
+                    // be taken over that, not over the whole spread — otherwise the divider trails
+                    // the finger by handleHeight/totalHeight (~3.5% on a phone).
+                    val paneExtentPx = currentPaneAreaHeightPx - handleHeightPx
+                    if (paneExtentPx > 0f) {
                         currentOnDrag(
-                            DividerDragMath.newVerticalRatio(currentRatio, dy, paneAreaHeightPx.toFloat())
+                            DividerDragMath.newVerticalRatio(currentRatio, dy, paneExtentPx)
                         )
                     }
                 }
