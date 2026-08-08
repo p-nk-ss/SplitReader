@@ -109,3 +109,10 @@ const val PHONE_XTALL = "w411dp-h4000dp-420dpi"
 
 /** The tablet reference device — and literally the one ScreenshotTest's class-level @Config uses. */
 const val TABLET = "w1280dp-h800dp-xhdpi"
+
+/**
+ * Tablet in portrait — 800dp wide (~47 characters per column), well above
+ * [com.example.splitreader.presentation.theme.COMPACT_WIDTH_THRESHOLD]. Used to prove the
+ * width-based vertical-layout trigger keeps the side-by-side split here, not just on phones.
+ */
+const val TABLET_PORTRAIT = "w800dp-h1280dp-xhdpi"

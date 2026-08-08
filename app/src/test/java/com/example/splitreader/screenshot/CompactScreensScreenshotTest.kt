@@ -363,6 +363,7 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
                 onSetParagraphSpacing = {},
                 onSetJustifyText = {},
                 onSetSplitRatio = {},
+                onSetVerticalSplitRatio = {},
                 onToggleTranslation = {},
                 onToggleIllustrations = {},
                 onSetNavigationSide = {},

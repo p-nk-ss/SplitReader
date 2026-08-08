@@ -10,6 +10,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,6 +53,7 @@ import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.readerPalette
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
@@ -123,6 +125,7 @@ internal fun ReaderRoute(
             onSetParagraphSpacing = viewModel::setParagraphSpacing,
             onSetJustifyText = viewModel::setJustifyText,
             onSetSplitRatio = viewModel::setSplitRatio,
+            onSetVerticalSplitRatio = viewModel::setVerticalSplitRatio,
             onToggleTranslation = viewModel::toggleTranslation,
             onToggleIllustrations = viewModel::toggleIllustrations,
             onSetNavigationSide = viewModel::setNavigationSide,
@@ -193,6 +196,7 @@ internal fun ReaderContent(
     onSetParagraphSpacing: (Float) -> Unit,
     onSetJustifyText: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
+    onSetVerticalSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
     onToggleIllustrations: () -> Unit,
     onSetNavigationSide: (NavigationSide) -> Unit,
@@ -239,6 +243,7 @@ internal fun ReaderContent(
     }
 
     val listState = rememberLazyListState()
+    val translationListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
     // Pre-compute global item start index for each chapter. Image items are real LazyColumn items
@@ -332,29 +337,54 @@ internal fun ReaderContent(
                 )
             }
 
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                BookSpread(
-                    modifier = Modifier.fillMaxSize(),
-                    book = state.book,
-                    chapterTranslations = state.chapterTranslations,
-                    showTranslation = state.showTranslation,
-                    showIllustrations = state.showIllustrations,
-                    splitRatio = state.splitRatio,
-                    style = state.readingStyle,
-                    wordSelection = state.wordSelection,
-                    wordHighlightEnabled = wordHighlightEnabled,
-                    listState = listState,
-                    onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
-                    onSelectionDragged = onSelectionDragged,
-                    onSaveWord = onSaveWord,
-                    onSpeak = onSpeak,
-                    onDismiss = onClearWordSelection,
-                    onToggleBars = { barsVisible = !barsVisible },
-                    onSetSplitRatio = onSetSplitRatio,
-                    barsVisible = barsVisible,
-                    sourceLang = state.sourceLanguage,
-                    targetLang = state.targetLanguage,
-                )
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                if (isCompactWidth(maxWidth) && state.showTranslation) {
+                    VerticalBookSpread(
+                        modifier = Modifier.fillMaxSize(),
+                        book = state.book,
+                        chapterTranslations = state.chapterTranslations,
+                        showIllustrations = state.showIllustrations,
+                        verticalSplitRatio = state.verticalSplitRatio,
+                        style = state.readingStyle,
+                        wordSelection = state.wordSelection,
+                        wordHighlightEnabled = wordHighlightEnabled,
+                        listState = listState,
+                        translationListState = translationListState,
+                        onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
+                        onSelectionDragged = onSelectionDragged,
+                        onSaveWord = onSaveWord,
+                        onSpeak = onSpeak,
+                        onDismiss = onClearWordSelection,
+                        onToggleBars = { barsVisible = !barsVisible },
+                        onSetVerticalSplitRatio = onSetVerticalSplitRatio,
+                        barsVisible = barsVisible,
+                        sourceLang = state.sourceLanguage,
+                        targetLang = state.targetLanguage,
+                    )
+                } else {
+                    BookSpread(
+                        modifier = Modifier.fillMaxSize(),
+                        book = state.book,
+                        chapterTranslations = state.chapterTranslations,
+                        showTranslation = state.showTranslation,
+                        showIllustrations = state.showIllustrations,
+                        splitRatio = state.splitRatio,
+                        style = state.readingStyle,
+                        wordSelection = state.wordSelection,
+                        wordHighlightEnabled = wordHighlightEnabled,
+                        listState = listState,
+                        onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
+                        onSelectionDragged = onSelectionDragged,
+                        onSaveWord = onSaveWord,
+                        onSpeak = onSpeak,
+                        onDismiss = onClearWordSelection,
+                        onToggleBars = { barsVisible = !barsVisible },
+                        onSetSplitRatio = onSetSplitRatio,
+                        barsVisible = barsVisible,
+                        sourceLang = state.sourceLanguage,
+                        targetLang = state.targetLanguage,
+                    )
+                }
 
                 if (state.translationState is TranslationState.DownloadingModel) {
                     TranslationBanner(

@@ -2,8 +2,10 @@ package com.example.splitreader.screenshot
 
 import com.example.splitreader.presentation.almanac.AlmanacScreen
 import com.example.splitreader.presentation.reader.ReaderContent
+import com.example.splitreader.presentation.reader.WordSelection
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import org.junit.Test
+import org.robolectric.annotation.Config
 
 /**
  * Golden screenshots for the two "reading" screens (Almanac, ReaderContent) across the base
@@ -129,6 +131,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             onSetParagraphSpacing = {},
             onSetJustifyText = {},
             onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
             onToggleTranslation = {},
             onToggleIllustrations = {},
             onSetNavigationSide = {},
@@ -173,6 +176,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             onSetParagraphSpacing = {},
             onSetJustifyText = {},
             onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
             onToggleTranslation = {},
             onToggleIllustrations = {},
             onSetNavigationSide = {},
@@ -216,6 +220,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             onSetParagraphSpacing = {},
             onSetJustifyText = {},
             onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
             onToggleTranslation = {},
             onToggleIllustrations = {},
             onSetNavigationSide = {},
@@ -259,6 +264,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             onSetParagraphSpacing = {},
             onSetJustifyText = {},
             onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
             onToggleTranslation = {},
             onToggleIllustrations = {},
             onSetNavigationSide = {},
@@ -302,6 +308,306 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
             onSetParagraphSpacing = {},
             onSetJustifyText = {},
             onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onSetOrientationLock = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
+    // ── Vertical (stacked) layout — narrow window ─────────────────────────────
+    //
+    // The class-level @Config renders at TABLET width, so every test below carries a per-method
+    // qualifier override. Without it, `isCompactWidth(maxWidth)` would be false and the capture
+    // would silently exercise the side-by-side `BookSpread` arm instead of `VerticalBookSpread` —
+    // exactly the failure mode that hit two "full rail" goldens in Phase 2d.
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun reader_vertical_paper_1x() = captureScreen("reader_vertical_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+        ReaderContent(
+            state = readerFullyTranslated,
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onSetOrientationLock = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
+    /**
+     * Spec risk 8.1, answered rather than deferred: the translation bubble pops over a pane that
+     * is only about six lines tall on a phone. No fixture anywhere had ever set `wordSelection`,
+     * so the bubble had never been captured in ANY golden, in either orientation — this is the
+     * first. What it must show: the bubble sitting above the bottom edge without covering the
+     * divider, and the unselected translation dimmed.
+     */
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun reader_vertical_selection_paper_1x() = captureScreen("reader_vertical_selection_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+        ReaderContent(
+            state = readerFullyTranslated.copy(
+                wordSelection = WordSelection(
+                    word = "Ishmael",
+                    chapterIndex = 0,
+                    paragraphIndex = 0,
+                    startChar = 8,
+                    endChar = 15,
+                    translation = "Измаил",
+                ),
+            ),
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onSetOrientationLock = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun reader_vertical_night_1x() = captureScreen("reader_vertical_night_1x", theme = ReaderThemeKey.NIGHT, fontScale = 1f) {
+        ReaderContent(
+            state = readerFullyTranslated.copy(readerTheme = ReaderThemeKey.NIGHT),
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onSetOrientationLock = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
+    /** Non-default vertical split (35/65): pane weights and the handle must follow the ratio. */
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun reader_vertical_split035_paper_1x() = captureScreen("reader_vertical_split035_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+        ReaderContent(
+            state = readerFullyTranslated.copy(verticalSplitRatio = 0.35f),
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onSetOrientationLock = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun reader_vertical_rtl_1x() = captureScreen("reader_vertical_rtl_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f, rtl = true) {
+        ReaderContent(
+            state = readerFullyTranslated,
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
+            onToggleTranslation = {},
+            onToggleIllustrations = {},
+            onSetNavigationSide = {},
+            onSetHorizontalMargin = {},
+            onSetOrientationLock = {},
+            onUpdateScrollPosition = { _, _, _ -> },
+            onMarkFinished = {},
+            onToggleBookmark = {},
+            onRemoveBookmark = { _, _ -> },
+            onJumpToBookmark = { _, _ -> },
+            onConsumeScrollRestore = {},
+            onVisibleRange = { _, _, _, _ -> },
+            onSaveWord = { _, _, _ -> },
+            onSpeak = { _, _ -> },
+            onSelectWord = { _, _, _, _, _ -> },
+            onClearWordSelection = {},
+            onSelectionDragged = { _, _ -> },
+            onSelectProvider = {},
+            onConfigureProvider = { _, _, _ -> },
+            onClearProvider = {},
+            onRefreshTranslationUsage = {},
+            onResetTranslationUsage = {},
+            onRetryTranslation = {},
+            onTranslateWholeChapter = {},
+        )
+    }
+
+    /**
+     * Acceptance criterion: a tablet in portrait is 800dp wide — ~47 characters per column — and
+     * must KEEP the side-by-side layout. This golden is the only thing standing between the
+     * width-based trigger and someone "simplifying" it to an orientation check.
+     */
+    @Test
+    @Config(qualifiers = TABLET_PORTRAIT)
+    fun reader_tablet_portrait_paper_1x() = captureScreen("reader_tablet_portrait_paper_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f) {
+        ReaderContent(
+            state = readerFullyTranslated,
+            onNavigateBack = {},
+            onSelectChapter = {},
+            onSetTargetLanguage = {},
+            onSetReaderTheme = {},
+            onAdjustTextSize = {},
+            onAdjustLineHeight = {},
+            onSetReadingFont = {},
+            onSetLetterSpacing = {},
+            onSetTextIndent = {},
+            onSetParagraphSpacing = {},
+            onSetJustifyText = {},
+            onSetSplitRatio = {},
+            onSetVerticalSplitRatio = {},
             onToggleTranslation = {},
             onToggleIllustrations = {},
             onSetNavigationSide = {},

@@ -149,7 +149,7 @@ private fun PageGutter(modifier: Modifier = Modifier.width(28.dp).fillMaxHeight(
 // ── Translation bubble (inline on translation side of selected paragraph) ──
 
 @Composable
-private fun TranslationBubble(
+internal fun TranslationBubble(
     wordSelection: WordSelection,
     onSave: () -> Unit,
     onSpeak: () -> Unit,
@@ -566,7 +566,7 @@ private fun DividerHandle(
  * split. Renders nothing if the file is missing or undecodable (e.g. SVG), keeping the reader robust.
  */
 @Composable
-private fun Illustration(path: String) {
+internal fun Illustration(path: String) {
     val screenWidthPx = with(LocalDensity.current) {
         LocalConfiguration.current.screenWidthDp.dp.toPx()
     }.toInt().coerceAtLeast(1)
@@ -603,7 +603,7 @@ private fun Illustration(path: String) {
  * blank or missing) and never appears empty on open.
  */
 @Composable
-private fun TranslationPlaceholder(
+internal fun TranslationPlaceholder(
     style: ReadingStyle,
     modifier: Modifier = Modifier,
 ) {
@@ -621,7 +621,7 @@ private fun TranslationPlaceholder(
 }
 
 @Composable
-private fun ParagraphItem(
+internal fun ParagraphItem(
     text: String,
     index: Int,
     isFirstOfChapter: Boolean,
