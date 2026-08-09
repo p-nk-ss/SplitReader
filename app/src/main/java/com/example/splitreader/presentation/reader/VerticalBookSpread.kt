@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -47,7 +46,6 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.launch
 
 /**
  * The stacked (portrait/narrow-window) layout: original above, translation below, a draggable
@@ -94,15 +92,6 @@ internal fun VerticalBookSpread(
     val palette = LocalReaderPalette.current
 
     val coordinator = remember { ScrollSyncCoordinator() }
-    // Follower scrolls are launched on this scope (not called directly inside the collecting
-    // LaunchedEffect) so they run as their own coroutine dispatch rather than nested inside the
-    // leader's own call stack. `LazyListState.scrollToItem` forces a synchronous remeasure of the
-    // shared AndroidComposeView; both panes hang off the same root, so calling the follower's
-    // scrollToItem() reentrantly — from within the collector resumed synchronously off the
-    // leader's own remeasure — hits Compose's "measureAndLayout called during measure layout"
-    // reentrancy guard. Observed directly while wiring this up. `scope.launch` gives the follower
-    // scroll its own turn on the dispatcher instead.
-    val scope = rememberCoroutineScope()
     // Mirrors coordinator.leader() as Compose-observable state. ScrollSyncCoordinator is
     // deliberately Compose-free (see its KDoc) so its arbitration stays plain-JUnit-testable, but
     // that means `leader` is an ordinary Kotlin var: reading it inside `snapshotFlow` does not
@@ -139,11 +128,40 @@ internal fun VerticalBookSpread(
             .filterNotNull()
             .distinctUntilChanged()
             .conflate()
-            .collect { (lead, index, offset) ->
+            .collect { (lead, _, _) ->
+                // Wait for a real frame boundary before touching the follower's LazyListState —
+                // this is what breaks the "measureAndLayout called during measure layout"
+                // reentrancy (both panes share one AndroidComposeView; forceRemeasure() on the
+                // follower while the leader's own forceRemeasure() is still on the call stack is
+                // illegal). This MUST happen inside the collector itself, not inside a separate
+                // `scope.launch` (an earlier version of this code did that): a `launch` returns
+                // immediately without suspending the collector, so `conflate()` above never gets a
+                // chance to do its job — every distinct leader position spawns its own coroutine,
+                // and two of those racing UNMASK each other mid-flight (the newer's
+                // beginProgrammaticScroll() runs, the older's cancelled scrollToItem() unwinds
+                // into its finally block, which clears the mask the newer one is still relying on)
+                // — reinstating the exact feedback loop the mask exists to prevent. Suspending
+                // right here instead means the collector is unavailable while waiting, so
+                // `conflate()` collapses any backlog to one value and there is only ever one
+                // follower scroll in flight, with one owner of the mask.
+                withFrameNanos {}
+
+                // Re-read the leader's live position rather than trusting the tuple destructured
+                // above: a frame has passed since it was captured, and driving the follower to a
+                // now-stale (index, offset) would apply a target that's already behind the leader.
+                // `followerPane` comes from `lead`, not `coordinator.follower()`: the three
+                // isScrollInProgress-feeding collectors above run independently with no ordering
+                // guarantee against this one, so a live re-query can race the gesture's own settle
+                // (leader already cleared → follower() null → the tail of the gesture dropped).
                 val leaderState = if (lead == ScrollSyncCoordinator.Pane.TOP) listState else translationListState
-                val followerPane = coordinator.follower() ?: return@collect
+                val followerPane =
+                    if (lead == ScrollSyncCoordinator.Pane.TOP) ScrollSyncCoordinator.Pane.BOTTOM
+                    else ScrollSyncCoordinator.Pane.TOP
                 val followerState =
                     if (followerPane == ScrollSyncCoordinator.Pane.TOP) listState else translationListState
+
+                val index = leaderState.firstVisibleItemIndex
+                val offset = leaderState.firstVisibleItemScrollOffset
 
                 val leaderItemH = leaderState.layoutInfo.visibleItemsInfo
                     .firstOrNull { it.index == index }?.size ?: 0
@@ -157,43 +175,60 @@ internal fun VerticalBookSpread(
                     followerState.firstVisibleItemScrollOffset == target.offsetPx
                 ) return@collect
 
-                scope.launch {
-                    withFrameNanos {}
-                    coordinator.beginProgrammaticScroll(followerPane)
-                    try {
-                        followerState.scrollToItem(target.index, target.offsetPx)
-                    } finally {
-                        coordinator.endProgrammaticScroll(followerPane)
-                    }
+                coordinator.beginProgrammaticScroll(followerPane)
+                try {
+                    followerState.scrollToItem(target.index, target.offsetPx)
+                } finally {
+                    coordinator.endProgrammaticScroll(followerPane)
                 }
             }
     }
 
-    // One-shot alignment for the two moments nothing is physically scrolling: first composition
-    // (covers rotation and scroll restore) and a batch of translations arriving while the reader
-    // sits still. The leader-driven effect above only fires while a pane is physically scrolling.
+    // At-rest alignment: drives BOTTOM to match TOP when nothing is physically scrolling, for the
+    // two moments the leader-driven effect above can't reach (it only fires while a pane is
+    // physically scrolling). TOP→BOTTOM only, deliberately, not symmetric: this codebase already
+    // treats the top pane's listState as the single canonical position at rest — scroll restore,
+    // progress persistence, bookmark jumps and markFinished all key off it (see ReaderScreen.kt) —
+    // so realigning FROM the bottom pane here would fight that source of truth. The leader-driven
+    // effect above is what keeps the top pane honest during an actual bottom-led gesture; this one
+    // only ever needs to run afterward, once TOP is settled again.
+    val alignBottomToTop: suspend () -> Unit = {
+        if (coordinator.leader() == null) { // a real gesture owns it otherwise
+            val index = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            val leaderItemH = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == index }?.size ?: 0
+            val followerItemH = translationListState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == index }?.size
+            val target = computeFollowerTarget(index, offset, leaderItemH, followerItemH)
+            if (translationListState.firstVisibleItemIndex != target.index ||
+                translationListState.firstVisibleItemScrollOffset != target.offsetPx
+            ) {
+                coordinator.beginProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
+                try {
+                    translationListState.scrollToItem(target.index, target.offsetPx)
+                } finally {
+                    coordinator.endProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
+                }
+            }
+        }
+    }
+
+    // Case 1: first composition (covers rotation and scroll restore) and any later movement of
+    // the top pane's rest position.
     LaunchedEffect(Unit) {
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
             .debounce(100)
-            .collect { (index, offset) ->
-                if (coordinator.leader() != null) return@collect // a real gesture owns it
-                val leaderItemH = listState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { it.index == index }?.size ?: 0
-                val followerItemH = translationListState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { it.index == index }?.size
-                val target = computeFollowerTarget(index, offset, leaderItemH, followerItemH)
-                if (translationListState.firstVisibleItemIndex == target.index &&
-                    translationListState.firstVisibleItemScrollOffset == target.offsetPx
-                ) return@collect
-                scope.launch {
-                    coordinator.beginProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
-                    try {
-                        translationListState.scrollToItem(target.index, target.offsetPx)
-                    } finally {
-                        coordinator.endProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
-                    }
-                }
-            }
+            .collect { alignBottomToTop() }
+    }
+
+    // Case 2: a batch of translations arriving while the reader sits still. This changes ONLY the
+    // bottom pane's item heights — the top pane's position never moves — so the position-keyed
+    // effect above never fires for it; that is what its own comment used to (wrongly) claim was
+    // covered. `chapterTranslations` as the LaunchedEffect key is what actually reacts to this.
+    LaunchedEffect(chapterTranslations) {
+        withFrameNanos {} // let the new translations finish composing/measuring first
+        alignBottomToTop()
     }
 
     Box(modifier = modifier.onSizeChanged { paneAreaHeightPx = it.height }) {

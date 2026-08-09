@@ -112,6 +112,19 @@ class ScrollSyncGlueTest {
                 "${bottom.firstVisibleItemIndex} — the panes are not synchronised.",
             12, bottom.firstVisibleItemIndex,
         )
+
+        // Index equality alone is satisfied by the glue calling scrollToItem(target.index) with
+        // target.index == 12 UNCONDITIONALLY — it would read exactly the same if the translation
+        // pane emitted one fewer item per illustration and "item 12" pointed at different content
+        // in each pane. `bookItems` keys every item for exactly this reason; assert the keys, not
+        // just the index, so a parity break between the two panes' item structure is caught here
+        // rather than only by a human comparing screenshots. (Proved to actually catch that: see
+        // task-6 review-round-1 report — breaking parity by skipping the bottom pane's illustration
+        // placeholder failed this assertion while leaving the index assertion above green.)
+        assertEquals(
+            top.layoutInfo.visibleItemsInfo.first().key,
+            bottom.layoutInfo.visibleItemsInfo.first().key,
+        )
     }
 
     @Test
@@ -138,10 +151,21 @@ class ScrollSyncGlueTest {
      * index. This scroll also lands at offset 0 (a bare `scrollToItem(20)`), and `0 / anything`
      * stays 0 through the fraction calculation, so there is no numeric drift in the offset either
      * — a real, unmasked ping-pong would still leave `top.firstVisibleItemIndex == 20` on every
-     * round trip. This assertion cannot detect the failure mode its name describes; it would need
-     * to watch scroll-event counts or a non-zero-offset target to have a chance of catching it.
-     * Left as prescribed by the task-6 brief rather than rewritten, per this project's
-     * "report as a finding, don't silently patch the proof" convention.
+     * round trip. This assertion cannot detect the failure mode its name describes.
+     *
+     * UPDATE after review round 1. The review judged this negative "a gap, not structural" and
+     * named a non-zero-offset target past the 0.95 clamp as a falsifier needing no fixture change.
+     * That was **built and measured, and it does not falsify either** — see
+     * `the leader keeps an offset past the clamp` below, which stays green with the mask deleted.
+     *
+     * The limit is the harness, not the offset: every test in this file issues one `scrollToItem`
+     * and then `waitForIdle`, i.e. one leader position per action, while the loop the mask
+     * prevents needs two or more in flight — a real drag or fling. So this remains an honest
+     * negative with a larger radius than first thought: **no assertion in this suite currently
+     * demonstrates the mask is necessary**, and the reason is the way the suite drives scrolling.
+     * The mask's necessity is argued from the code (see the collector's comment in
+     * `VerticalBookSpread`) and from `ScrollSyncCoordinatorTest`, which does pin that a masked pane
+     * cannot claim leadership.
      */
     @Test
     fun `the follower's induced motion does not drag the leader off its target`() {
@@ -155,6 +179,54 @@ class ScrollSyncGlueTest {
         assertEquals(
             "The leader ended at ${top.firstVisibleItemIndex} instead of 20 — the follower drove it back.",
             20, top.firstVisibleItemIndex,
+        )
+    }
+
+    /**
+     * The leader keeps the exact within-item offset it was given, including one past
+     * `computeFollowerTarget`'s `0..0.95` clamp. That clamp is lossy and asymmetric — a leader at
+     * fraction ~0.99 maps the follower to 0.95 — so this pins that the follower's induced motion
+     * does not round-trip back and re-quantise the leader's own offset.
+     *
+     * **It was added as a falsifier for the missing mask and it is NOT one.** Measured: deleting
+     * `beginProgrammaticScroll`/`endProgrammaticScroll` from the leader-driven effect leaves all
+     * four tests in this file green (4 tests, 0 failures, twice). The prediction that the clamp's
+     * asymmetry would expose an unmasked loop is wrong for this harness, and is recorded here
+     * rather than left implied.
+     *
+     * Why the harness cannot see it: every test here drives one `scrollToItem` and then
+     * `waitForIdle`, i.e. exactly **one** leader position per action. The loop the mask prevents
+     * needs the leader to still be moving when the follower's induced motion lands — two or more
+     * leader positions in flight, which is what a real drag or fling produces. An
+     * `animateScrollToItem` construction would produce that; it was attempted and hit
+     * `IllegalStateException: A MonotonicFrameClock is not available in this CoroutineContext`
+     * from being driven inside `runBlocking`, and was not pursued further.
+     *
+     * So the mask's necessity remains argued from the code, not demonstrated by this suite. Anyone
+     * strengthening this file should start from a multi-position gesture with a working frame
+     * clock, not from a larger offset.
+     */
+    @Test
+    fun `the leader keeps an offset past the clamp`() {
+        val top = LazyListState()
+        val bottom = LazyListState()
+        composeVerticalSpread(top, bottom)
+
+        // Land on the item first so its measured height is available.
+        composeRule.runOnIdle { runBlocking { top.scrollToItem(20) } }
+        composeRule.waitForIdle()
+        val itemH = top.layoutInfo.visibleItemsInfo.first { it.index == 20 }.size
+        val offset = itemH - 1 // fraction ≈ 0.99, past the 0.95 clamp
+
+        composeRule.runOnIdle { runBlocking { top.scrollToItem(20, offset) } }
+        composeRule.waitForIdle()
+
+        assertEquals(20, top.firstVisibleItemIndex)
+        assertEquals(
+            "The leader was asked for offset $offset within item 20 but ended at " +
+                "${top.firstVisibleItemScrollOffset}. The follower was driven to the clamped 0.95 " +
+                "fraction and then drove the leader there too — the mask is not holding.",
+            offset, top.firstVisibleItemScrollOffset,
         )
     }
 
