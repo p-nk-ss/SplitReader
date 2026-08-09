@@ -20,12 +20,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -38,6 +43,11 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.MotionTokens
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 
 /**
  * The stacked (portrait/narrow-window) layout: original above, translation below, a draggable
@@ -48,10 +58,12 @@ import com.example.splitreader.presentation.theme.MotionTokens
  * when translation is on, so accepting the flag here would create a second, unreachable
  * "translation off" path.
  *
- * The two [LazyColumn]s scroll independently — [listState] and [translationListState] are not
- * synchronized here. Both panes emit through the same [bookItems] structure, so their item
- * indices are identical by construction; that identity is what a future scroll-sync layer needs,
- * but wiring it up is out of scope for this composable.
+ * The two [LazyColumn]s are kept in step by a [ScrollSyncCoordinator]: whichever pane is
+ * physically being scrolled leads, and the other is driven to the same item via
+ * [computeFollowerTarget] (proportional inside the item, exact at its boundaries — see that
+ * function's KDoc). Both panes emit through the same [bookItems] structure, so their item indices
+ * are identical by construction; the coordinator only has to carry an index and an offset across,
+ * never translate one pane's structure into the other's.
  */
 @Composable
 internal fun VerticalBookSpread(
@@ -80,6 +92,109 @@ internal fun VerticalBookSpread(
     val effectiveRatio = if (dragRatio.isNaN()) verticalSplitRatio else dragRatio
     var paneAreaHeightPx by remember { mutableIntStateOf(0) }
     val palette = LocalReaderPalette.current
+
+    val coordinator = remember { ScrollSyncCoordinator() }
+    // Follower scrolls are launched on this scope (not called directly inside the collecting
+    // LaunchedEffect) so they run as their own coroutine dispatch rather than nested inside the
+    // leader's own call stack. `LazyListState.scrollToItem` forces a synchronous remeasure of the
+    // shared AndroidComposeView; both panes hang off the same root, so calling the follower's
+    // scrollToItem() reentrantly — from within the collector resumed synchronously off the
+    // leader's own remeasure — hits Compose's "measureAndLayout called during measure layout"
+    // reentrancy guard. Observed directly while wiring this up. `scope.launch` gives the follower
+    // scroll its own turn on the dispatcher instead.
+    val scope = rememberCoroutineScope()
+    // Mirrors coordinator.leader() as Compose-observable state. ScrollSyncCoordinator is
+    // deliberately Compose-free (see its KDoc) so its arbitration stays plain-JUnit-testable, but
+    // that means `leader` is an ordinary Kotlin var: reading it inside `snapshotFlow` does not
+    // register a snapshot subscription. A run of the leader-driven flow below that reads only
+    // `coordinator.leader()` and finds it null returns having read no observable state at all, so
+    // snapshotFlow has nothing to re-invoke on and the effect goes quiet forever, even once a pane
+    // starts scrolling and coordinator.leader() truly changes. Every place that can change
+    // leadership publishes the new value here instead, and the flow below reads THIS.
+    var leaderPane by remember { mutableStateOf<ScrollSyncCoordinator.Pane?>(null) }
+
+    // Feed physical scroll state into the arbitration.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }
+            .collect {
+                coordinator.onScrollStateChanged(ScrollSyncCoordinator.Pane.TOP, it)
+                leaderPane = coordinator.leader()
+            }
+    }
+    LaunchedEffect(translationListState) {
+        snapshotFlow { translationListState.isScrollInProgress }
+            .collect {
+                coordinator.onScrollStateChanged(ScrollSyncCoordinator.Pane.BOTTOM, it)
+                leaderPane = coordinator.leader()
+            }
+    }
+
+    // Drive the follower from whichever pane currently leads.
+    LaunchedEffect(listState, translationListState) {
+        snapshotFlow {
+            val lead = leaderPane ?: return@snapshotFlow null
+            val leaderState = if (lead == ScrollSyncCoordinator.Pane.TOP) listState else translationListState
+            Triple(lead, leaderState.firstVisibleItemIndex, leaderState.firstVisibleItemScrollOffset)
+        }
+            .filterNotNull()
+            .distinctUntilChanged()
+            .conflate()
+            .collect { (lead, index, offset) ->
+                val leaderState = if (lead == ScrollSyncCoordinator.Pane.TOP) listState else translationListState
+                val followerPane = coordinator.follower() ?: return@collect
+                val followerState =
+                    if (followerPane == ScrollSyncCoordinator.Pane.TOP) listState else translationListState
+
+                val leaderItemH = leaderState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == index }?.size ?: 0
+                val followerItemH = followerState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == index }?.size
+
+                val target = computeFollowerTarget(index, offset, leaderItemH, followerItemH)
+
+                // Skip-if-already-there: without this every correction re-triggers the flow.
+                if (followerState.firstVisibleItemIndex == target.index &&
+                    followerState.firstVisibleItemScrollOffset == target.offsetPx
+                ) return@collect
+
+                scope.launch {
+                    withFrameNanos {}
+                    coordinator.beginProgrammaticScroll(followerPane)
+                    try {
+                        followerState.scrollToItem(target.index, target.offsetPx)
+                    } finally {
+                        coordinator.endProgrammaticScroll(followerPane)
+                    }
+                }
+            }
+    }
+
+    // One-shot alignment for the two moments nothing is physically scrolling: first composition
+    // (covers rotation and scroll restore) and a batch of translations arriving while the reader
+    // sits still. The leader-driven effect above only fires while a pane is physically scrolling.
+    LaunchedEffect(Unit) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .debounce(100)
+            .collect { (index, offset) ->
+                if (coordinator.leader() != null) return@collect // a real gesture owns it
+                val leaderItemH = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == index }?.size ?: 0
+                val followerItemH = translationListState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == index }?.size
+                val target = computeFollowerTarget(index, offset, leaderItemH, followerItemH)
+                if (translationListState.firstVisibleItemIndex == target.index &&
+                    translationListState.firstVisibleItemScrollOffset == target.offsetPx
+                ) return@collect
+                scope.launch {
+                    coordinator.beginProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
+                    try {
+                        translationListState.scrollToItem(target.index, target.offsetPx)
+                    } finally {
+                        coordinator.endProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
+                    }
+                }
+            }
+    }
 
     Box(modifier = modifier.onSizeChanged { paneAreaHeightPx = it.height }) {
         Column(Modifier.fillMaxSize().background(palette.bg)) {
