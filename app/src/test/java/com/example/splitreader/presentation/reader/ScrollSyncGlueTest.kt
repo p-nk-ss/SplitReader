@@ -119,9 +119,10 @@ class ScrollSyncGlueTest {
         // pane emitted one fewer item per illustration and "item 12" pointed at different content
         // in each pane. `bookItems` keys every item for exactly this reason; assert the keys, not
         // just the index, so a parity break between the two panes' item structure is caught here
-        // rather than only by a human comparing screenshots. (Proved to actually catch that: see
-        // task-6 review-round-1 report — breaking parity by skipping the bottom pane's illustration
-        // placeholder failed this assertion while leaving the index assertion above green.)
+        // rather than only by a human comparing screenshots. (Proved to actually catch that: breaking
+        // parity by skipping the bottom pane's illustration placeholder failed this assertion —
+        // p_0_1[0] vs p_0_1[1] — while leaving the index assertion above green. Evidence is in the
+        // phase ledger, .superpowers/sdd/2026-08-04-phase3-portrait-reader/progress.md.)
         assertEquals(
             top.layoutInfo.visibleItemsInfo.first().key,
             bottom.layoutInfo.visibleItemsInfo.first().key,
@@ -159,14 +160,27 @@ class ScrollSyncGlueTest {
      * That was **built and measured, and it does not falsify either** — see
      * `the leader keeps an offset past the clamp` below, which stays green with the mask deleted.
      *
-     * The limit is the harness, not the offset: every test in this file issues one `scrollToItem`
-     * and then `waitForIdle`, i.e. one leader position per action, while the loop the mask
-     * prevents needs two or more in flight — a real drag or fling. So this remains an honest
-     * negative with a larger radius than first thought: **no assertion in this suite currently
-     * demonstrates the mask is necessary**, and the reason is the way the suite drives scrolling.
-     * The mask's necessity is argued from the code (see the collector's comment in
-     * `VerticalBookSpread`) and from `ScrollSyncCoordinatorTest`, which does pin that a masked pane
-     * cannot claim leadership.
+     * The limit is NOT "one leader position per action" — an earlier version of this note said
+     * that, and it was wrong. Two failure modes were being conflated: the two-scrolls-in-flight
+     * race is a separate defect (fixed by single-flighting the collector), whereas the MASK's own
+     * purpose needs only ONE position — TOP scrolls, BOTTOM is driven, BOTTOM's induced pulse
+     * claims leadership, BOTTOM drives TOP back. This harness does produce one position, so that
+     * cannot be why the probe stays green.
+     *
+     * The likely real reason, and it is a property of production code rather than of Robolectric:
+     * `scrollToItem` raises and lowers `isScrollInProgress` inside a single continuation with no
+     * suspension point between, while `snapshotFlow` only re-reads its block when the collector
+     * resumes. So `onScrollStateChanged(BOTTOM, true)` is probably never delivered at all for an
+     * induced scroll — the mask may have nothing to mask on this path, and no offset arithmetic
+     * can falsify it.
+     *
+     * CHEAPEST NEXT STEP if anyone picks this up: make the coordinator injectable (it is
+     * `remember { ScrollSyncCoordinator() }` today, unreachable from a test) and assert directly
+     * whether `onScrollStateChanged(BOTTOM, true)` is ever delivered during a top-led scroll. One
+     * assertion, no frame clock. If it never is, the mask is defence-in-depth for future
+     * animated/fling paths rather than load-bearing here, and that should be written down instead
+     * of hunted further. Do NOT start from a bigger offset or a gesture harness; that was this
+     * note's previous advice and it points at the expensive end.
      */
     @Test
     fun `the follower's induced motion does not drag the leader off its target`() {
@@ -195,17 +209,17 @@ class ScrollSyncGlueTest {
      * asymmetry would expose an unmasked loop is wrong for this harness, and is recorded here
      * rather than left implied.
      *
-     * Why the harness cannot see it: every test here drives one `scrollToItem` and then
-     * `waitForIdle`, i.e. exactly **one** leader position per action. The loop the mask prevents
-     * needs the leader to still be moving when the follower's induced motion lands — two or more
-     * leader positions in flight, which is what a real drag or fling produces. An
-     * `animateScrollToItem` construction would produce that; it was attempted and hit
-     * `IllegalStateException: A MonotonicFrameClock is not available in this CoroutineContext`
-     * from being driven inside `runBlocking`, and was not pursued further.
+     * Why it cannot see it — see the full analysis on
+     * `the follower's induced motion does not drag the leader off its target` above. Short version:
+     * the reason is NOT "one leader position per action" (an earlier note here said that and it was
+     * wrong); the mask's own purpose needs only one position. The likely reason is that
+     * `scrollToItem` never suspends between raising and lowering `isScrollInProgress`, so
+     * `snapshotFlow` never observes the induced pulse and the coordinator is probably never told
+     * the follower moved at all.
      *
-     * So the mask's necessity remains argued from the code, not demonstrated by this suite. Anyone
-     * strengthening this file should start from a multi-position gesture with a working frame
-     * clock, not from a larger offset.
+     * So the mask's necessity remains argued from the code, not demonstrated by this suite, and the
+     * cheap way to settle it is an injectable coordinator — not a bigger offset and not a gesture
+     * harness.
      */
     @Test
     fun `the leader keeps an offset past the clamp`() {
