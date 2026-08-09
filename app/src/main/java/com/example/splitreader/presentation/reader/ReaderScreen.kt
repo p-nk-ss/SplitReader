@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -150,6 +151,7 @@ internal fun ReaderRoute(
             onResetTranslationUsage = viewModel::resetTranslationUsage,
             onRetryTranslation = viewModel::retryTranslation,
             onTranslateWholeChapter = viewModel::translateWholeChapter,
+            onDismissPortraitHint = viewModel::dismissPortraitHint,
         )
     }
 }
@@ -221,6 +223,7 @@ internal fun ReaderContent(
     onResetTranslationUsage: (TranslationProvider) -> Unit,
     onRetryTranslation: () -> Unit,
     onTranslateWholeChapter: () -> Unit,
+    onDismissPortraitHint: (dontShowAgain: Boolean) -> Unit,
 ) {
     val palette = readerPalette(state.readerTheme)
 
@@ -316,6 +319,13 @@ internal fun ReaderContent(
     androidx.compose.runtime.CompositionLocalProvider(
         LocalReaderPalette provides palette,
     ) {
+      BoxWithConstraints(Modifier.fillMaxSize()) {
+        // "Vertical mode" is the single predicate the stacked layout, the split slider, and the
+        // portrait hint all key off. Computed once here and threaded down so they can't disagree.
+        val vertical = isCompactWidth(maxWidth) && state.showTranslation
+
+        var hintShownThisEntry by rememberSaveable { mutableStateOf(false) }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -337,8 +347,8 @@ internal fun ReaderContent(
                 )
             }
 
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                if (isCompactWidth(maxWidth) && state.showTranslation) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (vertical) {
                     VerticalBookSpread(
                         modifier = Modifier.fillMaxSize(),
                         book = state.book,
@@ -441,6 +451,8 @@ internal fun ReaderContent(
                 onSetParagraphSpacing = onSetParagraphSpacing,
                 onSetJustifyText = onSetJustifyText,
                 onSetSplitRatio = onSetSplitRatio,
+                vertical = vertical,
+                onSetVerticalSplitRatio = onSetVerticalSplitRatio,
                 onToggleTranslation = onToggleTranslation,
                 onToggleIllustrations = onToggleIllustrations,
                 wordHighlightEnabled = wordHighlightEnabled,
@@ -448,6 +460,12 @@ internal fun ReaderContent(
                 onSetOrientationLock = onSetOrientationLock,
                 onDismiss = { showDisplaySettings = false },
             )
+        }
+        if (vertical && !state.portraitHintDismissed && !hintShownThisEntry) {
+            PortraitHintDialog(onDismiss = { dontShowAgain ->
+                hintShownThisEntry = true
+                onDismissPortraitHint(dontShowAgain)
+            })
         }
         if (showTranslatorPicker) {
             LaunchedEffect(Unit) { onRefreshTranslationUsage() }
@@ -495,5 +513,6 @@ internal fun ReaderContent(
                 onDismiss = { showBookmarks = false },
             )
         }
+      }
     }
 }

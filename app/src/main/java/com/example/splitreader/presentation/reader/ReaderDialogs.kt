@@ -28,10 +28,16 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -251,6 +257,8 @@ internal fun DisplaySettingsDialog(
     onSetParagraphSpacing: (Float) -> Unit,
     onSetJustifyText: (Boolean) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
+    vertical: Boolean,
+    onSetVerticalSplitRatio: (Float) -> Unit,
     onToggleTranslation: () -> Unit,
     onToggleIllustrations: () -> Unit,
     wordHighlightEnabled: Boolean,
@@ -343,13 +351,23 @@ internal fun DisplaySettingsDialog(
 
         if (state.showTranslation) {
             Spacer(Modifier.height(sp.sm))
-            SliderRow(
-                label = "Split position",
-                value = state.splitRatio,
-                valueLabel = "${(state.splitRatio * 100).roundToInt()} / ${100 - (state.splitRatio * 100).roundToInt()}",
-                valueRange = ReadingDefaults.SPLIT_RATIO_RANGE,
-                onValueChange = onSetSplitRatio,
-            )
+            if (vertical) {
+                SliderRow(
+                    label = "Vertical split",
+                    value = state.verticalSplitRatio,
+                    valueLabel = "${(state.verticalSplitRatio * 100).roundToInt()} / ${100 - (state.verticalSplitRatio * 100).roundToInt()}",
+                    valueRange = ReadingDefaults.VERTICAL_SPLIT_RATIO_RANGE,
+                    onValueChange = onSetVerticalSplitRatio,
+                )
+            } else {
+                SliderRow(
+                    label = "Split position",
+                    value = state.splitRatio,
+                    valueLabel = "${(state.splitRatio * 100).roundToInt()} / ${100 - (state.splitRatio * 100).roundToInt()}",
+                    valueRange = ReadingDefaults.SPLIT_RATIO_RANGE,
+                    onValueChange = onSetSplitRatio,
+                )
+            }
         }
 
         Spacer(Modifier.height(sp.md))
@@ -377,6 +395,52 @@ internal fun DisplaySettingsDialog(
             checked = wordHighlightEnabled,
             onToggle = onToggleWordHighlight,
         )
+        Spacer(Modifier.height(sp.sm))
+    }
+}
+
+// ── Portrait reading hint ─────────────────────────────────────────────────
+
+/**
+ * One-time nudge shown the first time a reader entry lands in the stacked (vertical) layout —
+ * see the `vertical` predicate computed in `ReaderContent`. Dismissing with the checkbox ticked
+ * persists via [onDismiss]'s `dontShowAgain`; dismissing without it re-shows on the next entry.
+ */
+@Composable
+internal fun PortraitHintDialog(
+    onDismiss: (dontShowAgain: Boolean) -> Unit,
+) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    var dontShowAgain by remember { mutableStateOf(false) }
+    EditorialDialog(
+        eyebrow = "Reading",
+        title = "Parallel reading fits landscape better",
+        onDismiss = { onDismiss(dontShowAgain) },
+    ) {
+        Text(
+            text = "On a narrow screen the original and its translation each get about half the height. Rotating the device puts them side by side with more of each visible at once.",
+            fontFamily = Newsreader,
+            fontSize = 14.sp,
+            color = palette.ink2,
+        )
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.clickable { dontShowAgain = !dontShowAgain },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = dontShowAgain,
+                onCheckedChange = { dontShowAgain = it },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = palette.accent,
+                    uncheckedColor = palette.ink3,
+                    checkmarkColor = palette.bg,
+                ),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Don't show again", fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink)
+        }
         Spacer(Modifier.height(sp.sm))
     }
 }

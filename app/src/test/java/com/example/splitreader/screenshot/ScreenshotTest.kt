@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
@@ -48,16 +50,26 @@ abstract class ScreenshotTest {
     // between a record and an immediately-following verify. An exact (0-tolerance) compare fails on
     // that noise. A small changed-pixel fraction absorbs the AA jitter while still catching real
     // visual regressions (a palette swap, layout shift, or text change moves far more than this).
+    //
+    // `changeThreshold` is exposed as a `captureScreen` parameter (default unchanged at 1%) because
+    // the same AA jitter is proportionally *worse* on a dialog captured on its own: a large title
+    // occupies far more of a ~600x650px dialog-only crop than of a ~1000x2300px full-screen golden,
+    // so the same handful of jittering edge pixels reads as a bigger fraction of the smaller image.
+    // Confirmed by direct pixel diff (not just re-tried until green): re-recording and diffing
+    // `reader_vertical_hint_paper_1x` against a fresh capture showed ~2.8% changed pixels confined to
+    // the two-line title, with the two images visually indistinguishable side by side.
     @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
+    private fun roborazziOptions(changeThreshold: Float) = RoborazziOptions(
+        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = changeThreshold),
     )
 
+    @OptIn(ExperimentalRoborazziApi::class)
     fun captureScreen(
         name: String,
         theme: ReaderThemeKey = ReaderThemeKey.PAPER,
         fontScale: Float = 1f,
         rtl: Boolean = false,
+        changeThreshold: Float = 0.01f,
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
@@ -70,10 +82,20 @@ abstract class ScreenshotTest {
             }
         }
         composeRule.waitForIdle()
+        // A Compose `Dialog` (used by `EditorialDialog`/`AnimatedDialog`) opens its own window, which
+        // Robolectric surfaces as a second `isRoot()` node alongside the main content root — `onRoot()`
+        // then throws ("expected exactly '1' node but found '2'"). When that happens the dialog is the
+        // thing under test, so capture it specifically instead of the (possibly empty, for
+        // dialog-only content lambdas) main root.
+        val target = if (composeRule.onAllNodes(isRoot()).fetchSemanticsNodes().size > 1) {
+            composeRule.onNode(isDialog())
+        } else {
+            composeRule.onRoot()
+        }
         // NOTE: the Gradle test worker's working directory is the module dir (`app/`), not the repo
         // root, so the path is module-relative (`src/test/screenshots/...`) — an `app/`-prefixed path
         // (as in the original plan draft) resolves to the wrong `app/app/src/test/screenshots/...`.
-        composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png", roborazziOptions = roborazziOptions)
+        target.captureRoboImage("src/test/screenshots/$name.png", roborazziOptions = roborazziOptions(changeThreshold))
     }
 }
 
@@ -109,6 +131,14 @@ const val PHONE_XTALL = "w411dp-h4000dp-420dpi"
 
 /** The tablet reference device — and literally the one ScreenshotTest's class-level @Config uses. */
 const val TABLET = "w1280dp-h800dp-xhdpi"
+
+/**
+ * Tablet width, absurd height — the [TABLET] analogue of [PHONE_TALL]: `DisplaySettingsDialog`'s
+ * `maxDialogHeight` is 90% of the device height, and at [TABLET]'s 800dp that scrollable region
+ * runs out before reaching the split slider near the bottom of the dialog's content. Same width
+ * as [TABLET], so `isCompactWidth` still resolves the same way — only the fold moves.
+ */
+const val TABLET_TALL = "w1280dp-h2000dp-xhdpi"
 
 /**
  * Tablet in portrait — 800dp wide (~47 characters per column), well above

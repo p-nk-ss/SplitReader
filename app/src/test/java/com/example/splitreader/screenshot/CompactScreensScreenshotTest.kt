@@ -325,6 +325,8 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
      * ([ScreenFixtures.readerChapterTranslations]); the fixture book has 2 chapters, so chapter-1
      * translations are added here too (mirrors `ReadingScreensScreenshotTest.readerFullyTranslated`)
      * so `BookSpread` never falls back to the shimmering `TranslationPlaceholder` for chapter 1.
+     * `portraitHintDismissed = true` so this PHONE_PORTRAIT golden (vertical layout) doesn't pick
+     * up the one-time portrait hint dialog on top of the shell chrome under test.
      */
     private val readerFullyTranslated = ScreenFixtures.readerContentState.copy(
         chapterTranslations = ScreenFixtures.readerChapterTranslations + mapOf(
@@ -334,6 +336,7 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
                 "Покинув добрый город старого Манхэтто, я благополучно прибыл в Нью-Бедфорд.",
             ),
         ),
+        portraitHintDismissed = true,
     )
 
     @Composable
@@ -388,6 +391,7 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
                 onResetTranslationUsage = {},
                 onRetryTranslation = {},
                 onTranslateWholeChapter = {},
+                onDismissPortraitHint = {},
             )
         }
     }

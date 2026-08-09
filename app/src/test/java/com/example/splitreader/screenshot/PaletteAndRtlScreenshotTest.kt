@@ -103,6 +103,7 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
             onResetTranslationUsage = {},
             onRetryTranslation = {},
             onTranslateWholeChapter = {},
+            onDismissPortraitHint = {},
         )
     }
 
@@ -153,6 +154,7 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
             onResetTranslationUsage = {},
             onRetryTranslation = {},
             onTranslateWholeChapter = {},
+            onDismissPortraitHint = {},
         )
     }
 
