@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -163,6 +164,13 @@ fun AppShell(
                             .fillMaxWidth()
                             // No rail beside this arm's content, so it takes both sides.
                             .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Horizontal))
+                            // The top inset is spent ABOVE this Box — by AppStatusStrip, or by
+                            // the bare Spacer in the reader arms. windowInsetsPadding publishes its
+                            // consumption only to DESCENDANTS, and those are siblings, so without
+                            // this line a child that pads for statusBars itself pads it a second
+                            // time. That is not hypothetical: the stacked reader's top pane did
+                            // exactly that and gained a 24dp blank band above the first line.
+                            .consumeWindowInsets(shellInsets.only(WindowInsetsSides.Top))
                             // imePadding goes on the content, NOT on the bar: otherwise the bar
                             // rides up on top of the keyboard and covers the field being typed
                             // into (Words/Catalog search).
@@ -214,7 +222,14 @@ fun AppShell(
                                 .testTag(ShellTestTags.CONTENT)
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .windowInsetsPadding(shellInsets.only(contentInsetSides)),
+                                .windowInsetsPadding(shellInsets.only(contentInsetSides))
+                                // The top inset is spent ABOVE this Box — by AppStatusStrip, or by
+                                // the bare Spacer in the reader arms. windowInsetsPadding publishes its
+                                // consumption only to DESCENDANTS, and those are siblings, so without
+                                // this line a child that pads for statusBars itself pads it a second
+                                // time. That is not hypothetical: the stacked reader's top pane did
+                                // exactly that and gained a 24dp blank band above the first line.
+                                .consumeWindowInsets(shellInsets.only(WindowInsetsSides.Top)),
                         ) {
                             content()
                         }
@@ -253,7 +268,14 @@ fun AppShell(
                                 .testTag(ShellTestTags.CONTENT)
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .windowInsetsPadding(shellInsets.only(contentInsetSides)),
+                                .windowInsetsPadding(shellInsets.only(contentInsetSides))
+                                // The top inset is spent ABOVE this Box — by AppStatusStrip, or by
+                                // the bare Spacer in the reader arms. windowInsetsPadding publishes its
+                                // consumption only to DESCENDANTS, and those are siblings, so without
+                                // this line a child that pads for statusBars itself pads it a second
+                                // time. That is not hypothetical: the stacked reader's top pane did
+                                // exactly that and gained a 24dp blank band above the first line.
+                                .consumeWindowInsets(shellInsets.only(WindowInsetsSides.Top)),
                         ) {
                             content()
                         }

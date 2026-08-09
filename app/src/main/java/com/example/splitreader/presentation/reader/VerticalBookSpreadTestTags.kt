@@ -19,6 +19,19 @@ const val VERTICAL_BOTTOM_PANE = "reader:verticalBottomPane"
 const val VERTICAL_DIVIDER = "reader:verticalDivider"
 
 /**
+ * The painted background behind both panes.
+ *
+ * Tagged separately from [VERTICAL_SPREAD_ROOT] because the pane assertions alone cannot tell
+ * "inset applied at the panes" from "inset applied at an ancestor": the root is tagged outermost,
+ * so under `fillMaxSize`'s exact constraints it reports the full window either way, while the panes
+ * inside report the inset positions either way. Both would pass with the padding hoisted to the
+ * root and the background shrunk away from the screen edges — which is exactly Phase 2b's defect
+ * #4, the bare band beside an inset ancestor. Asserting this node still spans the whole root is
+ * what closes that.
+ */
+const val VERTICAL_BACKGROUND = "reader:verticalBackground"
+
+/**
  * The reader top bar's display-settings button.
  *
  * Exists so a test can open `DisplaySettingsDialog` the way a user does — through

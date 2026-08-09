@@ -241,7 +241,7 @@ internal fun VerticalBookSpread(
             .testTag(VERTICAL_SPREAD_ROOT)
             .onSizeChanged { paneAreaHeightPx = it.height },
     ) {
-        Column(Modifier.fillMaxSize().background(palette.bg)) {
+        Column(Modifier.fillMaxSize().background(palette.bg).testTag(VERTICAL_BACKGROUND)) {
 
             // Top pane — original, fully interactive. Applied at the pane, not VerticalBookSpread's
             // root — the root carries the spread's background; insetting it would leave a bare band
