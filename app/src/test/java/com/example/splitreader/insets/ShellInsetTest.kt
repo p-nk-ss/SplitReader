@@ -36,7 +36,7 @@ abstract class ShellInsetTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     /** Builds the inset set the shell can be occluded by: system bars plus a side cutout. */
-    fun shellInsets(
+    fun insets(
         statusBars: Int = 0,
         navigationBars: Int = 0,
         cutoutLeft: Int = 0,

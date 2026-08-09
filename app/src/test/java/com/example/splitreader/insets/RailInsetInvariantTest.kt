@@ -25,7 +25,7 @@ class RailInsetInvariantTest : ShellInsetTest() {
     @Test
     @Config(qualifiers = PHONE_LANDSCAPE)
     fun `icon rail background reaches the edge while its avatar clears the cutout`() {
-        composeShell(shellInsets(statusBars = 0, cutoutLeft = cutoutPx))
+        composeShell(insets(statusBars = 0, cutoutLeft = cutoutPx))
 
         val rail = boundsOf(ShellTestTags.COMPACT_RAIL)
         assertEquals(
@@ -52,7 +52,7 @@ class RailInsetInvariantTest : ShellInsetTest() {
     @Test
     @Config(qualifiers = TABLET)
     fun `full rail background reaches the edge while its avatar clears the cutout`() {
-        composeShell(shellInsets(statusBars = 0, cutoutLeft = cutoutPx))
+        composeShell(insets(statusBars = 0, cutoutLeft = cutoutPx))
 
         val rail = boundsOf(ShellTestTags.FULL_RAIL)
         assertEquals(
@@ -96,7 +96,7 @@ class RailInsetInvariantTest : ShellInsetTest() {
     @Test
     @Config(qualifiers = RAIL_MIN_HEIGHT_WINDOW)
     fun `full rail fits its avatar at the shortest window it claims to support`() {
-        composeShell(shellInsets(statusBars = 63, navigationBars = 48))
+        composeShell(insets(statusBars = 63, navigationBars = 48))
 
         // The qualifier is a string literal because @Config demands a compile-time constant, so it
         // cannot read RAIL_MIN_HEIGHT directly. Fail loudly rather than silently testing some other
@@ -144,7 +144,7 @@ class RailInsetInvariantTest : ShellInsetTest() {
     @Test
     @Config(qualifiers = PHONE_LANDSCAPE)
     fun `icon rail arm renders the rail and its avatar`() {
-        composeShell(shellInsets(statusBars = 63, navigationBars = 48))
+        composeShell(insets(statusBars = 63, navigationBars = 48))
 
         val rail = boundsOf(ShellTestTags.COMPACT_RAIL)
         val avatar = boundsOf(ShellTestTags.RAIL_AVATAR)

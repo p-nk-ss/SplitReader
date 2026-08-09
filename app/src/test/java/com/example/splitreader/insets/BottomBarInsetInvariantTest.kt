@@ -33,7 +33,7 @@ class BottomBarInsetInvariantTest : ShellInsetTest() {
     @Config(qualifiers = PHONE_PORTRAIT)
     fun `bottom bar reaches the bottom edge and keeps its content above the gesture inset`() {
         val navPx = 48
-        composeShell(shellInsets(statusBars = 63, navigationBars = navPx))
+        composeShell(insets(statusBars = 63, navigationBars = navPx))
 
         val bar = boundsOf(ShellTestTags.BOTTOM_BAR)
         val content = boundsOf(ShellTestTags.CONTENT)

@@ -55,42 +55,42 @@ class TopInsetInvariantTest : ShellInsetTest() {
     @Test
     @Config(qualifiers = PHONE_PORTRAIT)
     fun `compact arm consumes the top inset`() {
-        composeShell(shellInsets(statusBars = statusBarPx))
+        composeShell(insets(statusBars = statusBarPx))
         assertContentClearsStatusBar(strip = spacing.statusBarCompact)
     }
 
     @Test
     @Config(qualifiers = PHONE_PORTRAIT)
     fun `compact reader arm consumes the top inset`() {
-        composeShell(shellInsets(statusBars = statusBarPx), currentRoute = READER_ROUTE)
+        composeShell(insets(statusBars = statusBarPx), currentRoute = READER_ROUTE)
         assertContentClearsStatusBar()
     }
 
     @Test
     @Config(qualifiers = PHONE_LANDSCAPE)
     fun `icon rail arm consumes the top inset`() {
-        composeShell(shellInsets(statusBars = statusBarPx))
+        composeShell(insets(statusBars = statusBarPx))
         assertContentClearsStatusBar()
     }
 
     @Test
     @Config(qualifiers = PHONE_LANDSCAPE)
     fun `icon rail reader arm consumes the top inset`() {
-        composeShell(shellInsets(statusBars = statusBarPx), currentRoute = READER_ROUTE)
+        composeShell(insets(statusBars = statusBarPx), currentRoute = READER_ROUTE)
         assertContentClearsStatusBar()
     }
 
     @Test
     @Config(qualifiers = TABLET)
     fun `full rail arm consumes the top inset`() {
-        composeShell(shellInsets(statusBars = statusBarPx))
+        composeShell(insets(statusBars = statusBarPx))
         assertContentClearsStatusBar(strip = spacing.statusBar)
     }
 
     @Test
     @Config(qualifiers = TABLET)
     fun `full rail reader arm consumes the top inset`() {
-        composeShell(shellInsets(statusBars = statusBarPx), currentRoute = READER_ROUTE)
+        composeShell(insets(statusBars = statusBarPx), currentRoute = READER_ROUTE)
         assertContentClearsStatusBar()
     }
 }

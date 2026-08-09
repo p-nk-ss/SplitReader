@@ -9,13 +9,19 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +42,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Language
@@ -229,11 +236,32 @@ internal fun VerticalBookSpread(
         alignBottomToTop()
     }
 
-    Box(modifier = modifier.onSizeChanged { paneAreaHeightPx = it.height }) {
+    Box(
+        modifier = modifier
+            .testTag(VERTICAL_SPREAD_ROOT)
+            .onSizeChanged { paneAreaHeightPx = it.height },
+    ) {
         Column(Modifier.fillMaxSize().background(palette.bg)) {
 
-            // Top pane — original, fully interactive.
-            LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(effectiveRatio)) {
+            // Top pane — original, fully interactive. Applied at the pane, not VerticalBookSpread's
+            // root — the root carries the spread's background; insetting it would leave a bare band
+            // beside it (Phase 2b defect #4). `windowInsetsPadding` sits between `weight` and
+            // `testTag`, deliberately NOT "testTag first": `weight` gives this LazyColumn an EXACT
+            // height, and a LayoutModifier measured with exact incoming constraints always reports
+            // that exact size back to its parent regardless of what it does internally — so a
+            // testTag placed outside (before) windowInsetsPadding here reports the pane's full
+            // weighted slot unconditionally and cannot see the inset at all — measured directly
+            // while writing VerticalReaderInsetTest: with the inset applied and testTag first,
+            // `VERTICAL_TOP_PANE`'s reported top stayed 0, identical to no inset at all. testTag has
+            // to sit on the shrunk child windowInsetsPadding actually measures, i.e. last.
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(effectiveRatio)
+                    .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
+                    .testTag(VERTICAL_TOP_PANE),
+            ) {
                 bookItems(
                     book = book,
                     showIllustrations = showIllustrations,
@@ -278,10 +306,19 @@ internal fun VerticalBookSpread(
                 onTap = onToggleBars,
             )
 
-            // Bottom pane — translation, read-only.
+            // Bottom pane — translation, read-only. The reader draws edge-to-edge and does not
+            // consume its own bottom inset anywhere else (TranslationBubble's navigationBarsPadding
+            // covers only the word-selection popup, not this pane), so without this the last line
+            // of the translation sits under the gesture bar. Same placement rule as the top pane:
+            // last in the chain, after `weight`, and on the pane itself rather than the spread's
+            // root.
             LazyColumn(
                 state = translationListState,
-                modifier = Modifier.fillMaxWidth().weight(1f - effectiveRatio),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f - effectiveRatio)
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                    .testTag(VERTICAL_BOTTOM_PANE),
             ) {
                 bookItems(
                     book = book,
@@ -422,6 +459,7 @@ private fun HorizontalDividerHandle(
 
     Box(
         modifier = Modifier
+            .testTag(VERTICAL_DIVIDER)
             .fillMaxWidth()
             .height(HANDLE_HEIGHT)
             .pointerInput(Unit) { detectTapGestures { currentOnTap() } }
