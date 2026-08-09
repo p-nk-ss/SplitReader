@@ -17,3 +17,19 @@ const val VERTICAL_SPREAD_ROOT = "reader:verticalSpread"
 const val VERTICAL_TOP_PANE = "reader:verticalTopPane"
 const val VERTICAL_BOTTOM_PANE = "reader:verticalBottomPane"
 const val VERTICAL_DIVIDER = "reader:verticalDivider"
+
+/**
+ * The reader top bar's display-settings button.
+ *
+ * Exists so a test can open `DisplaySettingsDialog` the way a user does — through
+ * `ReaderContent`'s own state — rather than by calling the dialog directly with a hand-written
+ * argument. Task 7's review found that every dialog golden bypassed `ReaderContent`, leaving the
+ * one line that actually decides which split slider appears (`vertical = vertical` at the
+ * `DisplaySettingsDialog` call site) untested by anything: drop it, swap it or hardcode it and the
+ * whole suite still passed.
+ *
+ * The button is an icon with a null `contentDescription`, so there is nothing else to address it
+ * by. (That null is an accessibility gap in its own right — its sibling bookmark button is
+ * labelled — but fixing the reader top bar's labels is not this phase's business.)
+ */
+const val READER_DISPLAY_SETTINGS_BUTTON = "reader:displaySettingsButton"

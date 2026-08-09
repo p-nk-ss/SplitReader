@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -111,7 +112,10 @@ internal fun ReaderTopBar(
         IconButton(onClick = onOpenTranslatorPicker) {
             Icon(Icons.Outlined.Translate, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
-        IconButton(onClick = onOpenDisplaySettings) {
+        IconButton(
+            onClick = onOpenDisplaySettings,
+            modifier = Modifier.testTag(READER_DISPLAY_SETTINGS_BUTTON),
+        ) {
             Icon(Icons.Outlined.TextFields, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
         IconButton(onClick = onOpenChapterPicker) {
