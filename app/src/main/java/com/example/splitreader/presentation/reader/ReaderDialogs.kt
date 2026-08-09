@@ -418,8 +418,15 @@ internal fun PortraitHintDialog(
         title = "Parallel reading fits landscape better",
         onDismiss = { onDismiss(dontShowAgain) },
     ) {
+        // Deliberately does NOT say "rotate your device". Phones default to
+        // OrientationLock.PORTRAIT (see defaultOrientationLock), so on a fresh install the device
+        // physically will not turn — and this dialog reappears on every reader entry until the
+        // checkbox is ticked, so advice that does nothing would be advice repeated. Settings →
+        // Orientation is the control that actually exists for this user.
         Text(
-            text = "On a narrow screen the original and its translation each get about half the height. Rotating the device puts them side by side with more of each visible at once.",
+            text = "On a narrow screen the original and its translation each get about half the " +
+                "height. Side by side they get the full height instead — switch to landscape in " +
+                "Settings → Orientation, or set it to Auto to turn the device.",
             fontFamily = Newsreader,
             fontSize = 14.sp,
             color = palette.ink2,

@@ -83,6 +83,19 @@ import com.example.splitreader.R
 // The reader arms hand the bottom edge to the reader's own navigationBarsPadding
 // (ReaderPane.kt / ReaderDialogs.kt) rather than consuming it in the shell.
 //
+// ALSO ON THE CONTENT BOX, ALL THREE ARMS: consumeWindowInsets(Top). Read this before adding any
+// statusBars padding to ANY screen, not just the reader — the line is unconditional, so from the
+// content Box down `WindowInsets.statusBars` is ZERO in every arm, reader or not.
+// Why it has to be there: the top inset is spent ABOVE that Box, by AppStatusStrip or by the bare
+// Spacer, and windowInsetsPadding publishes its consumption only to DESCENDANTS — those consumers
+// are SIBLINGS of the Box, so without the consume line they tell the content nothing. The stacked
+// reader's top pane padded for statusBars itself and therefore spent the inset twice: first line of
+// text at 126px instead of 63px on a 420dpi phone, a 24dp blank band in the main reading view.
+// Consequence for a future author: a screen that wants top padding must take it from the shell (or
+// undo this consume deliberately), not by calling statusBarsPadding() and expecting a number.
+// Pinned by `VerticalReaderInsetTest.the top inset is spent once, not twice, under the shell`,
+// which fails at exactly 2x the inset if the consume calls are removed.
+//
 // THIS TABLE IS COVERED BY JVM TESTS. Robolectric can deliver window insets after all: the inset
 // invariant tests compose this file under each arm's device qualifiers, dispatch a synthetic
 // WindowInsetsCompat straight at the AndroidComposeView, and assert the resulting layout

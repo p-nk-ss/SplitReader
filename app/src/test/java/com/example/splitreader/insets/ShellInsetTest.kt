@@ -27,6 +27,12 @@ import org.robolectric.annotation.Config
  * AndroidComposeView — was established by InsetInjectionSpikeTest.
  *
  * Subclasses pick which shell arm composes with a per-method `@Config(qualifiers = ...)`.
+ *
+ * No longer shell-only despite the name: `VerticalReaderInsetTest` extends this for the reader's
+ * own panes and composes no [AppShell] at all, using [insets] and `boundsOf` with its own content.
+ * What this class actually provides is the dispatch recipe — send a synthetic `WindowInsetsCompat`
+ * at the AndroidComposeView, not the decor view, then `waitForIdle()` twice — plus the helpers
+ * around it. Keep new inset suites on this base rather than re-deriving that recipe.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -35,7 +41,7 @@ abstract class ShellInsetTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-    /** Builds the inset set the shell can be occluded by: system bars plus a side cutout. */
+    /** Builds the inset set the composed content can be occluded by: system bars plus a cutout. */
     fun insets(
         statusBars: Int = 0,
         navigationBars: Int = 0,
