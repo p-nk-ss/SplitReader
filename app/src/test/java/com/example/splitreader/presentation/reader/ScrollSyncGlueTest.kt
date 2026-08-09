@@ -4,6 +4,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -229,6 +230,26 @@ class ScrollSyncGlueTest {
             offset, top.firstVisibleItemScrollOffset,
         )
     }
+
+
+    // NOT A TEST, ON PURPOSE — read before adding one back.
+    //
+    // A competing user-priority scroll on the follower cancels the programmatic one with
+    // MutationInterruptedException (a CancellationException). Before commit <this one> that escaped
+    // the collector and completed the LaunchedEffect for good — its keys never change while the
+    // reader is composed — so scroll sync died silently for the rest of the session. `scrollFollower`
+    // in VerticalBookSpread.kt now absorbs exactly that cancellation and rethrows any other.
+    //
+    // A test for it was written and DELETED: it passed identically with and without the guard
+    // (5 tests, 0 failures both ways), i.e. it never provoked the race and would have read as
+    // coverage while proving nothing. The reason looks structural rather than a lack of effort —
+    // `LazyListState.scrollToItem` runs synchronously inside a single continuation once resumed
+    // (raising and lowering isScrollInProgress with no suspension point between), so on
+    // Robolectric's single-threaded dispatcher there is no window for a competing scroll to
+    // interleave. Provoking it appears to need real concurrency: a UI thread plus actual input.
+    //
+    // So this is verified against the Compose Foundation 1.7.3 sources and on a device, not here.
+    // See the phase's device checklist, "sync survives a finger on the other pane".
 
     // ── Fixture ──────────────────────────────────────────────────────────
 

@@ -42,6 +42,9 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.MotionTokens
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -175,12 +178,7 @@ internal fun VerticalBookSpread(
                     followerState.firstVisibleItemScrollOffset == target.offsetPx
                 ) return@collect
 
-                coordinator.beginProgrammaticScroll(followerPane)
-                try {
-                    followerState.scrollToItem(target.index, target.offsetPx)
-                } finally {
-                    coordinator.endProgrammaticScroll(followerPane)
-                }
+                scrollFollower(coordinator, followerPane, followerState, target)
             }
     }
 
@@ -204,12 +202,12 @@ internal fun VerticalBookSpread(
             if (translationListState.firstVisibleItemIndex != target.index ||
                 translationListState.firstVisibleItemScrollOffset != target.offsetPx
             ) {
-                coordinator.beginProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
-                try {
-                    translationListState.scrollToItem(target.index, target.offsetPx)
-                } finally {
-                    coordinator.endProgrammaticScroll(ScrollSyncCoordinator.Pane.BOTTOM)
-                }
+                scrollFollower(
+                    coordinator,
+                    ScrollSyncCoordinator.Pane.BOTTOM,
+                    translationListState,
+                    target,
+                )
             }
         }
     }
@@ -354,6 +352,42 @@ internal fun VerticalBookSpread(
                     .navigationBarsPadding(),
             )
         }
+    }
+}
+
+/**
+ * Drives [followerState] to [target] with the coordinator masked, swallowing **only** the
+ * cancellation that means "somebody else took this list's scroll".
+ *
+ * Why the catch exists, and why it must not be a bare `catch (e: Exception)`:
+ * `LazyListState.scrollToItem` goes through `MutatorMutex`. A competing scroll at
+ * `MutatePriority.UserInput` — an ordinary finger landing on the follower pane while this
+ * programmatic scroll is in flight — cancels this one with `MutationInterruptedException`, which
+ * **is a `CancellationException`**, and `mutate` is a `coroutineScope`, so it is rethrown into the
+ * caller. Callers here are `collect` lambdas inside `LaunchedEffect`s whose keys never change
+ * while the reader is composed: an escaping cancellation therefore completes the effect for good,
+ * and scroll sync dies silently for the rest of the session — no crash, no log, nothing a user
+ * could report beyond "it stopped following". Verified against Compose Foundation 1.7.3 sources.
+ *
+ * `ensureActive()` is what keeps this honest: if *this* coroutine was the one cancelled (the
+ * composable is leaving), the exception is rethrown and the effect ends as it should. Only a
+ * cancellation that came from the mutex is absorbed.
+ */
+private suspend fun scrollFollower(
+    coordinator: ScrollSyncCoordinator,
+    pane: ScrollSyncCoordinator.Pane,
+    followerState: LazyListState,
+    target: FollowerTarget,
+) {
+    try {
+        coordinator.beginProgrammaticScroll(pane)
+        try {
+            followerState.scrollToItem(target.index, target.offsetPx)
+        } finally {
+            coordinator.endProgrammaticScroll(pane)
+        }
+    } catch (cancellation: CancellationException) {
+        currentCoroutineContext().ensureActive()
     }
 }
 
