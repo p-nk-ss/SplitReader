@@ -56,11 +56,17 @@ class ScrollSyncGestureTest : ReaderGestureTest() {
     }
 
     /**
-     * The one a JVM test cannot express: after the gesture settles, nothing keeps moving.
+     * The one a JVM test cannot express: after the gesture settles, nothing keeps driving the
+     * panes. `awaitSettled` requires two agreeing samples a frame apart, so any re-trigger that
+     * never converges — from any cause, not just the mask — fails the wait.
      *
-     * An unmasked feedback loop shows up here — the follower's induced motion claims leadership and
-     * drives the leader back, so the panes oscillate instead of coming to rest. `awaitSettled`
-     * requires two agreeing samples a frame apart, so a loop that never converges fails the wait.
+     * This is NOT a demonstrated mask test: Task 3's mask-removal experiment ran this exact test
+     * with `beginProgrammaticScroll`/`endProgrammaticScroll` removed from `scrollFollower`, and it
+     * stayed green with identical settled indices to the masked run. The measured verdict is that
+     * the mask is inert under every gesture this suite produces (see
+     * `.superpowers/sdd/2026-08-09-phase3-instrumented-testing/task-3-report.md`) — this test
+     * exists to catch a runaway re-trigger loop regardless of what would cause one, not to prove
+     * the mask prevents it.
      */
     @Test
     fun afterFlingBothPanesComeToRestAndStayThere() {
@@ -71,6 +77,13 @@ class ScrollSyncGestureTest : ReaderGestureTest() {
 
         topPane.performTouchInput { swipeUp() }
         val first = awaitSettled(top, bottom)
+
+        assertTrue(
+            "The gesture did not move the top pane at all (still at item ${first.topIndex}) — the " +
+                "swipe missed the pane or the list did not accept it, which would make the " +
+                "settled-and-stays-settled assertion below pass vacuously at rest.",
+            first.topIndex > 0,
+        )
 
         // Sample again well after settling: a slow oscillation would show up as drift here even if
         // the two samples above happened to agree. Real elapsed time, not `mainClock` — see
