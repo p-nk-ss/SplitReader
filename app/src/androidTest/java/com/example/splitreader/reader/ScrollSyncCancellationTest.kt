@@ -156,10 +156,11 @@ class ScrollSyncCancellationTest : ReaderGestureTest() {
         )
 
         // The assertion is about what happens AFTERWARDS: a later gesture must still propagate.
-        // Same paused-release shape, and the same distance floor, for the same reason.
+        // Same paused-release shape, and — by construction, 14 steps * 50px, same as pointer 1's
+        // total above — the same validated 700px distance floor, not merely "the same" by claim.
         composeRule.onRoot().performTouchInput {
             down(1, topStart)
-            repeat(10) { moveBy(1, Offset(0f, -50f)) }
+            repeat(14) { moveBy(1, Offset(0f, -50f)) }
             advanceEventTime(200)
             up(1)
         }
