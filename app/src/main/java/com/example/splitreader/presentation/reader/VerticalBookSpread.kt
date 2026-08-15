@@ -147,13 +147,14 @@ internal fun VerticalBookSpread(
                 // `scope.launch` (an earlier version of this code did that): a `launch` returns
                 // immediately without suspending the collector, so `conflate()` above never gets a
                 // chance to do its job — every distinct leader position spawns its own coroutine,
-                // and two of those racing UNMASK each other mid-flight (the newer's
-                // beginProgrammaticScroll() runs, the older's cancelled scrollToItem() unwinds
-                // into its finally block, which clears the mask the newer one is still relying on)
-                // — reinstating the exact feedback loop the mask exists to prevent. Suspending
-                // right here instead means the collector is unavailable while waiting, so
-                // `conflate()` collapses any backlog to one value and there is only ever one
-                // follower scroll in flight, with one owner of the mask.
+                // and two of those racing cancel each other's scrollToItem mid-flight through the
+                // MutatorMutex. Suspending right here instead means the collector is unavailable
+                // while waiting, so `conflate()` collapses any backlog to one value and there is
+                // only ever one follower scroll in flight.
+                // (An earlier version of this comment justified single-flight by the mask being
+                // unmasked mid-race. The instrumented suite later MEASURED the mask inert under
+                // real gestures — see ScrollSyncGestureTest — so that consequence was retired;
+                // the reentrancy and conflate() reasons above are the load-bearing ones.)
                 withFrameNanos {}
 
                 // Re-read the leader's live position rather than trusting the tuple destructured

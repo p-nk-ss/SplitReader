@@ -174,13 +174,13 @@ class ScrollSyncGlueTest {
      * induced scroll — the mask may have nothing to mask on this path, and no offset arithmetic
      * can falsify it.
      *
-     * CHEAPEST NEXT STEP if anyone picks this up: make the coordinator injectable (it is
-     * `remember { ScrollSyncCoordinator() }` today, unreachable from a test) and assert directly
-     * whether `onScrollStateChanged(BOTTOM, true)` is ever delivered during a top-led scroll. One
-     * assertion, no frame clock. If it never is, the mask is defence-in-depth for future
-     * animated/fling paths rather than load-bearing here, and that should be written down instead
-     * of hunted further. Do NOT start from a bigger offset or a gesture harness; that was this
-     * note's previous advice and it points at the expensive end.
+     * SETTLED — by the gesture harness this note once advised against. The instrumented suite
+     * (androidTest ScrollSyncGestureTest) removed the mask under real drags and flings on a real
+     * device: zero observable difference, identical settled indices. The mask is INERT on every
+     * path measured, including the "future animated/fling paths" this note hedged about. It stays
+     * in the code as documented defence-in-depth; removing it is a production decision that was
+     * deliberately not taken. This JVM suite's own inability to falsify it (below) is therefore
+     * consistent with the device measurement, not a gap awaiting the injectable-coordinator idea.
      */
     @Test
     fun `the follower's induced motion does not drag the leader off its target`() {
@@ -217,9 +217,10 @@ class ScrollSyncGlueTest {
      * `snapshotFlow` never observes the induced pulse and the coordinator is probably never told
      * the follower moved at all.
      *
-     * So the mask's necessity remains argued from the code, not demonstrated by this suite, and the
-     * cheap way to settle it is an injectable coordinator — not a bigger offset and not a gesture
-     * harness.
+     * The question is now SETTLED by measurement, not argument: the instrumented suite removed
+     * the mask under real gestures and observed zero difference (see ScrollSyncGestureTest). The
+     * mask is inert; this suite's inability to demonstrate its necessity was the correct answer,
+     * not a harness gap.
      */
     @Test
     fun `the leader keeps an offset past the clamp`() {

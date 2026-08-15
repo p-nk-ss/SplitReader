@@ -41,9 +41,13 @@ class ScrollSyncCoordinatorTest {
     }
 
     /**
-     * The whole reason masking exists: `scrollToItem` raises `isScrollInProgress` on the pane the
-     * coordinator is itself driving. Without the mask the follower would claim leadership from
-     * the motion it was just given, and the two panes would drive each other in a loop.
+     * What masking was DESIGNED for: `scrollToItem` raises `isScrollInProgress` on the pane the
+     * coordinator is itself driving, so in theory the follower could claim leadership from the
+     * motion it was just given. The instrumented suite later measured that this never actually
+     * happens under real gestures (the induced pulse is never observed by snapshotFlow — mask
+     * removed, behaviour identical; see ScrollSyncGestureTest). These unit tests still pin the
+     * CLASS CONTRACT — a masked pane must not acquire leadership — which holds regardless of
+     * whether any production path currently exercises it.
      *
      * The dangerous instant is when nobody currently leads (`leader == null`) — e.g. the leader
      * has just settled while the masked follower's own programmatic scroll is still catching up.
