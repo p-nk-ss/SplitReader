@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.up
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -92,6 +93,14 @@ import org.junit.runner.RunWith
  * of the guard, so they are not a second and third "guard removed, still green" data point. Treat
  * this test as a real net for "the leader-driven sync effect died," proven capable of catching
  * that failure mode once, not as a statistically characterized flake rate.
+ *
+ * **Movement floor, enforced at runtime.** The failure mode above — a provocation that never
+ * leaves item 0, making the index equality check vacuously true — is not just a development-time
+ * mistake; a different device or font/density combination rendering this fixture's items shorter
+ * or taller than the ones measured here could reproduce it silently. `assertTrue(... topIndex >
+ * 0 ...)` after the provocation and `assertTrue(... settled.topIndex > afterProvocation.topIndex
+ * ...)` after the recovery drag turn that silent, signal-free pass into a loud, specifically-named
+ * failure instead, matching the idiom `ScrollSyncGestureTest` already uses for the same reason.
  */
 @RunWith(AndroidJUnit4::class)
 class ScrollSyncCancellationTest : ReaderGestureTest() {
@@ -130,7 +139,21 @@ class ScrollSyncCancellationTest : ReaderGestureTest() {
             up(2)
             up(1)
         }
-        awaitSettled(top, bottom)
+        val afterProvocation = awaitSettled(top, bottom)
+
+        // Movement floor: the whole point of this test is comparing indices, and that comparison
+        // is vacuous if the provocation never left item 0 — exactly the trap that produced two
+        // worthless "green" runs during development of this test (see the class doc). A different
+        // device/density rendering the fixture's items shorter or taller than this one could
+        // under- or over-travel the same pixel distances; failing loudly here means a future
+        // under-travel shows up as a clear, named failure instead of a silent, signal-free pass.
+        assertTrue(
+            "The provocation gesture did not move the top pane past item 0 (still at " +
+                "${afterProvocation.topIndex}) — the distance floor from this test's KDoc was not " +
+                "met on this device/density, so the assertion below would compare index 0 to " +
+                "index 0 regardless of the guard. Widen the gesture's travel distance.",
+            afterProvocation.topIndex > 0,
+        )
 
         // The assertion is about what happens AFTERWARDS: a later gesture must still propagate.
         // Same paused-release shape, and the same distance floor, for the same reason.
@@ -142,6 +165,12 @@ class ScrollSyncCancellationTest : ReaderGestureTest() {
         }
         val settled = awaitSettled(top, bottom)
 
+        assertTrue(
+            "The recovery drag did not move the top pane at all (still at ${settled.topIndex}, " +
+                "was ${afterProvocation.topIndex}) — the gesture missed the pane or the distance " +
+                "floor was not met, so the equality check below carries no signal.",
+            settled.topIndex > afterProvocation.topIndex,
+        )
         assertEquals(
             "After a competing gesture, a later drag left the top pane at ${settled.topIndex} and " +
                 "the bottom pane at ${settled.bottomIndex}. Sync stopped working — the " +
