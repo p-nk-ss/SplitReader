@@ -1,45 +1,43 @@
 package com.example.splitreader.reader
 
 import android.content.pm.ActivityInfo
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.core.view.WindowCompat
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.splitreader.domain.model.Language
-import com.example.splitreader.domain.model.TranslationState
-import com.example.splitreader.presentation.reader.ReaderContent
-import com.example.splitreader.presentation.reader.ReaderUiState
-import com.example.splitreader.presentation.reader.VERTICAL_TOP_PANE
-import com.example.splitreader.presentation.theme.SplitReaderTheme
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * A **real** configuration change must move the reader between its two arms.
+ * (a) What this pins: rotating this device recreates the Activity, and the post-recreation
+ * `Configuration` genuinely reports the new window width — 427dp portrait to 952dp landscape,
+ * crossing the 600dp `isCompactWidth` threshold. The JVM suite's `@Config(qualifiers = ...)` only
+ * ever *picks* a configuration before composition; it structurally cannot demonstrate that a live
+ * recreation delivers one. This test can, and does: `screenWidthDp` is read from
+ * `composeRule.activity` *after* `requestedOrientation` is flipped and `waitForIdle()` returns.
  *
- * The JVM suite only ever simulates this with `@Config(qualifiers = ...)`, which picks a
- * configuration before composition rather than changing one underneath a live composition. This
- * device is 427dp wide in portrait (stacked) and 952dp in landscape (side-by-side), so one rotation
- * crosses the 600dp threshold in both directions.
+ * (b) The harness limit, measured rather than assumed: `AndroidComposeTestRule<ComponentActivity>`
+ * does not re-run `setContent` after that recreation — the pre-rotation `ComposeView` is destroyed
+ * with the old Activity, and nothing re-attaches a composition to the new one. Any node lookup
+ * after rotation throws `IllegalStateException: No compose hierarchies found in the app`, and
+ * `assertDoesNotExist()` — the one query that does not throw on an empty hierarchy — passes
+ * vacuously as a result. This was proven, not assumed: forcing `ReaderScreen.kt`'s
+ * `val vertical = isCompactWidth(maxWidth) && state.showTranslation` to
+ * `val vertical = true && state.showTranslation` (deliberately breaking the arm switch) and
+ * re-running still left a `topPane.assertDoesNotExist()` assertion green — it could not tell a
+ * switched arm from a torn-down composition. That assertion has been removed from this test rather
+ * than kept as decoration; see `task-6-report.md` for the paired runs (predicate correct, predicate
+ * forced) that both passed it.
  *
- * Composes [ReaderContent] rather than [com.example.splitreader.presentation.reader.VerticalBookSpread]
- * directly (unlike [ReaderGestureTest]'s `composeSpread`): the `isCompactWidth` branch that picks
- * between the stacked and side-by-side arms lives in `ReaderContent`, one level up from the spread.
- * Composing the spread directly was tried first and it was uninformative either way — see the task
- * report for the diagnostic that showed why (recreation tore down that composition entirely, so
- * *both* panes vanished regardless of width, not just the arm that should have gone away).
- *
- * NOT covered here, deliberately: scroll-position preservation across the recreation. That belongs
- * to the full app — the states are hoisted from a view model there and from the test here — and it
- * stays on the device checklist.
+ * (c) Consequence: whether a real rotation actually swaps the stacked pane for the side-by-side one
+ * stays on the **human device checklist**, not in this suite. Automating it requires first fixing
+ * the harness — either an Activity that survives recreation in place (e.g. `android:configChanges`
+ * covering orientation/screenSize so Compose's own recomposition runs instead of a teardown) or
+ * driving the width some other way that does not destroy the composition — not adding more
+ * assertions to this test.
  */
 @RunWith(AndroidJUnit4::class)
 class LayoutArmRotationTest : ReaderGestureTest() {
-
-    private val topPaneNode get() = composeRule.onNodeWithTag(VERTICAL_TOP_PANE)
 
     @After
     fun restorePortrait() {
@@ -48,75 +46,13 @@ class LayoutArmRotationTest : ReaderGestureTest() {
         }
     }
 
-    /**
-     * Composes the full reader screen — top bar, panes, footer, dialogs — with hoisted states, so
-     * the `isCompactWidth` branch in `ReaderContent` is actually exercised by a rotation.
-     */
-    private fun composeReaderContent() {
-        composeRule.activityRule.scenario.onActivity { activity ->
-            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
-        }
-        composeRule.setContent {
-            SplitReaderTheme {
-                ReaderContent(
-                    state = ReaderUiState.Success(
-                        book = fixtureBook,
-                        currentChapterIndex = 0,
-                        sourceLanguage = Language.ENGLISH,
-                        targetLanguage = Language.RUSSIAN,
-                        translationState = TranslationState.Idle,
-                        chapterTranslations = fixtureTranslations,
-                        portraitHintDismissed = true,
-                    ),
-                    onNavigateBack = {},
-                    onSelectChapter = {},
-                    onSetTargetLanguage = {},
-                    onSetReaderTheme = {},
-                    onAdjustTextSize = {},
-                    onAdjustLineHeight = {},
-                    onSetReadingFont = {},
-                    onSetLetterSpacing = {},
-                    onSetTextIndent = {},
-                    onSetParagraphSpacing = {},
-                    onSetJustifyText = {},
-                    onSetSplitRatio = {},
-                    onSetVerticalSplitRatio = {},
-                    onToggleTranslation = {},
-                    onToggleIllustrations = {},
-                    onSetNavigationSide = {},
-                    onSetHorizontalMargin = {},
-                    onSetOrientationLock = {},
-                    onUpdateScrollPosition = { _, _, _ -> },
-                    onMarkFinished = {},
-                    onToggleBookmark = {},
-                    onRemoveBookmark = { _, _ -> },
-                    onJumpToBookmark = { _, _ -> },
-                    onConsumeScrollRestore = {},
-                    onVisibleRange = { _, _, _, _ -> },
-                    onSaveWord = { _, _, _ -> },
-                    onSpeak = { _, _ -> },
-                    onSelectWord = { _, _, _, _, _ -> },
-                    onClearWordSelection = {},
-                    onSelectionDragged = { _, _ -> },
-                    onSelectProvider = {},
-                    onConfigureProvider = { _, _, _ -> },
-                    onClearProvider = {},
-                    onRefreshTranslationUsage = {},
-                    onResetTranslationUsage = {},
-                    onRetryTranslation = {},
-                    onTranslateWholeChapter = {},
-                    onDismissPortraitHint = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
-    }
-
     @Test
-    fun rotatingToLandscapeLeavesTheStackedArm() {
+    fun realRotationDeliversTheNewConfiguration() {
         assertPortraitStacked()
-        composeReaderContent()
-        topPaneNode.assertExists()
+        val top = LazyListState()
+        val bottom = LazyListState()
+        composeSpread(top, bottom)
+        topPane.assertExists()
 
         composeRule.activityRule.scenario.onActivity {
             it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -125,10 +61,8 @@ class LayoutArmRotationTest : ReaderGestureTest() {
 
         val widthDp = composeRule.activity.resources.configuration.screenWidthDp
         assertTrue(
-            "After rotating, the window is ${widthDp}dp wide — the rotation did not take effect, " +
-                "so this test proves nothing about the arm switch.",
+            "After rotating, the window is ${widthDp}dp wide — the rotation did not take effect.",
             widthDp >= 600,
         )
-        topPaneNode.assertDoesNotExist()
     }
 }
