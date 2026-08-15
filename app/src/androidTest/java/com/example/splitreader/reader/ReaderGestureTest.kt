@@ -83,7 +83,12 @@ abstract class ReaderGestureTest {
      * of both panes.
      */
     protected fun awaitSettled(top: LazyListState, bottom: LazyListState): Settled {
-        composeRule.waitUntil(timeoutMillis = 5_000) {
+        // These are ceilings, not delays — waitUntil returns as soon as the condition holds, so
+        // raising them costs nothing on a healthy host. 5s measured failing on the dev host purely
+        // from resource contention (load average 9-11, leader settle observed at 20-40s under
+        // load), with the mask experiment itself unaffected either way. The two phases below are
+        // independent budgets — worst case is their sum, i.e. up to 120s total for this function.
+        composeRule.waitUntil(timeoutMillis = 60_000) {
             !top.isScrollInProgress && !bottom.isScrollInProgress
         }
         // Two agreeing samples, taken across real elapsed time — NOT via `mainClock`. On an
@@ -91,7 +96,7 @@ abstract class ReaderGestureTest {
         // driving it by hand from the test either throws or silently does nothing. This is one of
         // the few places where the JVM idiom does not transfer.
         var first = snapshot(top, bottom)
-        composeRule.waitUntil(timeoutMillis = 5_000) {
+        composeRule.waitUntil(timeoutMillis = 60_000) {
             Thread.sleep(32L) // ~2 frames at 60Hz
             composeRule.waitForIdle()
             val second = snapshot(top, bottom)
