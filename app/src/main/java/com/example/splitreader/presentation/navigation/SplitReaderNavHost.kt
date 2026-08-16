@@ -54,7 +54,13 @@ private val NavSlideSpring = spring(
 )
 
 /** Navigates to a top-level tab with saved-state restore and a single instance on the back stack. */
-private fun NavHostController.navigateToTab(route: String) {
+internal fun NavHostController.navigateToTab(route: String) {
+    // The account screens are modal overlays, not tab content: leaving one for a tab dismisses
+    // it. Without this, popUpTo(saveState) embalms it into the tab's saved stack and
+    // restoreState resurrects it on the next visit to that tab (TabBackStackTest).
+    if (currentDestination?.route == AUTH_ROUTE || currentDestination?.route == PROFILE_ROUTE) {
+        popBackStack()
+    }
     navigate(route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
