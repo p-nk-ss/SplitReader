@@ -103,6 +103,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.presentation.theme.JetBrainsMono
+import com.example.splitreader.presentation.ui.plural
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
@@ -188,7 +189,8 @@ private fun GreetingBlock(
         if (weeklyMinutes > 0 || savedWords > 0) {
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "$weeklyMinutes minutes of reading this week · $savedWords words saved.",
+                text = "$weeklyMinutes ${plural(weeklyMinutes, "minute")} of reading this week · " +
+                    "$savedWords ${plural(savedWords, "word")} saved.",
                 fontFamily = Newsreader,
                 fontWeight = FontWeight.Normal,
                 fontStyle = FontStyle.Italic,

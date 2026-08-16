@@ -46,6 +46,7 @@ import com.example.splitreader.domain.model.stats.DailyMinutes
 import com.example.splitreader.domain.model.stats.LangMinutes
 import com.example.splitreader.domain.usecase.StreakResult
 import com.example.splitreader.presentation.theme.JetBrainsMono
+import com.example.splitreader.presentation.ui.plural
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
@@ -144,9 +145,9 @@ fun AlmanacScreen(
                     // row that forced one-character-per-line wrapping.
                     StreakHeroCard(streak.current, streak.longest, modifier = Modifier.fillMaxWidth())
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
-                        StatBlock("$rangeMinutes", "minutes", minutesCaption, Modifier.weight(1f))
-                        StatBlock("$rangePages", "pages", periodLabel, Modifier.weight(1f))
-                        StatBlock("$rangeWords", "words", "saved $periodLabel", Modifier.weight(1f))
+                        StatBlock("$rangeMinutes", plural(rangeMinutes, "minute"), minutesCaption, Modifier.weight(1f))
+                        StatBlock("$rangePages", plural(rangePages, "page"), periodLabel, Modifier.weight(1f))
+                        StatBlock("$rangeWords", plural(rangeWords, "word"), "saved $periodLabel", Modifier.weight(1f))
                     }
                     WeeklyBarChartCard(dailyMinutes.takeLast(7), today, modifier = Modifier.fillMaxWidth())
                     HeatmapCard(dailyMinutes, today, modifier = Modifier.fillMaxWidth())
@@ -156,9 +157,9 @@ fun AlmanacScreen(
                     // Top row: streak hero + 3 stat blocks
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(sp.md)) {
                         StreakHeroCard(streak.current, streak.longest, modifier = Modifier.weight(1.4f))
-                        StatBlock("$rangeMinutes", "minutes", minutesCaption, Modifier.weight(1f))
-                        StatBlock("$rangePages", "pages", periodLabel, Modifier.weight(1f))
-                        StatBlock("$rangeWords", "words", "saved $periodLabel", Modifier.weight(1f))
+                        StatBlock("$rangeMinutes", plural(rangeMinutes, "minute"), minutesCaption, Modifier.weight(1f))
+                        StatBlock("$rangePages", plural(rangePages, "page"), periodLabel, Modifier.weight(1f))
+                        StatBlock("$rangeWords", plural(rangeWords, "word"), "saved $periodLabel", Modifier.weight(1f))
                     }
 
                     // Middle row: weekly bar chart + 26-week heatmap
@@ -265,7 +266,7 @@ private fun StreakHeroCard(current: Int, longest: Int, modifier: Modifier = Modi
                 }
                 Row {
                     Text("Longest: ", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
-                    Text("$longest days", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                    Text("$longest ${plural(longest, "day")}", fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
                     Text(stringResource(R.string.almanac_streak_encourage), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3)
                 }
             }
