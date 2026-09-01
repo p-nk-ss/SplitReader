@@ -6,6 +6,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.translator.ModelDownloadException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -43,16 +44,25 @@ class TranslateTextUseCase @Inject constructor(
             (clampedStart until paragraphs.size) + (0 until clampedStart)
         }
 
+        // One flaky request must not strand the rest of the window untranslated, so failures skip
+        // the paragraph and keep going (the planner re-issues unmarked paragraphs later). A run of
+        // consecutive failures means the provider is down — give up rather than serially time out.
+        var firstError: Exception? = null
+        var consecutiveFailures = 0
         for (index in order) {
             val paragraph = paragraphs[index]
             try {
                 val translated = repository.translate(paragraph, sourceLanguage, targetLanguage)
                 emit(TranslationState.Partial(index, translated))
+                consecutiveFailures = 0
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                emit(TranslationState.Error(friendlyError(e, provider)))
-                return@flow
+                if (firstError == null) firstError = e
+                if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) break
             }
         }
+        firstError?.let { emit(TranslationState.Error(friendlyError(it, provider))) }
     }.flowOn(Dispatchers.IO)
 
     private fun friendlyError(e: Exception, provider: TranslationProvider): String = when {
@@ -65,5 +75,9 @@ class TranslateTextUseCase @Inject constructor(
         }
         e is IOException -> "No internet — switch to ML Kit for offline translation"
         else -> e.message ?: "Translation failed"
+    }
+
+    private companion object {
+        const val MAX_CONSECUTIVE_FAILURES = 3
     }
 }
