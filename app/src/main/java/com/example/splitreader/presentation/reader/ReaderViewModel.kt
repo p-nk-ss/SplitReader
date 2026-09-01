@@ -648,15 +648,12 @@ class ReaderViewModel @Inject constructor(
     fun speak(text: String, langCode: String) = textToSpeechManager.speak(text, langCode)
 
     /**
-     * The reader reports its visible item span as chapter-local *list* indices (item 0 of each
-     * chapter is the masthead). [anchorFor] maps those to paragraph anchors; the manager then
+     * The reader reports its visible span as true *paragraph* coordinates (the screen resolves
+     * masthead/illustration items via `BookItemIndex` before calling this); the manager then
      * translates the visible window plus a bounded look-ahead/behind across chapter boundaries.
      */
-    fun onVisibleRange(startChapter: Int, startLocalIndex: Int, endChapter: Int, endLocalIndex: Int) {
-        translationManager.onVisibleRange(
-            startChapter, anchorFor(startLocalIndex),
-            endChapter, anchorFor(endLocalIndex),
-        )
+    fun onVisibleRange(startChapter: Int, startParagraph: Int, endChapter: Int, endParagraph: Int) {
+        translationManager.onVisibleRange(startChapter, startParagraph, endChapter, endParagraph)
     }
 
     /** Retries translation for the current chapter after a failure (clears it and re-runs). */

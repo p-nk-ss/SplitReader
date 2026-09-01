@@ -257,6 +257,10 @@ internal fun ReaderContent(
             acc + 1 + ch.paragraphs.size + (if (state.showIllustrations) ch.images.size else 0)
         }.dropLast(1)
     }
+    // Exact item↔paragraph arithmetic (mastheads and illustration items are not paragraphs).
+    val bookItemIndex = remember(state.book.chapters, state.showIllustrations) {
+        BookItemIndex(state.book, state.showIllustrations)
+    }
 
     // Restore scroll position on book load
     LaunchedEffect(state.pendingScrollPosition) {
@@ -308,11 +312,9 @@ internal fun ReaderContent(
             .distinctUntilChanged()
             .debounce(120)
             .collect { (firstIndex, lastIndex) ->
-                val startChapter = chapterItemStarts.indexOfLast { it <= firstIndex }.coerceAtLeast(0)
-                val startLocal = firstIndex - chapterItemStarts.getOrElse(startChapter) { 0 }
-                val endChapter = chapterItemStarts.indexOfLast { it <= lastIndex }.coerceAtLeast(0)
-                val endLocal = lastIndex - chapterItemStarts.getOrElse(endChapter) { 0 }
-                onVisibleRange(startChapter, startLocal, endChapter, endLocal)
+                val (startChapter, startPara) = bookItemIndex.paragraphAtOrAfter(firstIndex)
+                val (endChapter, endPara) = bookItemIndex.paragraphAtOrBefore(lastIndex)
+                onVisibleRange(startChapter, startPara, endChapter, endPara)
             }
     }
 
@@ -506,7 +508,7 @@ internal fun ReaderContent(
                 onJump = { ch, p ->
                     onJumpToBookmark(ch, p)
                     coroutineScope.launch {
-                        listState.scrollToItem(chapterItemStarts.getOrElse(ch) { 0 } + p)
+                        listState.scrollToItem(bookItemIndex.itemIndexOf(ch, p))
                     }
                     showBookmarks = false
                 },
