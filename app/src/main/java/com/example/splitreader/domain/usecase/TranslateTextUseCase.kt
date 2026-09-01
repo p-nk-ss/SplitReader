@@ -6,8 +6,10 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.translator.ModelDownloadException
+import com.example.splitreader.domain.IoDispatcher
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -22,6 +24,7 @@ import javax.inject.Inject
 class TranslateTextUseCase @Inject constructor(
     private val repository: TranslationRepository,
     private val settings: ReadingPreferences,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /**
      * Translates paragraphs in the given index range.
@@ -52,7 +55,7 @@ class TranslateTextUseCase @Inject constructor(
         for (index in order) {
             val paragraph = paragraphs[index]
             try {
-                val translated = repository.translate(paragraph, sourceLanguage, targetLanguage)
+                val translated = translateWithRateLimitRetry(paragraph, sourceLanguage, targetLanguage)
                 emit(TranslationState.Partial(index, translated))
                 consecutiveFailures = 0
             } catch (e: CancellationException) {
@@ -63,14 +66,43 @@ class TranslateTextUseCase @Inject constructor(
             }
         }
         firstError?.let { emit(TranslationState.Error(friendlyError(it, provider))) }
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(ioDispatcher)
+
+    /**
+     * A 429 is a *temporary* per-IP rate limit (the unofficial Quick Translate endpoint trips it on
+     * bursts, shared carrier IPs, or VPNs), so the request is retried after a short wait before the
+     * paragraph counts as failed. Other errors are not retried: quota/key problems won't self-heal,
+     * and a dead network is better surfaced fast than serially timed out per retry.
+     */
+    private suspend fun translateWithRateLimitRetry(
+        text: String,
+        source: Language,
+        target: Language,
+    ): String {
+        var attempt = 0
+        while (true) {
+            try {
+                return repository.translate(text, source, target)
+            } catch (e: HttpException) {
+                if (e.code() != 429 || attempt >= RATE_LIMIT_BACKOFF_MS.size) throw e
+                delay(RATE_LIMIT_BACKOFF_MS[attempt])
+                attempt++
+            }
+        }
+    }
 
     private fun friendlyError(e: Exception, provider: TranslationProvider): String = when {
         e is ModelDownloadException ->
             "Couldn't download the offline translation model. Check your internet and Google Play services, then retry."
         e is HttpException -> when (e.code()) {
             401, 403 -> "Invalid ${provider.displayName} API key — open Translator menu to update"
-            429 -> "${provider.displayName} quota exceeded — try a different provider"
+            // Quick Translate has no quota to exhaust — its 429 is the free endpoint asking for a
+            // pause, and "quota exceeded" sends users hunting for a limit that doesn't exist.
+            429 -> if (provider == TranslationProvider.QUICK_TRANSLATE) {
+                "${provider.displayName} is temporarily rate-limited — wait a minute or switch to ML Kit"
+            } else {
+                "${provider.displayName} quota exceeded — try a different provider"
+            }
             else -> "${provider.displayName} error (${e.code()}): ${e.message()}"
         }
         e is IOException -> "No internet — switch to ML Kit for offline translation"
@@ -79,5 +111,8 @@ class TranslateTextUseCase @Inject constructor(
 
     private companion object {
         const val MAX_CONSECUTIVE_FAILURES = 3
+
+        /** Waits before re-trying a 429-rejected request; length of the list caps the retries. */
+        val RATE_LIMIT_BACKOFF_MS = longArrayOf(1_000, 3_000)
     }
 }

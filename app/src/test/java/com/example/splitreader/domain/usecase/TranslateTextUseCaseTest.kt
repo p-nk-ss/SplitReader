@@ -7,21 +7,42 @@ import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.TranslationRepository
 import java.io.IOException
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.HttpException
+import retrofit2.Response
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Translates by wrapping the text; throws for paragraphs listed in [failOn]. Records every call. */
-private class FakeTranslationRepository(private val failOn: Set<String> = emptySet()) : TranslationRepository {
+private fun http429(): HttpException =
+    HttpException(Response.error<String>(429, "rate limited".toResponseBody(null)))
+
+/**
+ * Translates by wrapping the text. Throws [error] for paragraphs listed in [failOn] (every call)
+ * and for the first N calls of paragraphs in [transientFailures]. Records every call.
+ */
+private class FakeTranslationRepository(
+    private val failOn: Set<String> = emptySet(),
+    private val transientFailures: MutableMap<String, Int> = mutableMapOf(),
+    private val error: (String) -> Exception = { IOException("network hiccup on $it") },
+) : TranslationRepository {
     val calls = mutableListOf<String>()
 
     override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
         calls += text
-        if (text in failOn) throw IOException("network hiccup on $text")
+        val remaining = transientFailures[text] ?: 0
+        if (remaining > 0) {
+            transientFailures[text] = remaining - 1
+            throw error(text)
+        }
+        if (text in failOn) throw error(text)
         return "t:$text"
     }
 
@@ -31,7 +52,9 @@ private class FakeTranslationRepository(private val failOn: Set<String> = emptyS
 }
 
 /** Everything defaulted; only the translator-provider choice matters to the use case. */
-private class FakeReadingPreferences : ReadingPreferences {
+private class FakeReadingPreferences(
+    private val provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
+) : ReadingPreferences {
     override fun saveProgress(bookUri: String, chapterIndex: Int, scrollPosition: Int, scrollOffset: Int) = Unit
     override fun getLastBookUri(): String? = null
     override fun getLastChapter(bookUri: String) = 0
@@ -67,7 +90,7 @@ private class FakeReadingPreferences : ReadingPreferences {
     override fun saveHorizontalMargin(margin: Float) = Unit
     override fun getHorizontalMargin() = 0f
     override fun setTranslatorProvider(provider: TranslationProvider) = Unit
-    override fun getTranslatorProvider() = TranslationProvider.QUICK_TRANSLATE
+    override fun getTranslatorProvider() = provider
     override fun saveTextSize(size: Float) = Unit
     override fun getTextSize() = 16f
     override fun saveReadingFont(name: String) = Unit
@@ -88,7 +111,10 @@ private class FakeReadingPreferences : ReadingPreferences {
 
 class TranslateTextUseCaseTest {
 
-    private fun useCase(repo: TranslationRepository) = TranslateTextUseCase(repo, FakeReadingPreferences())
+    private fun TestScope.useCase(
+        repo: TranslationRepository,
+        provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
+    ) = TranslateTextUseCase(repo, FakeReadingPreferences(provider), StandardTestDispatcher(testScheduler))
 
     @Test
     fun `a single failing paragraph does not abort the rest of the segment`() = runTest {
@@ -146,6 +172,58 @@ class TranslateTextUseCaseTest {
         assertTrue("cancellation must propagate to the collector", cancelled)
         assertEquals(listOf("a", "b"), repo.calls) // no work after the cancel
         assertEquals(0, states.count { it is TranslationState.Error })
+    }
+
+    @Test
+    fun `unofficial-provider 429 reads as a temporary rate limit, not an exhausted quota`() = runTest {
+        val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http429() })
+        val states = useCase(repo, TranslationProvider.QUICK_TRANSLATE)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0,
+        ).toList()
+
+        val message = states.filterIsInstance<TranslationState.Error>().single().message
+        assertTrue("expected rate-limit wording, got: $message", message.contains("rate-limited"))
+        assertTrue("free-endpoint 429 must not claim an exhausted quota: $message", !message.contains("quota"))
+    }
+
+    @Test
+    fun `paid-provider 429 keeps the quota wording`() = runTest {
+        val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http429() })
+        val states = useCase(repo, TranslationProvider.DEEPL)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0,
+        ).toList()
+
+        val message = states.filterIsInstance<TranslationState.Error>().single().message
+        assertTrue("expected quota wording for a keyed provider, got: $message", message.contains("quota"))
+    }
+
+    @Test
+    fun `a 429 is retried after a backoff and can still succeed`() = runTest {
+        val repo = FakeTranslationRepository(transientFailures = mutableMapOf("a" to 1), error = { http429() })
+        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0).toList()
+
+        assertEquals(listOf("a", "a"), repo.calls)
+        assertEquals(listOf(0 to "t:a"), states.filterIsInstance<TranslationState.Partial>().map { it.index to it.text })
+        assertEquals(0, states.count { it is TranslationState.Error })
+        assertTrue("retry must wait before re-hitting the endpoint", currentTime > 0)
+    }
+
+    @Test
+    fun `429 retries are capped before the paragraph counts as failed`() = runTest {
+        val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http429() })
+        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0).toList()
+
+        assertEquals("one initial attempt + two backoff retries", listOf("a", "a", "a"), repo.calls)
+        assertEquals(1, states.count { it is TranslationState.Error })
+    }
+
+    @Test
+    fun `plain network failures are not retried with backoff`() = runTest {
+        val repo = FakeTranslationRepository(failOn = setOf("a")) // IOException
+        useCase(repo)(listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN, 0, 1).toList()
+
+        assertEquals(listOf("a", "b"), repo.calls)
+        assertEquals("no backoff for non-429 failures", 0, currentTime)
     }
 
     @Test

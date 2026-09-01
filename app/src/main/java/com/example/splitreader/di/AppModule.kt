@@ -22,15 +22,21 @@ import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.repository.TranslatorKeyStore
+import com.example.splitreader.domain.IoDispatcher
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+
+    @Provides @IoDispatcher
+    fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
 
     @Provides @Singleton
     fun provideBookLibraryRepository(impl: BookLibraryRepositoryImpl): BookLibraryRepository = impl
