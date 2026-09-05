@@ -30,10 +30,11 @@ class BergamotEngineDeviceTest {
     private val engine = BergamotEngine(bridge, Dispatchers.Default)
     private val provider = BergamotTranslationProvider(store, engine, store::packDir)
 
-    private val paragraph = ("It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of " +
-        "foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the " +
-        "season of Darkness, it was the spring of hope, it was the winter of despair, we had everything before us, we had " +
-        "nothing before us, we were all going direct to Heaven, we were all going direct the other way. ")
+    /** Ordinary multi-sentence prose: Bergamot's latency tracks the longest sentence, so a single run-on sentence of the same length costs ~2× (spike doc). */
+    private val paragraph = ("It was the best of times. It was the worst of times. It was the age of wisdom, and it was the age of " +
+        "foolishness. We had everything before us, and we had nothing before us. The king sat on the throne of England, and the " +
+        "queen sat beside him with a plain face. There were a thousand voices in the street below, and not one of them agreed " +
+        "with another. In short, the period was so far like the present period that its noisiest authorities insisted on being heard. ")
 
     @Test
     fun downloads_en_ru_and_translates_cyrillic() = runBlocking {
