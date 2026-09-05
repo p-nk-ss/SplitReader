@@ -16,8 +16,10 @@ it just packages the two `.so` files. Only someone bumping the engine runs `buil
 | `x86_64` | ~8.0 MB |
 
 `app/build.gradle.kts` sets `ndk { abiFilters += listOf("arm64-v8a", "x86_64") }`, so the APK
-carries exactly these two. On any other ABI the Offline HQ provider is simply absent and ML Kit
-stays the offline engine.
+carries exactly these two. Note the real consequence: **32-bit-only devices (`armeabi-v7a`,
+`x86`) cannot install the app at all** — they fail with `INSTALL_FAILED_NO_MATCHING_ABIS`, not
+with a missing engine. That is accepted because Play has required 64-bit support since 2019.
+To restore those devices, build `armeabi-v7a` in `build.sh` and add it to `abiFilters`.
 
 ## Pinned versions
 

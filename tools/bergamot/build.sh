@@ -62,8 +62,17 @@ apply_patch "$MARIAN" "$PATCHES/0002-pathie-no-glob-below-api-28.patch"
 apply_patch "$MARIAN" "$PATCHES/0003-faiss-include-immintrin-on-x86.patch"
 apply_patch "$SENTENCEPIECE" "$PATCHES/0004-sentencepiece-trainer-kanytype-const.patch"
 
+# build_abi <abi> <march> <clang-target-prefix> -- <glue compile flags...> -- <cmake flags...>
+# Each ABI's compile flags travel with it, so an added or reordered call cannot pair one ABI's
+# name with another's -march.
 build_abi() {
   local abi="$1" march="$2" target="$3"; shift 3
+  [ "${1:-}" = "--" ] || { echo "build_abi: expected -- before the glue flags" >&2; exit 1; }
+  shift
+  local glue_flags=()
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do glue_flags+=("$1"); shift; done
+  [ "${1:-}" = "--" ] || { echo "build_abi: expected -- before the cmake flags" >&2; exit 1; }
+  shift
   local out="$WORK/build-$abi"
 
   echo "==> cmake configure $abi"
@@ -100,7 +109,7 @@ build_abi() {
     -Wno-enum-constexpr-conversion -fno-strict-aliasing -Wno-comment \
     -Wno-deprecated-declarations -Wno-unknown-pragmas \
     -DCOMPILE_CPU=1 -DUSE_SENTENCEPIECE -D_USE_INTERNAL_STRING_VIEW -DUSE_PTHREADS \
-    "${JNI_DEFINES[@]}" \
+    "${glue_flags[@]}" \
     -I"$SRC" -I"$SRC/src" \
     -I"$MARIAN/src" -I"$MARIAN/src/3rd_party" \
     -I"$MARIAN/src/3rd_party/SQLiteCpp/include" \
@@ -127,16 +136,18 @@ build_abi() {
 }
 
 # ruy/USE_RUY_SGEMM/USE_SIMD_UTILS are switched on automatically by marian's CMake when it
-# detects an arm arch — passing them explicitly is not needed and BUILD_ARCH must be set
-# because marian defaults it to `native`, which on an Apple-Silicon host resolves to a CPU
-# name the NDK's cross compilers reject.
-# -DSSE/-DFMA select simd_utils' NEON emulation of the SSE intrinsics marian's
-# functional/operators.h uses; marian's own CMake passes the same set on arm.
-JNI_DEFINES=(-DARM -DSSE -DFMA -DUSE_RUY_SGEMM=1 -DCPUINFO_SUPPORTED_PLATFORM=1
-             -march=armv8-a -flax-vector-conversions)
-build_abi arm64-v8a armv8-a aarch64-linux-android
+# detects an arm arch — passing them to cmake is not needed. BUILD_ARCH must be set, because
+# marian defaults it to `native`, which on an Apple-Silicon host resolves to a CPU name the
+# NDK's cross compilers reject.
+# The glue's own flags mirror what marian compiles its sources with: on arm, -DSSE/-DFMA select
+# simd_utils' NEON emulation of the SSE intrinsics functional/operators.h uses.
+build_abi arm64-v8a armv8-a aarch64-linux-android \
+  -- -DARM -DSSE -DFMA -DUSE_RUY_SGEMM=1 -DCPUINFO_SUPPORTED_PLATFORM=1 \
+     -march=armv8-a -flax-vector-conversions \
+  --
 
-JNI_DEFINES=(-DUSE_INTGEMM=1 -march=x86-64 -msse4.1)
-build_abi x86_64 x86-64 x86_64-linux-android -DUSE_INTGEMM=ON -DUSE_RUY_SGEMM=OFF
+build_abi x86_64 x86-64 x86_64-linux-android \
+  -- -DUSE_INTGEMM=1 -march=x86-64 -msse4.1 \
+  -- -DUSE_INTGEMM=ON -DUSE_RUY_SGEMM=OFF
 
 echo "==> done"
