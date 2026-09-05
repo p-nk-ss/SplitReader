@@ -233,10 +233,8 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
             ShellWithHome()
         }
 
-    // changeThreshold = 0.02f (default 0.01f) on the three below: Task 7 added Newsreader-italic
-    // text elsewhere in the suite (Settings "Language packs"), which nudges the shared glyph-cache
-    // AA jitter described on ScreenshotTest just past the 1% default here — measured at ~1.02%
-    // changed pixels, visually indistinguishable from the previous golden.
+    // Measured run-to-run AA jitter of ~1.12% on this golden at 41d2f25 (default 1% too tight);
+    // cause not isolated — see ScreenshotTest.kt notes on golden flakiness.
     @Test
     @Config(qualifiers = PHONE_PORTRAIT)
     fun shell_home_paper_13x() =
@@ -244,6 +242,8 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
             ShellWithHome()
         }
 
+    // Measured run-to-run AA jitter of ~1.12% on this golden at 41d2f25 (default 1% too tight);
+    // cause not isolated — see ScreenshotTest.kt notes on golden flakiness.
     @Test
     @Config(qualifiers = PHONE_PORTRAIT)
     fun shell_home_night_13x() =
@@ -252,6 +252,8 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
         }
 
     /** Narrowest width AND largest supported text at once — where bar labels clip first. */
+    // Measured run-to-run AA jitter of ~1.14% on this golden at 41d2f25 (default 1% too tight);
+    // cause not isolated — see ScreenshotTest.kt notes on golden flakiness.
     @Test
     @Config(qualifiers = PHONE_NARROW)
     fun shell_home_narrow360_paper_13x() =
@@ -297,10 +299,8 @@ class CompactScreensScreenshotTest : ScreenshotTest() {
         )
     }
 
-    // changeThreshold = 0.02f (default 0.01f): Task 7 added Newsreader-italic text elsewhere in the
-    // suite (Settings "Language packs"), which nudges the shared glyph-cache AA jitter described on
-    // ScreenshotTest just past the 1% default here — measured at ~1.02% changed pixels, visually
-    // indistinguishable from the previous golden.
+    // Measured run-to-run AA jitter of ~1.34% on this golden at 41d2f25 (default 1% too tight);
+    // cause not isolated — see ScreenshotTest.kt notes on golden flakiness.
     @Test
     @Config(qualifiers = PHONE_PORTRAIT)
     fun words_compact_detail_paper_1x() = captureScreen(
