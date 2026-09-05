@@ -31,12 +31,14 @@ android {
         applicationId = "io.mirrolit.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
+        versionCode = 3
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Offline HQ ships a prebuilt native translator (tools/bergamot/build.sh) for these ABIs
-        // only; on any other ABI the provider is absent and ML Kit remains the offline engine.
+        // Offline HQ ships a prebuilt native translator (tools/bergamot/build.sh) for these two
+        // ABIs only, so 32-bit-only devices (armeabi-v7a / x86) cannot install the app at all —
+        // accepted because Play has required 64-bit support since 2019. To restore them, build
+        // armeabi-v7a in tools/bergamot/build.sh and add it here.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
 
         // Play Console → Monetization setup → Licensing → base64 RSA public key, supplied via
