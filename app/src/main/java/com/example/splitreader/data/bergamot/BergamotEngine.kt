@@ -10,12 +10,24 @@ import java.io.File
 /**
  * Owns native model handles. All native calls run on [dispatcher] (a single thread in production)
  * and under one mutex — the native side is not thread-safe. Holds at most [maxLoaded] models, LRU.
+ *
+ * [bridgeProvider] is resolved lazily, on first use: the Application field-injects this engine, so
+ * loading the native library in the constructor would put `System.loadLibrary` (and the dlopen of
+ * an 8 MB .so) on the main thread of every cold start, for every user, whether or not they ever
+ * pick Offline HQ. Callers must therefore touch [available] off the main thread.
  */
 class BergamotEngine(
-    private val bridge: NativeBridge?,
+    bridgeProvider: () -> NativeBridge?,
     private val dispatcher: CoroutineDispatcher,
     private val maxLoaded: Int = 2,
 ) {
+    constructor(bridge: NativeBridge?, dispatcher: CoroutineDispatcher, maxLoaded: Int = 2) :
+        this({ bridge }, dispatcher, maxLoaded)
+
+    private val bridgeLazy: Lazy<NativeBridge?> = lazy(bridgeProvider)
+    private val bridge: NativeBridge? get() = bridgeLazy.value
+
+    /** Resolves the library on first read, so never call this from the main thread. */
     val available: Boolean get() = bridge != null
 
     private val mutex = Mutex()
@@ -50,6 +62,9 @@ class BergamotEngine(
 
     /** Called from onTrimMemory; safe from any thread (synchronous unload under the same lock). */
     fun unloadAll() {
+        // Nothing can be resident before the bridge exists, and trimming must never be the thing
+        // that drags the native library in — least of all on the main thread.
+        if (!bridgeLazy.isInitialized()) return
         val b = bridge ?: return
         // tryLock: if a translation is mid-flight we skip; memory pressure will call again.
         if (mutex.tryLock()) {

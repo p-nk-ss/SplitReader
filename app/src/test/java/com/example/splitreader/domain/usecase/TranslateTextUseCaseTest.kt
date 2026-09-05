@@ -15,8 +15,8 @@ import retrofit2.HttpException
 import retrofit2.Response
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -39,6 +39,7 @@ private class FakeTranslationRepository(
     private val transientFailures: MutableMap<String, Int> = mutableMapOf(),
     private val error: (String) -> Exception = { IOException("network hiccup on $it") },
     private val prepareProgress: List<Float> = emptyList(),
+    private val prepareError: Exception? = null,
 ) : TranslationRepository {
     val calls = mutableListOf<String>()
 
@@ -53,8 +54,10 @@ private class FakeTranslationRepository(
         return "t:$text"
     }
 
-    override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> =
-        prepareProgress.asFlow()
+    override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> = flow {
+        prepareProgress.forEach { emit(it) }
+        prepareError?.let { throw it }
+    }
 
     override suspend fun cachedCount() = 0
 
@@ -288,6 +291,40 @@ class TranslateTextUseCaseTest {
             "Couldn't download the Offline HQ language pack (en→ru, 31 MB). Check your internet and retry.",
             err.message,
         )
+    }
+
+    @Test
+    fun `prepare failure emits the error and translates nothing`() = runTest {
+        val repo = FakeTranslationRepository(
+            prepareError = OfflinePackDownloadException(ModelPair(Language.ENGLISH, Language.RUSSIAN), 31_561_787),
+        )
+        val states = useCase(repo, TranslationProvider.BERGAMOT)(
+            listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN,
+        ).toList()
+
+        assertEquals(
+            "Couldn't download the Offline HQ language pack (en→ru, 31 MB). Check your internet and retry.",
+            (states.last() as TranslationState.Error).message,
+        )
+        assertTrue("a pack that never arrived must not translate", states.none { it is TranslationState.Partial })
+        assertTrue("the provider must not be called at all", repo.calls.isEmpty())
+    }
+
+    @Test
+    fun `cancellation during prepare propagates`() = runTest {
+        val repo = FakeTranslationRepository(prepareError = kotlinx.coroutines.CancellationException("cancelled"))
+        var cancelled = false
+        val states = mutableListOf<TranslationState>()
+        try {
+            useCase(repo, TranslationProvider.BERGAMOT)(
+                listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+            ).toList(states)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            cancelled = true
+        }
+
+        assertTrue("cancellation must propagate, not become an error state", cancelled)
+        assertEquals(0, states.count { it is TranslationState.Error })
     }
 
     @Test

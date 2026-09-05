@@ -5,6 +5,7 @@ import com.example.splitreader.data.bergamot.routeFor
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.translator.ModelPair
+import com.example.splitreader.domain.translator.OfflineEngineUnavailableException
 import com.example.splitreader.domain.translator.OfflineModelStore
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import kotlinx.coroutines.flow.Flow
@@ -22,9 +23,15 @@ class BergamotTranslationProvider(
 ) : TranslationProviderApi {
     override val id: TranslationProvider = TranslationProvider.BERGAMOT
 
-    override fun isConfigured(): Boolean = engine.available
+    /**
+     * Spec §6: one native failure retires the provider for the rest of the process. The error copy
+     * promises a fallback to ML Kit, and `resolveProvider` only delivers it while this reads false.
+     */
+    @Volatile private var sessionBroken = false
 
-    override fun supports(source: Language, target: Language): Boolean = engine.available
+    override fun isConfigured(): Boolean = engine.available && !sessionBroken
+
+    override fun supports(source: Language, target: Language): Boolean = engine.available && !sessionBroken
 
     override fun prepare(source: Language, target: Language): Flow<Float> = flow {
         val route = routeFor(source, target)
@@ -37,7 +44,12 @@ class BergamotTranslationProvider(
         var current = text
         for (pair in routeFor(source, target)) {
             store.ensure(pair).collect { }   // no-op when installed; downloads if prepare() was skipped
-            current = engine.translate(packDir(pair), pair.id, current)
+            current = try {
+                engine.translate(packDir(pair), pair.id, current)
+            } catch (e: OfflineEngineUnavailableException) {
+                sessionBroken = true
+                throw e
+            }
         }
         return current
     }

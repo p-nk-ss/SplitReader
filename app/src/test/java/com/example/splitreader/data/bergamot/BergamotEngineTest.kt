@@ -84,6 +84,23 @@ class BergamotEngineTest {
         assertTrue(err!!.message!!.contains("fake error"))
     }
 
+    /**
+     * The Application field-injects the engine, so resolving the bridge in the constructor would
+     * put System.loadLibrary on the main thread at every cold start. The library must not be
+     * touched until something actually translates — and onTrimMemory must not be what triggers it.
+     */
+    @Test
+    fun `unloadAll before first use never loads the library`() = runTest(dispatcher) {
+        var resolved = 0
+        val e = BergamotEngine({ resolved++; FakeBridge() }, dispatcher)
+
+        e.unloadAll()
+        assertEquals("trimming an untouched engine must not load the native library", 0, resolved)
+
+        e.translate(dir("en-ru"), "en-ru", "hi")
+        assertEquals("the first translation resolves the bridge exactly once", 1, resolved)
+    }
+
     @Test
     fun `a failed load evicts resident models and retries once`() = runTest(dispatcher) {
         val b = FakeBridge(failLoadFor = setOf("en-fr"))

@@ -137,18 +137,18 @@ object TranslatorNetworkModule {
         @IoDispatcher io: CoroutineDispatcher,
     ): BergamotModelStore = BergamotModelStore(File(context.filesDir, "bergamot"), manifest, fetcher, io)
 
-    /** Native calls are not thread-safe, so every model load/translate runs on this one thread. */
+    /**
+     * Native calls are not thread-safe, so every model load/translate runs on this one thread.
+     * The bridge is passed as a lambda, not a value: the Application injects this engine, so
+     * loading the library here would run `System.loadLibrary` on the main thread at every cold
+     * start. The engine resolves it on first use instead.
+     */
     @Provides @Singleton
-    fun provideBergamotEngine(crashReporter: CrashReporter): BergamotEngine {
-        val bridge = JniNativeBridge.loadOrNull {
-            crashReporter.recordNonFatal(it, "bergamot: native library unavailable")
-        }
-        return BergamotEngine(
-            bridge,
-            Executors.newSingleThreadExecutor { Thread(it, "bergamot").apply { isDaemon = true } }
-                .asCoroutineDispatcher(),
-        )
-    }
+    fun provideBergamotEngine(crashReporter: CrashReporter): BergamotEngine = BergamotEngine(
+        { JniNativeBridge.loadOrNull { crashReporter.recordNonFatal(it, "bergamot: native library unavailable") } },
+        Executors.newSingleThreadExecutor { Thread(it, "bergamot").apply { isDaemon = true } }
+            .asCoroutineDispatcher(),
+    )
 
     @Provides @Singleton
     fun provideBergamotProvider(store: BergamotModelStore, engine: BergamotEngine): BergamotTranslationProvider =

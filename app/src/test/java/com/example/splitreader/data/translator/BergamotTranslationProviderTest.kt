@@ -5,6 +5,7 @@ import com.example.splitreader.data.bergamot.NativeBridge
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.translator.InstalledPack
 import com.example.splitreader.domain.translator.ModelPair
+import com.example.splitreader.domain.translator.OfflineEngineUnavailableException
 import com.example.splitreader.domain.translator.OfflineModelStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -63,6 +64,29 @@ class BergamotTranslationProviderTest {
         val p = provider(bridge = null)
         assertFalse(p.isConfigured())
         assertFalse(p.supports(Language.ENGLISH, Language.RUSSIAN))
+    }
+
+    /**
+     * Spec §6: after a native failure the provider must stay unavailable for the session, so the
+     * error copy ("— using ML Kit.") is actually true — resolveProvider then falls back on the
+     * very next paragraph instead of failing again through a broken engine.
+     */
+    @Test
+    fun `a native failure takes the provider out of service for the session`() = runTest(dispatcher) {
+        val deadBridge = object : NativeBridge {
+            override fun load(configYaml: String) = 0L
+            override fun translate(handle: Long, text: String): String? = null
+            override fun unload(handle: Long) = Unit
+            override fun lastError() = "dlopen failed"
+        }
+        val p = provider(bridge = deadBridge)
+        assertTrue("engine looks usable until it actually fails", p.isConfigured())
+
+        val err = runCatching { p.translate("hello", Language.ENGLISH, Language.RUSSIAN) }.exceptionOrNull()
+
+        assertTrue("$err", err is OfflineEngineUnavailableException)
+        assertFalse("a broken engine must not be offered again", p.isConfigured())
+        assertFalse("nor claim to support the pair it just failed", p.supports(Language.ENGLISH, Language.RUSSIAN))
     }
 
     @Test
