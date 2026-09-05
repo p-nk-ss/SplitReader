@@ -112,10 +112,16 @@ class BillingManager @Inject constructor(
                 )
             )
             .build()
-        billingClient.queryProductDetailsAsync(params) { result, details ->
+        billingClient.queryProductDetailsAsync(params) { result, queryResult ->
             if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                productDetails = details.firstOrNull()
-                _formattedPrice.value = productDetails?.oneTimePurchaseOfferDetails?.formattedPrice
+                // PBL 8: the listener receives a QueryProductDetailsResult; products Play could not
+                // fetch (not yet active in the console, wrong id) land in unfetchedProductList.
+                if (queryResult.unfetchedProductList.isNotEmpty()) {
+                    Log.w(TAG, "unfetched products: ${queryResult.unfetchedProductList.map { it.productId }}")
+                }
+                val details = queryResult.productDetailsList.firstOrNull()
+                productDetails = details
+                _formattedPrice.value = details?.premiumOffer()?.formattedPrice
             } else {
                 Log.w(TAG, "queryProductDetails failed: ${result.debugMessage}")
             }
@@ -131,8 +137,11 @@ class BillingManager @Inject constructor(
             _events.tryEmit(PurchaseEvent.StoreNotReady)
             return
         }
+        // One-time products carry purchase options since PBL 7.1 (the console's "buy" option);
+        // the offer token selects which one the sheet sells.
         val productParams = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(details)
+            .apply { details.premiumOffer()?.offerToken?.let { setOfferToken(it) } }
             .build()
         val flowParams = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(productParams))
@@ -212,6 +221,10 @@ class BillingManager @Inject constructor(
     }
 
     private fun Purchase.isPremium() = products.contains(PREMIUM_PRODUCT_ID)
+
+    /** The one-time purchase option to sell: the first (only) offer Play returns for the product. */
+    private fun ProductDetails.premiumOffer(): ProductDetails.OneTimePurchaseOfferDetails? =
+        oneTimePurchaseOfferDetailsList?.firstOrNull()
 
     /**
      * True if the purchase's signature verifies against BILLING_PUBLIC_KEY. Fail-open: when the key
