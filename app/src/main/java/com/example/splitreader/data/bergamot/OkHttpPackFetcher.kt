@@ -5,6 +5,10 @@ import okhttp3.Request
 import java.io.IOException
 import javax.inject.Inject
 
+/**
+ * The store has no stall detector of its own for a silent socket, so [client] must carry a read
+ * timeout (the app's shared OkHttpClient sets 30 s) — that timeout is what bounds a dead connection.
+ */
 class OkHttpPackFetcher @Inject constructor(private val client: OkHttpClient) : PackFetcher {
     override suspend fun fetch(url: String, offset: Long, onChunk: suspend (ByteArray, Int) -> Unit): Long {
         val request = Request.Builder().url(url).apply { if (offset > 0) header("Range", "bytes=$offset-") }.build()

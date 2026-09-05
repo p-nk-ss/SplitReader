@@ -5,6 +5,7 @@ import com.example.splitreader.domain.translator.InsufficientStorageException
 import com.example.splitreader.domain.translator.ModelPair
 import com.example.splitreader.domain.translator.OfflinePackCorruptException
 import com.example.splitreader.domain.translator.OfflinePackDownloadException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -20,6 +21,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.zip.GZIPOutputStream
+import kotlin.coroutines.ContinuationInterceptor
 
 /**
  * The store is the only code that turns a manifest entry into files on disk. Rules under test:
@@ -111,17 +113,20 @@ class BergamotModelStoreTest {
         val err = runCatching { s.ensure(enRu).toList() }.exceptionOrNull()
         assertTrue(err is OfflinePackDownloadException)
         val finalFiles = s.packDir(enRu).listFiles()?.map { it.name }?.filter { !it.endsWith(".part") } ?: emptyList()
-        assertEquals(emptyList<String>(), finalFiles)
+        // Only the version stamp: no model/vocab/shortlist, and above all no installed marker.
+        assertEquals(listOf(BergamotModelStore.STAMP), finalFiles)
     }
 
     @Test
     fun `bad hash is retried once and then succeeds`() = runTest {
         val fetcher = FakeFetcher(corruptModelOnce = true)
         val s = store(fetcher)
-        s.ensure(enRu).toList()
+        val progress = s.ensure(enRu).toList()
         assertTrue(s.isInstalled(enRu))
         // model, model-retry (part deleted → from 0), vocab, shortlist
         assertEquals(listOf(0L, 0L, 0L, 0L), fetcher.offsets)
+        // The retry restarts at offset 0; the bar must not walk back to ~0.09 after reaching ~0.89.
+        assertTrue("progress went backwards: $progress", progress.zipWithNext().all { (a, b) -> b >= a })
     }
 
     @Test
@@ -139,6 +144,7 @@ class BergamotModelStoreTest {
         val err = runCatching { s.ensure(enRu).toList() }.exceptionOrNull()
         assertTrue(err is InsufficientStorageException)
         assertEquals(emptyList<Long>(), fetcher.offsets)
+        assertFalse(s.packDir(enRu).exists())
     }
 
     @Test
@@ -167,6 +173,42 @@ class BergamotModelStoreTest {
         s.delete(enRu)
         assertFalse(s.isInstalled(enRu))
         assertEquals(emptyList<InstalledPackPair>(), s.installed().first().map { it.pair })
+    }
+
+    @Test
+    fun `installed() lists the pack as soon as ensure reaches 1f`() = runTest {
+        // Collect on the store's own dispatcher: flowOn then takes its same-context fast path and
+        // inserts no buffer, so first{} really does cancel the producer at the terminal emit — which
+        // is what a caller that stops at 1f (or navigates away mid-download) does in the app.
+        val dispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+        val s = BergamotModelStore(tmp.root, manifest(), FakeFetcher(), dispatcher, usableSpace = { Long.MAX_VALUE })
+        s.ensure(enRu).first { it >= 1f }
+        assertEquals(listOf(enRu), s.installed().first().map { it.pair })
+    }
+
+    @Test
+    fun `a pack installed under an older manifest version is re-downloaded`() = runTest {
+        val fetcher = FakeFetcher()
+        val s = store(fetcher)
+        val dir = s.packDir(enRu).also { it.mkdirs() }
+        dir.resolve(BergamotModelStore.MODEL).writeBytes("stale v0 model".toByteArray())
+        dir.resolve(BergamotModelStore.MARKER).writeText("0")
+        assertFalse("marker from manifest v0 must not count as installed under v1", s.isInstalled(enRu))
+        s.ensure(enRu).toList()
+        assertTrue("stale pack must be re-downloaded, offsets=${fetcher.offsets}", fetcher.offsets.isNotEmpty())
+        assertTrue(s.isInstalled(enRu))
+        assertEquals(modelBytes.toList(), dir.resolve(BergamotModelStore.MODEL).readBytes().toList())
+    }
+
+    @Test
+    fun `a leftover part file with no matching version stamp is not resumed`() = runTest {
+        val fetcher = FakeFetcher()
+        val s = store(fetcher)
+        s.packDir(enRu).also { it.mkdirs() }
+            .resolve("${BergamotModelStore.MODEL}.gz.part").writeBytes(ByteArray(2048))
+        s.ensure(enRu).toList()
+        assertEquals(0L, fetcher.offsets.first())
+        assertTrue(s.isInstalled(enRu))
     }
 }
 private typealias InstalledPackPair = ModelPair
