@@ -1,5 +1,6 @@
 package com.example.splitreader.presentation.reader
 
+import com.example.splitreader.domain.model.TranslationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -190,18 +191,48 @@ class TranslationPlannerTest {
     // ── shouldTranslate ───────────────────────────────────────────────────
 
     @Test
-    fun `shouldTranslate keeps ML Kit running even when the pane is hidden`() {
-        assertTrue(TranslationPlanner.shouldTranslate(isMlKit = true, translationVisible = false))
-        assertTrue(TranslationPlanner.shouldTranslate(isMlKit = true, translationVisible = true))
+    fun `shouldTranslate keeps a free engine running even when the pane is hidden`() {
+        assertTrue(TranslationPlanner.shouldTranslate(isFreeEngine = true, translationVisible = false))
+        assertTrue(TranslationPlanner.shouldTranslate(isFreeEngine = true, translationVisible = true))
     }
 
     @Test
-    fun `shouldTranslate skips paid providers when the pane is hidden`() {
-        assertFalse(TranslationPlanner.shouldTranslate(isMlKit = false, translationVisible = false))
+    fun `shouldTranslate skips metered providers when the pane is hidden`() {
+        assertFalse(TranslationPlanner.shouldTranslate(isFreeEngine = false, translationVisible = false))
     }
 
     @Test
-    fun `shouldTranslate runs paid providers when the pane is visible`() {
-        assertTrue(TranslationPlanner.shouldTranslate(isMlKit = false, translationVisible = true))
+    fun `shouldTranslate runs metered providers when the pane is visible`() {
+        assertTrue(TranslationPlanner.shouldTranslate(isFreeEngine = false, translationVisible = true))
+    }
+
+    // ── isFreeEngine ──────────────────────────────────────────────────────
+
+    /**
+     * The gate is about quota, not about ML Kit. Offline HQ is on-device and costs nothing to run,
+     * so denying it the background look-ahead only makes it feel slower than the engine it is
+     * meant to beat on quality.
+     */
+    @Test
+    fun `every on-device engine counts as free`() {
+        assertTrue(TranslationPlanner.isFreeEngine(TranslationProvider.MLKIT))
+        assertTrue("Offline HQ is on-device too", TranslationPlanner.isFreeEngine(TranslationProvider.BERGAMOT))
+    }
+
+    @Test
+    fun `every provider that goes over the wire is metered`() {
+        for (p in TranslationProvider.entries.filter { it.requiresNetwork }) {
+            assertFalse(p.name, TranslationPlanner.isFreeEngine(p))
+        }
+    }
+
+    @Test
+    fun `a free engine keeps its look-ahead with the pane hidden`() {
+        assertTrue(
+            "Offline HQ must get the same background look-ahead as ML Kit",
+            TranslationPlanner.shouldTranslate(
+                TranslationPlanner.isFreeEngine(TranslationProvider.BERGAMOT), translationVisible = false,
+            ),
+        )
     }
 }

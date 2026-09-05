@@ -29,12 +29,12 @@ data class TranslationUpdate(
  * always finishes (its result is cached), and after each segment the worker re-reads the latest window
  * and recomputes the plan. So flinging through short chapters never strands half-translated chapters,
  * and scrolling up immediately picks up the newly-visible (earlier) paragraphs — the same pipeline for
- * ML Kit and paid engines, with paid engines simply gated off while the pane is hidden.
+ * on-device and metered engines, with metered engines simply gated off while the pane is hidden.
  */
 class ChapterTranslationManager(
     private val scope: CoroutineScope,
     private val translateTextUseCase: TranslateTextUseCase,
-    private val isMlKit: () -> Boolean,
+    private val isFreeEngine: () -> Boolean,
     private val isTranslationVisible: () -> Boolean,
 ) {
     val updates: SharedFlow<TranslationUpdate> = MutableSharedFlow(
@@ -158,8 +158,8 @@ class ChapterTranslationManager(
         val sizes = book.chapters.map { it.paragraphs.size }
         while (true) {
             val window = latestWindow ?: return
-            // Don't burn paid quota translating text the reader has hidden; ML Kit (free) keeps going.
-            if (!TranslationPlanner.shouldTranslate(isMlKit(), isTranslationVisible())) {
+            // Don't burn metered quota translating text the reader has hidden; on-device engines keep going.
+            if (!TranslationPlanner.shouldTranslate(isFreeEngine(), isTranslationVisible())) {
                 emitState(TranslationState.Idle)
                 return
             }

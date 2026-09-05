@@ -204,7 +204,7 @@ class ReaderViewModel @Inject constructor(
     private val translationManager = ChapterTranslationManager(
         scope = viewModelScope,
         translateTextUseCase = translateTextUseCase,
-        isMlKit = { progressManager.getTranslatorProvider() == TranslationProvider.MLKIT },
+        isFreeEngine = { TranslationPlanner.isFreeEngine(progressManager.getTranslatorProvider()) },
         isTranslationVisible = { progressManager.getShowTranslation() },
     )
     private var selectionTranslateJob: Job? = null

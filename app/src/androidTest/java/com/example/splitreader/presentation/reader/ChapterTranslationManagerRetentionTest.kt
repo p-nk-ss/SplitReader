@@ -72,7 +72,7 @@ class ChapterTranslationManagerRetentionTest {
         val manager = ChapterTranslationManager(
             scope = scope,
             translateTextUseCase = useCase,
-            isMlKit = { true },              // free engine → translates even while we don't toggle the pane
+            isFreeEngine = { true },              // free engine → translates even while we don't toggle the pane
             isTranslationVisible = { true },
         )
         manager.attach(fakeBook(), Language.ENGLISH, Language.RUSSIAN)
