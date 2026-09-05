@@ -1,0 +1,551 @@
+{
+ "version": 1,
+ "generated": "2026-09-05T00:44:43Z",
+ "baseUrl": "https://storage.googleapis.com/moz-fx-translations-data--303e-prod-translations-data",
+ "packs": [
+  {
+   "source": "en",
+   "target": "uk",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-uk/docmt-vocab_a2OVwdI-Sg-SBZ_0Joqb0w/exported/model.enuk.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "ed8bb4a811e1c45a259e91052080d25e5c8b4e2df0e59cb1521c04a57855ef97"
+   },
+   "vocab": {
+    "path": "models/en-uk/docmt-vocab_a2OVwdI-Sg-SBZ_0Joqb0w/exported/vocab.enuk.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-uk/docmt-vocab_a2OVwdI-Sg-SBZ_0Joqb0w/exported/lex.50.50.enuk.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "uk",
+   "target": "en",
+   "architecture": "tiny",
+   "model": {
+    "path": "models/uk-en/spring-2024_WEPBsc-zQWSDn34b5KFscw/exported/model.uken.intgemm.alphas.bin.gz",
+    "size": 17141051,
+    "sha256": "2e7b8bc9d2569d8b4ae244e964cdc343a0aa3735cc83ecb664be84a37cb45f48"
+   },
+   "vocab": {
+    "path": "models/uk-en/spring-2024_WEPBsc-zQWSDn34b5KFscw/exported/vocab.uken.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/uk-en/spring-2024_WEPBsc-zQWSDn34b5KFscw/exported/lex.50.50.uken.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "de",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-de/retrain_hr_fix_names_SCgGhxUPQ2WAECHLRtzrMg/exported/model.ende.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "8df29d9494d19f47fd5d97c6a73474c6f657e9f81c1a607c431d02befdf3810f"
+   },
+   "vocab": {
+    "path": "models/en-de/retrain_hr_fix_names_SCgGhxUPQ2WAECHLRtzrMg/exported/vocab.ende.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-de/retrain_hr_fix_names_SCgGhxUPQ2WAECHLRtzrMg/exported/lex.50.50.ende.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "de",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/de-en/retrain_hr2_WZOW24i4QJmIib61LeHfwg/exported/model.deen.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "3e6f7c2c2425d10824797270b382bee718ff34af2cab9308841c82ca46dc6f20"
+   },
+   "vocab": {
+    "path": "models/de-en/retrain_hr2_WZOW24i4QJmIib61LeHfwg/exported/vocab.deen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/de-en/retrain_hr2_WZOW24i4QJmIib61LeHfwg/exported/lex.50.50.deen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "fr",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-fr/retrain_hr_NLIxDbE1TBGyOTI-zwZagw/exported/model.enfr.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "6322e296d4fecfe395a8d5723da4ec37ecbe6d7613bb1dfcf4b28e2a47498b68"
+   },
+   "vocab": {
+    "path": "models/en-fr/retrain_hr_NLIxDbE1TBGyOTI-zwZagw/exported/vocab.enfr.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-fr/retrain_hr_NLIxDbE1TBGyOTI-zwZagw/exported/lex.50.50.enfr.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "fr",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/fr-en/retrain_hr_EFgIftH_RrCyzl5gjemVNg/exported/model.fren.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "15f997bc0d13808b0b0fbd0786e684a3c8a52adcd8071844b76123fdacbf2b90"
+   },
+   "vocab": {
+    "path": "models/fr-en/retrain_hr_EFgIftH_RrCyzl5gjemVNg/exported/vocab.fren.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/fr-en/retrain_hr_EFgIftH_RrCyzl5gjemVNg/exported/lex.50.50.fren.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "es",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-es/retrain_hr_fix_names_CUAEXUHoQum_cFqh-ZAryw/exported/model.enes.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "3b1c399511c01c84c36fae5c0524df44096288efdc8236e182b5c97d7ad2244c"
+   },
+   "vocab": {
+    "path": "models/en-es/retrain_hr_fix_names_CUAEXUHoQum_cFqh-ZAryw/exported/vocab.enes.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-es/retrain_hr_fix_names_CUAEXUHoQum_cFqh-ZAryw/exported/lex.50.50.enes.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "es",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/es-en/retrain_hr_HbNjJ60BTwmVTbhfFxuduA/exported/model.esen.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "4aed7734152ae0045d1a69ae49c86cfda18f53c61f90e95e1d1de1c7c7c3b033"
+   },
+   "vocab": {
+    "path": "models/es-en/retrain_hr_HbNjJ60BTwmVTbhfFxuduA/exported/vocab.esen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/es-en/retrain_hr_HbNjJ60BTwmVTbhfFxuduA/exported/lex.50.50.esen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "it",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-it/retrain_hr_fix_names_GPSr_u8PSmC9fOx1ZDCHoA/exported/model.enit.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "248f47568788ecc351da7e5e07064d4153b4f71e011364ae2c931ffeec4d1cc2"
+   },
+   "vocab": {
+    "path": "models/en-it/retrain_hr_fix_names_GPSr_u8PSmC9fOx1ZDCHoA/exported/vocab.enit.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-it/retrain_hr_fix_names_GPSr_u8PSmC9fOx1ZDCHoA/exported/lex.50.50.enit.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "it",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/it-en/retrain_hr_d1nPDwVeSD6t-HdtWA4xNg/exported/model.iten.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "21b70978ce2f3b4da7a06b5de86a09abe3acd30b9eee1b2ebb3582b9bad790bf"
+   },
+   "vocab": {
+    "path": "models/it-en/retrain_hr_d1nPDwVeSD6t-HdtWA4xNg/exported/vocab.iten.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/it-en/retrain_hr_d1nPDwVeSD6t-HdtWA4xNg/exported/lex.50.50.iten.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "pt",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-pt/retrain_hr_fix_names_Vnb0RUXTTd67hR-oLHM3eg/exported/model.enpt.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "07892fd2544ee79dcb643615d8f2debb9793fae16842e87c328e27a3dd26a770"
+   },
+   "vocab": {
+    "path": "models/en-pt/retrain_hr_fix_names_Vnb0RUXTTd67hR-oLHM3eg/exported/vocab.enpt.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-pt/retrain_hr_fix_names_Vnb0RUXTTd67hR-oLHM3eg/exported/lex.50.50.enpt.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "pt",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/pt-en/retrain_hr_drxrs5bGSsOWvfK9lyZISw/exported/model.pten.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "7b854f1ec5a485dd33efd7c1bc01dd7d5a57f566957c5e47722af333f0ce9157"
+   },
+   "vocab": {
+    "path": "models/pt-en/retrain_hr_drxrs5bGSsOWvfK9lyZISw/exported/vocab.pten.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/pt-en/retrain_hr_drxrs5bGSsOWvfK9lyZISw/exported/lex.50.50.pten.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "nl",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-nl/retrain_hr_fix_names_fR8XhBiBQniIbi4I_ebJ2Q/exported/model.ennl.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "7e8402da61972dc2fdcf7147c7f1e12f7916a6d9349514ee7a731288357575a9"
+   },
+   "vocab": {
+    "path": "models/en-nl/retrain_hr_fix_names_fR8XhBiBQniIbi4I_ebJ2Q/exported/vocab.ennl.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-nl/retrain_hr_fix_names_fR8XhBiBQniIbi4I_ebJ2Q/exported/lex.50.50.ennl.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "nl",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/nl-en/retrain_hr_JbTCb42HREGvK8d6aOCjFQ/exported/model.nlen.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "ff987741ff15a5d94fff16cbef28f2b0a85a6e9547d982fad60ac09d16d11270"
+   },
+   "vocab": {
+    "path": "models/nl-en/retrain_hr_JbTCb42HREGvK8d6aOCjFQ/exported/vocab.nlen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/nl-en/retrain_hr_JbTCb42HREGvK8d6aOCjFQ/exported/lex.50.50.nlen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "pl",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-pl/retrain_hr_fix_names_YmTlfuUsSKCbUp75UXaUuw/exported/model.enpl.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "b0b59716bcc8f46b8dc6ab5c32a2732acaad42a5a6d9ae9b472526a1bb0d71d4"
+   },
+   "vocab": {
+    "path": "models/en-pl/retrain_hr_fix_names_YmTlfuUsSKCbUp75UXaUuw/exported/vocab.enpl.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-pl/retrain_hr_fix_names_YmTlfuUsSKCbUp75UXaUuw/exported/lex.50.50.enpl.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "pl",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/pl-en/retrain_hr_HLLa6ZwsSomB0kyBr7Iz6w/exported/model.plen.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "06dbab3baa3bbceab746bc6a3bba807878f38536382c03acddf59d3edf3b5d94"
+   },
+   "vocab": {
+    "path": "models/pl-en/retrain_hr_HLLa6ZwsSomB0kyBr7Iz6w/exported/vocab.plen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/pl-en/retrain_hr_HLLa6ZwsSomB0kyBr7Iz6w/exported/lex.50.50.plen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "zh",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-zh/llmaat_finetune10M_qe8_f2_ByQcSxGXQRqGi-UTxYE43g/exported/model.enzh.intgemm.alphas.bin.gz",
+    "size": 43849787,
+    "sha256": "4e5accc141373565ddc8fa1565bceaa8d0c3482a82cab8131c719ebcc6c2157c"
+   },
+   "vocab": {
+    "path": "models/en-zh/llmaat_finetune10M_qe8_f2_ByQcSxGXQRqGi-UTxYE43g/exported/trgvocab.enzh.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-zh/llmaat_finetune10M_qe8_f2_ByQcSxGXQRqGi-UTxYE43g/exported/lex.50.50.enzh.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "zh",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/zh-en/cjk_retrain_base-memory_cNY_yaJCStGwnTeXgW8A5w/exported/model.zhen.intgemm.alphas.bin.gz",
+    "size": 43977787,
+    "sha256": "5cd149601802fc8a18124a1c1306144dbbedc058630c4ddb2d53aa76fa9c7c06"
+   },
+   "vocab": {
+    "path": "models/zh-en/cjk_retrain_base-memory_cNY_yaJCStGwnTeXgW8A5w/exported/vocab.zhen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/zh-en/cjk_retrain_base-memory_cNY_yaJCStGwnTeXgW8A5w/exported/lex.50.50.zhen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "ja",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-ja/llmaat_finetune10M_qe8_f2_ApiGGQIwTKuF9i_k3n9Q2Q/exported/model.enja.intgemm.alphas.bin.gz",
+    "size": 43849787,
+    "sha256": "59ae659f9bb63e4f81f474fe3c03d3f4499434b5f9e779fab7c12a45f31fd562"
+   },
+   "vocab": {
+    "path": "models/en-ja/llmaat_finetune10M_qe8_f2_ApiGGQIwTKuF9i_k3n9Q2Q/exported/trgvocab.enja.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-ja/llmaat_finetune10M_qe8_f2_ApiGGQIwTKuF9i_k3n9Q2Q/exported/lex.50.50.enja.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "ja",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/ja-en/cjk_retrain_base-memory_NLRJLD_pQFyrvgKtbie2nA/exported/model.jaen.intgemm.alphas.bin.gz",
+    "size": 43977787,
+    "sha256": "3a603e20bfe1be86071913f9e23ab5129075bc0a8490151020ac4821e4f17302"
+   },
+   "vocab": {
+    "path": "models/ja-en/cjk_retrain_base-memory_NLRJLD_pQFyrvgKtbie2nA/exported/vocab.jaen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/ja-en/cjk_retrain_base-memory_NLRJLD_pQFyrvgKtbie2nA/exported/lex.50.50.jaen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "ko",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-ko/cjk_retrain_base-memory_GP50C3MpQ9apCWZOW-f3PA/exported/model.enko.intgemm.alphas.bin.gz",
+    "size": 43849787,
+    "sha256": "ffe5ef2ce3f2e944055e35310bab186f6a70d533a0ee4394adf716a0e383afbb"
+   },
+   "vocab": {
+    "path": "models/en-ko/cjk_retrain_base-memory_GP50C3MpQ9apCWZOW-f3PA/exported/trgvocab.enko.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-ko/cjk_retrain_base-memory_GP50C3MpQ9apCWZOW-f3PA/exported/lex.50.50.enko.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "ko",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/ko-en/cjk_retrain_base-memory_QgYNtG3BTzKBFSV1wl06Pg/exported/model.koen.intgemm.alphas.bin.gz",
+    "size": 43977787,
+    "sha256": "7cb30cbc0a86e242084756445268a2346136771c92b884d9b4ebb077f67d5507"
+   },
+   "vocab": {
+    "path": "models/ko-en/cjk_retrain_base-memory_QgYNtG3BTzKBFSV1wl06Pg/exported/vocab.koen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/ko-en/cjk_retrain_base-memory_QgYNtG3BTzKBFSV1wl06Pg/exported/lex.50.50.koen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "ar",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-ar/retrain_base-memory_G3CmhwG_TZext3cys-udHg/exported/model.enar.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "ae659d7045fc2e5d6ba50583586a5d94ee4358d92c019847e37b57a0e627faa8"
+   },
+   "vocab": {
+    "path": "models/en-ar/retrain_base-memory_G3CmhwG_TZext3cys-udHg/exported/vocab.enar.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-ar/retrain_base-memory_G3CmhwG_TZext3cys-udHg/exported/lex.50.50.enar.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "ar",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/ar-en/retrain_base-memory_X9fDxFreTOCslPKzb1CXTg/exported/model.aren.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "7b7af0282dc5f4d8805b9a298c2fa828967e3f09ca10f1942ebeea0b2cfc12fa"
+   },
+   "vocab": {
+    "path": "models/ar-en/retrain_base-memory_X9fDxFreTOCslPKzb1CXTg/exported/vocab.aren.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/ar-en/retrain_base-memory_X9fDxFreTOCslPKzb1CXTg/exported/lex.50.50.aren.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "hi",
+   "architecture": "tiny",
+   "model": {
+    "path": "models/en-hi/h1-2025_KoJuCNf_Q42R2Bz6j2jlOQ/exported/model.enhi.intgemm.alphas.bin.gz",
+    "size": 17141051,
+    "sha256": "18682fa6aa1c1b2f78a6fcbcb354755094d623e65436ef7821720c5213e11a49"
+   },
+   "vocab": {
+    "path": "models/en-hi/h1-2025_KoJuCNf_Q42R2Bz6j2jlOQ/exported/vocab.enhi.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-hi/h1-2025_KoJuCNf_Q42R2Bz6j2jlOQ/exported/lex.50.50.enhi.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "hi",
+   "target": "en",
+   "architecture": "tiny",
+   "model": {
+    "path": "models/hi-en/h1-2025_IcUQD-GbSJWB6WV08oDoEw/exported/model.hien.intgemm.alphas.bin.gz",
+    "size": 17141051,
+    "sha256": "c82fd6ed3794b79fb9dde0718a22324502a408a9eca73497b5d0a4b8024ec6de"
+   },
+   "vocab": {
+    "path": "models/hi-en/h1-2025_IcUQD-GbSJWB6WV08oDoEw/exported/vocab.hien.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/hi-en/h1-2025_IcUQD-GbSJWB6WV08oDoEw/exported/lex.50.50.hien.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "tr",
+   "architecture": "tiny",
+   "model": {
+    "path": "models/en-tr/spring-2024_LiFGeNrEQpKdNlziG2qP_A/exported/model.entr.intgemm.alphas.bin.gz",
+    "size": 17141051,
+    "sha256": "ea3cd4ee09de190df265c78d84260e277a9a8a3ddff05eb55d72afe7fc0fdbf4"
+   },
+   "vocab": {
+    "path": "models/en-tr/spring-2024_LiFGeNrEQpKdNlziG2qP_A/exported/vocab.entr.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-tr/spring-2024_LiFGeNrEQpKdNlziG2qP_A/exported/lex.50.50.entr.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "tr",
+   "target": "en",
+   "architecture": "tiny",
+   "model": {
+    "path": "models/tr-en/statmt_xxxxxxxxRxSxxxxxxxxxxA/exported/model.tren.intgemm.alphas.bin.gz",
+    "size": 17140836,
+    "sha256": "bd18594ac5a7f1d9997e7ea5bd80272082219cf8b1ce604766e4f207eb86abbf"
+   },
+   "vocab": {
+    "path": "models/tr-en/statmt_xxxxxxxxRxSxxxxxxxxxxA/exported/vocab.tren.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/tr-en/statmt_xxxxxxxxRxSxxxxxxxxxxA/exported/lex.50.50.tren.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "sv",
+   "architecture": "tiny",
+   "model": {
+    "path": "models/en-sv/spring-2024_bQQme71PS4eZRDl3NM-kgA/exported/model.ensv.intgemm.alphas.bin.gz",
+    "size": 17141051,
+    "sha256": "65ea0db8e658435846f297384face62dbf1804cfc92de8388b0e368e6ecc25a7"
+   },
+   "vocab": {
+    "path": "models/en-sv/spring-2024_bQQme71PS4eZRDl3NM-kgA/exported/vocab.ensv.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-sv/spring-2024_bQQme71PS4eZRDl3NM-kgA/exported/lex.50.50.ensv.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "sv",
+   "target": "en",
+   "architecture": "tiny",
+   "model": {
+    "path": "models/sv-en/spring-2024_ObaRXwXeSW6HA_-J5_dE-g/exported/model.sven.intgemm.alphas.bin.gz",
+    "size": 17141051,
+    "sha256": "92d79e2725718b84aed486473bdfcbe6bba3e7094922d4bead8a121cfa346372"
+   },
+   "vocab": {
+    "path": "models/sv-en/spring-2024_ObaRXwXeSW6HA_-J5_dE-g/exported/vocab.sven.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/sv-en/spring-2024_ObaRXwXeSW6HA_-J5_dE-g/exported/lex.50.50.sven.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "cs",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-cs/retrain_hr_F_JF0vqvSjSwn3caQQcicA/exported/model.encs.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "1d7855f91c3e2b8ef79fbea62707d46ceb8a1ad01834ef6dd500f32a7006cc2c"
+   },
+   "vocab": {
+    "path": "models/en-cs/retrain_hr_F_JF0vqvSjSwn3caQQcicA/exported/vocab.encs.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-cs/retrain_hr_F_JF0vqvSjSwn3caQQcicA/exported/lex.50.50.encs.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "cs",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/cs-en/retrain_hr_EwWhUov8TP6D_oolATvbUA/exported/model.csen.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "c815273b31074492eaab0ccd78d33d7ac16f94088707ab2492abaedcb9ee0b75"
+   },
+   "vocab": {
+    "path": "models/cs-en/retrain_hr_EwWhUov8TP6D_oolATvbUA/exported/vocab.csen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/cs-en/retrain_hr_EwWhUov8TP6D_oolATvbUA/exported/lex.50.50.csen.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "en",
+   "target": "ru",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/en-ru/retrain_base-memory_KJ23-iDVTcymG1ZldWY17w/exported/model.enru.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "184cb5cda528eeefc0f75f5d0035d787b71d74af135e3c5608d01ae02ecfb920"
+   },
+   "vocab": {
+    "path": "models/en-ru/retrain_base-memory_KJ23-iDVTcymG1ZldWY17w/exported/vocab.enru.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/en-ru/retrain_base-memory_KJ23-iDVTcymG1ZldWY17w/exported/lex.50.50.enru.s2t.bin.gz"
+   }
+  },
+  {
+   "source": "ru",
+   "target": "en",
+   "architecture": "base-memory",
+   "model": {
+    "path": "models/ru-en/next26_RSpwfHrcSUC_rKTnhOEXzw/exported/model.ruen.intgemm.alphas.bin.gz",
+    "size": 31561787,
+    "sha256": "aa0efa194b3dbd2da129ba0b8db8ef139126cb0914e57072f62061294746f1e2"
+   },
+   "vocab": {
+    "path": "models/ru-en/next26_RSpwfHrcSUC_rKTnhOEXzw/exported/vocab.ruen.spm.gz"
+   },
+   "shortlist": {
+    "path": "models/ru-en/next26_RSpwfHrcSUC_rKTnhOEXzw/exported/lex.50.50.ruen.s2t.bin.gz"
+   }
+  }
+ ]
+}

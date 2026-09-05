@@ -52,3 +52,7 @@
 # JNI resolves these by name; the class and its native methods must keep their names.
 -keep class com.example.splitreader.data.bergamot.BergamotNative { *; }
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
+# Gson reads the pinned manifest by reflection.
+-keep class com.example.splitreader.data.bergamot.BergamotManifest { *; }
+-keep class com.example.splitreader.data.bergamot.ManifestPack { *; }
+-keep class com.example.splitreader.data.bergamot.ManifestFile { *; }
