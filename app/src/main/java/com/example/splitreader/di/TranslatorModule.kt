@@ -151,8 +151,11 @@ object TranslatorNetworkModule {
     )
 
     @Provides @Singleton
-    fun provideBergamotProvider(store: BergamotModelStore, engine: BergamotEngine): BergamotTranslationProvider =
-        BergamotTranslationProvider(store, engine, store::packDir)
+    fun provideBergamotProvider(
+        store: BergamotModelStore,
+        engine: BergamotEngine,
+        manifest: BergamotManifest,
+    ): BergamotTranslationProvider = BergamotTranslationProvider(store, engine, manifest, store::packDir)
 }
 
 @Module

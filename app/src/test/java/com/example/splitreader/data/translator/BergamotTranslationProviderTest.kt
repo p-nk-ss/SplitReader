@@ -1,6 +1,9 @@
 package com.example.splitreader.data.translator
 
 import com.example.splitreader.data.bergamot.BergamotEngine
+import com.example.splitreader.data.bergamot.BergamotManifest
+import com.example.splitreader.data.bergamot.ManifestFile
+import com.example.splitreader.data.bergamot.ManifestPack
 import com.example.splitreader.data.bergamot.NativeBridge
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.translator.InstalledPack
@@ -38,8 +41,25 @@ class BergamotTranslationProviderTest {
         override fun lastError() = ""
     }
     private val dispatcher = StandardTestDispatcher()
-    private fun provider(store: FakeStore = FakeStore(), bridge: NativeBridge? = EchoBridge()) =
-        BergamotTranslationProvider(store, BergamotEngine(bridge, dispatcher)) { File("/packs/${it.id}") }
+
+    /** Every en↔lang pair the app supports, which is what the pinned manifest actually ships. */
+    private fun manifestOf(pairs: List<Pair<String, String>>) = BergamotManifest(
+        version = 1, baseUrl = "https://bucket",
+        packs = pairs.map { (s, t) ->
+            ManifestPack(s, t, "base-memory", ManifestFile("m"), ManifestFile("v"), null, ManifestFile("l"))
+        },
+    )
+
+    private fun fullManifest() = manifestOf(
+        Language.entries.filter { it != Language.ENGLISH }
+            .flatMap { listOf("en" to it.code, it.code to "en") },
+    )
+
+    private fun provider(
+        store: FakeStore = FakeStore(),
+        bridge: NativeBridge? = EchoBridge(),
+        manifest: BergamotManifest = fullManifest(),
+    ) = BergamotTranslationProvider(store, BergamotEngine(bridge, dispatcher), manifest) { File("/packs/${it.id}") }
 
     @Test
     fun `direct pair runs one model`() = runTest(dispatcher) {
@@ -93,5 +113,48 @@ class BergamotTranslationProviderTest {
     fun `available engine supports every pair in the language enum`() {
         val p = provider()
         for (s in Language.entries) for (t in Language.entries) if (s != t) assertTrue("${s.code}→${t.code}", p.supports(s, t))
+    }
+
+    /**
+     * Spec §6's retirement is for a *broken* engine, not a bad minute. A single failed native call
+     * on an otherwise healthy engine must not cost the reader the provider for the whole session —
+     * the engine still has room to work in, so the next paragraph gets another go.
+     */
+    @Test
+    fun `a recoverable native failure leaves the provider in service`() = runTest(dispatcher) {
+        val flaky = object : NativeBridge {
+            private var next = 1L; private val keys = mutableMapOf<Long, String>(); private var failedOnce = false
+            override fun load(configYaml: String): Long {
+                val key = Regex("/([a-z]{2}-[a-z]{2})/").find(configYaml)!!.groupValues[1]
+                return (next++).also { keys[it] = key }
+            }
+            override fun translate(handle: Long, text: String): String? {
+                if (!failedOnce) { failedOnce = true; return null }
+                return "[${keys[handle]}]$text"
+            }
+            override fun unload(handle: Long) { keys.remove(handle) }
+            override fun lastError() = "transient"
+        }
+        val p = provider(bridge = flaky)
+
+        val err = runCatching { p.translate("hello", Language.ENGLISH, Language.RUSSIAN) }.exceptionOrNull()
+        assertTrue("$err", err is OfflineEngineUnavailableException)
+
+        assertTrue("one bad call must not retire a healthy engine", p.isConfigured())
+        assertEquals("[en-ru]hello", p.translate("hello", Language.ENGLISH, Language.RUSSIAN))
+    }
+
+    /**
+     * The pivot needs *both* legs. Claiming support for a pair the pinned manifest cannot supply
+     * sends the reader into a download that ends in "not in manifest" instead of quietly leaving
+     * the pair to ML Kit.
+     */
+    @Test
+    fun `supports only pairs whose whole route is in the manifest`() {
+        val p = provider(manifest = manifestOf(listOf("en" to "de", "de" to "en", "ru" to "en")))
+        assertFalse("en-ru is missing", p.supports(Language.ENGLISH, Language.RUSSIAN))
+        assertTrue(p.supports(Language.ENGLISH, Language.GERMAN))
+        assertTrue("ru→de pivots through en and both legs exist", p.supports(Language.RUSSIAN, Language.GERMAN))
+        assertFalse("de→ru needs the missing en-ru leg", p.supports(Language.GERMAN, Language.RUSSIAN))
     }
 }

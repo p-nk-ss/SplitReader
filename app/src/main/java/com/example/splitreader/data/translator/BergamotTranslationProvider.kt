@@ -1,6 +1,7 @@
 package com.example.splitreader.data.translator
 
 import com.example.splitreader.data.bergamot.BergamotEngine
+import com.example.splitreader.data.bergamot.BergamotManifest
 import com.example.splitreader.data.bergamot.routeFor
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
@@ -19,19 +20,31 @@ import java.io.File
 class BergamotTranslationProvider(
     private val store: OfflineModelStore,
     private val engine: BergamotEngine,
+    private val manifest: BergamotManifest,
     private val packDir: (ModelPair) -> File,
 ) : TranslationProviderApi {
     override val id: TranslationProvider = TranslationProvider.BERGAMOT
 
     /**
-     * Spec §6: one native failure retires the provider for the rest of the process. The error copy
-     * promises a fallback to ML Kit, and `resolveProvider` only delivers it while this reads false.
+     * Spec §6: a *terminal* native failure retires the provider for the rest of the process. The
+     * error copy promises a fallback to ML Kit, and `resolveProvider` only delivers it while this
+     * reads false.
+     *
+     * Terminal means there is nothing smaller left to try: the library is missing ([BergamotEngine.available]
+     * false), or the engine failed while already [BergamotEngine.degraded] — down to one resident model,
+     * having already evicted everything and retried. A failure on a healthy engine is a bad minute
+     * (a transient OOM, one native call returning null) and costs the reader that paragraph only.
      */
     @Volatile private var sessionBroken = false
 
     override fun isConfigured(): Boolean = engine.available && !sessionBroken
 
-    override fun supports(source: Language, target: Language): Boolean = engine.available && !sessionBroken
+    /**
+     * Both legs of a pivot must be pinned, or the reader is sent into a download that ends in
+     * "not in manifest" for a pair ML Kit could have handled quietly.
+     */
+    override fun supports(source: Language, target: Language): Boolean =
+        engine.available && !sessionBroken && routeFor(source, target).all { manifest.find(it) != null }
 
     override fun prepare(source: Language, target: Language): Flow<Float> = flow {
         val route = routeFor(source, target)
@@ -47,7 +60,7 @@ class BergamotTranslationProvider(
             current = try {
                 engine.translate(packDir(pair), pair.id, current)
             } catch (e: OfflineEngineUnavailableException) {
-                sessionBroken = true
+                if (!engine.available || engine.degraded) sessionBroken = true
                 throw e
             }
         }

@@ -28,7 +28,7 @@ class BergamotEngineDeviceTest {
     private val store = BergamotModelStore(File(context.filesDir, "bergamot-test"), manifest, OkHttpPackFetcher(client), Dispatchers.IO)
     private val bridge = JniNativeBridge.loadOrNull { throw it }
     private val engine = BergamotEngine(bridge, Dispatchers.Default)
-    private val provider = BergamotTranslationProvider(store, engine, store::packDir)
+    private val provider = BergamotTranslationProvider(store, engine, manifest, store::packDir)
 
     /** Ordinary multi-sentence prose: Bergamot's latency tracks the longest sentence, so a single run-on sentence of the same length costs ~2× (spike doc). */
     private val paragraph = ("It was the best of times. It was the worst of times. It was the age of wisdom, and it was the age of " +
