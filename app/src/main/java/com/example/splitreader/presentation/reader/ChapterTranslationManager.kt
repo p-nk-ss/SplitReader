@@ -224,7 +224,7 @@ class ChapterTranslationManager(
                     }
                     sink.tryEmit(TranslationUpdate(snapshot, currentState))
                 }
-                is TranslationState.DownloadingModel -> if (foreground) emitState(TranslationState.DownloadingModel)
+                is TranslationState.DownloadingModel -> if (foreground) emitState(state)
                 is TranslationState.Error -> {
                     if (foreground) emitState(state)
                     failed = true

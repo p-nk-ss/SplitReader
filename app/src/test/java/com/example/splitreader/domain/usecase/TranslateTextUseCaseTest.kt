@@ -6,11 +6,17 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.TranslationRepository
+import com.example.splitreader.domain.translator.ModelPair
+import com.example.splitreader.domain.translator.OfflineEngineUnavailableException
+import com.example.splitreader.domain.translator.OfflinePackDownloadException
 import java.io.IOException
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.HttpException
 import retrofit2.Response
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -32,6 +38,7 @@ private class FakeTranslationRepository(
     private val failOn: Set<String> = emptySet(),
     private val transientFailures: MutableMap<String, Int> = mutableMapOf(),
     private val error: (String) -> Exception = { IOException("network hiccup on $it") },
+    private val prepareProgress: List<Float> = emptyList(),
 ) : TranslationRepository {
     val calls = mutableListOf<String>()
 
@@ -45,6 +52,9 @@ private class FakeTranslationRepository(
         if (text in failOn) throw error(text)
         return "t:$text"
     }
+
+    override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> =
+        prepareProgress.asFlow()
 
     override suspend fun cachedCount() = 0
 
@@ -157,6 +167,7 @@ class TranslateTextUseCaseTest {
                 if (text == "b") throw kotlinx.coroutines.CancellationException("worker cancelled")
                 return "t:$text"
             }
+            override fun prepare(sourceLanguage: Language, targetLanguage: Language) = emptyFlow<Float>()
             override suspend fun cachedCount() = 0
             override suspend fun clearCache() = Unit
         }
@@ -234,5 +245,61 @@ class TranslateTextUseCaseTest {
         val partials = states.filterIsInstance<TranslationState.Partial>()
         assertEquals(listOf(0 to "t:a", 1 to "t:b"), partials.map { it.index to it.text })
         assertEquals(0, states.count { it is TranslationState.Error })
+    }
+
+    @Test
+    fun `offline providers emit DownloadingModel with forwarded progress before translating`() = runTest {
+        val repo = FakeTranslationRepository(prepareProgress = listOf(0.25f, 1f))
+        val states = useCase(repo, TranslationProvider.BERGAMOT)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        ).toList()
+
+        assertEquals(
+            listOf(
+                TranslationState.DownloadingModel(null),
+                TranslationState.DownloadingModel(0.25f),
+                TranslationState.DownloadingModel(1f),
+            ),
+            states.filterIsInstance<TranslationState.DownloadingModel>(),
+        )
+        assertTrue(states.any { it is TranslationState.Partial })
+    }
+
+    @Test
+    fun `online providers never emit DownloadingModel`() = runTest {
+        val states = useCase(FakeTranslationRepository(), TranslationProvider.QUICK_TRANSLATE)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        ).toList()
+
+        assertTrue(states.none { it is TranslationState.DownloadingModel })
+    }
+
+    @Test
+    fun `pack download failure is worded with the pair and size`() = runTest {
+        val repo = FakeTranslationRepository(
+            failOn = setOf("a"),
+            error = { OfflinePackDownloadException(ModelPair(Language.ENGLISH, Language.RUSSIAN), 31_561_787) },
+        )
+        val err = useCase(repo, TranslationProvider.BERGAMOT)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        ).toList().last() as TranslationState.Error
+
+        assertEquals(
+            "Couldn't download the Offline HQ language pack (en→ru, 31 MB). Check your internet and retry.",
+            err.message,
+        )
+    }
+
+    @Test
+    fun `engine unavailable is worded as a fallback to ML Kit`() = runTest {
+        val repo = FakeTranslationRepository(
+            failOn = setOf("a"),
+            error = { OfflineEngineUnavailableException("dlopen") },
+        )
+        val err = useCase(repo, TranslationProvider.BERGAMOT)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        ).toList().last() as TranslationState.Error
+
+        assertEquals("Offline HQ isn't available on this device — using ML Kit.", err.message)
     }
 }

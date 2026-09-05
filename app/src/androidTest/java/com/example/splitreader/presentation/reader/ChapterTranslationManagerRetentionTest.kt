@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.emptyFlow
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -53,6 +54,8 @@ class ChapterTranslationManagerRetentionTest {
     private val fakeRepo = object : TranslationRepository {
         override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String =
             "<<$text>>"
+
+        override fun prepare(sourceLanguage: Language, targetLanguage: Language) = emptyFlow<Float>()
 
         override suspend fun cachedCount(): Int = 0
 

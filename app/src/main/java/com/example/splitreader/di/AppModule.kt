@@ -1,5 +1,6 @@
 package com.example.splitreader.di
 
+import com.example.splitreader.data.bergamot.BergamotModelStore
 import com.example.splitreader.data.local.ApiKeyManager
 import com.example.splitreader.data.local.ReadingProgressManager
 import com.example.splitreader.data.local.TextToSpeechManager
@@ -22,6 +23,7 @@ import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.repository.TranslatorKeyStore
+import com.example.splitreader.domain.translator.OfflineModelStore
 import com.example.splitreader.domain.IoDispatcher
 import dagger.Module
 import dagger.Provides
@@ -70,4 +72,7 @@ object AppModule {
 
     @Provides @Singleton
     fun provideTranslatorEndpointStore(impl: TranslatorEndpoints): TranslatorEndpointStore = impl
+
+    @Provides @Singleton
+    fun provideOfflineModelStore(impl: BergamotModelStore): OfflineModelStore = impl
 }

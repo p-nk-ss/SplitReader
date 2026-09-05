@@ -53,6 +53,15 @@ class BergamotModelStore(
 
     fun packDir(pair: ModelPair): File = File(rootDir, pair.id)
 
+    /**
+     * [File.getUsableSpace] reports 0 for a path that does not exist, and on a first run neither
+     * the pack directory nor [rootDir] does — measuring those would refuse every first download on
+     * a device with gigabytes free. Walk up to a directory that exists to probe the filesystem
+     * without creating anything.
+     */
+    private fun nearestExisting(dir: File): File =
+        generateSequence(dir) { it.parentFile }.firstOrNull { it.exists() } ?: dir
+
     override fun isInstalled(pair: ModelPair): Boolean = isInstalled(packDir(pair))
 
     override fun installed(): Flow<List<InstalledPack>> = installedFlow
@@ -63,7 +72,7 @@ class BergamotModelStore(
             ?: throw OfflinePackDownloadException(pair, 0, IllegalStateException("not in manifest"))
         val needed = (entry.model.size ?: 0L) * 2
         // Checked before the directory is created, so a refused download leaves nothing behind.
-        if (usableSpace(rootDir) < needed) throw InsufficientStorageException(needed)
+        if (usableSpace(nearestExisting(rootDir)) < needed) throw InsufficientStorageException(needed)
 
         val dir = packDir(pair)
         if (!stampMatches(dir)) dir.deleteRecursively()   // leftovers from another manifest version

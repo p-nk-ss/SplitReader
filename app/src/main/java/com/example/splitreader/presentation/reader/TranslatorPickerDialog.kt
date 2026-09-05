@@ -66,7 +66,10 @@ internal fun TranslatorPickerDialog(
     val sp = LocalSpacing.current
 
     EditorialDialog(eyebrow = "Translator", title = "Choose provider", onDismiss = onDismiss) {
-        val free = TranslationProvider.entries.filter { it.category == TranslationProviderCategory.FREE }
+        // Spec §7: a provider that cannot run on this device (Offline HQ with no native library)
+        // is hidden rather than offered and then silently substituted.
+        val free = TranslationProvider.entries
+            .filter { it.category == TranslationProviderCategory.FREE && state.configs[it]?.configured != false }
         val advanced = TranslationProvider.entries.filter { it.category == TranslationProviderCategory.ADVANCED }
 
         SectionLabel("Free, no setup")

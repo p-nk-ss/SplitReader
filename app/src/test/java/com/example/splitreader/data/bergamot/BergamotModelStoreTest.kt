@@ -13,11 +13,13 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.zip.GZIPOutputStream
@@ -145,6 +147,24 @@ class BergamotModelStoreTest {
         assertTrue(err is InsufficientStorageException)
         assertEquals(emptyList<Long>(), fetcher.offsets)
         assertFalse(s.packDir(enRu).exists())
+    }
+
+    /**
+     * Regression: production points the store at `filesDir/bergamot`, which does not exist before
+     * the first download, and [File.getUsableSpace] is 0 for a path that does not exist — so the
+     * pre-flight check rejected every first-ever pack with "not enough storage" on a device with
+     * gigabytes free. Uses the real default probe; injecting one hid this.
+     */
+    @Test
+    fun `space is measured on the filesystem even when the root directory does not exist yet`() = runTest {
+        val missingRoot = File(tmp.root, "not-created-yet")
+        assertFalse(missingRoot.exists())
+        val s = BergamotModelStore(missingRoot, manifest(), FakeFetcher(), StandardTestDispatcher(testScheduler))
+
+        val err = runCatching { s.ensure(enRu).toList() }.exceptionOrNull()
+
+        assertNull("free space must come from the real filesystem, not a non-existent path", err)
+        assertTrue(s.isInstalled(enRu))
     }
 
     @Test

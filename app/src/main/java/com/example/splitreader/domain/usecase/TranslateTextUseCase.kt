@@ -5,7 +5,11 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.TranslationRepository
+import com.example.splitreader.domain.translator.InsufficientStorageException
 import com.example.splitreader.domain.translator.ModelDownloadException
+import com.example.splitreader.domain.translator.OfflineEngineUnavailableException
+import com.example.splitreader.domain.translator.OfflinePackCorruptException
+import com.example.splitreader.domain.translator.OfflinePackDownloadException
 import com.example.splitreader.domain.IoDispatcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -38,7 +42,21 @@ class TranslateTextUseCase @Inject constructor(
         endIndex: Int = -1,
     ): Flow<TranslationState> = flow {
         val provider = settings.getTranslatorProvider()
-        if (provider == TranslationProvider.MLKIT) emit(TranslationState.DownloadingModel)
+        // Offline engines may have to fetch a model/pack first; the banner shows that wait, and a
+        // failure here is the user's error to see (an unreported pack download looks like a hang).
+        if (!provider.requiresNetwork) {
+            emit(TranslationState.DownloadingModel())
+            try {
+                repository.prepare(sourceLanguage, targetLanguage).collect {
+                    emit(TranslationState.DownloadingModel(it))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emit(TranslationState.Error(friendlyError(e, provider)))
+                return@flow
+            }
+        }
 
         val clampedStart = startIndex.coerceIn(0, (paragraphs.size - 1).coerceAtLeast(0))
         val order: Iterable<Int> = if (endIndex >= 0) {
@@ -94,6 +112,15 @@ class TranslateTextUseCase @Inject constructor(
     private fun friendlyError(e: Exception, provider: TranslationProvider): String = when {
         e is ModelDownloadException ->
             "Couldn't download the offline translation model. Check your internet and Google Play services, then retry."
+        e is OfflinePackDownloadException ->
+            "Couldn't download the Offline HQ language pack (${e.pair.source.code}→${e.pair.target.code}, " +
+                "${e.bytes / 1_000_000} MB). Check your internet and retry."
+        e is OfflinePackCorruptException ->
+            "The Offline HQ pack was corrupted and could not be re-downloaded."
+        e is InsufficientStorageException ->
+            "Not enough storage for the Offline HQ pack (needs ${e.neededBytes / 1_000_000} MB free)."
+        e is OfflineEngineUnavailableException ->
+            "Offline HQ isn't available on this device — using ML Kit."
         e is HttpException -> when (e.code()) {
             401, 403 -> "Invalid ${provider.displayName} API key — open Translator menu to update"
             // Quick Translate has no quota to exhaust — its 429 is the free endpoint asking for a

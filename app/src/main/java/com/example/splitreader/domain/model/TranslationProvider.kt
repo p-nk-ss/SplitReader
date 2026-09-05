@@ -23,6 +23,15 @@ enum class TranslationProvider(
         description = "On-device translation. Works offline once language packs download.",
         tracksUsage = false,
     ),
+    BERGAMOT(
+        displayName = "Offline HQ",
+        requiresApiKey = false,
+        requiresNetwork = false,
+        category = TranslationProviderCategory.FREE,
+        description = "Higher-quality on-device translation (Mozilla models). ~30 MB per language, " +
+            "downloads on first use. Non-English pairs go through English.",
+        tracksUsage = false,
+    ),
     QUICK_TRANSLATE(
         displayName = "Quick Translate (free, online)",
         requiresApiKey = false,

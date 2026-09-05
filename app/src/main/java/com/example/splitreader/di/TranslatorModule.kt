@@ -1,8 +1,15 @@
 package com.example.splitreader.di
 
+import android.content.Context
 import com.example.splitreader.BuildConfig
+import com.example.splitreader.data.bergamot.BergamotEngine
+import com.example.splitreader.data.bergamot.BergamotManifest
+import com.example.splitreader.data.bergamot.BergamotModelStore
+import com.example.splitreader.data.bergamot.JniNativeBridge
+import com.example.splitreader.data.bergamot.OkHttpPackFetcher
 import com.example.splitreader.data.repository.TranslationRepositoryImpl
 import com.example.splitreader.data.translator.AzureTranslationProvider
+import com.example.splitreader.data.translator.BergamotTranslationProvider
 import com.example.splitreader.data.translator.DeepLTranslationProvider
 import com.example.splitreader.data.translator.GoogleCloudTranslationProvider
 import com.example.splitreader.data.translator.LibreTranslateProvider
@@ -13,6 +20,8 @@ import com.example.splitreader.data.translator.api.DeepLApi
 import com.example.splitreader.data.translator.api.GoogleCloudApi
 import com.example.splitreader.data.translator.api.LibreTranslateApi
 import com.example.splitreader.data.translator.api.QuickTranslateApi
+import com.example.splitreader.domain.CrashReporter
+import com.example.splitreader.domain.IoDispatcher
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.translator.TranslationProviderApi
@@ -21,13 +30,18 @@ import dagger.MapKey
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoMap
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.asCoroutineDispatcher
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
+import java.io.File
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -110,6 +124,35 @@ object TranslatorNetworkModule {
     @Provides @Singleton
     fun provideAzureTranslatorApi(@AzureRetrofit retrofit: Retrofit): AzureTranslatorApi =
         retrofit.create(AzureTranslatorApi::class.java)
+
+    @Provides @Singleton
+    fun provideBergamotManifest(@ApplicationContext context: Context): BergamotManifest =
+        BergamotManifest.parse(context.assets.open("bergamot/manifest.json").bufferedReader().readText())
+
+    @Provides @Singleton
+    fun provideBergamotModelStore(
+        @ApplicationContext context: Context,
+        manifest: BergamotManifest,
+        fetcher: OkHttpPackFetcher,
+        @IoDispatcher io: CoroutineDispatcher,
+    ): BergamotModelStore = BergamotModelStore(File(context.filesDir, "bergamot"), manifest, fetcher, io)
+
+    /** Native calls are not thread-safe, so every model load/translate runs on this one thread. */
+    @Provides @Singleton
+    fun provideBergamotEngine(crashReporter: CrashReporter): BergamotEngine {
+        val bridge = JniNativeBridge.loadOrNull {
+            crashReporter.recordNonFatal(it, "bergamot: native library unavailable")
+        }
+        return BergamotEngine(
+            bridge,
+            Executors.newSingleThreadExecutor { Thread(it, "bergamot").apply { isDaemon = true } }
+                .asCoroutineDispatcher(),
+        )
+    }
+
+    @Provides @Singleton
+    fun provideBergamotProvider(store: BergamotModelStore, engine: BergamotEngine): BergamotTranslationProvider =
+        BergamotTranslationProvider(store, engine, store::packDir)
 }
 
 @Module
@@ -124,6 +167,11 @@ abstract class TranslatorBindingsModule {
     @IntoMap
     @TranslationProviderKey(TranslationProvider.MLKIT)
     abstract fun bindMlKit(impl: MLKitTranslationProvider): TranslationProviderApi
+
+    @Binds
+    @IntoMap
+    @TranslationProviderKey(TranslationProvider.BERGAMOT)
+    abstract fun bindBergamot(impl: BergamotTranslationProvider): TranslationProviderApi
 
     @Binds
     @IntoMap

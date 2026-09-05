@@ -398,9 +398,11 @@ internal fun ReaderContent(
                     )
                 }
 
-                if (state.translationState is TranslationState.DownloadingModel) {
+                val downloading = state.translationState as? TranslationState.DownloadingModel
+                if (downloading != null) {
+                    val pct = downloading.progress?.let { (it * 100).toInt() }
                     TranslationBanner(
-                        label = "Preparing translation…",
+                        label = if (pct == null) "Preparing translation…" else "Preparing translation… $pct%",
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }

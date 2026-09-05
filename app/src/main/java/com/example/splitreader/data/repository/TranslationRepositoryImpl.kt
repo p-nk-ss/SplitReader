@@ -8,6 +8,7 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.translator.TranslationProviderApi
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,6 +29,9 @@ class TranslationRepositoryImpl @Inject constructor(
         dao.insert(TranslationCacheEntity(cacheKey, text, translated, targetLanguage.code))
         return translated
     }
+
+    override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> =
+        resolveProvider(sourceLanguage, targetLanguage).prepare(sourceLanguage, targetLanguage)
 
     override suspend fun cachedCount(): Int = dao.count()
 
