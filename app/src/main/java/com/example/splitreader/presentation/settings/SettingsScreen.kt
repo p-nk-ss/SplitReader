@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.splitreader.BuildConfig
@@ -567,16 +569,30 @@ private fun AboutSection() {
         Spacer(Modifier.height(6.dp))
         AboutRow("Formats", "EPUB · FB2 · MOBI")
         Spacer(Modifier.height(6.dp))
-        AboutRow("Translation", "Google ML Kit (on-device)")
+        AboutRow("Translation", "Google ML Kit · Offline HQ (Mozilla/Bergamot)")
+        Spacer(Modifier.height(6.dp))
+        // The engine ships in every build, so its attribution cannot hang off the Language packs
+        // section, which is empty until a reader downloads one.
+        AboutRow("Open-source licences", "THIRD_PARTY_LICENSES.md in the app repository")
     }
 }
 
 @Composable
 private fun AboutRow(label: String, value: String) {
     val palette = LocalReaderPalette.current
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    // The value takes the remaining width rather than its own: SpaceBetween lets a long value grow
+    // leftwards until it sits flush against the label, and a wrapped line then runs under it.
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Text(label.uppercase(), fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
-        Text(value, fontFamily = Newsreader, fontSize = 13.sp, color = palette.ink)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            value,
+            modifier = Modifier.weight(1f),
+            fontFamily = Newsreader,
+            fontSize = 13.sp,
+            color = palette.ink,
+            textAlign = TextAlign.End,
+        )
     }
 }
 

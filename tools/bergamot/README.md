@@ -53,7 +53,7 @@ malformed config comes back as a failure rather than a crash:
 
 ## Patches (`patches/`, keyed to commit `9271618`)
 
-Three source patches to vendored third-party code; two more fixes are CMake flags baked into
+Four source patches to vendored third-party code; two more fixes are CMake flags baked into
 `build.sh` (`CMAKE_POLICY_VERSION_MINIMUM=3.5` for CMake 4's dropped `<3.5` compatibility, and
 `CMAKE_HAVE_LIBC_PTHREAD=ON` because bionic's pthreads live in libc and `FindThreads` probes fail
 under the NDK toolchain).
@@ -65,11 +65,39 @@ under the NDK toolchain).
 | `0003-faiss-include-immintrin-on-x86.patch` | marian-dev | faiss uses `__m128` under `#ifdef __SSE__` without including `<immintrin.h>`; it only works upstream by transitive include. x86_64 only. |
 | `0004-sentencepiece-trainer-kanytype-const.patch` | marian-dev's sentencepiece submodule | clang 21 rejects the out-of-range `static_cast` in a `constexpr` initialiser. Trainer code, never executed on device. |
 
+## Pinning the models (`pin-manifest.py`)
+
+`app/src/main/assets/bergamot/manifest.json` is a pinned copy of Mozilla's live `models.json`,
+narrowed to the languages in `Language.kt`. Regenerate it with:
+
+```bash
+python3 tools/bergamot/pin-manifest.py --version N
+```
+
+`--version` is required and is written into the manifest. It is not decoration: the store stamps
+every pack directory on disk with it and treats a pack whose marker names a different version as
+not installed. **Bump it whenever any pack changes** — a new URL, a new hash, a different
+architecture — or devices that already hold the old files will keep them forever, and a half-
+finished `.part` from the old version can be resumed into the new pack. The script refuses to
+write when the packs differ from the committed manifest but `--version` has not moved.
+
 ## Licences and attribution
 
+The repo-root `THIRD_PARTY_LICENSES.md` is the authoritative list (name, licence, copyright holder,
+source URL) and is what the in-app About screen points readers at. In summary:
+
 - **bergamot-translator** — MPL-2.0, © the Bergamot project contributors.
-- **marian-nmt** (vendored) — MIT, © the Marian NMT authors.
-- **sentencepiece**, **ruy**, **cpuinfo**, **intgemm**, **pcre2**, **ssplit-cpp** and the other
-  vendored third-party libraries keep their own licences; see the sources under the pinned commit.
-- **Translation models** — Mozilla's [firefox-translations-models](https://github.com/mozilla/firefox-translations-models),
-  CC-BY-SA-4.0. They are downloaded at runtime, not bundled, and must be attributed in-app.
+- **marian-nmt** (vendored) and **intgemm** — MIT, © the Marian NMT authors / University of Edinburgh.
+- **ssplit-cpp** — Apache-2.0, © University of Edinburgh. Its `nonbreaking_prefixes` data files are
+  LGPL-2.1 (read at runtime, not compiled in).
+- **sentencepiece**, **ruy**, **abseil** — Apache-2.0, © Google.
+- **pcre2** — BSD-3-Clause; **protobuf-lite**, **cpuinfo**, **darts-clone** — BSD-style.
+- **Translation models** — Mozilla's [translations](https://github.com/mozilla/translations) models,
+  **MPL-2.0** ("The model files are distributed under the MPL 2.0 license"). They are downloaded at
+  runtime, not bundled, and are attributed in-app. *(This previously said CC-BY-SA-4.0, taken from
+  the archived `firefox-translations-models` repo; the models the app actually downloads come from
+  the `mozilla/translations` bucket and are MPL-2.0.)*
+
+MPL-2.0 obliges us to offer the source of the covered files. It is the pinned upstream commit —
+`browsermt/bergamot-translator@9271618ebbdc5d21ac4dc4df9e72beb7ce644774` — recorded here and in
+`THIRD_PARTY_LICENSES.md`.

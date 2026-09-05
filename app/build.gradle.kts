@@ -86,6 +86,10 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // The full-content screenshots render whole scrollable screens: the Settings capture
+            // alone is 1078x10500, and Roborazzi holds the actual, the golden and the diff at once
+            // — ~135 MB of bitmap. The default test heap cannot fit that.
+            all { it.maxHeapSize = "4g" }
         }
     }
 }
