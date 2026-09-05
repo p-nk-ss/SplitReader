@@ -88,6 +88,7 @@ fun SettingsRoute(
         onClearProvider = viewModel::clearProvider,
         onRefreshTranslationUsage = viewModel::refreshTranslationUsage,
         onResetTranslationUsage = viewModel::resetTranslationUsage,
+        onDeleteLanguagePack = viewModel::deleteLanguagePack,
         onClearCache = viewModel::clearTranslationCache,
         onSetTtsRate = viewModel::setTtsRate,
         onSetTtsPitch = viewModel::setTtsPitch,
@@ -119,6 +120,7 @@ fun SettingsScreen(
     onClearProvider: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
     onRefreshTranslationUsage: () -> Unit,
     onResetTranslationUsage: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
+    onDeleteLanguagePack: (com.example.splitreader.domain.translator.ModelPair) -> Unit,
     onClearCache: () -> Unit,
     onSetTtsRate: (Float) -> Unit,
     onSetTtsPitch: (Float) -> Unit,
@@ -308,6 +310,32 @@ fun SettingsScreen(
                 fontSize = 12.sp,
                 color = palette.ink3,
             )
+        }
+
+        Spacer(Modifier.height(sp.lg))
+
+        // ── Language packs (Offline HQ) ───────────────────────────────────────
+        SettingsSection(title = "Language packs") {
+            if (state.languagePacks.isEmpty()) {
+                Text(
+                    text = "No Offline HQ packs downloaded yet. Choose “Offline HQ” as the translator and packs download as you read.",
+                    fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3,
+                )
+            } else {
+                state.languagePacks.forEachIndexed { i, pack ->
+                    if (i > 0) Divider()
+                    RowValue(
+                        label = "${pack.pair.source.badge} → ${pack.pair.target.badge} · ${pack.bytes / 1_000_000} MB",
+                        action = "Delete",
+                        onClick = { onDeleteLanguagePack(pack.pair) },
+                    )
+                }
+                Spacer(Modifier.height(sp.xs))
+                Text(
+                    text = "Total ${state.languagePacks.sumOf { it.bytes } / 1_000_000} MB · Models by Mozilla (MPL-2.0)",
+                    fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink3,
+                )
+            }
         }
 
         Spacer(Modifier.height(sp.lg))

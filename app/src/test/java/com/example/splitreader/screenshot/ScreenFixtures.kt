@@ -15,6 +15,8 @@ import com.example.splitreader.domain.model.TranslationUsage
 import com.example.splitreader.domain.model.stats.BookMinutes
 import com.example.splitreader.domain.model.stats.DailyMinutes
 import com.example.splitreader.domain.model.stats.LangMinutes
+import com.example.splitreader.domain.translator.InstalledPack
+import com.example.splitreader.domain.translator.ModelPair
 import com.example.splitreader.domain.usecase.StreakResult
 import com.example.splitreader.presentation.almanac.TimeRange
 import com.example.splitreader.presentation.auth.AuthMode
@@ -326,6 +328,10 @@ object ScreenFixtures {
         ttsRate = 1.0f,
         ttsPitch = 1.0f,
         isPremium = false,
+        languagePacks = listOf(
+            InstalledPack(ModelPair(Language.ENGLISH, Language.RUSSIAN), 33_100_000L),
+            InstalledPack(ModelPair(Language.RUSSIAN, Language.ENGLISH), 33_100_000L),
+        ),
     )
 
     // ── Profile (profile/ProfileScreen.kt public ProfileScreen) ────────────────

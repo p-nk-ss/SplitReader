@@ -93,6 +93,7 @@ class FullContentScreenshotTest : ScreenshotTest() {
             onClearProvider = {},
             onRefreshTranslationUsage = {},
             onResetTranslationUsage = {},
+            onDeleteLanguagePack = {},
             onClearCache = {},
             onSetTtsRate = {},
             onSetTtsPitch = {},

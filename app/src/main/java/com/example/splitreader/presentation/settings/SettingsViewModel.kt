@@ -13,6 +13,9 @@ import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.EntitlementRepository
+import com.example.splitreader.domain.translator.InstalledPack
+import com.example.splitreader.domain.translator.ModelPair
+import com.example.splitreader.domain.translator.OfflineModelStore
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.presentation.reader.TranslatorConfigState
 import com.example.splitreader.presentation.reader.buildTranslatorConfigState
@@ -55,6 +58,8 @@ data class SettingsUiState(
     val ttsPitch: Float = ReadingDefaults.TTS_PITCH,
     // Entitlement (debug-only toggle in the UI)
     val isPremium: Boolean = false,
+    // Language packs (Offline HQ)
+    val languagePacks: List<InstalledPack> = emptyList(),
 )
 
 @HiltViewModel
@@ -67,6 +72,7 @@ class SettingsViewModel @Inject constructor(
     private val textToSpeechManager: SpeechSynthesizer,
     private val entitlementRepository: EntitlementRepository,
     private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
+    private val offlineModelStore: OfflineModelStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(loadState())
@@ -96,6 +102,9 @@ class SettingsViewModel @Inject constructor(
             entitlementRepository.isPremium.collect { premium ->
                 _state.update { it.copy(isPremium = premium) }
             }
+        }
+        viewModelScope.launch {
+            offlineModelStore.installed().collect { packs -> _state.update { it.copy(languagePacks = packs) } }
         }
     }
 
@@ -245,6 +254,10 @@ class SettingsViewModel @Inject constructor(
     fun resetTranslationUsage(provider: TranslationProvider) {
         usageTracker.reset(provider)
         refreshTranslationUsage()
+    }
+
+    fun deleteLanguagePack(pair: ModelPair) {
+        viewModelScope.launch(Dispatchers.IO) { offlineModelStore.delete(pair) }
     }
 
     // ── Storage ─────────────────────────────────────────────────────────────────
