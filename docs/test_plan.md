@@ -14,6 +14,8 @@ Unit (`app/src/test`, JUnit4 + kotlinx-coroutines-test, **ручные фейк�
 
 Instrumented (`app/src/androidTest`):
 - `ParserBeginningTest` — FB2/MOBI/EPUB сохраняют начало текста (на реальных фикстурах)
+- `BergamotNativeSmokeTest` — по требованию (нужен девайс/эмулятор с нужным ABI): `ANDROID_SERIAL=<serial> ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.splitreader.data.bergamot.BergamotNativeSmokeTest`
+- `BergamotEngineDeviceTest` — по требованию (нужен девайс): `ANDROID_SERIAL=<serial> ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.splitreader.data.bergamot.BergamotEngineDeviceTest`
 
 **Итого: ~40 unit + instrumented тестов, 0 падений.** Покрыты парсеры/утилиты/планировщик и
 теперь лимит библиотеки. ViewModels, репозитории и UI — не покрыты.
