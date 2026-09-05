@@ -85,8 +85,18 @@ class BergamotModelStoreTest {
 
     // The dispatcher must share runTest's scheduler: a bare StandardTestDispatcher() gets a private
     // scheduler that nothing advances, so the flowOn producer would never run and the test would hang.
-    private fun TestScope.store(fetcher: PackFetcher, manifest: BergamotManifest = manifest(), space: Long = Long.MAX_VALUE) =
-        BergamotModelStore(tmp.root, manifest, fetcher, StandardTestDispatcher(testScheduler), usableSpace = { space })
+    private fun TestScope.store(
+        fetcher: PackFetcher,
+        manifest: BergamotManifest = manifest(),
+        space: Long = Long.MAX_VALUE,
+        root: File = tmp.root,
+    ) = BergamotModelStore(root, manifest, fetcher, StandardTestDispatcher(testScheduler), usableSpace = { space })
+
+    /** A root that reports every directory listing, so a test can prove nobody walked it. */
+    private class CountingRoot(path: String) : File(path) {
+        var listings = 0
+        override fun listFiles(): Array<File>? { listings++; return super.listFiles() }
+    }
 
     @Test
     fun `downloads all three files, verifies hash, marks installed`() = runTest {
@@ -230,5 +240,22 @@ class BergamotModelStoreTest {
         assertEquals(0L, fetcher.offsets.first())
         assertTrue(s.isInstalled(enRu))
     }
+
+    /**
+     * SettingsViewModel injects this store, so Hilt builds it on the main thread. Scanning every
+     * pack directory (and summing the size of every file in each) in the constructor is a disk walk
+     * on the main thread of a screen that may never show a pack. It must wait for a collector.
+     */
+    @Test
+    fun `constructing the store does not walk the disk`() = runTest {
+        val root = CountingRoot(tmp.newFolder("packs").path)
+        val s = store(FakeFetcher(), root = root)
+
+        assertEquals("the constructor must not list the pack root", 0, root.listings)
+
+        s.installed().first()
+        assertTrue("collecting installed() is what scans", root.listings > 0)
+    }
 }
+
 private typealias InstalledPackPair = ModelPair

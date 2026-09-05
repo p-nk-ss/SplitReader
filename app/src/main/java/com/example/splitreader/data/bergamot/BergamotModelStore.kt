@@ -10,8 +10,11 @@ import com.example.splitreader.domain.translator.OfflinePackDownloadException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -49,7 +52,12 @@ class BergamotModelStore(
     /** The manifest version every marker and stamp on disk is compared against. */
     private val version: String = manifest.version.toString()
 
-    private val installedFlow = MutableStateFlow(scanInstalled())
+    /**
+     * Null until something actually collects [installed]. Seeding this in the constructor would
+     * walk every pack directory — and sum the length of every file in each — on whichever thread
+     * built the store, which since SettingsViewModel injects it is the main one.
+     */
+    private val installedFlow = MutableStateFlow<List<InstalledPack>?>(null)
 
     fun packDir(pair: ModelPair): File = File(rootDir, pair.id)
 
@@ -64,7 +72,14 @@ class BergamotModelStore(
 
     override fun isInstalled(pair: ModelPair): Boolean = isInstalled(packDir(pair))
 
-    override fun installed(): Flow<List<InstalledPack>> = installedFlow
+    override fun installed(): Flow<List<InstalledPack>> = flow {
+        if (installedFlow.value == null) {
+            val scanned = withContext(ioDispatcher) { scanInstalled() }
+            // compareAndSet, not assignment: an ensure() that finished first must not be undone.
+            installedFlow.compareAndSet(null, scanned)
+        }
+        emitAll(installedFlow.filterNotNull())
+    }
 
     override fun ensure(pair: ModelPair): Flow<Float> = flow {
         if (isInstalled(pair)) { emit(1f); return@flow }
