@@ -51,6 +51,12 @@ These are **off by default** and only operate when you turn them on:
   files.
 - **Google Drive import**: if you choose to import a book from Google Drive, the app uses
   read-only access to the file you select. We do not browse or store your wider Drive.
+- **Offline HQ language packs**: if you select the Offline HQ translator, the app downloads
+  a language pack (roughly 17–44 MB per language pair) from Mozilla's public Google Cloud
+  Storage bucket the first time you use that pair. Only the download request itself reaches
+  Google and Mozilla — the usual details any web request carries, such as your IP address
+  and user agent. **No book text is sent.** Once the pack is on your device, Offline HQ
+  translates entirely offline, like ML Kit.
 
 API keys you enter for online translators are stored **encrypted on your device** (Android
 Keystore) and are never transmitted to us.

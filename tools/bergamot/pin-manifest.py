@@ -3,8 +3,19 @@
 
 Picks, per direction, the best *released* model for every language in Language.kt:
 base-memory > base > tiny, releaseStatus in {Release, Release Android}. Run when bumping models.
+
+Usage: pin-manifest.py --version N
+
+The version is what every marker and stamp on disk is compared against, so it is the only thing
+standing between an app update that changes a pack's URL or hash and a device that resumes a v1
+`.part` into a v2 pack. Writing new packs under the old version is therefore refused: bump it.
 """
-import json, sys, urllib.request, pathlib
+import argparse, json, sys, urllib.request, pathlib
+
+parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("--version", type=int, required=True,
+                    help="manifest version; bump it whenever any pack changes")
+args = parser.parse_args()
 
 LANGS = ["uk","de","fr","es","it","pt","nl","pl","zh","ja","ko","ar","hi","tr","sv","cs","ru"]
 URL = "https://storage.googleapis.com/moz-fx-translations-data--303e-prod-translations-data/db/models.json"
@@ -39,8 +50,20 @@ for lang in LANGS:
             **vocab_fields,
             "shortlist": {"path": f["lexicalShortlist"]["path"]},
         })
-out = {"version": 1, "generated": live["generated"], "baseUrl": live["baseUrl"], "packs": packs}
+out = {"version": args.version, "generated": live["generated"], "baseUrl": live["baseUrl"], "packs": packs}
 dest = pathlib.Path(__file__).resolve().parents[2] / "app/src/main/assets/bergamot/manifest.json"
+
+# A device only re-downloads a pack when the version it is stamped with changes. Shipping different
+# packs under the same version leaves every existing install pointing at files that no longer match.
+if dest.exists():
+    old = json.loads(dest.read_text())
+    if old.get("packs") != packs and old.get("version") == args.version:
+        sys.exit(
+            f"refusing to write: the packs changed but --version is still {args.version}.\n"
+            f"Devices key their installed packs on this number, so an unchanged version means they\n"
+            f"keep the old files forever. Re-run with --version {args.version + 1}."
+        )
+
 dest.parent.mkdir(parents=True, exist_ok=True)
 dest.write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
 print(f"wrote {len(packs)} packs to {dest}")
