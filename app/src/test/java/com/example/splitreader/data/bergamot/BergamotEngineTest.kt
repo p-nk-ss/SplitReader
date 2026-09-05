@@ -1,6 +1,10 @@
 package com.example.splitreader.data.bergamot
 
 import com.example.splitreader.domain.translator.OfflineEngineUnavailableException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -8,6 +12,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * The engine owns the only native handles in the process. Rules: at most two models resident
@@ -15,7 +22,12 @@ import java.io.File
  * reloads, and a missing library means "unavailable", never a crash.
  */
 class BergamotEngineTest {
-    private class FakeBridge(private val failLoadFor: Set<String> = emptySet()) : NativeBridge {
+    private class FakeBridge(
+        private val failLoadFor: Set<String> = emptySet(),
+        failFirstLoadFor: Set<String> = emptySet(),
+        private val onTranslate: () -> Unit = {},
+    ) : NativeBridge {
+        private val failOnce = failFirstLoadFor.toMutableSet()
         val loads = mutableListOf<String>()
         val unloads = mutableListOf<Long>()
         val translates = mutableListOf<Pair<Long, String>>()
@@ -25,9 +37,11 @@ class BergamotEngineTest {
             val key = Regex("/([a-z]{2}-[a-z]{2})/").find(configYaml)!!.groupValues[1]
             loads += key
             if (key in failLoadFor) return 0
+            if (failOnce.remove(key)) return 0
             return (next++).also { byHandle[it] = key }
         }
         override fun translate(handle: Long, text: String): String? {
+            onTranslate()
             translates += handle to text
             return "${byHandle[handle]}:$text"
         }
@@ -110,5 +124,50 @@ class BergamotEngineTest {
         assertEquals(listOf("en-ru", "en-fr", "en-fr"), b.loads)
         assertEquals(listOf(1L), b.unloads)
         assertEquals(emptyList<String>(), e.loadedKeys)
+    }
+
+    /**
+     * onTrimMemory arrives while a translation holds the lock: `tryLock` misses, and nothing else
+     * will call back. The request must be remembered and honoured by the translation on its way out,
+     * or a trim during the one moment memory is actually tight is the one trim that does nothing.
+     */
+    @Test
+    fun `unloadAll during a translation is honoured when that translation finishes`() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val b = FakeBridge(onTranslate = { entered.countDown(); release.await(5, TimeUnit.SECONDS) })
+        val executor = Executors.newSingleThreadExecutor()
+        val engineDispatcher = executor.asCoroutineDispatcher()
+        val e = BergamotEngine(b, engineDispatcher)
+        try {
+            runBlocking {
+                val job = launch(Dispatchers.IO) { e.translate(dir("en-ru"), "en-ru", "hi") }
+                assertTrue("translation never started", entered.await(5, TimeUnit.SECONDS))
+                e.unloadAll()               // lock is held → tryLock misses
+                release.countDown()
+                job.join()
+            }
+        } finally {
+            executor.shutdown()
+        }
+        assertEquals("a missed trim must not be forgotten", emptyList<String>(), e.loadedKeys)
+        assertEquals(listOf(1L), b.unloads)
+    }
+
+    /**
+     * Spec §6: a failed load is read as "two models did not fit". Evicting and retrying rescues the
+     * call, but the device has just told us it cannot hold two — so the ceiling drops to one for the
+     * rest of the session rather than walking into the same wall on the next pivot.
+     */
+    @Test
+    fun `a load failure drops the resident ceiling to one for the session`() = runTest(dispatcher) {
+        val b = FakeBridge(failFirstLoadFor = setOf("en-ru"))
+        val e = BergamotEngine(b, dispatcher)
+
+        assertEquals("the retry must rescue the call", "en-ru:a", e.translate(dir("en-ru"), "en-ru", "a"))
+        assertTrue("the engine must report itself degraded", e.degraded)
+
+        e.translate(dir("en-de"), "en-de", "b")
+        assertEquals("a degraded engine keeps one model, not two", listOf("en-de"), e.loadedKeys)
     }
 }

@@ -19,8 +19,15 @@ import java.io.File
 class BergamotEngine(
     bridgeProvider: () -> NativeBridge?,
     private val dispatcher: CoroutineDispatcher,
-    private val maxLoaded: Int = 2,
+    maxLoaded: Int = 2,
 ) {
+    /**
+     * Not a val: spec §6 reads a failed load as "that many models did not fit on this device", so
+     * the ceiling drops to one for the rest of the session rather than hitting the same wall on
+     * every subsequent pivot. Only ever touched under [mutex].
+     */
+    private var maxLoaded: Int = maxLoaded
+
     constructor(bridge: NativeBridge?, dispatcher: CoroutineDispatcher, maxLoaded: Int = 2) :
         this({ bridge }, dispatcher, maxLoaded)
 
@@ -35,27 +42,57 @@ class BergamotEngine(
 
     val loadedKeys: List<String> get() = loaded.keys.toList()
 
+    @Volatile private var degradedFlag = false
+
+    /**
+     * True once a load has failed and the ceiling dropped to one model. A failure reported *after*
+     * this is terminal — there is no smaller configuration left to retry in — which is what lets
+     * [com.example.splitreader.data.translator.BergamotTranslationProvider] tell a transient OOM
+     * (recoverable, keep the provider) from a genuinely broken engine (retire it for the session).
+     */
+    val degraded: Boolean get() = degradedFlag
+
+    /**
+     * Set when [unloadAll] finds the lock held. The translation holding it drops everything on its
+     * way out instead: `tryLock` missing is exactly the moment memory is tight, so a skipped trim
+     * is the one trim that mattered. Benign race: a request arriving between the check and the
+     * unlock is honoured by the *next* translation, costing one extra reload.
+     */
+    @Volatile private var pendingUnload = false
+
     suspend fun translate(packDir: File, key: String, text: String): String {
         val b = bridge ?: throw OfflineEngineUnavailableException("native library not loaded")
         return withContext(dispatcher) {
             mutex.withLock {
-                val handle = loaded.remove(key) ?: run {
-                    while (loaded.size >= maxLoaded) {
-                        val eldest = loaded.entries.first()
-                        b.unload(eldest.value); loaded.remove(eldest.key)
+                try {
+                    val handle = loaded.remove(key) ?: run {
+                        while (loaded.size >= maxLoaded) {
+                            val eldest = loaded.entries.first()
+                            b.unload(eldest.value); loaded.remove(eldest.key)
+                        }
+                        var h = b.load(bergamotConfigYaml(packDir))
+                        if (h == 0L) {
+                            // Spec §6: a failed load (typically OOM with the ceiling's worth of
+                            // models resident) drops everything, halves the ambition to a single
+                            // resident model for the rest of the session, and retries once.
+                            loaded.values.forEach(b::unload); loaded.clear()
+                            maxLoaded = 1
+                            degradedFlag = true
+                            h = b.load(bergamotConfigYaml(packDir))
+                        }
+                        if (h == 0L) throw OfflineEngineUnavailableException("load $key: ${b.lastError()}")
+                        h
                     }
-                    var h = b.load(bergamotConfigYaml(packDir))
-                    if (h == 0L) {
-                        // Spec §6: a failed load (typically OOM with two models resident) drops
-                        // everything and retries once with an empty engine before giving up.
+                    loaded[key] = handle   // re-insert → most recently used
+                    b.translate(handle, text)
+                        ?: throw OfflineEngineUnavailableException("translate $key: ${b.lastError()}")
+                } finally {
+                    // Still under the lock: a trim that missed tryLock is honoured here.
+                    if (pendingUnload) {
+                        pendingUnload = false
                         loaded.values.forEach(b::unload); loaded.clear()
-                        h = b.load(bergamotConfigYaml(packDir))
                     }
-                    if (h == 0L) throw OfflineEngineUnavailableException("load $key: ${b.lastError()}")
-                    h
                 }
-                loaded[key] = handle   // re-insert → most recently used
-                b.translate(handle, text) ?: throw OfflineEngineUnavailableException("translate $key: ${b.lastError()}")
             }
         }
     }
@@ -66,9 +103,12 @@ class BergamotEngine(
         // that drags the native library in — least of all on the main thread.
         if (!bridgeLazy.isInitialized()) return
         val b = bridge ?: return
-        // tryLock: if a translation is mid-flight we skip; memory pressure will call again.
+        // tryLock: a translation mid-flight owns the lock, so we hand the job to it via
+        // pendingUnload rather than skipping — memory pressure may not call again.
         if (mutex.tryLock()) {
             try { loaded.values.forEach(b::unload); loaded.clear() } finally { mutex.unlock() }
+        } else {
+            pendingUnload = true
         }
     }
 }
