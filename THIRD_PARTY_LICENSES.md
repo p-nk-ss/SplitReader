@@ -37,6 +37,27 @@ component listed below; `tools/bergamot/README.md` documents how to reproduce th
 | ruy | Apache-2.0 | Google LLC | <https://github.com/google/ruy/tree/2d950b3bfa7ebfbe7a97ecb44b1cc4da5ac1d6f0> |
 | cpuinfo | BSD-2-Clause | Google LLC (2019), Facebook Inc. (2017–2018), Georgia Institute of Technology (2012–2017), Marat Dukhan (2010–2012) | <https://github.com/pytorch/cpuinfo/tree/5916273f79a21551890fd3d56fc5375a78d1598d> |
 | PCRE2 10.39 | BSD-3-Clause | University of Cambridge, Philip Hazel, Zoltan Herczeg | <https://github.com/PCRE2Project/pcre2/tree/pcre2-10.39> |
+| yaml-cpp (vendored in marian-dev) | MIT | Jesse Beder (2008–2015) | <https://github.com/jbeder/yaml-cpp> |
+| zlib (vendored in marian-dev) | zlib License | Jean-loup Gailly and Mark Adler (1995–2017) | see upstream — <https://github.com/madler/zlib>; no `LICENSE` file in the vendored copy, licence text is embedded in `zlib.h`'s header comment |
+| pathie-cpp (vendored in marian-dev) | BSD-2-Clause | Marvin Gülker (2015, 2017) | <https://github.com/Quintus/pathie-cpp> |
+| faiss (vendored in marian-dev) | MIT | Facebook, Inc. and its affiliates | <https://github.com/facebookresearch/faiss> |
+| cnpy (vendored in marian-dev) | MIT | Carl Rogers (2011) | <https://github.com/rogersce/cnpy> |
+| phf (vendored in marian-dev) | MIT | William Ahern (2014–2015) | <https://github.com/wahern/phf> |
+| CLI11 (vendored in marian-dev as `3rd_party/CLI`, header-only) | BSD-3-Clause | University of Cincinnati, developed by Henry Schreiner under NSF AWARD 1414736 (2017–2018) | <https://github.com/CLIUtils/CLI11> |
+| onnx protobuf schema (vendored in marian-dev as `3rd_party/onnx`) | MIT (per the vendored file's own header) | Facebook Inc. and Microsoft Corporation | see upstream — <https://github.com/onnx/onnx>; no `LICENSE` file in the vendored copy, `onnx-ml.proto`'s header comment states "Copyright (c) Facebook Inc. and Microsoft Corporation. Licensed under the MIT license." |
+| half_float / umHalf (vendored in marian-dev, header-only, included unconditionally by `common/types.h`) | BSD-3-Clause | Chris Maiwald, Alexander Gessler (2006–2008) | see upstream — <https://github.com/acgessler/half_float>; no `LICENSE` file in the vendored copy, licence stated in `Readme.md` ("3-clause BSD license") and in `umHalf.h`'s header comment |
+| zstr (vendored in marian-dev, header-only, included by `common/file_stream.h` whenever `WASM_COMPATIBLE_SOURCE` is undefined — true for both Android ABIs) | MIT | Matei David, Ontario Institute for Cancer Research (2015) | <https://github.com/mateidavid/zstr> |
+| mio (vendored in marian-dev, header-only, included unconditionally by `translator/translator.h`, `translator/scorers.h`, `data/shortlist.h`) | MIT | https://github.com/mandreyel/ (2018) | <https://github.com/mandreyel/mio> |
+| simd_utils (vendored in marian-dev, header-only, included by `functional/operators.h` only under `__ARM_NEON`/`__ARM_NEON__` — **arm64-v8a only**, not compiled on x86_64) | BSD-2-Clause | JishinMaster (2019) | <https://github.com/browsermt/simd_utils> (submodule fork of <https://github.com/JishinMaster/simd_utils>) |
+
+Per-ABI note: `intgemm` (real SIMD matrix-multiply kernels) is compiled and linked only into the
+**x86_64** build; the arm64-v8a build instead links marian's `wasm_intgemm_fallback.cpp` stub and uses
+**ruy** for quantized matmul, so `intgemm`'s licence terms above apply to the x86_64 `.so` only, while
+`simd_utils` (above) is the mirror case — compiled only into the **arm64-v8a** `.so`, gated on NEON.
+
+`spdlog` is vendored under `3rd_party/spdlog` but is **not** linked into `libbergamot_jni.so`: it is
+referenced only from spdlog's own `bench/`/test sources, never from marian's actual library sources, and
+no `spdlog*.o` object file exists in either ABI's build tree — so it is omitted from the table above.
 
 ### NOTICE files
 
