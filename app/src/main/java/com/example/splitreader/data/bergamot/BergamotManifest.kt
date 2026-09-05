@@ -12,6 +12,7 @@ data class ManifestPack(
     val architecture: String,
     val model: ManifestFile,
     val vocab: ManifestFile,
+    val targetVocab: ManifestFile? = null,
     val shortlist: ManifestFile,
 ) {
     val pair: ModelPair get() = ModelPair(languageOf(source), languageOf(target))

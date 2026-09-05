@@ -21,14 +21,22 @@ for lang in LANGS:
         m = sorted(cands, key=lambda m: RANK.get(m["architecture"], 9))[0]
         f = m["files"]
         # Most directions ship one shared "vocab" file; a few (en-zh/ja/ko) ship separate
-        # srcVocab/trgVocab instead. Fall back to trgVocab (the decoder's output vocabulary)
-        # since ManifestFile only carries a single vocab path.
-        vocab = f.get("vocab") or f.get("trgVocab") or f["srcVocab"]
+        # srcVocab/trgVocab instead — a Marian model trained with split vocabs needs both files
+        # (vocabs: [src.spm, trg.spm]), so keep both rather than dropping one.
+        if "vocab" in f:
+            vocab_fields = {"vocab": {"path": f["vocab"]["path"]}}
+        elif "srcVocab" in f and "trgVocab" in f:
+            vocab_fields = {
+                "vocab": {"path": f["srcVocab"]["path"]},
+                "targetVocab": {"path": f["trgVocab"]["path"]},
+            }
+        else:
+            sys.exit(f"no vocab or srcVocab/trgVocab for {src}-{tgt}")
         packs.append({
             "source": src, "target": tgt, "architecture": m["architecture"],
             "model": {"path": f["model"]["path"], "size": f["model"]["uncompressedSize"],
                       "sha256": f["model"]["uncompressedHash"]},
-            "vocab": {"path": vocab["path"]},
+            **vocab_fields,
             "shortlist": {"path": f["lexicalShortlist"]["path"]},
         })
 out = {"version": 1, "generated": live["generated"], "baseUrl": live["baseUrl"], "packs": packs}

@@ -4,6 +4,7 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.translator.ModelPair
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -33,9 +34,18 @@ class BergamotManifestTest {
     @Test
     fun `paths are relative and baseUrl is https`() {
         assertTrue(manifest.baseUrl.startsWith("https://"))
-        for (p in manifest.packs) for (f in listOf(p.model, p.vocab, p.shortlist)) {
-            assertTrue(f.path, f.path.startsWith("models/") && f.path.endsWith(".gz"))
+        for (p in manifest.packs) {
+            val files = listOfNotNull(p.model, p.vocab, p.shortlist, p.targetVocab)
+            for (f in files) assertTrue(f.path, f.path.startsWith("models/") && f.path.endsWith(".gz"))
         }
+    }
+
+    @Test
+    fun `split-vocab packs carry a target vocab and shared-vocab packs do not`() {
+        for (lang in listOf(Language.JAPANESE, Language.KOREAN, Language.CHINESE)) {
+            assertNotNull(lang.code, manifest.find(ModelPair(Language.ENGLISH, lang))!!.targetVocab)
+        }
+        assertNull(manifest.find(ModelPair(Language.ENGLISH, Language.RUSSIAN))!!.targetVocab)
     }
 
     @Test
