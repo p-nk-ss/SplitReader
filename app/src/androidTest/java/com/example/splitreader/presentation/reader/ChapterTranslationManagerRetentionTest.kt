@@ -63,7 +63,7 @@ class ChapterTranslationManagerRetentionTest {
     fun previousChaptersTranslationSurvivesForwardJump() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val settings = ReadingProgressManager(context)
-        val useCase = TranslateTextUseCase(fakeRepo, settings)
+        val useCase = TranslateTextUseCase(fakeRepo, settings, Dispatchers.IO)
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
         val manager = ChapterTranslationManager(

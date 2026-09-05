@@ -1,0 +1,38 @@
+diff --git a/src/3rd_party/pathie-cpp/src/pathie.cpp b/src/3rd_party/pathie-cpp/src/pathie.cpp
+index d8e567e1..8738eb36 100644
+--- a/src/3rd_party/pathie-cpp/src/pathie.cpp
++++ b/src/3rd_party/pathie-cpp/src/pathie.cpp
+@@ -82,8 +82,13 @@ std::wstring Pathie::utf8_to_utf16(std::string str)
+ #include <cstring>
+ #include <cstdlib>
+ #include <errno.h>
++#ifdef __ANDROID__
++// bionic has no iconv(); Android filesystem encoding is always UTF-8.
++#define PATHIE_ASSUME_UTF8_ON_UNIX 1
++#else
+ #include <iconv.h>
+ #include <langinfo.h>
++#endif
+ #include <sys/param.h> // defines "BSD" macro on BSD systems
+ 
+ /* iconv() function family is available on every POSIX-conformant
+@@ -111,6 +116,11 @@ std::wstring Pathie::utf8_to_utf16(std::string str)
+  */
+ std::string Pathie::convert_encodings(const char* from_encoding, const char* to_encoding, const std::string& string)
+ {
++#ifdef __ANDROID__
++  // Android is UTF-8 only; utf8_to_filename()/filename_to_utf8() never reach here.
++  (void)from_encoding; (void)to_encoding;
++  return string;
++#else
+   size_t input_length = string.length();
+ 
+   // We need a C string working copy that isn’t const
+@@ -173,6 +183,7 @@ std::string Pathie::convert_encodings(const char* from_encoding, const char* to_
+   free(outbuf);
+ 
+   return result;
++#endif
+ }
+ 
+ /**

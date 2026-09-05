@@ -47,3 +47,8 @@
 -keep,allowobfuscation,allowshrinking interface retrofit2.Call
 -keep,allowobfuscation,allowshrinking class retrofit2.Response
 -keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+
+# ── Bergamot (Offline HQ) ─────────────────────────────────────────────────────
+# JNI resolves these by name; the class and its native methods must keep their names.
+-keep class com.example.splitreader.data.bergamot.BergamotNative { *; }
+-keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }

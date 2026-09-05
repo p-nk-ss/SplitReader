@@ -1,0 +1,14 @@
+diff --git a/src/3rd_party/faiss/VectorTransform.cpp b/src/3rd_party/faiss/VectorTransform.cpp
+index a26c2b4d..6f139536 100644
+--- a/src/3rd_party/faiss/VectorTransform.cpp
++++ b/src/3rd_party/faiss/VectorTransform.cpp
+@@ -144,6 +144,9 @@ float fvec_norm_L2sqr_ref(const float *x, size_t d)
+ 
+ 
+ #ifdef __SSE__
++#if defined(__i386__) || defined(__x86_64__)
++#include <immintrin.h>
++#endif
+ // reads 0 <= d < 4 floats as __m128
+ static inline __m128 masked_read(int d, const float *x)
+ {

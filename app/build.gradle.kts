@@ -35,6 +35,10 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // Offline HQ ships a prebuilt native translator (tools/bergamot/build.sh) for these ABIs
+        // only; on any other ABI the provider is absent and ML Kit remains the offline engine.
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+
         // Play Console → Monetization setup → Licensing → base64 RSA public key, supplied via
         // `billingPublicKey` in keystore.properties (gitignored). Blank in dev/CI builds:
         // PurchaseVerifier fails open (skips the check) until this is set. See P15.
