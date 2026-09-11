@@ -47,9 +47,14 @@ abstract class ShellInsetTest {
         navigationBars: Int = 0,
         cutoutLeft: Int = 0,
         cutoutRight: Int = 0,
+        ime: Int = 0,
     ): WindowInsetsCompat = WindowInsetsCompat.Builder()
         .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, statusBars, 0, 0))
         .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, navigationBars))
+        // The keyboard: its inset is measured from the WINDOW bottom, like every other inset, and
+        // the visibility flag is what `WindowInsets.isImeVisible` reads.
+        .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, ime))
+        .setVisible(WindowInsetsCompat.Type.ime(), ime > 0)
         .setInsets(
             WindowInsetsCompat.Type.displayCutout(),
             Insets.of(cutoutLeft, statusBars, cutoutRight, 0),

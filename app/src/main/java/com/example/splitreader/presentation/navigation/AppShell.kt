@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -154,6 +156,8 @@ fun AppShell(
     ) {
         when {
             isCompactWidth(maxWidth) -> {
+                @OptIn(ExperimentalLayoutApi::class)
+                val imeVisible = WindowInsets.isImeVisible
                 Column(Modifier.fillMaxSize()) {
                     if (isReader) {
                         // The strip is pure chrome — wordmark and either "ML KIT READY" or the
@@ -191,7 +195,12 @@ fun AppShell(
                     ) {
                         content()
                     }
-                    if (!isReader) {
+                    // The bar leaves while the keyboard is up. It cannot simply stay: insets are
+                    // measured from the WINDOW edge, so with the bar still stacked below it the
+                    // content's imePadding ended one bar-height (64dp + gesture inset) above the
+                    // keyboard and the shell background showed through as an empty band over every
+                    // search field. Pinned by ImeInsetInvariantTest.
+                    if (!isReader && !imeVisible) {
                         EditorialBottomBar(
                             currentRoute = currentRoute,
                             onNavigateToHome = onNavigateToHome,
