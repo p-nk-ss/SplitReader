@@ -2,6 +2,7 @@ package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.ReadingPreferences
@@ -73,6 +74,8 @@ private class FakeReadingPreferences(
     override fun getLastChapter(bookUri: String) = 0
     override fun getLastScrollPosition(bookUri: String, chapterIndex: Int) = 0
     override fun getLastScrollOffset(bookUri: String, chapterIndex: Int) = 0
+    override fun saveReadingPosition(bookUri: String, position: ReadingPosition) = Unit
+    override fun getReadingPosition(bookUri: String) = ReadingPosition.START
     override fun saveExcerpt(bookUri: String, text: String) = Unit
     override fun getExcerpt(bookUri: String): String? = null
     override fun markFinished(bookUri: String) = Unit

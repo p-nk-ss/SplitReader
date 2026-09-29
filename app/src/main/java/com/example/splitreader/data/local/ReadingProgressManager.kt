@@ -1,11 +1,15 @@
 package com.example.splitreader.data.local
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
+import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.defaultOrientationLock
+import com.example.splitreader.domain.repository.LegacyProgress
+import com.example.splitreader.domain.repository.LegacyReadingPositionStore
 import com.example.splitreader.domain.repository.ReadingPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class ReadingProgressManager @Inject constructor(
     @ApplicationContext context: Context
-) : ReadingPreferences {
+) : ReadingPreferences, LegacyReadingPositionStore {
     private val prefs = context.getSharedPreferences("reading_progress", Context.MODE_PRIVATE)
 
     // Device form factor, read once. Drives the first-launch orientation default only.
@@ -45,6 +49,49 @@ class ReadingProgressManager @Inject constructor(
     override fun getLastScrollOffset(bookUri: String, chapterIndex: Int): Int =
         prefs.getInt("last_scroll_offset_${bookUri}_$chapterIndex", 0)
 
+    override fun saveReadingPosition(bookUri: String, position: ReadingPosition) {
+        prefs.edit().putString("last_book_uri", bookUri).putPosition(bookUri, position).apply()
+    }
+
+    override fun getReadingPosition(bookUri: String): ReadingPosition = ReadingPosition(
+        chapter = prefs.getInt("last_chapter_$bookUri", 0),
+        paragraph = prefs.getInt("last_paragraph_$bookUri", 0),
+        offset = prefs.getInt("last_paragraph_offset_$bookUri", 0),
+    )
+
+    // The chapter deliberately keeps the legacy "last_chapter_" key: its meaning never changed, so
+    // Home shows chapter progress for books that have not been reopened (migrated) yet.
+    private fun SharedPreferences.Editor.putPosition(bookUri: String, p: ReadingPosition) =
+        putInt("last_chapter_$bookUri", p.chapter)
+            .putInt("last_paragraph_$bookUri", p.paragraph)
+            .putInt("last_paragraph_offset_$bookUri", p.offset)
+
+    override fun isReadingPositionMigrated(bookUri: String): Boolean =
+        prefs.getBoolean("position_v2_$bookUri", false)
+
+    override fun legacyProgress(bookUri: String): LegacyProgress? {
+        val chapter = prefs.getInt("last_chapter_$bookUri", 0)
+        val key = "last_scroll_${bookUri}_$chapter"
+        if (!prefs.contains(key)) return null
+        return LegacyProgress(chapter, prefs.getInt(key, 0), prefs.getInt("last_scroll_offset_${bookUri}_$chapter", 0))
+    }
+
+    override fun completeReadingPositionMigration(bookUri: String, position: ReadingPosition?) {
+        val edit = prefs.edit()
+        if (position != null) edit.putPosition(bookUri, position)
+        legacyScrollKeys(bookUri).forEach { edit.remove(it) }
+        edit.putBoolean("position_v2_$bookUri", true).apply()
+    }
+
+    /** `last_scroll_<uri>_<n>` and `last_scroll_offset_<uri>_<n>` — suffix must be a bare chapter
+     *  number, so "/b/a" never matches "/b/a_1"'s keys. */
+    private fun legacyScrollKeys(bookUri: String): List<String> {
+        val prefixes = listOf("last_scroll_${bookUri}_", "last_scroll_offset_${bookUri}_")
+        return prefs.all.keys.filter { key ->
+            prefixes.any { key.startsWith(it) && key.removePrefix(it).toIntOrNull() != null }
+        }
+    }
+
     /** Persists the paragraph the reader last stopped on, shown in the Library's Continue Reading hero. */
     override fun saveExcerpt(bookUri: String, text: String) =
         prefs.edit().putString("last_excerpt_$bookUri", text).apply()
@@ -62,6 +109,8 @@ class ReadingProgressManager @Inject constructor(
     override fun clearProgress(bookUri: String) {
         prefs.edit()
             .remove("last_chapter_$bookUri")
+            .remove("last_paragraph_$bookUri")
+            .remove("last_paragraph_offset_$bookUri")
             .remove("finished_$bookUri")
             .remove("last_excerpt_$bookUri")
             .apply()

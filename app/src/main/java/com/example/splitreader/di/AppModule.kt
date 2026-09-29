@@ -15,6 +15,7 @@ import com.example.splitreader.data.repository.SavedWordRepositoryImpl
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.EntitlementRepository
 import com.example.splitreader.domain.repository.BookmarkRepository
+import com.example.splitreader.domain.repository.LegacyReadingPositionStore
 import com.example.splitreader.domain.repository.NoteRepository
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.ReadingSessionRepository
@@ -60,6 +61,9 @@ object AppModule {
 
     @Provides @Singleton
     fun provideReadingPreferences(impl: ReadingProgressManager): ReadingPreferences = impl
+
+    @Provides @Singleton
+    fun provideLegacyReadingPositionStore(impl: ReadingProgressManager): LegacyReadingPositionStore = impl
 
     @Provides @Singleton
     fun provideSpeechSynthesizer(impl: TextToSpeechManager): SpeechSynthesizer = impl

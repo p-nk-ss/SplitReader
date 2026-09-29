@@ -2,6 +2,7 @@ package com.example.splitreader.domain.repository
 
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import kotlinx.coroutines.flow.StateFlow
 
@@ -12,6 +13,10 @@ interface ReadingPreferences {
     fun getLastChapter(bookUri: String): Int
     fun getLastScrollPosition(bookUri: String, chapterIndex: Int): Int
     fun getLastScrollOffset(bookUri: String, chapterIndex: Int): Int
+    /** Persists [position] as [bookUri]'s progress and remembers [bookUri] as the last-read book. */
+    fun saveReadingPosition(bookUri: String, position: ReadingPosition)
+    /** [bookUri]'s saved Reading position; [ReadingPosition.START] if it was never read. */
+    fun getReadingPosition(bookUri: String): ReadingPosition
     fun saveExcerpt(bookUri: String, text: String)
     fun getExcerpt(bookUri: String): String?
     fun markFinished(bookUri: String)
