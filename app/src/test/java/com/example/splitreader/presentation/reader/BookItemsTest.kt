@@ -100,16 +100,16 @@ class BookItemsTest {
         )
     }
 
-    /**
-     * `chapterItemStarts` in ReaderScreen computes chapter offsets as
-     * `1 + paragraphs.size + (images.size if shown)`. Scroll restore and bookmark jumps are wrong
-     * by exactly the difference if the real emission disagrees with that arithmetic.
-     */
+    /** Chapter jumps scroll to [BookItemIndex.chapterStartItem]; it must name the real masthead item. */
     @Test
-    fun `the emitted count per chapter matches what chapterItemStarts assumes`() {
-        val chapter = illustrated.chapters[0]
-        val expectedPerChapter = 1 + chapter.paragraphs.size + chapter.images.size
-        assertEquals(expectedPerChapter, emit(illustrated, showIllustrations = true).size - 1) // -1 for end_padding
+    fun `chapterStartItem names each chapter's emitted masthead`() {
+        val book = illustrated.copy(
+            chapters = listOf(illustrated.chapters[0], illustrated.chapters[0].copy(index = 1, title = "Two")),
+        )
+        val keys = emit(book, showIllustrations = true)
+        val index = BookItemIndex(book, showIllustrations = true)
+        assertEquals("masthead_0", keys[index.chapterStartItem(0)])
+        assertEquals("masthead_1", keys[index.chapterStartItem(1)])
     }
 
     @Test

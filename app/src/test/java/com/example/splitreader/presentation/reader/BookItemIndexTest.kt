@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
+import com.example.splitreader.domain.model.ReadingPosition
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -164,5 +165,59 @@ class BookItemIndexTest {
         // Items: 0 masthead_0, 1 p_0_0, 2 masthead_1, 3 masthead_2, 4 p_2_0, 5 end_padding
         assertEquals(2 to 0, idx.paragraphAtOrAfter(2)) // empty chapter's masthead -> next real paragraph
         assertEquals(0 to 0, idx.paragraphAtOrBefore(2))
+    }
+
+    @Test
+    fun `positionAt on a paragraph item keeps the pixel offset`() {
+        assertEquals(ReadingPosition(0, 0, 37), index.positionAt(1, 37))
+        // p_0_1 sits under one image item. Legacy `item - chapterStart - 1` says paragraph 2.
+        assertEquals(ReadingPosition(0, 1, 12), index.positionAt(3, 12))
+        assertEquals(ReadingPosition(1, 0, 5), index.positionAt(8, 5))
+    }
+
+    @Test
+    fun `positionAt on a masthead or image names the first paragraph below it, offset zero`() {
+        assertEquals(ReadingPosition(0, 0, 0), index.positionAt(0, 90)) // masthead_0
+        assertEquals(ReadingPosition(0, 1, 0), index.positionAt(2, 90)) // img_0_0 above p_0_1
+        assertEquals(ReadingPosition(1, 0, 0), index.positionAt(5, 90)) // trailing img_0_1
+        assertEquals(ReadingPosition(1, 0, 0), index.positionAt(6, 90)) // masthead_1
+        assertEquals(ReadingPosition(1, 0, 0), index.positionAt(7, 90)) // img_1_0
+    }
+
+    @Test
+    fun `positionAt past the last paragraph clamps to it`() {
+        assertEquals(ReadingPosition(1, 1, 0), index.positionAt(10, 90)) // end_padding
+        assertEquals(ReadingPosition(1, 1, 0), index.positionAt(99, 90))
+    }
+
+    @Test
+    fun `chapterStartItem is the masthead item, clamped to the book`() {
+        val keys = emittedKeys(illustrated, showIllustrations = true)
+        assertEquals("masthead_0", keys[index.chapterStartItem(0)])
+        assertEquals("masthead_1", keys[index.chapterStartItem(1)])
+        assertEquals("masthead_1", keys[index.chapterStartItem(7)])
+        assertEquals("masthead_0", keys[index.chapterStartItem(-1)])
+    }
+
+    @Test
+    fun `itemIndexOf a missing paragraph lands on its chapter's masthead, not the book start`() {
+        val keys = emittedKeys(illustrated, showIllustrations = true)
+        assertEquals("masthead_1", keys[index.itemIndexOf(1, 99)])
+    }
+
+    @Test
+    fun `an empty chapter resolves to its own masthead and to the next paragraph below`() {
+        val book = illustrated.copy(
+            chapters = listOf(
+                illustrated.chapters[0].copy(images = emptyList()),
+                Chapter(index = 1, title = "Plates", paragraphs = emptyList()),
+                Chapter(index = 2, title = "Three", paragraphs = listOf("x")),
+            ),
+        )
+        // 0 masthead_0, 1..3 p_0_*, 4 masthead_1, 5 masthead_2, 6 p_2_0, 7 end_padding
+        val idx = BookItemIndex(book, showIllustrations = true)
+        assertEquals(4, idx.chapterStartItem(1))
+        assertEquals(4, idx.itemIndexOf(1, 0))
+        assertEquals(ReadingPosition(2, 0, 0), idx.positionAt(4, 10))
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
+import com.example.splitreader.domain.model.ReadingPosition
 
 /**
  * The single source of the reader's LazyColumn item structure — keys, order, and count.
@@ -32,9 +33,13 @@ import com.example.splitreader.domain.model.ChapterImage
  * must agree item-for-item; any change to the emission order must change both.
  */
 internal class BookItemIndex(book: Book, showIllustrations: Boolean) {
+    /** Item index of each chapter's masthead, by chapter. */
+    private val chapterStarts = mutableListOf<Int>()
+
     /** Coordinate of the paragraph at each item index; null for masthead/image/padding items. */
     private val paragraphByItem: List<Pair<Int, Int>?> = buildList {
         book.chapters.forEachIndexed { chapterIndex, chapter ->
+            chapterStarts += size
             add(null) // masthead
             val images = if (showIllustrations) chapter.images else emptyList()
             chapter.paragraphs.forEachIndexed { idx, _ ->
@@ -74,9 +79,24 @@ internal class BookItemIndex(book: Book, showIllustrations: Boolean) {
         out.map { it ?: first }
     }
 
-    /** Item index of paragraph [paragraph] in chapter [chapter] (for bookmark/note jumps). */
+    /** Item index of paragraph [paragraph] in chapter [chapter]; its chapter's masthead if absent. */
     fun itemIndexOf(chapter: Int, paragraph: Int): Int =
-        itemByParagraph[chapter to paragraph] ?: 0
+        itemByParagraph[chapter to paragraph] ?: chapterStartItem(chapter)
+
+    /** Item index of [chapter]'s masthead, clamped to the book (0 for a book with no chapters). */
+    fun chapterStartItem(chapter: Int): Int =
+        if (chapterStarts.isEmpty()) 0 else chapterStarts[chapter.coerceIn(chapterStarts.indices)]
+
+    /**
+     * The Reading position for a list whose first visible item is [itemIndex], scrolled
+     * [itemOffset] px into it. A paragraph item keeps the offset. A masthead, illustration or
+     * padding item names the first paragraph below it (offset 0). See CONTEXT.md.
+     */
+    fun positionAt(itemIndex: Int, itemOffset: Int): ReadingPosition {
+        paragraphByItem.getOrNull(itemIndex)?.let { (ch, p) -> return ReadingPosition(ch, p, itemOffset) }
+        val (ch, p) = paragraphAtOrAfter(itemIndex)
+        return ReadingPosition(ch, p, 0)
+    }
 
     /** The paragraph shown at [itemIndex], or the nearest one below it (clamped at book end). */
     fun paragraphAtOrAfter(itemIndex: Int): Pair<Int, Int> =
