@@ -1,7 +1,9 @@
 package com.example.splitreader.domain.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private fun book(vararg paragraphCounts: Int) = Book(
@@ -42,5 +44,14 @@ class ReadingPositionTest {
     @Test
     fun `ordinal clamps an out-of-range position before counting`() {
         assertEquals(4, book(3, 0, 2).paragraphOrdinal(ReadingPosition(9, 9)))
+    }
+
+    @Test
+    fun `isAtStart skips empty leading chapters but not an offset or a later paragraph`() {
+        val b = book(0, 3)
+        assertTrue(b.isAtStart(ReadingPosition(1, 0, 0)))
+        assertFalse(b.isAtStart(ReadingPosition(1, 0, 5)))
+        assertFalse(b.isAtStart(ReadingPosition(1, 1, 0)))
+        assertTrue(book(3).isAtStart(ReadingPosition.START))
     }
 }

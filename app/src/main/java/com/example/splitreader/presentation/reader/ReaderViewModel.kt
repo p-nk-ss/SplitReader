@@ -8,6 +8,7 @@ import com.example.splitreader.domain.repository.TranslatorKeyStore
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
+import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
@@ -19,6 +20,7 @@ import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.model.coercedTo
+import com.example.splitreader.domain.model.isAtStart
 import com.example.splitreader.domain.model.paragraphOrdinal
 import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
@@ -36,6 +38,7 @@ import com.example.splitreader.presentation.theme.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -64,6 +67,7 @@ class ReaderViewModel @Inject constructor(
     private val bookmarkRepository: BookmarkRepository,
     private val endReadingSessionUseCase: EndReadingSessionUseCase,
     private val migrateLegacyReadingPositions: MigrateLegacyReadingPositionsUseCase,
+    private val crashReporter: CrashReporter,
     private val progressManager: ReadingPreferences,
     private val languageDetector: LanguageDetector,
     private val apiKeyManager: TranslatorKeyStore,
@@ -252,7 +256,15 @@ class ReaderViewModel @Inject constructor(
     private suspend fun handleBookLoaded(book: Book) {
         // The migration's prefs write is a synchronous commit(); keep it off the main thread.
         val showIllustrations = _state.value.showIllustrations
-        withContext(Dispatchers.IO) { migrateLegacyReadingPositions(book, showIllustrations) }
+        try {
+            withContext(Dispatchers.IO) { migrateLegacyReadingPositions(book, showIllustrations) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Don't fail the book open. The flag is written before bookmarks, so a failure there leaves
+            // them in legacy coordinates rather than retrying (see MigrateLegacyReadingPositionsUseCase).
+            crashReporter.recordNonFatal(e, "Legacy reading-position migration failed")
+        }
         val saved = progressManager.getReadingPosition(book.filePath).coercedTo(book)
         val detectedLang = languageDetector.detectLanguage(buildLanguageSample(book))
         val savedTarget = _state.value.targetLanguage
@@ -270,7 +282,7 @@ class ReaderViewModel @Inject constructor(
                 position = saved,
                 sourceLanguage = detectedLang,
                 targetLanguage = targetLang,
-                pendingJump = saved.takeIf { p -> p != ReadingPosition.START },
+                pendingJump = saved.takeUnless { p -> book.isAtStart(p) },
             )
         }
         translationManager.attach(book, detectedLang, targetLang)
@@ -342,7 +354,7 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(position = position) }
         progressManager.saveReadingPosition(book.filePath, position)
         // "Continue reading" excerpt for the Library hero; nothing has been read at the very start.
-        if (position != ReadingPosition.START) {
+        if (!book.isAtStart(position)) {
             val paragraph = book.chapters.getOrNull(position.chapter)?.paragraphs?.getOrNull(position.paragraph)
             SynopsisExtractor.normalize(paragraph)?.let { progressManager.saveExcerpt(book.filePath, it) }
         }

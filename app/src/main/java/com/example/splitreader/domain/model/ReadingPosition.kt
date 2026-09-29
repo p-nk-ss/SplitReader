@@ -28,3 +28,6 @@ fun Book.paragraphOrdinal(position: ReadingPosition): Int {
     val p = position.coercedTo(this)
     return chapters.take(p.chapter).sumOf { it.paragraphs.size } + p.paragraph
 }
+
+/** True when [position] is the book's first paragraph with no scroll into it — nothing read yet. Empty leading chapters don't count. */
+fun Book.isAtStart(position: ReadingPosition): Boolean = paragraphOrdinal(position) == 0 && position.offset == 0
