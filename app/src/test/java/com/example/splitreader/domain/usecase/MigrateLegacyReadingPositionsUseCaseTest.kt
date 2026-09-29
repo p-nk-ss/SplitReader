@@ -9,8 +9,16 @@ import com.example.splitreader.domain.repository.BookmarkRepository
 import com.example.splitreader.domain.repository.LegacyProgress
 import com.example.splitreader.domain.repository.LegacyReadingPositionStore
 import com.example.splitreader.domain.usecase.MigrateLegacyReadingPositionsUseCase.Companion.legacyItemToPosition
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.async
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -49,6 +57,45 @@ private class FakeBookmarks(var stored: List<Bookmark>, val log: MutableList<Str
     override suspend fun listForBook(bookUri: String) = stored.sortedWith(compareBy({ it.chapterIndex }, { it.paragraphIndex }))
     override suspend fun replaceForBook(bookUri: String, bookmarks: List<Bookmark>) {
         log += "bookmarks"; replaceCalls++; stored = bookmarks
+    }
+}
+
+/**
+ * Thread-safe fakes for two truly parallel migrations of one book (production runs the use case on
+ * Dispatchers.IO, and a recreated ReaderScreen re-runs loadBook on the same ViewModel). Latches with
+ * timeouts force the racy interleaving when nothing serialises the runs: both pass the flag check
+ * before either writes it, and the second bookmark read waits for the first bookmark write. When the
+ * runs ARE serialised, the first latch simply times out and the second run exits at the flag check.
+ */
+private class RacingLegacyStore : LegacyReadingPositionStore {
+    private val bothChecked = CountDownLatch(2)
+    @Volatile var migrated = false
+    override fun isReadingPositionMigrated(bookUri: String): Boolean {
+        val result = migrated
+        bothChecked.countDown()
+        bothChecked.await(500, TimeUnit.MILLISECONDS)
+        return result
+    }
+    override fun legacyProgress(bookUri: String): LegacyProgress? = null
+    @Synchronized override fun completeReadingPositionMigration(bookUri: String, position: ReadingPosition?) {
+        migrated = true
+    }
+}
+
+private class RacingBookmarks(@Volatile var stored: List<Bookmark>) : BookmarkRepository {
+    val replaceCalls = AtomicInteger()
+    private val reads = AtomicInteger()
+    private val firstReplaced = CountDownLatch(1)
+    override fun observeForBook(uri: String): Flow<List<Bookmark>> = emptyFlow()
+    override suspend fun add(bookUri: String, chapterIndex: Int, paragraphIndex: Int, label: String?) = Unit
+    override suspend fun remove(bookUri: String, chapterIndex: Int, paragraphIndex: Int) = Unit
+    override suspend fun toggle(bookUri: String, chapterIndex: Int, paragraphIndex: Int) = Unit
+    override suspend fun listForBook(bookUri: String): List<Bookmark> {
+        if (reads.incrementAndGet() > 1) firstReplaced.await(2, TimeUnit.SECONDS)
+        return stored
+    }
+    override suspend fun replaceForBook(bookUri: String, bookmarks: List<Bookmark>) {
+        stored = bookmarks; replaceCalls.incrementAndGet(); firstReplaced.countDown()
     }
 }
 
@@ -128,8 +175,9 @@ class MigrateLegacyReadingPositionsUseCaseTest {
         val log = mutableListOf<String>()
         val marks = FakeBookmarks(
             listOf(
-                bm(1, 0, 0, createdAt = 100), // masthead -> p0
-                bm(2, 0, 1, createdAt = 200), // p0      -> p0 (collides, later: dropped)
+                // Listed first (legacy item order) but created later, so neither first() nor maxBy passes.
+                bm(1, 0, 0, createdAt = 200), // masthead -> p0 (collides, later: dropped)
+                bm(2, 0, 1, createdAt = 100), // p0      -> p0 (earliest: kept)
                 bm(3, 0, 3, createdAt = 300), // p1
                 bm(4, 7, 5, createdAt = 400), // chapter no longer exists: kept as is
             ),
@@ -155,6 +203,22 @@ class MigrateLegacyReadingPositionsUseCaseTest {
 
         assertEquals(listOf(0 to 1), marks.stored.map { it.chapterIndex to it.paragraphIndex })
         assertEquals(1, marks.replaceCalls)
+    }
+
+    @Test
+    fun `two parallel opens of one book convert bookmarks exactly once`() {
+        val legacy = RacingLegacyStore()
+        val marks = RacingBookmarks(listOf(bm(1, 0, 3, 10))) // item 3 -> p1; converted again p1 -> p0
+        val migrate = MigrateLegacyReadingPositionsUseCase(legacy, marks)
+        val pool = Executors.newFixedThreadPool(2).asCoroutineDispatcher()
+        try {
+            runBlocking { List(2) { async(pool) { migrate(book, true) } }.awaitAll() }
+        } finally {
+            pool.close()
+        }
+
+        assertEquals(listOf(0 to 1), marks.stored.map { it.chapterIndex to it.paragraphIndex })
+        assertEquals(1, marks.replaceCalls.get())
     }
 
     @Test

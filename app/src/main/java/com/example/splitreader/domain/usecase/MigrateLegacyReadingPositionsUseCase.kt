@@ -6,6 +6,9 @@ import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.repository.BookmarkRepository
 import com.example.splitreader.domain.repository.LegacyReadingPositionStore
 import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * One-off, per book, on first open: converts progress and bookmarks saved as chapter-local
@@ -19,13 +22,22 @@ import javax.inject.Inject
  * position/bookmark was saved, so a user who toggled illustrations after their last save gets
  * positions off by the number of illustrations above them (accepted, see docs/adr/0001).
  *
+ * A @Singleton whose whole run, flag check included, is serialised by one Mutex: a recreated
+ * ReaderScreen re-runs loadBook on the same ViewModel while the first run is still going (on
+ * Dispatchers.IO), and two runs that both pass the flag check would convert bookmarks twice.
+ *
  * TODO(cleanup): delete with LegacyReadingPositionStore once versionCode >= 8 has shipped.
  */
+@Singleton
 class MigrateLegacyReadingPositionsUseCase @Inject constructor(
     private val legacy: LegacyReadingPositionStore,
     private val bookmarks: BookmarkRepository,
 ) {
-    suspend operator fun invoke(book: Book, showIllustrations: Boolean) {
+    private val mutex = Mutex()
+
+    suspend operator fun invoke(book: Book, showIllustrations: Boolean) = mutex.withLock { migrate(book, showIllustrations) }
+
+    private suspend fun migrate(book: Book, showIllustrations: Boolean) {
         val uri = book.filePath
         if (legacy.isReadingPositionMigrated(uri)) return
 

@@ -263,6 +263,9 @@ class ReaderViewModel @Inject constructor(
         } catch (e: Exception) {
             // Don't fail the book open. The flag is written before bookmarks, so a failure there leaves
             // them in legacy coordinates rather than retrying (see MigrateLegacyReadingPositionsUseCase).
+            // A failure BEFORE the flag is written leaves the book unmigrated, so it retries on the next open
+            // (by design; a persistent pre-flag failure would eventually treat bookmarks added in new
+            // coordinates as legacy).
             crashReporter.recordNonFatal(e, "Legacy reading-position migration failed")
         }
         val saved = progressManager.getReadingPosition(book.filePath).coercedTo(book)
