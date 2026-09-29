@@ -57,15 +57,39 @@ private fun bm(id: Long, ch: Int, item: Int, createdAt: Long) =
 
 class MigrateLegacyReadingPositionsUseCaseTest {
 
+    // Split into one @Test per legacy item so each assertion is individually observable when
+    // broken (a single combined test's assertEquals calls stop at the first failure, masking the
+    // rest). Values are unchanged from the original combined test.
+
     @Test
-    fun `legacy items map to paragraphs with illustrations on`() {
-        fun at(item: Int, off: Int = 9) = legacyItemToPosition(ch0, 0, item, off, showIllustrations = true)
-        assertEquals(ReadingPosition(0, 0, 0), at(0))   // masthead -> first paragraph below
-        assertEquals(ReadingPosition(0, 0, 9), at(1))   // p0 keeps offset
-        assertEquals(ReadingPosition(0, 1, 0), at(2))   // image above p1
-        assertEquals(ReadingPosition(0, 1, 9), at(3))   // p1 (legacy `item-1` would say p2)
-        assertEquals(ReadingPosition(0, 2, 0), at(5))   // trailing image -> last paragraph
-        assertEquals(ReadingPosition(0, 2, 0), at(99))  // past the chapter -> last paragraph
+    fun `legacy item 0, the masthead, maps to the first paragraph below`() {
+        assertEquals(ReadingPosition(0, 0, 0), legacyItemToPosition(ch0, 0, 0, 9, showIllustrations = true))
+    }
+
+    @Test
+    fun `legacy item 1, paragraph 0, keeps its offset`() {
+        assertEquals(ReadingPosition(0, 0, 9), legacyItemToPosition(ch0, 0, 1, 9, showIllustrations = true))
+    }
+
+    @Test
+    fun `legacy item 2, the image above paragraph 1, maps to paragraph 1`() {
+        assertEquals(ReadingPosition(0, 1, 0), legacyItemToPosition(ch0, 0, 2, 9, showIllustrations = true))
+    }
+
+    @Test
+    fun `legacy item 3 maps to paragraph 1, not paragraph 2`() {
+        // legacy `item-1` would say p2
+        assertEquals(ReadingPosition(0, 1, 9), legacyItemToPosition(ch0, 0, 3, 9, showIllustrations = true))
+    }
+
+    @Test
+    fun `legacy item 5, the trailing image, maps to the last paragraph`() {
+        assertEquals(ReadingPosition(0, 2, 0), legacyItemToPosition(ch0, 0, 5, 9, showIllustrations = true))
+    }
+
+    @Test
+    fun `legacy item 99, past the chapter, maps to the last paragraph`() {
+        assertEquals(ReadingPosition(0, 2, 0), legacyItemToPosition(ch0, 0, 99, 9, showIllustrations = true))
     }
 
     @Test

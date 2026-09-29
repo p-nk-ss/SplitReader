@@ -80,7 +80,9 @@ class ReadingProgressManager @Inject constructor(
         val edit = prefs.edit()
         if (position != null) edit.putPosition(bookUri, position)
         legacyScrollKeys(bookUri).forEach { edit.remove(it) }
-        edit.putBoolean("position_v2_$bookUri", true).apply()
+        // commit(), not apply(): this write must be durable before returning, see the KDoc on
+        // LegacyReadingPositionStore.completeReadingPositionMigration.
+        edit.putBoolean("position_v2_$bookUri", true).commit()
     }
 
     /** `last_scroll_<uri>_<n>` and `last_scroll_offset_<uri>_<n>` — suffix must be a bare chapter

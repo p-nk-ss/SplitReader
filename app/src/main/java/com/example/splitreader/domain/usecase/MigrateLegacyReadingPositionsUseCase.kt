@@ -15,6 +15,10 @@ import javax.inject.Inject
  * process dies between them, bookmarks stay in legacy coordinates (the old, off-by-one behaviour).
  * They are never converted twice, which would shift them again.
  *
+ * Conversion uses the *current* `showIllustrations`, not whatever was in effect when the
+ * position/bookmark was saved, so a user who toggled illustrations after their last save gets
+ * positions off by the number of illustrations above them (accepted, see docs/adr/0001).
+ *
  * TODO(cleanup): delete with LegacyReadingPositionStore once versionCode >= 8 has shipped.
  */
 class MigrateLegacyReadingPositionsUseCase @Inject constructor(

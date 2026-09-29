@@ -13,7 +13,10 @@ interface LegacyReadingPositionStore {
     fun legacyProgress(bookUri: String): LegacyProgress?
     /**
      * In one SharedPreferences edit: write [position] (if non-null), set the migrated flag, and drop
-     * every legacy scroll key of [bookUri].
+     * every legacy scroll key of [bookUri]. Must complete durably (a synchronous commit, not a
+     * fire-and-forget apply) before returning: MigrateLegacyReadingPositionsUseCase's never-convert-twice
+     * guarantee depends on this write surviving a process death right after it returns, before the
+     * bookmark rewrite runs. Callers must invoke this off the main thread.
      */
     fun completeReadingPositionMigration(bookUri: String, position: ReadingPosition?)
 }
