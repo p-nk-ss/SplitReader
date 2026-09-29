@@ -3,6 +3,7 @@ package com.example.splitreader.data.repository
 import com.example.splitreader.data.local.BookmarkDao
 import com.example.splitreader.data.local.BookmarkEntity
 import com.example.splitreader.data.repository.mapper.toDomain
+import com.example.splitreader.data.repository.mapper.toEntity
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.repository.BookmarkRepository
 import kotlinx.coroutines.flow.Flow
@@ -31,5 +32,12 @@ class BookmarkRepositoryImpl @Inject constructor(
         } else {
             dao.insert(BookmarkEntity(bookUri = bookUri, chapterIndex = chapterIndex, paragraphIndex = paragraphIndex))
         }
+    }
+
+    override suspend fun listForBook(bookUri: String): List<Bookmark> =
+        dao.listForBook(bookUri).map { it.toDomain() }
+
+    override suspend fun replaceForBook(bookUri: String, bookmarks: List<Bookmark>) {
+        dao.replaceForBook(bookUri, bookmarks.map { it.toEntity().copy(id = 0, bookUri = bookUri) })
     }
 }

@@ -5,3 +5,6 @@ import com.example.splitreader.domain.model.Bookmark
 
 fun BookmarkEntity.toDomain(): Bookmark =
     Bookmark(id, bookUri, chapterIndex, paragraphIndex, label, createdAt)
+
+fun Bookmark.toEntity(): BookmarkEntity =
+    BookmarkEntity(id, bookUri, chapterIndex, paragraphIndex, label, createdAt)
