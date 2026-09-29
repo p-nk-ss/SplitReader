@@ -15,13 +15,17 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.ReadingDefaults
+import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.model.coercedTo
+import com.example.splitreader.domain.model.paragraphOrdinal
 import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
+import com.example.splitreader.domain.usecase.MigrateLegacyReadingPositionsUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.domain.usecase.SaveWordUseCase
@@ -59,6 +63,7 @@ class ReaderViewModel @Inject constructor(
     private val toggleBookmarkUseCase: ToggleBookmarkUseCase,
     private val bookmarkRepository: BookmarkRepository,
     private val endReadingSessionUseCase: EndReadingSessionUseCase,
+    private val migrateLegacyReadingPositions: MigrateLegacyReadingPositionsUseCase,
     private val progressManager: ReadingPreferences,
     private val languageDetector: LanguageDetector,
     private val apiKeyManager: TranslatorKeyStore,
@@ -86,13 +91,12 @@ class ReaderViewModel @Inject constructor(
 
     private data class InternalState(
         val book: Book? = null,
-        val currentChapterIndex: Int = 0,
+        val position: ReadingPosition = ReadingPosition.START,
         val sourceLanguage: Language = Language.ENGLISH,
         val targetLanguage: Language = Language.ENGLISH,
         val translationState: TranslationState = TranslationState.Idle,
         val chapterTranslations: Map<Int, List<String>> = emptyMap(),
-        val pendingScrollPosition: Int = -1,
-        val pendingScrollOffset: Int = 0,
+        val pendingJump: ReadingPosition? = null,
         val textSize: Float = ReadingDefaults.TEXT_SIZE,
         val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
         val readingFont: ReadingFont = ReadingFont.SERIF,
@@ -111,7 +115,6 @@ class ReaderViewModel @Inject constructor(
         val orientationLock: OrientationLock = OrientationLock.AUTO,
         val isLoading: Boolean = false,
         val error: String? = null,
-        val currentParagraph: Int = 0,
         val bookmarks: List<Bookmark> = emptyList(),
         val wordSelection: WordSelection? = null,
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
@@ -162,13 +165,12 @@ class ReaderViewModel @Inject constructor(
                 s.book == null -> ReaderUiState.Loading
                 else -> ReaderUiState.Success(
                     book = s.book,
-                    currentChapterIndex = s.currentChapterIndex,
+                    position = s.position,
                     sourceLanguage = s.sourceLanguage,
                     targetLanguage = s.targetLanguage,
                     translationState = s.translationState,
                     chapterTranslations = s.chapterTranslations,
-                    pendingScrollPosition = s.pendingScrollPosition,
-                    pendingScrollOffset = s.pendingScrollOffset,
+                    pendingJump = s.pendingJump,
                     textSize = s.textSize,
                     lineHeightMultiplier = s.lineHeightMultiplier,
                     readingFont = s.readingFont,
@@ -187,7 +189,7 @@ class ReaderViewModel @Inject constructor(
                     orientationLock = s.orientationLock,
                     bookmarks = s.bookmarks,
                     isCurrentPositionBookmarked = s.bookmarks.any {
-                        it.chapterIndex == s.currentChapterIndex && it.paragraphIndex == s.currentParagraph
+                        it.chapterIndex == s.position.chapter && it.paragraphIndex == s.position.paragraph
                     },
                     wordSelection = s.wordSelection,
                     translatorProvider = s.translatorProvider,
@@ -208,8 +210,6 @@ class ReaderViewModel @Inject constructor(
         isTranslationVisible = { progressManager.getShowTranslation() },
     )
     private var selectionTranslateJob: Job? = null
-    private var lastScrollPosition = 0
-    private var lastScrollOffset = 0
 
     init {
         // Populate the real translator config (Keystore read) off the main thread; the field
@@ -230,11 +230,11 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    /** Convert a chapter-local list index (item 0 is the chapter masthead) to a paragraph anchor. */
-    private fun anchorFor(localIndex: Int): Int = (localIndex - 1).coerceAtLeast(0)
-
     // Timestamp of the current foreground reading stint; 0 means no active session.
     private var sessionStartedAt = 0L
+
+    // Book-wide paragraph ordinal where the current session started; paragraphsRead is measured from it.
+    private var sessionStartOrdinal = 0
 
     fun loadBook(uri: Uri) {
         viewModelScope.launch {
@@ -250,10 +250,10 @@ class ReaderViewModel @Inject constructor(
     }
 
     private suspend fun handleBookLoaded(book: Book) {
-        val lastChapterIndex = progressManager.getLastChapter(book.filePath)
-            .coerceIn(0, (book.chapters.size - 1).coerceAtLeast(0))
-        val lastScroll = progressManager.getLastScrollPosition(book.filePath, lastChapterIndex)
-        val lastOffset = progressManager.getLastScrollOffset(book.filePath, lastChapterIndex)
+        // The migration's prefs write is a synchronous commit(); keep it off the main thread.
+        val showIllustrations = _state.value.showIllustrations
+        withContext(Dispatchers.IO) { migrateLegacyReadingPositions(book, showIllustrations) }
+        val saved = progressManager.getReadingPosition(book.filePath).coercedTo(book)
         val detectedLang = languageDetector.detectLanguage(buildLanguageSample(book))
         val savedTarget = _state.value.targetLanguage
         val targetLang = if (detectedLang == savedTarget) {
@@ -263,24 +263,19 @@ class ReaderViewModel @Inject constructor(
         }
         progressManager.saveTargetLanguage(targetLang)
 
-        lastScrollPosition = lastScroll
-        lastScrollOffset = lastOffset
         _state.update {
             it.copy(
                 book = book,
                 isLoading = false,
-                currentChapterIndex = lastChapterIndex,
+                position = saved,
                 sourceLanguage = detectedLang,
                 targetLanguage = targetLang,
-                pendingScrollPosition = if (lastScroll > 0) lastScroll else -1,
-                pendingScrollOffset = if (lastScroll > 0) lastOffset else 0,
+                pendingJump = saved.takeIf { p -> p != ReadingPosition.START },
             )
         }
         translationManager.attach(book, detectedLang, targetLang)
-        // Seed the window at the restored position so the visible spot translates immediately, before
-        // the reader's first visible-range report arrives once layout settles.
-        val anchor = anchorFor(lastScroll)
-        translationManager.onVisibleRange(lastChapterIndex, anchor, lastChapterIndex, anchor)
+        // Seed the window at the restored paragraph so it translates before the first visible-range report.
+        translationManager.onVisibleRange(saved.chapter, saved.paragraph, saved.chapter, saved.paragraph)
         // Begin tracking reading time now that the book is on screen
         resumeSession()
         observeBookmarks(book.filePath)
@@ -296,8 +291,10 @@ class ReaderViewModel @Inject constructor(
 
     /** Start a reading-time session if a book is loaded and none is already running. */
     fun resumeSession() {
-        if (_state.value.book != null && sessionStartedAt == 0L) {
+        val book = _state.value.book
+        if (book != null && sessionStartedAt == 0L) {
             sessionStartedAt = System.currentTimeMillis()
+            sessionStartOrdinal = book.paragraphOrdinal(_state.value.position)
         }
     }
 
@@ -308,7 +305,8 @@ class ReaderViewModel @Inject constructor(
         if (startedAt == 0L || book == null) return
         sessionStartedAt = 0L
         val sourceLang = _state.value.sourceLanguage.code
-        val paragraphsRead = lastScrollPosition
+        // How far the reader advanced this session, in paragraphs (never negative: re-reading counts 0).
+        val paragraphsRead = (book.paragraphOrdinal(_state.value.position) - sessionStartOrdinal).coerceAtLeast(0)
         viewModelScope.launch {
             endReadingSessionUseCase(
                 startedAt = startedAt,
@@ -323,7 +321,7 @@ class ReaderViewModel @Inject constructor(
     fun selectChapter(index: Int) {
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
-        _state.update { it.copy(currentChapterIndex = index) }
+        _state.update { it.copy(position = ReadingPosition(index, 0, 0)) }
         // A jump lands at the top of the chapter; seed the window there and the reader's visible-range
         // report will widen it once the chapter is laid out.
         translationManager.onVisibleRange(index, 0, index, 0)
@@ -334,35 +332,28 @@ class ReaderViewModel @Inject constructor(
         translationManager.reset()
         translationManager.setLanguages(_state.value.sourceLanguage, lang)
         _state.update { it.copy(targetLanguage = lang, chapterTranslations = emptyMap()) }
-        val anchor = anchorFor(lastScrollPosition)
-        translationManager.onVisibleRange(_state.value.currentChapterIndex, anchor, _state.value.currentChapterIndex, anchor)
+        val p = _state.value.position
+        translationManager.onVisibleRange(p.chapter, p.paragraph, p.chapter, p.paragraph)
     }
 
-    fun updateScrollPosition(chapterIndex: Int, position: Int, offset: Int = 0) {
-        lastScrollPosition = position
-        lastScrollOffset = offset
+    /** The reader's top paragraph changed (reported through BookItemIndex.positionAt). */
+    fun onReadingPositionChanged(position: ReadingPosition) {
         val book = _state.value.book ?: return
-        _state.update { it.copy(currentChapterIndex = chapterIndex, currentParagraph = position) }
-        progressManager.saveProgress(book.filePath, chapterIndex, position, offset)
-        // Capture the paragraph the reader is on as a "continue reading" excerpt for the Library hero.
-        // position is the chapter-local list index where 0 is the chapter masthead, so the visible
-        // paragraph is paragraphs[position - 1]; skip the very top of the first chapter (nothing read yet).
-        if (chapterIndex > 0 || position > 0) {
-            val paragraph = book.chapters.getOrNull(chapterIndex)
-                ?.paragraphs?.getOrNull((position - 1).coerceAtLeast(0))
+        _state.update { it.copy(position = position) }
+        progressManager.saveReadingPosition(book.filePath, position)
+        // "Continue reading" excerpt for the Library hero; nothing has been read at the very start.
+        if (position != ReadingPosition.START) {
+            val paragraph = book.chapters.getOrNull(position.chapter)?.paragraphs?.getOrNull(position.paragraph)
             SynopsisExtractor.normalize(paragraph)?.let { progressManager.saveExcerpt(book.filePath, it) }
         }
-        // Translation is driven by the reader's visible-range reports (see [onVisibleRange]); this
-        // path only persists progress and the "continue reading" excerpt.
     }
 
     /** Toggles a bookmark at the user's current reading position (current chapter + top paragraph). */
     fun toggleBookmarkAtCurrentPosition() {
         val book = _state.value.book ?: return
-        val chapterIndex = _state.value.currentChapterIndex
-        val paragraphIndex = _state.value.currentParagraph
+        val p = _state.value.position
         viewModelScope.launch {
-            toggleBookmarkUseCase(book.filePath, chapterIndex, paragraphIndex)
+            toggleBookmarkUseCase(book.filePath, p.chapter, p.paragraph)
         }
     }
 
@@ -374,20 +365,13 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    /** Jumps the reader to a bookmarked paragraph via the existing scroll-restore path. */
+    /** Jumps to a bookmarked paragraph (always its start) through the single pending-jump path. */
     fun jumpToBookmark(chapterIndex: Int, paragraphIndex: Int) {
         val book = _state.value.book ?: return
-        if (chapterIndex < 0 || chapterIndex >= book.chapters.size) return
-        lastScrollPosition = paragraphIndex
-        _state.update {
-            it.copy(
-                currentChapterIndex = chapterIndex,
-                currentParagraph = paragraphIndex,
-                pendingScrollPosition = paragraphIndex,
-                pendingScrollOffset = 0,
-            )
-        }
-        translationManager.onVisibleRange(chapterIndex, paragraphIndex, chapterIndex, paragraphIndex)
+        if (chapterIndex !in book.chapters.indices) return
+        val target = ReadingPosition(chapterIndex, paragraphIndex, 0).coercedTo(book)
+        _state.update { it.copy(position = target, pendingJump = target) }
+        translationManager.onVisibleRange(target.chapter, target.paragraph, target.chapter, target.paragraph)
     }
 
     /** Called by the reader when the user scrolls to the end of the last chapter. */
@@ -396,8 +380,8 @@ class ReaderViewModel @Inject constructor(
         progressManager.markFinished(book.filePath)
     }
 
-    fun consumeScrollRestore() {
-        _state.update { it.copy(pendingScrollPosition = -1, pendingScrollOffset = 0) }
+    fun consumePendingJump() {
+        _state.update { it.copy(pendingJump = null) }
     }
 
     fun adjustTextSize(delta: Float) {
@@ -474,8 +458,8 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(showTranslation = newValue) }
         // Re-enabling the pane: translate the current view, which a paid provider skipped while hidden.
         if (newValue) {
-            val anchor = anchorFor(lastScrollPosition)
-            translationManager.onVisibleRange(_state.value.currentChapterIndex, anchor, _state.value.currentChapterIndex, anchor)
+            val p = _state.value.position
+            translationManager.onVisibleRange(p.chapter, p.paragraph, p.chapter, p.paragraph)
         }
     }
 
@@ -549,8 +533,8 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(chapterTranslations = emptyMap(), translationState = TranslationState.Idle) }
         if (_state.value.book == null) return
         // Re-translate from the reader's current position; the manager re-plans the visible window.
-        val anchor = anchorFor(lastScrollPosition)
-        translationManager.onVisibleRange(_state.value.currentChapterIndex, anchor, _state.value.currentChapterIndex, anchor)
+        val p = _state.value.position
+        translationManager.onVisibleRange(p.chapter, p.paragraph, p.chapter, p.paragraph)
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
@@ -658,7 +642,7 @@ class ReaderViewModel @Inject constructor(
 
     /** Retries translation for the current chapter after a failure (clears it and re-runs). */
     fun retryTranslation() {
-        translationManager.retry(_state.value.currentChapterIndex)
+        translationManager.retry(_state.value.position.chapter)
     }
 
     /**
@@ -666,7 +650,7 @@ class ReaderViewModel @Inject constructor(
      * otherwise only translate the visible window plus a small look-ahead to conserve quota/tokens.
      */
     fun translateWholeChapter() {
-        translationManager.translateWholeChapter(_state.value.currentChapterIndex)
+        translationManager.translateWholeChapter(_state.value.position.chapter)
     }
 
     private fun buildLanguageSample(book: Book): String {

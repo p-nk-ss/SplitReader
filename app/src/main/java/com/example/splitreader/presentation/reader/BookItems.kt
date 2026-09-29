@@ -12,22 +12,6 @@ import com.example.splitreader.domain.model.ChapterImage
 import com.example.splitreader.domain.model.ReadingPosition
 
 /**
- * The single source of the reader's LazyColumn item structure — keys, order, and count.
- *
- * Both the landscape spread and each of the two vertical panes call this, so their item indices
- * are identical **by construction** rather than by anyone keeping two emitters in step. That
- * identity is what lets `chapterItemStarts`, scroll restore, progress persistence, bookmark
- * jumps, `markFinished` and `onVisibleRange` all stay on the top pane's `listState` with no
- * index translation anywhere.
- *
- * Consequence worth knowing before "optimising": the translation pane MUST emit an item for every
- * illustration too, even though it only draws a slim placeholder. Skipping them would shift every
- * subsequent index in that pane and silently desynchronise the two lists.
- *
- * This function owns the `item()` calls and their keys and nothing else; the three slots own
- * their content entirely, including their own trailing spacing.
- */
-/**
  * Pure mirror of [bookItems]' emission order for index arithmetic: converts between LazyColumn
  * item indices and (chapter, paragraph) coordinates. Lives next to [bookItems] because the two
  * must agree item-for-item; any change to the emission order must change both.
@@ -107,6 +91,21 @@ internal class BookItemIndex(book: Book, showIllustrations: Boolean) {
         atOrBefore.getOrNull(itemIndex.coerceIn(atOrBefore.indices)) ?: (0 to 0)
 }
 
+/**
+ * The single source of the reader's LazyColumn item structure — keys, order, and count.
+ *
+ * Both the landscape spread and each of the two vertical panes call this, so their item indices
+ * are identical **by construction** rather than by anyone keeping two emitters in step. That
+ * identity is what lets every item↔Reading-position conversion (`BookItemIndex`) run on the
+ * top pane's `listState` alone.
+ *
+ * Consequence worth knowing before "optimising": the translation pane MUST emit an item for every
+ * illustration too, even though it only draws a slim placeholder. Skipping them would shift every
+ * subsequent index in that pane and silently desynchronise the two lists.
+ *
+ * This function owns the `item()` calls and their keys and nothing else; the three slots own
+ * their content entirely, including their own trailing spacing.
+ */
 internal fun LazyListScope.bookItems(
     book: Book,
     showIllustrations: Boolean,

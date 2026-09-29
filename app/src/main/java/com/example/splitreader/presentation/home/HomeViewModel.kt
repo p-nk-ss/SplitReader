@@ -92,7 +92,7 @@ class HomeViewModel @Inject constructor(
                     author = it.author,
                     coverPath = it.coverPath,
                     chapterCount = it.chapterCount,
-                    lastChapterIndex = progressManager.getLastChapter(it.uri),
+                    lastChapterIndex = progressManager.getReadingPosition(it.uri).chapter,
                     isFinished = progressManager.isFinished(it.uri),
                     lastOpenedAt = it.lastOpenedAt,
                     synopsis = it.synopsis,

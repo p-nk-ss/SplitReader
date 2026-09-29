@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -47,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.SaveWordResult
@@ -132,12 +134,12 @@ internal fun ReaderRoute(
             onSetNavigationSide = viewModel::setNavigationSide,
             onSetHorizontalMargin = viewModel::setHorizontalMargin,
             onSetOrientationLock = viewModel::setOrientationLock,
-            onUpdateScrollPosition = viewModel::updateScrollPosition,
+            onReadingPositionChanged = viewModel::onReadingPositionChanged,
             onMarkFinished = viewModel::markFinished,
             onToggleBookmark = viewModel::toggleBookmarkAtCurrentPosition,
             onRemoveBookmark = viewModel::removeBookmarkAt,
             onJumpToBookmark = viewModel::jumpToBookmark,
-            onConsumeScrollRestore = viewModel::consumeScrollRestore,
+            onConsumePendingJump = viewModel::consumePendingJump,
             onVisibleRange = viewModel::onVisibleRange,
             onSaveWord = viewModel::saveWord,
             onSpeak = viewModel::speak,
@@ -204,12 +206,12 @@ internal fun ReaderContent(
     onSetNavigationSide: (NavigationSide) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
     onSetOrientationLock: (OrientationLock) -> Unit,
-    onUpdateScrollPosition: (Int, Int, Int) -> Unit,
+    onReadingPositionChanged: (ReadingPosition) -> Unit,
     onMarkFinished: () -> Unit,
     onToggleBookmark: () -> Unit,
     onRemoveBookmark: (Int, Int) -> Unit,
     onJumpToBookmark: (Int, Int) -> Unit,
-    onConsumeScrollRestore: () -> Unit,
+    onConsumePendingJump: () -> Unit,
     onVisibleRange: (Int, Int, Int, Int) -> Unit,
     onSaveWord: (String, Int, Int) -> Unit,
     onSpeak: (String, String) -> Unit,
@@ -249,37 +251,28 @@ internal fun ReaderContent(
     val translationListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Pre-compute global item start index for each chapter. Image items are real LazyColumn items
-    // (one per illustration) only when illustrations are shown, so the per-chapter item count tracks
-    // the toggle — keeping scroll restore / bookmark jumps aligned with what is actually emitted.
-    val chapterItemStarts = remember(state.book.chapters, state.showIllustrations) {
-        state.book.chapters.runningFold(0) { acc, ch ->
-            acc + 1 + ch.paragraphs.size + (if (state.showIllustrations) ch.images.size else 0)
-        }.dropLast(1)
-    }
     // Exact item↔paragraph arithmetic (mastheads and illustration items are not paragraphs).
     val bookItemIndex = remember(state.book.chapters, state.showIllustrations) {
         BookItemIndex(state.book, state.showIllustrations)
     }
+    // Long-lived effects below are keyed on listState only; read the index through this so an
+    // illustrations toggle (which rebuilds the index) is seen by them, not the first-composition one.
+    val currentBookItemIndex by rememberUpdatedState(bookItemIndex)
 
-    // Restore scroll position on book load
-    LaunchedEffect(state.pendingScrollPosition) {
-        if (state.pendingScrollPosition >= 0) {
-            val globalPos = chapterItemStarts.getOrElse(state.currentChapterIndex) { 0 } + state.pendingScrollPosition
-            listState.scrollToItem(globalPos, state.pendingScrollOffset)
-            onConsumeScrollRestore()
-        }
+    // The single scroll-to-position path: book-load restore and bookmark jumps both arrive here.
+    LaunchedEffect(state.pendingJump, bookItemIndex) {
+        val jump = state.pendingJump ?: return@LaunchedEffect
+        listState.scrollToItem(bookItemIndex.itemIndexOf(jump.chapter, jump.paragraph), jump.offset)
+        onConsumePendingJump()
     }
 
-    // Persist scroll position (decomposed to chapter + local index)
+    // Persist the Reading position (first at-least-partly-visible paragraph).
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
             .distinctUntilChanged()
             .debounce(300)
             .collect { (globalIndex, offset) ->
-                val chapter = chapterItemStarts.indexOfLast { it <= globalIndex }.coerceAtLeast(0)
-                val localIndex = globalIndex - chapterItemStarts.getOrElse(chapter) { 0 }
-                onUpdateScrollPosition(chapter, localIndex, offset)
+                onReadingPositionChanged(currentBookItemIndex.positionAt(globalIndex, offset))
             }
     }
 
@@ -312,8 +305,8 @@ internal fun ReaderContent(
             .distinctUntilChanged()
             .debounce(120)
             .collect { (firstIndex, lastIndex) ->
-                val (startChapter, startPara) = bookItemIndex.paragraphAtOrAfter(firstIndex)
-                val (endChapter, endPara) = bookItemIndex.paragraphAtOrBefore(lastIndex)
+                val (startChapter, startPara) = currentBookItemIndex.paragraphAtOrAfter(firstIndex)
+                val (endChapter, endPara) = currentBookItemIndex.paragraphAtOrBefore(lastIndex)
                 onVisibleRange(startChapter, startPara, endChapter, endPara)
             }
     }
@@ -494,7 +487,7 @@ internal fun ReaderContent(
                 currentChapterIndex = state.currentChapterIndex,
                 onSelect = { idx ->
                     onSelectChapter(idx)
-                    coroutineScope.launch { listState.scrollToItem(chapterItemStarts.getOrElse(idx) { 0 }) }
+                    coroutineScope.launch { listState.scrollToItem(bookItemIndex.chapterStartItem(idx)) }
                     showChapterPicker = false
                 },
                 onDismiss = { showChapterPicker = false },
@@ -507,13 +500,7 @@ internal fun ReaderContent(
                 isCurrentBookmarked = state.isCurrentPositionBookmarked,
                 onToggleCurrent = onToggleBookmark,
                 onRemove = onRemoveBookmark,
-                onJump = { ch, p ->
-                    onJumpToBookmark(ch, p)
-                    coroutineScope.launch {
-                        listState.scrollToItem(bookItemIndex.itemIndexOf(ch, p))
-                    }
-                    showBookmarks = false
-                },
+                onJump = { ch, p -> onJumpToBookmark(ch, p); showBookmarks = false },
                 onDismiss = { showBookmarks = false },
             )
         }

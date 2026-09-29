@@ -69,11 +69,7 @@ private class FakeTranslationRepository(
 private class FakeReadingPreferences(
     private val provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
 ) : ReadingPreferences {
-    override fun saveProgress(bookUri: String, chapterIndex: Int, scrollPosition: Int, scrollOffset: Int) = Unit
     override fun getLastBookUri(): String? = null
-    override fun getLastChapter(bookUri: String) = 0
-    override fun getLastScrollPosition(bookUri: String, chapterIndex: Int) = 0
-    override fun getLastScrollOffset(bookUri: String, chapterIndex: Int) = 0
     override fun saveReadingPosition(bookUri: String, position: ReadingPosition) = Unit
     override fun getReadingPosition(bookUri: String) = ReadingPosition.START
     override fun saveExcerpt(bookUri: String, text: String) = Unit

@@ -6,6 +6,7 @@ import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
+import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
@@ -42,13 +43,12 @@ sealed interface ReaderUiState {
     data class Error(val message: String) : ReaderUiState
     data class Success(
         val book: Book,
-        val currentChapterIndex: Int,
+        val position: ReadingPosition = ReadingPosition.START,
         val sourceLanguage: Language,
         val targetLanguage: Language,
         val translationState: TranslationState,
         val chapterTranslations: Map<Int, List<String>>,
-        val pendingScrollPosition: Int = -1,
-        val pendingScrollOffset: Int = 0,
+        val pendingJump: ReadingPosition? = null,
         val textSize: Float = ReadingDefaults.TEXT_SIZE,
         val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
         val readingFont: ReadingFont = ReadingFont.SERIF,
@@ -72,6 +72,9 @@ sealed interface ReaderUiState {
         val translatorConfig: TranslatorConfigState =
             TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
     ) : ReaderUiState {
+        val currentChapterIndex: Int
+            get() = position.chapter
+
         val readingStyle: ReadingStyle
             get() = ReadingStyle(
                 font = readingFont,

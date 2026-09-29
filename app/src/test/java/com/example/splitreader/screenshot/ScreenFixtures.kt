@@ -8,6 +8,7 @@ import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogSource
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.SavedWord
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -463,13 +464,11 @@ object ScreenFixtures {
 
     val readerContentState = ReaderUiState.Success(
         book = readerBook,
-        currentChapterIndex = 0,
+        position = ReadingPosition.START,
         sourceLanguage = Language.ENGLISH,
         targetLanguage = Language.RUSSIAN,
         translationState = TranslationState.Idle,
         chapterTranslations = readerChapterTranslations,
-        pendingScrollPosition = -1,
-        pendingScrollOffset = 0,
         textSize = 16f,
         lineHeightMultiplier = 1.5f,
         readingFont = ReadingFont.SERIF,

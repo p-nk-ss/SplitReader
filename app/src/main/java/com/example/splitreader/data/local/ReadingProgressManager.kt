@@ -29,25 +29,7 @@ class ReadingProgressManager @Inject constructor(
     private val isTablet =
         context.resources.configuration.smallestScreenWidthDp >= ReadingDefaults.TABLET_MIN_SW_DP
 
-    override fun saveProgress(bookUri: String, chapterIndex: Int, scrollPosition: Int, scrollOffset: Int) {
-        prefs.edit()
-            .putString("last_book_uri", bookUri)
-            .putInt("last_chapter_$bookUri", chapterIndex)
-            .putInt("last_scroll_${bookUri}_$chapterIndex", scrollPosition)
-            .putInt("last_scroll_offset_${bookUri}_$chapterIndex", scrollOffset)
-            .apply()
-    }
-
     override fun getLastBookUri(): String? = prefs.getString("last_book_uri", null)
-
-    override fun getLastChapter(bookUri: String): Int =
-        prefs.getInt("last_chapter_$bookUri", 0)
-
-    override fun getLastScrollPosition(bookUri: String, chapterIndex: Int): Int =
-        prefs.getInt("last_scroll_${bookUri}_$chapterIndex", 0)
-
-    override fun getLastScrollOffset(bookUri: String, chapterIndex: Int): Int =
-        prefs.getInt("last_scroll_offset_${bookUri}_$chapterIndex", 0)
 
     override fun saveReadingPosition(bookUri: String, position: ReadingPosition) {
         prefs.edit().putString("last_book_uri", bookUri).putPosition(bookUri, position).apply()

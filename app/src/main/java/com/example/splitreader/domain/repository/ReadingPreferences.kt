@@ -8,11 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** Persists per-book reading position and reader display/translation preferences. */
 interface ReadingPreferences {
-    fun saveProgress(bookUri: String, chapterIndex: Int, scrollPosition: Int, scrollOffset: Int = 0)
     fun getLastBookUri(): String?
-    fun getLastChapter(bookUri: String): Int
-    fun getLastScrollPosition(bookUri: String, chapterIndex: Int): Int
-    fun getLastScrollOffset(bookUri: String, chapterIndex: Int): Int
     /** Persists [position] as [bookUri]'s progress and remembers [bookUri] as the last-read book. */
     fun saveReadingPosition(bookUri: String, position: ReadingPosition)
     /** [bookUri]'s saved Reading position; [ReadingPosition.START] if it was never read. */
