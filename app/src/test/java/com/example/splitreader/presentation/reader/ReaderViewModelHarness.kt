@@ -84,10 +84,12 @@ class MainDispatcherRule(val dispatcher: TestDispatcher = StandardTestDispatcher
 /**
  * Waits for the book to open. The VM hops to the real Dispatchers.IO (parsing, migration) and
  * Dispatchers.Default (translator config), which virtual time cannot drive, so this alternates
- * draining the test dispatcher with short real sleeps, bounded at ~2 s.
+ * draining the test dispatcher with short real sleeps, bounded by a 10 s wall-clock deadline
+ * (a cold Robolectric start alone takes ~2 s on a fast machine).
  */
 internal suspend fun TestScope.awaitLoaded(h: ReaderViewModelHarness): ReaderUiState.Success {
-    repeat(200) {
+    val deadline = System.nanoTime() + LOAD_TIMEOUT_NANOS
+    while (System.nanoTime() < deadline) {
         advanceUntilIdle()
         (h.vm.uiState.value as? ReaderUiState.Success)?.let { return it }
         Thread.sleep(10)
@@ -95,3 +97,5 @@ internal suspend fun TestScope.awaitLoaded(h: ReaderViewModelHarness): ReaderUiS
     fail("book never loaded; last state: ${h.vm.uiState.value}")
     error("unreachable")
 }
+
+private const val LOAD_TIMEOUT_NANOS = 10_000_000_000L

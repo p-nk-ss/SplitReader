@@ -169,6 +169,11 @@ class ReaderViewModelTest {
      * between setTargetLanguage and the engine's reset (observed: exactly one such frame). From the
      * reset on (the first snapshot that differs from the pre-change translations) no snapshot may
      * carry Russian text. StateFlow conflation may skip snapshots, which can only hide a leak.
+     *
+     * What this pins: the VM forwards the change and the engine's reset clears the old translations
+     * and re-translates the viewport. It cannot catch a late old-language result: the viewport is
+     * fully translated before the change, so no old-epoch segment is in flight when it happens. That
+     * epoch guard is covered by ReaderTranslationEngineTest (E2), not here.
      */
     @Test
     fun `a target change clears translations and no old-language text appears later`() = runTest(main.dispatcher) {
