@@ -6,12 +6,14 @@ import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -250,16 +252,29 @@ class ReaderTranslationEngine(
         val prov = provider
         running = scope.launch {
             var error: String? = null
-            translateText(paragraphs, src, tgt, prov, segment.start, segment.endInclusive).collect { s ->
-                when (s) {
-                    is TranslationState.Partial ->
-                        events.send(Event.Partial(myEpoch, segment.chapterIndex, s.index, s.text))
-                    is TranslationState.DownloadingModel -> events.send(Event.Downloading(mySeq, s.progress))
-                    is TranslationState.Error -> error = s.message
-                    else -> Unit
+            try {
+                translateText(paragraphs, src, tgt, prov, segment.start, segment.endInclusive).collect { s ->
+                    when (s) {
+                        is TranslationState.Partial ->
+                            events.send(Event.Partial(myEpoch, segment.chapterIndex, s.index, s.text))
+                        is TranslationState.DownloadingModel -> events.send(Event.Downloading(mySeq, s.progress))
+                        is TranslationState.Error -> error = s.message
+                        else -> Unit
+                    }
                 }
+            } catch (e: CancellationException) {
+                // Our own cancel: the seq has already moved on, so the SegmentDone below is ignored.
+                if (!isActive) throw e
+                // A stray one from below (a provider's withTimeout, a cancelled Task.await()) while we
+                // are still active is a failure. Ending without one would wedge the engine, and ending
+                // with no error would re-plan the same paragraph forever.
+                error = e.message ?: "Translation failed"
+            } catch (e: Exception) {
+                // Defence-in-depth, not demonstrated by a test: the use case catches Exception itself.
+                error = e.message ?: "Translation failed"
+            } finally {
+                events.trySend(Event.SegmentDone(mySeq, error))
             }
-            events.send(Event.SegmentDone(mySeq, error))
         }
     }
 

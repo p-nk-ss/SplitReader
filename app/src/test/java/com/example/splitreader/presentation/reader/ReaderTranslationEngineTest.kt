@@ -10,8 +10,10 @@ import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import java.io.IOException
 import java.util.Collections
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
@@ -30,15 +32,23 @@ private class FakeRepo : TranslationRepository {
     val calls: MutableList<Pair<String, Language>> = Collections.synchronizedList(mutableListOf())
     val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
     val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
+    val cancelOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
     override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
         calls += text to targetLanguage
         // An engine that re-plans the same work forever would spin runCurrent() on the test thread,
-        // where runTest's timeout cannot reach it. An Error (not an Exception, which the use case
-        // swallows per paragraph) kills the segment job, so the test fails instead of hanging.
-        if (calls.size > RUNAWAY_LIMIT) throw AssertionError("runaway engine: >$RUNAWAY_LIMIT calls, last=$text")
+        // where runTest's timeout cannot reach it. Past the limit, the first call reports the runaway
+        // (an Error, which the use case does not swallow) and every later call parks forever: an
+        // engine that survives the Error and re-plans still stops, so the test fails instead of hanging.
+        if (calls.size > RUNAWAY_LIMIT) {
+            if (calls.size == RUNAWAY_LIMIT + 1) throw AssertionError("runaway engine: >$RUNAWAY_LIMIT calls, last=$text")
+            awaitCancellation()
+        }
         gates[text]?.await()
         if (text in failOn) throw IOException("down: $text")
+        // What a provider's own withTimeout, or a cancelled Play-services Task.await(), throws while
+        // the caller is still active; TranslateTextUseCase rethrows every CancellationException.
+        if (text in cancelOn) throw CancellationException("timed out: $text")
         return "${targetLanguage.code}:$text"
     }
     override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> = emptyFlow()
@@ -74,6 +84,9 @@ class ReaderTranslationEngineTest {
      * `advanceUntilIdle()` stops as soon as only background tasks remain — it would never run the
      * engine. `runCurrent()` runs every task at the current virtual time, background ones included;
      * the engine never advances virtual time, so this drains it completely.
+     *
+     * It does not advance virtual time either: a delay-based fake, or the use case's 429 backoff
+     * path, would stall here, and an absence assertion made after such a stall would pass vacuously.
      */
     private fun TestScope.settle() = runCurrent()
 
@@ -246,7 +259,8 @@ class ReaderTranslationEngineTest {
         val e = engine(repo)
         e.open(book(60), Language.ENGLISH, Language.RUSSIAN, PAID, paneVisible = true)
         withContext(Dispatchers.Default) {
-            repeat(50) { i -> launch { e.viewport(p(0, i), p(0, i)) } }
+            // Viewports start at 10 so none coincides with open's default START window (0..8).
+            repeat(50) { i -> launch { e.viewport(p(0, i + 10), p(0, i + 10)) } }
         }
         settle()
 
@@ -256,10 +270,18 @@ class ReaderTranslationEngineTest {
             val i = text.removePrefix("c0p").toInt()
             assertEquals("ru:$text", e.text(0, i))
         }
+        // Whichever viewport the engine saw last, its whole window (look-behind 4, look-ahead 8) is done.
+        val windowDone = (10..59).any { v -> ((v - 4)..minOf(v + 8, 59)).all { e.text(0, it) == "ru:c0p$it" } }
+        assertTrue("no viewport's window was translated: $counts", windowDone)
     }
 
+    /**
+     * The "before open" half cannot be made to fail: `step()` returns without a book, so even an
+     * engine that applied those events would issue no work. Only the "new open starts clean" half
+     * is demonstrated (by skipping `discardTranslations()` in `Open`).
+     */
     @Test
-    fun `E10 calls before open are ignored and a new open starts clean`() = runTest {
+    fun `E10 calls before open are harmless and a new open starts clean`() = runTest {
         val repo = FakeRepo()
         val e = engine(repo)
         e.viewport(p(0, 0), p(0, 3))
@@ -281,5 +303,45 @@ class ReaderTranslationEngineTest {
             mapOf(0 to listOf("ru:c0p0", "ru:c0p1", "ru:c0p2")),
             e.state.value.translations,
         )
+    }
+
+    @Test
+    fun `E11 hiding the pane with a paid provider cancels the running segment`() = runTest {
+        val repo = FakeRepo()
+        val gate = CompletableDeferred<Unit>().also { repo.gates["c0p1"] = it }
+        val e = engine(repo)
+        e.open(book(20), Language.ENGLISH, Language.RUSSIAN, PAID, paneVisible = true)
+        e.viewport(p(0, 0), p(0, 4))
+        settle() // visible segment 0..4 is blocked at c0p1
+
+        e.settingsChanged(Language.RUSSIAN, PAID, paneVisible = false)
+        repo.gates.remove("c0p1")
+        gate.complete(Unit)
+        settle()
+
+        val texts = repo.texts()
+        for (i in 2..4) assertFalse("c0p$i requested after the pane was hidden: $texts", "c0p$i" in texts)
+        assertEquals("finished work is kept", "ru:c0p0", e.text(0, 0))
+    }
+
+    /**
+     * A CancellationException from below while the segment's own job is still active — what a
+     * provider's internal `withTimeout` or a cancelled Play-services `Task.await()` throws, and what
+     * TranslateTextUseCase deliberately rethrows — must end the segment as a failure, not wedge the engine.
+     */
+    @Test
+    fun `E12 a stray cancellation from the provider is an error, not a wedged engine`() = runTest {
+        val repo = FakeRepo().apply { cancelOn += "c0p2" }
+        val e = engine(repo)
+        e.open(book(10), Language.ENGLISH, Language.RUSSIAN, PAID, paneVisible = true)
+        e.viewport(p(0, 0), p(0, 4))
+        settle()
+        assertTrue("banner: ${e.state.value.state}", e.state.value.state is TranslationState.Error)
+
+        repo.cancelOn.clear()
+        e.retry()
+        settle()
+        for (i in 0..4) assertEquals("ru:c0p$i", e.text(0, i))
+        assertEquals(TranslationState.Idle, e.state.value.state)
     }
 }
