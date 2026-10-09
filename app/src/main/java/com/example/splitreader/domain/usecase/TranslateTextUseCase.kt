@@ -1,6 +1,5 @@
 package com.example.splitreader.domain.usecase
 
-import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -22,12 +21,11 @@ import java.io.IOException
 import javax.inject.Inject
 
 /**
- * Translates a range of paragraphs using the currently selected provider, emitting
- * [TranslationState] updates (model download, per-paragraph partials, or a friendly error).
+ * Translates a range of paragraphs using [provider], emitting [TranslationState] updates
+ * (model download, per-paragraph partials, or a friendly error).
  */
 class TranslateTextUseCase @Inject constructor(
     private val repository: TranslationRepository,
-    private val settings: ReadingPreferences,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /**
@@ -38,10 +36,10 @@ class TranslateTextUseCase @Inject constructor(
         paragraphs: List<String>,
         sourceLanguage: Language,
         targetLanguage: Language,
+        provider: TranslationProvider,
         startIndex: Int = 0,
         endIndex: Int = -1,
     ): Flow<TranslationState> = flow {
-        val provider = settings.getTranslatorProvider()
         // Offline engines may have to fetch a model/pack first; the banner shows that wait, and a
         // failure here is the user's error to see (an unreported pack download looks like a hang).
         if (!provider.requiresNetwork) {

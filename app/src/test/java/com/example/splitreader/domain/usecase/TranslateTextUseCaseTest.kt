@@ -1,11 +1,8 @@
 package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.domain.model.Language
-import com.example.splitreader.domain.model.OrientationLock
-import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
-import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.translator.ModelPair
 import com.example.splitreader.domain.translator.OfflineEngineUnavailableException
@@ -15,10 +12,8 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.HttpException
 import retrofit2.Response
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -65,73 +60,25 @@ private class FakeTranslationRepository(
     override suspend fun clearCache() = Unit
 }
 
-/** Everything defaulted; only the translator-provider choice matters to the use case. */
-private class FakeReadingPreferences(
-    private val provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
-) : ReadingPreferences {
-    override fun getLastBookUri(): String? = null
-    override fun saveReadingPosition(bookUri: String, position: ReadingPosition) = Unit
-    override fun getReadingPosition(bookUri: String) = ReadingPosition.START
-    override fun saveExcerpt(bookUri: String, text: String) = Unit
-    override fun getExcerpt(bookUri: String): String? = null
-    override fun markFinished(bookUri: String) = Unit
-    override fun isFinished(bookUri: String) = false
-    override fun clearProgress(bookUri: String) = Unit
-    override fun saveTargetLanguage(language: Language) = Unit
-    override fun getTargetLanguage() = Language.ENGLISH
-    override fun saveNavigationSideLeft(isLeft: Boolean) = Unit
-    override fun isNavigationLeft() = false
-    override val readerThemeName: StateFlow<String> = MutableStateFlow("paper")
-    override fun saveReaderTheme(themeName: String) = Unit
-    override fun getReaderThemeName() = "paper"
-    override val orientationLock: StateFlow<OrientationLock> = MutableStateFlow(OrientationLock.AUTO)
-    override fun saveOrientationLock(lock: OrientationLock) = Unit
-    override fun getOrientationLock() = OrientationLock.AUTO
-    override fun saveLineHeightMultiplier(multiplier: Float) = Unit
-    override fun getLineHeightMultiplier() = 1f
-    override fun saveSplitRatio(ratio: Float) = Unit
-    override fun getSplitRatio() = 0.5f
-    override fun saveVerticalSplitRatio(ratio: Float) = Unit
-    override fun getVerticalSplitRatio() = 0.5f
-    override fun savePortraitHintDismissed(dismissed: Boolean) = Unit
-    override fun getPortraitHintDismissed() = true
-    override fun saveShowTranslation(show: Boolean) = Unit
-    override fun getShowTranslation() = true
-    override fun saveShowIllustrations(show: Boolean) = Unit
-    override fun getShowIllustrations() = true
-    override fun saveHorizontalMargin(margin: Float) = Unit
-    override fun getHorizontalMargin() = 0f
-    override fun setTranslatorProvider(provider: TranslationProvider) = Unit
-    override fun getTranslatorProvider() = provider
-    override fun saveTextSize(size: Float) = Unit
-    override fun getTextSize() = 16f
-    override fun saveReadingFont(name: String) = Unit
-    override fun getReadingFontName() = ""
-    override fun saveParagraphSpacing(spacing: Float) = Unit
-    override fun getParagraphSpacing() = 0f
-    override fun saveLetterSpacing(spacing: Float) = Unit
-    override fun getLetterSpacing() = 0f
-    override fun saveTextIndent(indent: Float) = Unit
-    override fun getTextIndent() = 0f
-    override fun saveJustifyText(justify: Boolean) = Unit
-    override fun getJustifyText() = false
-    override fun saveTtsRate(rate: Float) = Unit
-    override fun getTtsRate() = 1f
-    override fun saveTtsPitch(pitch: Float) = Unit
-    override fun getTtsPitch() = 1f
-}
-
 class TranslateTextUseCaseTest {
 
     private fun TestScope.useCase(
         repo: TranslationRepository,
-        provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
-    ) = TranslateTextUseCase(repo, FakeReadingPreferences(provider), StandardTestDispatcher(testScheduler))
+    ) = TranslateTextUseCase(repo, StandardTestDispatcher(testScheduler))
+
+    @Test
+    fun `the provider passed in decides whether the offline model is prepared`() = runTest {
+        val repo = FakeTranslationRepository(prepareProgress = listOf(0.5f))
+        val offline = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.MLKIT, 0, 0).toList()
+        val online = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 0).toList()
+        assertTrue("on-device provider must prepare its model", offline.any { it is TranslationState.DownloadingModel })
+        assertTrue("network provider must not prepare a model", online.none { it is TranslationState.DownloadingModel })
+    }
 
     @Test
     fun `a single failing paragraph does not abort the rest of the segment`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("b"))
-        val states = useCase(repo)(listOf("a", "b", "c"), Language.ENGLISH, Language.RUSSIAN, 0, 2).toList()
+        val states = useCase(repo)(listOf("a", "b", "c"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 2).toList()
 
         val partials = states.filterIsInstance<TranslationState.Partial>()
         assertEquals(listOf(0 to "t:a", 2 to "t:c"), partials.map { it.index to it.text })
@@ -142,7 +89,7 @@ class TranslateTextUseCaseTest {
     @Test
     fun `three consecutive failures abort the segment without trying the rest`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("b", "c", "d"))
-        val states = useCase(repo)(listOf("a", "b", "c", "d", "e"), Language.ENGLISH, Language.RUSSIAN, 0, 4).toList()
+        val states = useCase(repo)(listOf("a", "b", "c", "d", "e"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 4).toList()
 
         assertEquals(listOf("a", "b", "c", "d"), repo.calls) // gives up before "e"
         val partials = states.filterIsInstance<TranslationState.Partial>()
@@ -153,7 +100,7 @@ class TranslateTextUseCaseTest {
     @Test
     fun `interleaved failures never trip the consecutive-failure cutoff`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("b", "d"))
-        val states = useCase(repo)(listOf("a", "b", "c", "d", "e"), Language.ENGLISH, Language.RUSSIAN, 0, 4).toList()
+        val states = useCase(repo)(listOf("a", "b", "c", "d", "e"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 4).toList()
 
         assertEquals(listOf("a", "b", "c", "d", "e"), repo.calls)
         val partials = states.filterIsInstance<TranslationState.Partial>()
@@ -177,7 +124,7 @@ class TranslateTextUseCaseTest {
         var cancelled = false
         try {
             useCase(repo)(
-                listOf("a", "b", "c"), Language.ENGLISH, Language.RUSSIAN, 0, 2,
+                listOf("a", "b", "c"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 2,
             ).toList(states)
         } catch (e: kotlinx.coroutines.CancellationException) {
             cancelled = true
@@ -190,8 +137,8 @@ class TranslateTextUseCaseTest {
     @Test
     fun `unofficial-provider 429 reads as a temporary rate limit, not an exhausted quota`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http429() })
-        val states = useCase(repo, TranslationProvider.QUICK_TRANSLATE)(
-            listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0,
+        val states = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 0,
         ).toList()
 
         val message = states.filterIsInstance<TranslationState.Error>().single().message
@@ -202,8 +149,8 @@ class TranslateTextUseCaseTest {
     @Test
     fun `paid-provider 429 keeps the quota wording`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http429() })
-        val states = useCase(repo, TranslationProvider.DEEPL)(
-            listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0,
+        val states = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.DEEPL, 0, 0,
         ).toList()
 
         val message = states.filterIsInstance<TranslationState.Error>().single().message
@@ -213,7 +160,7 @@ class TranslateTextUseCaseTest {
     @Test
     fun `a 429 is retried after a backoff and can still succeed`() = runTest {
         val repo = FakeTranslationRepository(transientFailures = mutableMapOf("a" to 1), error = { http429() })
-        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0).toList()
+        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 0).toList()
 
         assertEquals(listOf("a", "a"), repo.calls)
         assertEquals(listOf(0 to "t:a"), states.filterIsInstance<TranslationState.Partial>().map { it.index to it.text })
@@ -224,7 +171,7 @@ class TranslateTextUseCaseTest {
     @Test
     fun `429 retries are capped before the paragraph counts as failed`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http429() })
-        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, 0, 0).toList()
+        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 0).toList()
 
         assertEquals("one initial attempt + two backoff retries", listOf("a", "a", "a"), repo.calls)
         assertEquals(1, states.count { it is TranslationState.Error })
@@ -233,7 +180,7 @@ class TranslateTextUseCaseTest {
     @Test
     fun `plain network failures are not retried with backoff`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("a")) // IOException
-        useCase(repo)(listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN, 0, 1).toList()
+        useCase(repo)(listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 1).toList()
 
         assertEquals(listOf("a", "b"), repo.calls)
         assertEquals("no backoff for non-429 failures", 0, currentTime)
@@ -242,7 +189,7 @@ class TranslateTextUseCaseTest {
     @Test
     fun `a clean segment emits every partial and no error`() = runTest {
         val repo = FakeTranslationRepository()
-        val states = useCase(repo)(listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN, 0, 1).toList()
+        val states = useCase(repo)(listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 1).toList()
 
         val partials = states.filterIsInstance<TranslationState.Partial>()
         assertEquals(listOf(0 to "t:a", 1 to "t:b"), partials.map { it.index to it.text })
@@ -252,8 +199,8 @@ class TranslateTextUseCaseTest {
     @Test
     fun `offline providers emit DownloadingModel with forwarded progress before translating`() = runTest {
         val repo = FakeTranslationRepository(prepareProgress = listOf(0.25f, 1f))
-        val states = useCase(repo, TranslationProvider.BERGAMOT)(
-            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        val states = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
         ).toList()
 
         assertEquals(
@@ -269,8 +216,8 @@ class TranslateTextUseCaseTest {
 
     @Test
     fun `online providers never emit DownloadingModel`() = runTest {
-        val states = useCase(FakeTranslationRepository(), TranslationProvider.QUICK_TRANSLATE)(
-            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        val states = useCase(FakeTranslationRepository())(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE,
         ).toList()
 
         assertTrue(states.none { it is TranslationState.DownloadingModel })
@@ -282,8 +229,8 @@ class TranslateTextUseCaseTest {
             failOn = setOf("a"),
             error = { OfflinePackDownloadException(ModelPair(Language.ENGLISH, Language.RUSSIAN), 31_561_787) },
         )
-        val err = useCase(repo, TranslationProvider.BERGAMOT)(
-            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        val err = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
         ).toList().last() as TranslationState.Error
 
         assertEquals(
@@ -297,8 +244,8 @@ class TranslateTextUseCaseTest {
         val repo = FakeTranslationRepository(
             prepareError = OfflinePackDownloadException(ModelPair(Language.ENGLISH, Language.RUSSIAN), 31_561_787),
         )
-        val states = useCase(repo, TranslationProvider.BERGAMOT)(
-            listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN,
+        val states = useCase(repo)(
+            listOf("a", "b"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
         ).toList()
 
         assertEquals(
@@ -315,8 +262,8 @@ class TranslateTextUseCaseTest {
         var cancelled = false
         val states = mutableListOf<TranslationState>()
         try {
-            useCase(repo, TranslationProvider.BERGAMOT)(
-                listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+            useCase(repo)(
+                listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
             ).toList(states)
         } catch (e: kotlinx.coroutines.CancellationException) {
             cancelled = true
@@ -332,8 +279,8 @@ class TranslateTextUseCaseTest {
             failOn = setOf("a"),
             error = { OfflineEngineUnavailableException("dlopen") },
         )
-        val err = useCase(repo, TranslationProvider.BERGAMOT)(
-            listOf("a"), Language.ENGLISH, Language.RUSSIAN,
+        val err = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
         ).toList().last() as TranslationState.Error
 
         assertEquals("Offline HQ isn't available on this device — using ML Kit.", err.message)

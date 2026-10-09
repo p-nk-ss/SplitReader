@@ -2,6 +2,7 @@ package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.SavedWord
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.SavedWordRepository
 import javax.inject.Inject
@@ -29,6 +30,7 @@ class SaveWordUseCase @Inject constructor(
         bookTitle: String,
         chapterIndex: Int,
         paragraphIndex: Int,
+        provider: TranslationProvider,
     ): SaveWordResult {
         val normalized = normalizeWord(word)
         if (normalized.isEmpty()) return SaveWordResult.EMPTY
@@ -43,6 +45,7 @@ class SaveWordUseCase @Inject constructor(
             paragraphs = listOf(normalized),
             sourceLanguage = sourceLang,
             targetLanguage = targetLang,
+            provider = provider,
             startIndex = 0,
             endIndex = 0,
         ).collect { state ->

@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.reader
 
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,7 @@ class ChapterTranslationManager(
     private val translateTextUseCase: TranslateTextUseCase,
     private val isFreeEngine: () -> Boolean,
     private val isTranslationVisible: () -> Boolean,
+    private val provider: () -> TranslationProvider,
 ) {
     val updates: SharedFlow<TranslationUpdate> = MutableSharedFlow(
         replay = 1,
@@ -210,6 +212,7 @@ class ChapterTranslationManager(
             chapter.paragraphs,
             source,
             target,
+            provider = provider(),
             startIndex = start,
             endIndex = end,
         ).collect { state ->

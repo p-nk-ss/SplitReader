@@ -212,6 +212,7 @@ class ReaderViewModel @Inject constructor(
         translateTextUseCase = translateTextUseCase,
         isFreeEngine = { TranslationPlanner.isFreeEngine(progressManager.getTranslatorProvider()) },
         isTranslationVisible = { progressManager.getShowTranslation() },
+        provider = { _state.value.translatorProvider },
     )
     private var selectionTranslateJob: Job? = null
 
@@ -609,6 +610,7 @@ class ReaderViewModel @Inject constructor(
                 paragraphs = listOf(textToTranslate),
                 sourceLanguage = _state.value.sourceLanguage,
                 targetLanguage = _state.value.targetLanguage,
+                provider = _state.value.translatorProvider,
                 startIndex = 0,
                 endIndex = 0,
             ).collect { state ->
@@ -639,6 +641,7 @@ class ReaderViewModel @Inject constructor(
                 bookTitle = book.title,
                 chapterIndex = chapterIndex,
                 paragraphIndex = paragraphIndex,
+                provider = s.translatorProvider,
             )
             _wordSaveEvent.trySend(result)
         }
