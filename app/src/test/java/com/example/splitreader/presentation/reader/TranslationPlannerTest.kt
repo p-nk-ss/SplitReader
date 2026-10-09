@@ -1,8 +1,6 @@
 package com.example.splitreader.presentation.reader
 
-import com.example.splitreader.domain.model.TranslationProvider
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -167,72 +165,5 @@ class TranslationPlannerTest {
         assertTrue("must not reach back into earlier chapters", plan.none { it.chapterIndex < 3 })
         // Lookbehind within chapter 3: paragraphs 1..4 (5 - LOOKBEHIND .. 4).
         assertTrue(plan.any { it == TranslationSegment(3, 5 - TranslationPlanner.LOOKBEHIND, 4, foreground = false) })
-    }
-
-    // ── progressPercent ───────────────────────────────────────────────────
-
-    @Test
-    fun `progressPercent is monotonic 0 to 100 across a segment`() {
-        val total = 8
-        var last = -1
-        for (done in 0..total) {
-            val p = TranslationPlanner.progressPercent(done, total)
-            assertTrue("progress should not decrease", p >= last)
-            last = p
-        }
-        assertEquals(100, last)
-    }
-
-    @Test
-    fun `progressPercent of an empty segment is zero`() {
-        assertEquals(0, TranslationPlanner.progressPercent(done = 0, total = 0))
-    }
-
-    // ── shouldTranslate ───────────────────────────────────────────────────
-
-    @Test
-    fun `shouldTranslate keeps a free engine running even when the pane is hidden`() {
-        assertTrue(TranslationPlanner.shouldTranslate(isFreeEngine = true, translationVisible = false))
-        assertTrue(TranslationPlanner.shouldTranslate(isFreeEngine = true, translationVisible = true))
-    }
-
-    @Test
-    fun `shouldTranslate skips metered providers when the pane is hidden`() {
-        assertFalse(TranslationPlanner.shouldTranslate(isFreeEngine = false, translationVisible = false))
-    }
-
-    @Test
-    fun `shouldTranslate runs metered providers when the pane is visible`() {
-        assertTrue(TranslationPlanner.shouldTranslate(isFreeEngine = false, translationVisible = true))
-    }
-
-    // ── isFreeEngine ──────────────────────────────────────────────────────
-
-    /**
-     * The gate is about quota, not about ML Kit. Offline HQ is on-device and costs nothing to run,
-     * so denying it the background look-ahead only makes it feel slower than the engine it is
-     * meant to beat on quality.
-     */
-    @Test
-    fun `every on-device engine counts as free`() {
-        assertTrue(TranslationPlanner.isFreeEngine(TranslationProvider.MLKIT))
-        assertTrue("Offline HQ is on-device too", TranslationPlanner.isFreeEngine(TranslationProvider.BERGAMOT))
-    }
-
-    @Test
-    fun `every provider that goes over the wire is metered`() {
-        for (p in TranslationProvider.entries.filter { it.requiresNetwork }) {
-            assertFalse(p.name, TranslationPlanner.isFreeEngine(p))
-        }
-    }
-
-    @Test
-    fun `a free engine keeps its look-ahead with the pane hidden`() {
-        assertTrue(
-            "Offline HQ must get the same background look-ahead as ML Kit",
-            TranslationPlanner.shouldTranslate(
-                TranslationPlanner.isFreeEngine(TranslationProvider.BERGAMOT), translationVisible = false,
-            ),
-        )
     }
 }

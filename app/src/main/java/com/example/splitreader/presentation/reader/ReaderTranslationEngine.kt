@@ -16,6 +16,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/** A snapshot of translated paragraphs plus the foreground translation banner state. */
+data class TranslationUpdate(
+    val translations: Map<Int, List<String>>,
+    val state: TranslationState,
+)
+
 /**
  * The reader's translation engine. Translation follows the viewport: what is on screen first, then
  * the rest of a chapter the reader asked to fill, then a bounded look-ahead/behind

@@ -49,8 +49,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -159,9 +157,6 @@ class ReaderViewModel @Inject constructor(
     private val _wordSaveEvent = Channel<SaveWordResult>(Channel.BUFFERED)
     val wordSaveEvent = _wordSaveEvent.receiveAsFlow()
 
-    // Guards concurrent state mutations inside the translation coroutine
-    private val stateMutex = Mutex()
-
     val uiState = _state
         .map { s ->
             when {
@@ -207,13 +202,14 @@ class ReaderViewModel @Inject constructor(
             initialValue = ReaderUiState.Loading,
         )
 
-    private val translationManager = ChapterTranslationManager(
-        scope = viewModelScope,
-        translateTextUseCase = translateTextUseCase,
-        isFreeEngine = { TranslationPlanner.isFreeEngine(progressManager.getTranslatorProvider()) },
-        isTranslationVisible = { progressManager.getShowTranslation() },
-        provider = { _state.value.translatorProvider },
-    )
+    private val engine = ReaderTranslationEngine(viewModelScope, translateTextUseCase)
+
+    /** Tells the engine the facts it plans from; it decides what (if anything) to reset. */
+    private fun notifyEngineSettings() {
+        val s = _state.value
+        engine.settingsChanged(s.targetLanguage, s.translatorProvider, s.showTranslation)
+    }
+
     private var selectionTranslateJob: Job? = null
 
     init {
@@ -222,15 +218,8 @@ class ReaderViewModel @Inject constructor(
         refreshTranslatorConfig(progressManager.getTranslatorProvider())
         // Fold the translation engine's snapshots (translated text + foreground banner state) into UI state.
         viewModelScope.launch {
-            translationManager.updates.collect { update ->
-                stateMutex.withLock {
-                    _state.update {
-                        it.copy(
-                            chapterTranslations = update.translations,
-                            translationState = update.state,
-                        )
-                    }
-                }
+            engine.state.collect { update ->
+                _state.update { it.copy(chapterTranslations = update.translations, translationState = update.state) }
             }
         }
     }
@@ -289,9 +278,9 @@ class ReaderViewModel @Inject constructor(
                 pendingJump = saved.takeUnless { p -> book.isAtStart(p) },
             )
         }
-        translationManager.attach(book, detectedLang, targetLang)
-        // Seed the window at the restored paragraph so it translates before the first visible-range report.
-        translationManager.onVisibleRange(saved.chapter, saved.paragraph, saved.chapter, saved.paragraph)
+        engine.open(book, detectedLang, targetLang, _state.value.translatorProvider, _state.value.showTranslation)
+        // Seed the restored paragraph so it translates before the screen's first visible-range report.
+        engine.viewport(saved, saved)
         // Begin tracking reading time now that the book is on screen
         resumeSession()
         observeBookmarks(book.filePath)
@@ -340,16 +329,13 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(position = ReadingPosition(index, 0, 0)) }
         // A jump lands at the top of the chapter; seed the window there and the reader's visible-range
         // report will widen it once the chapter is laid out.
-        translationManager.onVisibleRange(index, 0, index, 0)
+        engine.viewport(ReadingPosition(index, 0, 0), ReadingPosition(index, 0, 0))
     }
 
     fun setTargetLanguage(lang: Language) {
         progressManager.saveTargetLanguage(lang)
-        translationManager.reset()
-        translationManager.setLanguages(_state.value.sourceLanguage, lang)
-        _state.update { it.copy(targetLanguage = lang, chapterTranslations = emptyMap()) }
-        val p = _state.value.position
-        translationManager.onVisibleRange(p.chapter, p.paragraph, p.chapter, p.paragraph)
+        _state.update { it.copy(targetLanguage = lang) }
+        notifyEngineSettings()
     }
 
     /** The reader's top paragraph changed (reported through BookItemIndex.positionAt). */
@@ -387,7 +373,7 @@ class ReaderViewModel @Inject constructor(
         if (chapterIndex !in book.chapters.indices) return
         val target = ReadingPosition(chapterIndex, paragraphIndex, 0).coercedTo(book)
         _state.update { it.copy(position = target, pendingJump = target) }
-        translationManager.onVisibleRange(target.chapter, target.paragraph, target.chapter, target.paragraph)
+        engine.viewport(target, target)
     }
 
     /** Called by the reader when the user scrolls to the end of the last chapter. */
@@ -472,11 +458,7 @@ class ReaderViewModel @Inject constructor(
         val newValue = !_state.value.showTranslation
         progressManager.saveShowTranslation(newValue)
         _state.update { it.copy(showTranslation = newValue) }
-        // Re-enabling the pane: translate the current view, which a paid provider skipped while hidden.
-        if (newValue) {
-            val p = _state.value.position
-            translationManager.onVisibleRange(p.chapter, p.paragraph, p.chapter, p.paragraph)
-        }
+        notifyEngineSettings()
     }
 
     fun toggleIllustrations() {
@@ -509,7 +491,7 @@ class ReaderViewModel @Inject constructor(
         progressManager.setTranslatorProvider(provider)
         _state.update { it.copy(translatorProvider = provider) }
         refreshTranslatorConfig(provider)
-        retranslateCurrentChapter()
+        notifyEngineSettings()
     }
 
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
@@ -519,9 +501,8 @@ class ReaderViewModel @Inject constructor(
             val current = _state.value.translatorProvider
             val cfg = buildTranslatorConfig(current)
             _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-            // retranslateCurrentChapter touches ChapterTranslationManager's non-thread-safe internal
-            // state, which is only ever mutated from the Main thread — hop back for it.
-            if (provider == _state.value.translatorProvider) withContext(Dispatchers.Main) { retranslateCurrentChapter() }
+            // A new or removed key for the current provider: clear its error (e.g. "invalid key") and re-plan.
+            if (provider == _state.value.translatorProvider) engine.retry()
         }
     }
 
@@ -531,7 +512,8 @@ class ReaderViewModel @Inject constructor(
             val current = _state.value.translatorProvider
             val cfg = buildTranslatorConfig(current)
             _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-            if (provider == _state.value.translatorProvider) withContext(Dispatchers.Main) { retranslateCurrentChapter() }
+            // A new or removed key for the current provider: clear its error (e.g. "invalid key") and re-plan.
+            if (provider == _state.value.translatorProvider) engine.retry()
         }
     }
 
@@ -542,15 +524,6 @@ class ReaderViewModel @Inject constructor(
     fun resetTranslationUsage(provider: TranslationProvider) {
         usageTracker.reset(provider)
         refreshTranslationUsage()
-    }
-
-    private fun retranslateCurrentChapter() {
-        translationManager.reset()
-        _state.update { it.copy(chapterTranslations = emptyMap(), translationState = TranslationState.Idle) }
-        if (_state.value.book == null) return
-        // Re-translate from the reader's current position; the manager re-plans the visible window.
-        val p = _state.value.position
-        translationManager.onVisibleRange(p.chapter, p.paragraph, p.chapter, p.paragraph)
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
@@ -651,16 +624,16 @@ class ReaderViewModel @Inject constructor(
 
     /**
      * The reader reports its visible span as true *paragraph* coordinates (the screen resolves
-     * masthead/illustration items via `BookItemIndex` before calling this); the manager then
+     * masthead/illustration items via `BookItemIndex` before calling this); the engine then
      * translates the visible window plus a bounded look-ahead/behind across chapter boundaries.
      */
     fun onVisibleRange(startChapter: Int, startParagraph: Int, endChapter: Int, endParagraph: Int) {
-        translationManager.onVisibleRange(startChapter, startParagraph, endChapter, endParagraph)
+        engine.viewport(ReadingPosition(startChapter, startParagraph), ReadingPosition(endChapter, endParagraph))
     }
 
-    /** Retries translation for the current chapter after a failure (clears it and re-runs). */
+    /** Retries translation after a failure at the current viewport. */
     fun retryTranslation() {
-        translationManager.retry(_state.value.position.chapter)
+        engine.retry()
     }
 
     /**
@@ -668,7 +641,7 @@ class ReaderViewModel @Inject constructor(
      * otherwise only translate the visible window plus a small look-ahead to conserve quota/tokens.
      */
     fun translateWholeChapter() {
-        translationManager.translateWholeChapter(_state.value.position.chapter)
+        engine.fillChapter(_state.value.position.chapter)
     }
 
     private fun buildLanguageSample(book: Book): String {

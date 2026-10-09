@@ -294,7 +294,7 @@ internal fun ReaderContent(
     }
 
     // Report the *visible paragraph span* (first→last visible item, which may cross chapter
-    // boundaries). ChapterTranslationManager translates that window plus a bounded look-ahead/behind,
+    // boundaries). ReaderTranslationEngine translates that window plus a bounded look-ahead/behind,
     // so everything on screen — including several short chapters at once — gets translated, and the
     // look-ahead/behind owns the rest.
     LaunchedEffect(listState) {

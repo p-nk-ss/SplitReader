@@ -1,7 +1,5 @@
 package com.example.splitreader.presentation.reader
 
-import com.example.splitreader.domain.model.TranslationProvider
-
 /** A contiguous run of paragraphs in one chapter scheduled for translation. */
 data class TranslationSegment(
     val chapterIndex: Int,
@@ -68,25 +66,6 @@ object TranslationPlanner {
         }
         return segments
     }
-
-    /** Monotonic 0..100 progress within a single segment of [total] paragraphs. */
-    fun progressPercent(done: Int, total: Int): Int =
-        if (total <= 0) 0 else (done * 100 / total).coerceIn(0, 100)
-
-    /**
-     * Whether [provider] costs the reader anything to run. The gate below is about quota and
-     * tokens, not about ML Kit specifically: every on-device engine is free and unmetered, so it
-     * may keep working in the background, while anything that goes over the wire must not.
-     */
-    fun isFreeEngine(provider: TranslationProvider): Boolean = !provider.requiresNetwork
-
-    /**
-     * Whether translation should run at all. A free on-device engine keeps translating even when
-     * the translation pane is hidden; metered providers translate only while the pane is visible,
-     * so hiding it never burns subscription quota/tokens on text the reader can't see.
-     */
-    fun shouldTranslate(isFreeEngine: Boolean, translationVisible: Boolean): Boolean =
-        isFreeEngine || translationVisible
 
     /**
      * Walk the inclusive global paragraph range [from]..[to], dropping already-translated paragraphs,
