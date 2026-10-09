@@ -54,4 +54,11 @@ class ReadingPositionTest {
         assertFalse(b.isAtStart(ReadingPosition(1, 1, 0)))
         assertTrue(book(3).isAtStart(ReadingPosition.START))
     }
+
+    @Test
+    fun `paragraphsAdvanced counts across chapters and never goes negative`() {
+        val b = book(3, 4)
+        assertEquals(2, b.paragraphsAdvanced(ReadingPosition(0, 2), ReadingPosition(1, 1))) // ordinal 2 -> 4
+        assertEquals(0, b.paragraphsAdvanced(ReadingPosition(1, 1), ReadingPosition(0, 0)))
+    }
 }

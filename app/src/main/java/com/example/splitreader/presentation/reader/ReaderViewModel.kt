@@ -21,7 +21,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.model.coercedTo
 import com.example.splitreader.domain.model.isAtStart
-import com.example.splitreader.domain.model.paragraphOrdinal
+import com.example.splitreader.domain.model.paragraphsAdvanced
 import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
 import com.example.splitreader.domain.repository.TranslationUsageStats
@@ -227,8 +227,8 @@ class ReaderViewModel @Inject constructor(
     // Timestamp of the current foreground reading stint; 0 means no active session.
     private var sessionStartedAt = 0L
 
-    // Book-wide paragraph ordinal where the current session started; paragraphsRead is measured from it.
-    private var sessionStartOrdinal = 0
+    // Reading position where the current session started; paragraphsRead is measured from it.
+    private var sessionStartPosition = ReadingPosition.START
 
     fun loadBook(uri: Uri) {
         viewModelScope.launch {
@@ -299,7 +299,7 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book
         if (book != null && sessionStartedAt == 0L) {
             sessionStartedAt = System.currentTimeMillis()
-            sessionStartOrdinal = book.paragraphOrdinal(_state.value.position)
+            sessionStartPosition = _state.value.position
         }
     }
 
@@ -311,7 +311,7 @@ class ReaderViewModel @Inject constructor(
         sessionStartedAt = 0L
         val sourceLang = _state.value.sourceLanguage.code
         // How far the reader advanced this session, in paragraphs (never negative: re-reading counts 0).
-        val paragraphsRead = (book.paragraphOrdinal(_state.value.position) - sessionStartOrdinal).coerceAtLeast(0)
+        val paragraphsRead = book.paragraphsAdvanced(sessionStartPosition, _state.value.position)
         viewModelScope.launch {
             endReadingSessionUseCase(
                 startedAt = startedAt,

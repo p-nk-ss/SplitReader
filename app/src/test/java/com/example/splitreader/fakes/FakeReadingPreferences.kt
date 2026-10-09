@@ -8,20 +8,35 @@ import com.example.splitreader.domain.repository.ReadingPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** Everything defaulted; only the translator-provider choice matters to most callers. */
+/**
+ * Records the provider, target language, pane visibility, positions and excerpts the caller writes;
+ * every other preference is a constant. The target defaults to RUSSIAN so a reader that detects
+ * ENGLISH keeps it (the VM swaps the target only when it equals the detected language).
+ */
 internal class FakeReadingPreferences(
     var provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
 ) : ReadingPreferences {
+    @get:JvmName("storedTargetLanguage") var targetLanguage = Language.RUSSIAN
+    @get:JvmName("storedShowTranslation") var showTranslation = true
+    val positions = mutableMapOf<String, ReadingPosition>()
+    val excerpts = mutableMapOf<String, String>()
+
     override fun getLastBookUri(): String? = null
-    override fun saveReadingPosition(bookUri: String, position: ReadingPosition) = Unit
-    override fun getReadingPosition(bookUri: String) = ReadingPosition.START
-    override fun saveExcerpt(bookUri: String, text: String) = Unit
-    override fun getExcerpt(bookUri: String): String? = null
+    override fun saveReadingPosition(bookUri: String, position: ReadingPosition) {
+        positions[bookUri] = position
+    }
+    override fun getReadingPosition(bookUri: String) = positions[bookUri] ?: ReadingPosition.START
+    override fun saveExcerpt(bookUri: String, text: String) {
+        excerpts[bookUri] = text
+    }
+    override fun getExcerpt(bookUri: String): String? = excerpts[bookUri]
     override fun markFinished(bookUri: String) = Unit
     override fun isFinished(bookUri: String) = false
     override fun clearProgress(bookUri: String) = Unit
-    override fun saveTargetLanguage(language: Language) = Unit
-    override fun getTargetLanguage() = Language.ENGLISH
+    override fun saveTargetLanguage(language: Language) {
+        targetLanguage = language
+    }
+    override fun getTargetLanguage() = targetLanguage
     override fun saveNavigationSideLeft(isLeft: Boolean) = Unit
     override fun isNavigationLeft() = false
     override val readerThemeName: StateFlow<String> = MutableStateFlow("paper")
@@ -38,8 +53,10 @@ internal class FakeReadingPreferences(
     override fun getVerticalSplitRatio() = 0.5f
     override fun savePortraitHintDismissed(dismissed: Boolean) = Unit
     override fun getPortraitHintDismissed() = true
-    override fun saveShowTranslation(show: Boolean) = Unit
-    override fun getShowTranslation() = true
+    override fun saveShowTranslation(show: Boolean) {
+        showTranslation = show
+    }
+    override fun getShowTranslation() = showTranslation
     override fun saveShowIllustrations(show: Boolean) = Unit
     override fun getShowIllustrations() = true
     override fun saveHorizontalMargin(margin: Float) = Unit

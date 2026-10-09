@@ -31,3 +31,7 @@ fun Book.paragraphOrdinal(position: ReadingPosition): Int {
 
 /** True when [position] is the book's first paragraph with no scroll into it — nothing read yet. Empty leading chapters don't count. */
 fun Book.isAtStart(position: ReadingPosition): Boolean = paragraphOrdinal(position) == 0 && position.offset == 0
+
+/** How far the reader moved from [from] to [to], in paragraphs; going back counts as 0. */
+fun Book.paragraphsAdvanced(from: ReadingPosition, to: ReadingPosition): Int =
+    (paragraphOrdinal(to) - paragraphOrdinal(from)).coerceAtLeast(0)
