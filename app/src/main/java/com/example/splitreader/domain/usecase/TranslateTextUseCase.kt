@@ -21,8 +21,14 @@ import java.io.IOException
 import javax.inject.Inject
 
 /**
- * Translates a range of paragraphs using [provider], emitting [TranslationState] updates
- * (model download, per-paragraph partials, or a friendly error).
+ * Translates a range of paragraphs through [TranslationRepository], emitting [TranslationState]
+ * updates (model download, per-paragraph partials, or a friendly error).
+ *
+ * The `provider` argument does not pick the engine that translates: the repository resolves that
+ * itself from the saved preference, falling back to ML Kit when that provider is not configured or
+ * does not support the pair. Here the provider only decides whether an on-device model/pack is
+ * prepared first ([TranslationRepository.prepare], for providers that do not require the network)
+ * and how errors are worded; the reader's translation engine also uses it to gate metered providers.
  */
 class TranslateTextUseCase @Inject constructor(
     private val repository: TranslationRepository,
