@@ -54,9 +54,11 @@ internal class ReaderViewModelHarness(
 
     private val translate = TranslateTextUseCase(repo, ioDispatcher)
 
+    val parser = FakeBookParser(book)
+
     val vm = ReaderViewModel(
         translateTextUseCase = translate,
-        parseBookUseCase = ParseBookUseCase(setOf(FakeBookParser(book)), context, crash),
+        parseBookUseCase = ParseBookUseCase(setOf(parser), context, crash),
         saveWordUseCase = SaveWordUseCase(FakeSavedWordRepository(), translate),
         toggleBookmarkUseCase = ToggleBookmarkUseCase(bookmarks),
         bookmarkRepository = bookmarks,
@@ -96,6 +98,21 @@ internal suspend fun TestScope.awaitLoaded(h: ReaderViewModelHarness): ReaderUiS
     }
     fail("book never loaded; last state: ${h.vm.uiState.value}")
     error("unreachable")
+}
+
+/**
+ * Drains the test dispatcher with short real sleeps (for work the VM hops to a real dispatcher)
+ * until [condition] holds or [timeoutMillis] of wall-clock time pass; returns whether it held.
+ */
+internal fun TestScope.pollUntil(timeoutMillis: Long, condition: () -> Boolean): Boolean {
+    val deadline = System.nanoTime() + timeoutMillis * 1_000_000
+    while (System.nanoTime() < deadline) {
+        advanceUntilIdle()
+        if (condition()) return true
+        Thread.sleep(10)
+    }
+    advanceUntilIdle()
+    return condition()
 }
 
 private const val LOAD_TIMEOUT_NANOS = 10_000_000_000L

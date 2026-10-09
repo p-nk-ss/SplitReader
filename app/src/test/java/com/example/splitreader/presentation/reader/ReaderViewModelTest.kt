@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -198,8 +199,53 @@ class ReaderViewModelTest {
         for (i in 0..9) assertEquals("de:c0p$i", h.text(0, i))
     }
 
+    /**
+     * Entering an API key selects the provider before the key write (async, Dispatchers.Default)
+     * lands, so the visible paragraphs may already have been translated by the fallback engine.
+     * The key write must invalidate them, not merely clear an error.
+     */
     @Test
-    fun `earlier chapters keep their translations after a forward jump`() = runTest(main.dispatcher) {
+    fun `a key set for the current provider retranslates what is on screen`() = runTest(main.dispatcher) {
+        val h = harness(book(20))
+        open(h)
+        h.vm.onVisibleRange(0, 0, 0, 4)
+        advanceUntilIdle()
+        val before = h.repo.texts().count { it == "c0p0" }
+        assertEquals("precondition", 1, before)
+
+        h.vm.configureProvider(h.success().translatorProvider, "k", null)
+
+        val requestedAgain = pollUntil(KEY_WRITE_TIMEOUT_MS) { h.repo.texts().count { it == "c0p0" } > before }
+        assertTrue("c0p0 was not requested again after the key write: ${h.repo.texts()}", requestedAgain)
+        assertEquals("ru:c0p0", h.text(0, 0))
+    }
+
+    /**
+     * Activity recreation re-runs ReaderScreen's LaunchedEffect(filePath) → loadBook on the same VM.
+     * A reload is asynchronous (parse on the real Dispatchers.IO), so this waits a bounded wall-clock
+     * window for a second parse; without the guard it shows up well within it.
+     */
+    @Test
+    fun `reloading the same book keeps its translations`() = runTest(main.dispatcher) {
+        val h = harness(book(20))
+        open(h)
+        h.vm.onVisibleRange(0, 0, 0, 4)
+        advanceUntilIdle()
+        assertEquals("precondition", "ru:c0p0", h.text(0, 0))
+        val translations = h.success().chapterTranslations
+        val calls = h.repo.calls.size
+
+        h.vm.loadBook(h.uri)
+        val reparsed = pollUntil(RELOAD_WINDOW_MS) { h.parser.parses.get() > 1 }
+
+        assertFalse("the book was parsed again", reparsed)
+        assertEquals(1, h.parser.parses.get())
+        assertEquals(translations, h.success().chapterTranslations)
+        assertEquals("nothing retranslated", calls, h.repo.calls.size)
+    }
+
+    @Test
+    fun `earlier chapters keep their translations after a forward jump`()= runTest(main.dispatcher) {
         val h = harness(book(10, 10, 10))
         open(h)
         h.vm.onVisibleRange(0, 0, 0, 4)
@@ -211,5 +257,10 @@ class ReaderViewModelTest {
         assertEquals("the jump moved the viewport", "ru:c2p0", h.text(2, 0))
 
         for (i in 0..4) assertEquals("ru:c0p$i", h.text(0, i))
+    }
+
+    private companion object {
+        const val KEY_WRITE_TIMEOUT_MS = 5_000L
+        const val RELOAD_WINDOW_MS = 1_500L
     }
 }

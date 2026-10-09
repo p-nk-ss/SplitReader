@@ -49,8 +49,18 @@ class ReaderTranslationEngine(
     private val _state = MutableStateFlow(TranslationUpdate(emptyMap(), TranslationState.Idle))
     val state: StateFlow<TranslationUpdate> = _state.asStateFlow()
 
-    fun open(book: Book, source: Language, target: Language, provider: TranslationProvider, paneVisible: Boolean) =
-        send(Event.Open(book, source, target, provider, paneVisible))
+    /**
+     * Opens [book] with a clean slate. [start] seeds the remembered viewport (e.g. the restored
+     * reading position), so the first request is that paragraph rather than the book's start.
+     */
+    fun open(
+        book: Book,
+        source: Language,
+        target: Language,
+        provider: TranslationProvider,
+        paneVisible: Boolean,
+        start: ReadingPosition = ReadingPosition.START,
+    ) = send(Event.Open(book, source, target, provider, paneVisible, start))
 
     fun viewport(start: ReadingPosition, end: ReadingPosition) = send(Event.Viewport(start, end))
 
@@ -61,15 +71,22 @@ class ReaderTranslationEngine(
 
     fun retry() = send(Event.Retry)
 
+    /**
+     * The effective translator changed without the provider choice changing (e.g. an API key was
+     * set or cleared): discard all translations and re-plan the remembered viewport.
+     */
+    fun invalidate() = send(Event.Invalidate)
+
     private sealed interface Event {
         data class Open(
             val book: Book, val source: Language, val target: Language,
-            val provider: TranslationProvider, val paneVisible: Boolean,
+            val provider: TranslationProvider, val paneVisible: Boolean, val start: ReadingPosition,
         ) : Event
         data class Viewport(val start: ReadingPosition, val end: ReadingPosition) : Event
         data class Settings(val target: Language, val provider: TranslationProvider, val paneVisible: Boolean) : Event
         data class Fill(val chapter: Int) : Event
         data object Retry : Event
+        data object Invalidate : Event
         data class Partial(val epoch: Int, val chapter: Int, val index: Int, val text: String) : Event
         data class Downloading(val seq: Int, val progress: Float?) : Event
         data class SegmentDone(val seq: Int, val error: String?) : Event
@@ -122,8 +139,8 @@ class ReaderTranslationEngine(
                 target = event.target
                 provider = event.provider
                 paneVisible = event.paneVisible
-                start = ReadingPosition.START
-                end = ReadingPosition.START
+                start = event.start
+                end = event.start
                 discardTranslations()
             }
             is Event.Viewport -> {
@@ -157,6 +174,11 @@ class ReaderTranslationEngine(
                 if (book == null) return
                 foregroundError = null
                 backgroundPaused = false
+            }
+            Event.Invalidate -> {
+                if (book == null) return
+                cancelRunning()
+                discardTranslations()
             }
             is Event.Partial -> {
                 if (event.epoch != epoch) return

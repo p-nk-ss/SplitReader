@@ -344,4 +344,33 @@ class ReaderTranslationEngineTest {
         for (i in 0..4) assertEquals("ru:c0p$i", e.text(0, i))
         assertEquals(TranslationState.Idle, e.state.value.state)
     }
+
+    @Test
+    fun `E13 invalidate discards translations and retranslates the remembered viewport`() = runTest {
+        val repo = FakeRepo()
+        val e = engine(repo)
+        e.open(book(20), Language.ENGLISH, Language.RUSSIAN, PAID, paneVisible = true)
+        e.viewport(p(0, 0), p(0, 4))
+        settle()
+        for (i in 0..4) assertEquals("precondition", "ru:c0p$i", e.text(0, i))
+
+        e.invalidate()
+        settle()
+
+        val counts = repo.texts().groupingBy { it }.eachCount()
+        for (i in 0..4) assertEquals("c0p$i requested again after invalidate: $counts", 2, counts["c0p$i"])
+        for (i in 0..4) assertEquals("ru:c0p$i", e.text(0, i))
+    }
+
+    @Test
+    fun `E14 open seeds the restored position — the first request is the restored paragraph, not the book start`() = runTest {
+        val repo = FakeRepo()
+        val e = engine(repo)
+        e.open(book(40), Language.ENGLISH, Language.RUSSIAN, PAID, paneVisible = true, start = p(0, 30))
+        settle()
+
+        val texts = repo.texts()
+        assertEquals("first request: $texts", "c0p30", texts.first())
+        assertFalse("the book start was requested: $texts", "c0p0" in texts)
+    }
 }

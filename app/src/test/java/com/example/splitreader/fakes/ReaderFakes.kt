@@ -28,6 +28,7 @@ import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.repository.TranslatorKeyStore
 import java.io.IOException
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -166,8 +167,12 @@ internal class FakeSavedWordRepository : SavedWordRepository {
     }
 }
 
-/** Claims every `.epub` and returns [book], stamped with the opened uri as its file path. */
+/** Claims every `.epub` and returns [book], stamped with the opened uri as its file path; counts [parses]. */
 internal class FakeBookParser(val book: Book) : BookParser {
+    val parses = AtomicInteger()
     override val supportedExtensions = listOf("epub")
-    override suspend fun parse(uri: Uri, context: Context): Book = book.copy(filePath = uri.toString())
+    override suspend fun parse(uri: Uri, context: Context): Book {
+        parses.incrementAndGet()
+        return book.copy(filePath = uri.toString())
+    }
 }

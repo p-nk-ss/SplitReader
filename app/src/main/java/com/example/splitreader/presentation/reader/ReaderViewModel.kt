@@ -52,10 +52,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-// TODO(architecture): this ViewModel has several responsibilities (book loading, translation +
-//  prefetch orchestration, word selection/translation, saved-word handling, TTS, reading-session
-//  tracking, settings persistence). Consider extracting the chapter-translation/prefetch engine and
-//  the word-selection logic into separate collaborators to reduce its size and surface area.
+// TODO(architecture): translation now lives in ReaderTranslationEngine, but this ViewModel still
+//  owns word selection/translation and saved words, TTS, reading-session tracking and settings
+//  persistence. Consider extracting those into separate collaborators.
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     private val translateTextUseCase: TranslateTextUseCase,
@@ -230,13 +229,27 @@ class ReaderViewModel @Inject constructor(
     // Reading position where the current session started; paragraphsRead is measured from it.
     private var sessionStartPosition = ReadingPosition.START
 
+    // The uri (as a string, which every parser also stores as Book.filePath) loaded or being loaded.
+    private var loadedUri: String? = null
+
+    /**
+     * Opens the book at [uri]. Activity recreation (rotation, dark mode, resize) re-runs the screen's
+     * LaunchedEffect on this same ViewModel; a repeat call for the book already loaded or loading is
+     * ignored, so its translations and reading state survive. A failed load can be retried.
+     */
     fun loadBook(uri: Uri) {
+        val key = uri.toString()
+        if (key == loadedUri) return
+        loadedUri = key
         viewModelScope.launch {
             parseBookUseCase(uri).collect { result ->
                 when (result) {
                     is ParseResult.Loading -> _state.update { it.copy(isLoading = true) }
                     is ParseResult.Success -> handleBookLoaded(result.book)
-                    is ParseResult.Error -> _state.update { it.copy(isLoading = false, error = result.message) }
+                    is ParseResult.Error -> {
+                        if (loadedUri == key) loadedUri = null
+                        _state.update { it.copy(isLoading = false, error = result.message) }
+                    }
                     is ParseResult.Idle -> Unit
                 }
             }
@@ -278,9 +291,11 @@ class ReaderViewModel @Inject constructor(
                 pendingJump = saved.takeUnless { p -> book.isAtStart(p) },
             )
         }
-        engine.open(book, detectedLang, targetLang, _state.value.translatorProvider, _state.value.showTranslation)
-        // Seed the restored paragraph so it translates before the screen's first visible-range report.
-        engine.viewport(saved, saved)
+        // Seed the restored paragraph so it translates first, before the screen's first visible-range report.
+        engine.open(
+            book, detectedLang, targetLang, _state.value.translatorProvider, _state.value.showTranslation,
+            start = saved,
+        )
         // Begin tracking reading time now that the book is on screen
         resumeSession()
         observeBookmarks(book.filePath)
@@ -501,8 +516,9 @@ class ReaderViewModel @Inject constructor(
             val current = _state.value.translatorProvider
             val cfg = buildTranslatorConfig(current)
             _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-            // A new or removed key for the current provider: clear its error (e.g. "invalid key") and re-plan.
-            if (provider == _state.value.translatorProvider) engine.retry()
+            // A new or removed key changes which engine actually translates for the current provider
+            // (it falls back to ML Kit without a key): discard what is shown and translate it again.
+            if (provider == _state.value.translatorProvider) engine.invalidate()
         }
     }
 
@@ -512,8 +528,9 @@ class ReaderViewModel @Inject constructor(
             val current = _state.value.translatorProvider
             val cfg = buildTranslatorConfig(current)
             _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-            // A new or removed key for the current provider: clear its error (e.g. "invalid key") and re-plan.
-            if (provider == _state.value.translatorProvider) engine.retry()
+            // A new or removed key changes which engine actually translates for the current provider
+            // (it falls back to ML Kit without a key): discard what is shown and translate it again.
+            if (provider == _state.value.translatorProvider) engine.invalidate()
         }
     }
 
