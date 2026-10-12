@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
@@ -15,6 +16,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,6 +30,61 @@ class ReadingProgressManager @Inject constructor(
     // Device form factor, read once. Drives the first-launch orientation default only.
     private val isTablet =
         context.resources.configuration.smallestScreenWidthDp >= ReadingDefaults.TABLET_MIN_SW_DP
+
+    private val _appearance = MutableStateFlow(readAppearance())
+
+    /** See `ReadingPreferences.appearance`. Kept in sync with the individual getters/setters below. */
+    override val appearance: StateFlow<ReadingAppearance> = _appearance.asStateFlow()
+
+    /** Reads every appearance field through today's individual getters, so the keys, defaults and
+     *  orientation form-factor fallback are identical to the old API — then sanitizes the result. */
+    private fun readAppearance(): ReadingAppearance = ReadingAppearance(
+        theme = ReadingAppearance.themeFromName(getReaderThemeName()),
+        font = ReadingAppearance.fontFromName(getReadingFontName()),
+        textSize = getTextSize(),
+        lineHeight = getLineHeightMultiplier(),
+        letterSpacing = getLetterSpacing(),
+        textIndent = getTextIndent(),
+        paragraphSpacing = getParagraphSpacing(),
+        justify = getJustifyText(),
+        splitRatio = getSplitRatio(),
+        verticalSplitRatio = getVerticalSplitRatio(),
+        horizontalMargin = getHorizontalMargin(),
+        showTranslation = getShowTranslation(),
+        showIllustrations = getShowIllustrations(),
+        orientationLock = getOrientationLock(),
+    ).sanitized()
+
+    @Synchronized
+    override fun updateAppearance(transform: (ReadingAppearance) -> ReadingAppearance) {
+        val cur = _appearance.value
+        val next = transform(cur).sanitized()
+        if (next == cur) return
+        prefs.edit().apply {
+            if (next.theme != cur.theme) putString("reader_theme", next.theme.name)
+            if (next.font != cur.font) putString("reading_font", next.font.name)
+            if (next.textSize != cur.textSize) putFloat("text_size", next.textSize)
+            if (next.lineHeight != cur.lineHeight) putFloat("line_height_multiplier", next.lineHeight)
+            if (next.letterSpacing != cur.letterSpacing) putFloat("letter_spacing", next.letterSpacing)
+            if (next.textIndent != cur.textIndent) putFloat("text_indent", next.textIndent)
+            if (next.paragraphSpacing != cur.paragraphSpacing) putFloat("paragraph_spacing", next.paragraphSpacing)
+            if (next.justify != cur.justify) putBoolean("justify_text", next.justify)
+            if (next.splitRatio != cur.splitRatio) putFloat("split_ratio", next.splitRatio)
+            if (next.verticalSplitRatio != cur.verticalSplitRatio) {
+                putFloat("vertical_split_ratio", next.verticalSplitRatio)
+            }
+            if (next.horizontalMargin != cur.horizontalMargin) putFloat("horizontal_margin", next.horizontalMargin)
+            if (next.showTranslation != cur.showTranslation) putBoolean("show_translation", next.showTranslation)
+            if (next.showIllustrations != cur.showIllustrations) {
+                putBoolean("show_illustrations", next.showIllustrations)
+            }
+            if (next.orientationLock != cur.orientationLock) putString("orientation_lock", next.orientationLock.name)
+        }.apply()
+        _appearance.value = next
+        // AppThemeViewModel still reads these two flows directly until Task 3 — keep them in sync.
+        if (next.theme != cur.theme) _readerThemeName.value = next.theme.name
+        if (next.orientationLock != cur.orientationLock) _orientationLock.value = next.orientationLock
+    }
 
     override fun getLastBookUri(): String? = prefs.getString("last_book_uri", null)
 
@@ -127,6 +184,7 @@ class ReadingProgressManager @Inject constructor(
     override fun saveReaderTheme(themeName: String) {
         prefs.edit().putString("reader_theme", themeName).apply()
         _readerThemeName.value = themeName
+        _appearance.update { it.copy(theme = ReadingAppearance.themeFromName(themeName)).sanitized() }
     }
 
     override fun getReaderThemeName(): String =
@@ -140,6 +198,7 @@ class ReadingProgressManager @Inject constructor(
     override fun saveOrientationLock(lock: OrientationLock) {
         prefs.edit().putString("orientation_lock", lock.name).apply()
         _orientationLock.value = lock
+        _appearance.update { it.copy(orientationLock = lock).sanitized() }
     }
 
     /**
@@ -155,6 +214,7 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveLineHeightMultiplier(multiplier: Float) {
         prefs.edit().putFloat("line_height_multiplier", multiplier).apply()
+        _appearance.update { it.copy(lineHeight = multiplier).sanitized() }
     }
 
     override fun getLineHeightMultiplier(): Float =
@@ -162,12 +222,14 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveSplitRatio(ratio: Float) {
         prefs.edit().putFloat("split_ratio", ratio).apply()
+        _appearance.update { it.copy(splitRatio = ratio).sanitized() }
     }
 
     override fun getSplitRatio(): Float = prefs.getFloat("split_ratio", ReadingDefaults.SPLIT_RATIO)
 
     override fun saveVerticalSplitRatio(ratio: Float) {
         prefs.edit().putFloat("vertical_split_ratio", ratio).apply()
+        _appearance.update { it.copy(verticalSplitRatio = ratio).sanitized() }
     }
 
     override fun getVerticalSplitRatio(): Float =
@@ -182,6 +244,7 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveShowTranslation(show: Boolean) {
         prefs.edit().putBoolean("show_translation", show).apply()
+        _appearance.update { it.copy(showTranslation = show).sanitized() }
     }
 
     override fun getShowTranslation(): Boolean =
@@ -189,6 +252,7 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveShowIllustrations(show: Boolean) {
         prefs.edit().putBoolean("show_illustrations", show).apply()
+        _appearance.update { it.copy(showIllustrations = show).sanitized() }
     }
 
     override fun getShowIllustrations(): Boolean =
@@ -196,6 +260,7 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveHorizontalMargin(margin: Float) {
         prefs.edit().putFloat("horizontal_margin", margin).apply()
+        _appearance.update { it.copy(horizontalMargin = margin).sanitized() }
     }
 
     override fun getHorizontalMargin(): Float =
@@ -212,6 +277,7 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveTextSize(size: Float) {
         prefs.edit().putFloat("text_size", size).apply()
+        _appearance.update { it.copy(textSize = size).sanitized() }
     }
 
     override fun getTextSize(): Float = prefs.getFloat("text_size", ReadingDefaults.TEXT_SIZE)
@@ -219,6 +285,7 @@ class ReadingProgressManager @Inject constructor(
     /** Persisted reading typeface name; falls back to SERIF for unknown/legacy values. */
     override fun saveReadingFont(name: String) {
         prefs.edit().putString("reading_font", name).apply()
+        _appearance.update { it.copy(font = ReadingAppearance.fontFromName(name)).sanitized() }
     }
 
     override fun getReadingFontName(): String =
@@ -226,6 +293,7 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveParagraphSpacing(spacing: Float) {
         prefs.edit().putFloat("paragraph_spacing", spacing).apply()
+        _appearance.update { it.copy(paragraphSpacing = spacing).sanitized() }
     }
 
     override fun getParagraphSpacing(): Float =
@@ -233,6 +301,7 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveLetterSpacing(spacing: Float) {
         prefs.edit().putFloat("letter_spacing", spacing).apply()
+        _appearance.update { it.copy(letterSpacing = spacing).sanitized() }
     }
 
     override fun getLetterSpacing(): Float =
@@ -240,12 +309,14 @@ class ReadingProgressManager @Inject constructor(
 
     override fun saveTextIndent(indent: Float) {
         prefs.edit().putFloat("text_indent", indent).apply()
+        _appearance.update { it.copy(textIndent = indent).sanitized() }
     }
 
     override fun getTextIndent(): Float = prefs.getFloat("text_indent", ReadingDefaults.TEXT_INDENT)
 
     override fun saveJustifyText(justify: Boolean) {
         prefs.edit().putBoolean("justify_text", justify).apply()
+        _appearance.update { it.copy(justify = justify).sanitized() }
     }
 
     override fun getJustifyText(): Boolean = prefs.getBoolean("justify_text", ReadingDefaults.JUSTIFY_TEXT)

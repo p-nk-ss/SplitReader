@@ -2,6 +2,7 @@ package com.example.splitreader.domain.repository
 
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import kotlinx.coroutines.flow.StateFlow
@@ -62,4 +63,15 @@ interface ReadingPreferences {
     fun getTtsRate(): Float
     fun saveTtsPitch(pitch: Float)
     fun getTtsPitch(): Float
+
+    /**
+     * Single source of truth for the reading-pane appearance (theme, typography, layout, the two
+     * reader-wide toggles and orientation). Alongside the individual getters/setters above during
+     * the migration (see `docs/superpowers/specs/2026-10-12-reading-appearance-design.md` §3.1) —
+     * every old setter keeps this in sync, so the two APIs never disagree.
+     */
+    val appearance: StateFlow<ReadingAppearance>
+
+    /** Applies [transform] to the current [appearance], sanitizes it, and persists + publishes the result. */
+    fun updateAppearance(transform: (ReadingAppearance) -> ReadingAppearance)
 }

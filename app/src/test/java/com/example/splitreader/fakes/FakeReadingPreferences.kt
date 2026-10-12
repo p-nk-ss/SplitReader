@@ -2,11 +2,13 @@ package com.example.splitreader.fakes
 
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.ReadingPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 
 /**
  * Records the provider, target language, pane visibility, positions and excerpts the caller writes;
@@ -84,4 +86,14 @@ internal class FakeReadingPreferences(
     override fun getTtsRate() = 1f
     override fun saveTtsPitch(pitch: Float) = Unit
     override fun getTtsPitch() = 1f
+
+    private val _appearance = MutableStateFlow(ReadingAppearance.defaults(false))
+    override val appearance: StateFlow<ReadingAppearance> = _appearance
+
+    val appearanceUpdates = mutableListOf<ReadingAppearance>()
+
+    override fun updateAppearance(transform: (ReadingAppearance) -> ReadingAppearance) {
+        _appearance.update { transform(it).sanitized() }
+        appearanceUpdates += _appearance.value
+    }
 }
