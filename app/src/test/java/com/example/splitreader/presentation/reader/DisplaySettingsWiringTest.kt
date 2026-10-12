@@ -107,6 +107,7 @@ class DisplaySettingsWiringTest {
                     onSelectWord = { _, _, _, _, _ -> },
                     onClearWordSelection = {},
                     onSelectionDragged = { _, _ -> },
+                    onSelectionDragEnd = {},
                     onSelectProvider = {},
                     onConfigureProvider = { _, _, _ -> },
                     onClearProvider = {},

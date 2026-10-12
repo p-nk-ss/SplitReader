@@ -104,7 +104,6 @@ internal fun ReaderRoute(
                 SaveWordResult.SAVED -> context.getString(R.string.saved_to_dictionary)
                 SaveWordResult.DUPLICATE -> context.getString(R.string.already_in_dictionary)
                 SaveWordResult.EMPTY -> context.getString(R.string.nothing_to_save)
-                SaveWordResult.TRANSLATION_FAILED -> context.getString(R.string.word_translation_failed)
             }
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
@@ -147,6 +146,7 @@ internal fun ReaderRoute(
             onSelectWord = viewModel::selectWord,
             onClearWordSelection = viewModel::clearWordSelection,
             onSelectionDragged = viewModel::updateWordSelectionRange,
+            onSelectionDragEnd = viewModel::endWordSelectionDrag,
             onSelectProvider = viewModel::selectProvider,
             onConfigureProvider = viewModel::configureProvider,
             onClearProvider = viewModel::clearProvider,
@@ -219,6 +219,7 @@ internal fun ReaderContent(
     onSelectWord: (String, Int, Int, Int, Int) -> Unit,
     onClearWordSelection: () -> Unit,
     onSelectionDragged: (Int, Int) -> Unit,
+    onSelectionDragEnd: () -> Unit,
     onSelectProvider: (TranslationProvider) -> Unit,
     onConfigureProvider: (TranslationProvider, String?, String?) -> Unit,
     onClearProvider: (TranslationProvider) -> Unit,
@@ -358,6 +359,7 @@ internal fun ReaderContent(
                         translationListState = translationListState,
                         onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
                         onSelectionDragged = onSelectionDragged,
+                        onSelectionDragEnd = onSelectionDragEnd,
                         onSaveWord = onSaveWord,
                         onSpeak = onSpeak,
                         onDismiss = onClearWordSelection,
@@ -381,6 +383,7 @@ internal fun ReaderContent(
                         listState = listState,
                         onWordSelected = { word, ch, para, start, end -> onSelectWord(word, ch, para, start, end) },
                         onSelectionDragged = onSelectionDragged,
+                        onSelectionDragEnd = onSelectionDragEnd,
                         onSaveWord = onSaveWord,
                         onSpeak = onSpeak,
                         onDismiss = onClearWordSelection,

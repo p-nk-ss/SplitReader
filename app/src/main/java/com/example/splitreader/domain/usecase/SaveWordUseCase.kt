@@ -2,12 +2,10 @@ package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.SavedWord
-import com.example.splitreader.domain.model.TranslationProvider
-import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.SavedWordRepository
 import javax.inject.Inject
 
-enum class SaveWordResult { SAVED, DUPLICATE, EMPTY, TRANSLATION_FAILED }
+enum class SaveWordResult { SAVED, DUPLICATE, EMPTY }
 
 /** Strips leading/trailing punctuation and lowercases, keeping inner apostrophes/hyphens. */
 fun normalizeWord(raw: String): String =
@@ -15,12 +13,11 @@ fun normalizeWord(raw: String): String =
 
 /**
  * Saves a word to the vocabulary: normalizes it (see [normalizeWord]), skips duplicates for the
- * same source language, translates it, and persists the entry. A word whose translation failed is
- * not saved ([SaveWordResult.TRANSLATION_FAILED]). Returns a [SaveWordResult].
+ * same source language, and persists it with [translation] — the text the selection popup already
+ * shows, so saving never sends a second translation request. Returns a [SaveWordResult].
  */
 class SaveWordUseCase @Inject constructor(
     private val savedWordRepository: SavedWordRepository,
-    private val translateTextUseCase: TranslateTextUseCase,
 ) {
     suspend operator fun invoke(
         word: String,
@@ -31,7 +28,7 @@ class SaveWordUseCase @Inject constructor(
         bookTitle: String,
         chapterIndex: Int,
         paragraphIndex: Int,
-        provider: TranslationProvider,
+        translation: String,
     ): SaveWordResult {
         val normalized = normalizeWord(word)
         if (normalized.isEmpty()) return SaveWordResult.EMPTY
@@ -41,24 +38,6 @@ class SaveWordUseCase @Inject constructor(
             return SaveWordResult.DUPLICATE
         }
 
-        var translation = ""
-        var failed = false
-        translateTextUseCase(
-            paragraphs = listOf(normalized),
-            sourceLanguage = sourceLang,
-            targetLanguage = targetLang,
-            provider = provider,
-            startIndex = 0,
-            endIndex = 0,
-        ).collect { state ->
-            when (state) {
-                is TranslationState.Partial -> translation = state.text
-                is TranslationState.Error -> failed = true
-                else -> Unit
-            }
-        }
-        // An untranslated entry would be permanent: the duplicate guard above blocks re-saving it.
-        if (failed && translation.isEmpty()) return SaveWordResult.TRANSLATION_FAILED
         savedWordRepository.save(
             SavedWord(
                 word = normalized,

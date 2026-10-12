@@ -56,10 +56,12 @@ internal class ReaderViewModelHarness(
 
     val parser = FakeBookParser(book)
 
+    val savedWords = FakeSavedWordRepository()
+
     val vm = ReaderViewModel(
         translateTextUseCase = translate,
         parseBookUseCase = ParseBookUseCase(setOf(parser), context, crash),
-        saveWordUseCase = SaveWordUseCase(FakeSavedWordRepository(), translate),
+        saveWordUseCase = SaveWordUseCase(savedWords),
         toggleBookmarkUseCase = ToggleBookmarkUseCase(bookmarks),
         bookmarkRepository = bookmarks,
         endReadingSessionUseCase = EndReadingSessionUseCase(sessions),

@@ -354,6 +354,65 @@ class ReaderViewModelTest {
         )
     }
 
+    /** One paragraph, "run fast now", so a handle drag can widen "run" to a sentence. */
+    private fun runBook() = Book(
+        title = "T", author = "A", filePath = "/b",
+        chapters = listOf(Chapter(index = 0, title = "C0", paragraphs = listOf("run fast now"))),
+    )
+
+    @Test
+    fun `dragging and releasing sends one request`() = runTest(main.dispatcher) {
+        val h = harness(runBook())
+        open(h)
+        h.vm.selectWord("run", chapterIndex = 0, paragraphIndex = 0, startChar = 0, endChar = 3)
+        advanceUntilIdle()
+        val before = h.repo.texts().size
+
+        h.vm.updateWordSelectionRange(0, 8)
+        h.vm.updateWordSelectionRange(0, 12)
+        advanceUntilIdle()
+        assertEquals("requests while dragging", emptyList<String>(), h.repo.texts().drop(before))
+        assertEquals(SelectionTranslation.Pending, h.success().wordSelection?.translation)
+
+        h.vm.endWordSelectionDrag()
+        advanceUntilIdle()
+        assertEquals("requests after the release", listOf("run fast now"), h.repo.texts().drop(before))
+        assertEquals(SelectionTranslation.Ready("ru:run fast now"), h.success().wordSelection?.translation)
+    }
+
+    @Test
+    fun `saving uses the popup translation without a second request`() = runTest(main.dispatcher) {
+        val h = harness(runBook())
+        open(h)
+        h.vm.selectWord("run", chapterIndex = 0, paragraphIndex = 0, startChar = 0, endChar = 3)
+        advanceUntilIdle()
+        assertEquals("precondition", SelectionTranslation.Ready("ru:run"), h.success().wordSelection?.translation)
+        val before = h.repo.texts().size
+
+        h.vm.saveWord("run", chapterIndex = 0, paragraphIndex = 0)
+        advanceUntilIdle()
+
+        assertEquals("requests made by the save", emptyList<String>(), h.repo.texts().drop(before))
+        assertEquals("ru:run", h.savedWords.words.value.single().translation)
+    }
+
+    @Test
+    fun `save does nothing until the translation is ready`() = runTest(main.dispatcher) {
+        val h = harness(runBook())
+        open(h)
+        val gate = CompletableDeferred<Unit>().also { h.repo.gates["run"] = it }
+        h.vm.selectWord("run", chapterIndex = 0, paragraphIndex = 0, startChar = 0, endChar = 3)
+        advanceUntilIdle()
+        assertTrue("precondition", h.success().wordSelection?.translation is SelectionTranslation.Translating)
+
+        h.vm.saveWord("run", chapterIndex = 0, paragraphIndex = 0)
+        advanceUntilIdle()
+
+        assertEquals("saved before the translation was ready", emptyList<Any>(), h.savedWords.words.value)
+        gate.complete(Unit)
+        advanceUntilIdle()
+    }
+
     private companion object {
         const val RELOAD_WINDOW_MS = 1_500L
     }

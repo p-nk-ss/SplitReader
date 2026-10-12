@@ -87,6 +87,7 @@ internal fun VerticalBookSpread(
     translationListState: LazyListState,
     onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onSelectionDragged: (start: Int, end: Int) -> Unit,
+    onSelectionDragEnd: () -> Unit,
     onSaveWord: (word: String, chapterIndex: Int, paragraphIndex: Int) -> Unit,
     onSpeak: (text: String, langCode: String) -> Unit,
     onDismiss: () -> Unit,
@@ -288,6 +289,7 @@ internal fun VerticalBookSpread(
                                 wordHighlightEnabled = wordHighlightEnabled,
                                 onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                                 onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
+                                onSelectionDragEnd = onSelectionDragEnd,
                                 onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
                             )
                         }

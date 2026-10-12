@@ -321,6 +321,7 @@ internal fun BookSpread(
     listState: LazyListState,
     onWordSelected: (word: String, chapterIndex: Int, paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onSelectionDragged: (start: Int, end: Int) -> Unit,
+    onSelectionDragEnd: () -> Unit,
     onSaveWord: (word: String, chapterIndex: Int, paragraphIndex: Int) -> Unit,
     onSpeak: (text: String, langCode: String) -> Unit,
     onDismiss: () -> Unit,
@@ -387,6 +388,7 @@ internal fun BookSpread(
                                 wordHighlightEnabled = wordHighlightEnabled,
                                 onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                                 onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
+                                onSelectionDragEnd = onSelectionDragEnd,
                                 onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
                             )
                         }
@@ -439,6 +441,7 @@ internal fun BookSpread(
                             wordHighlightEnabled = wordHighlightEnabled,
                             onWordSelected = { word, start, end -> onWordSelected(word, chapterIndex, idx, start, end) },
                             onSelectionDragged = { start, end -> onSelectionDragged(start, end) },
+                            onSelectionDragEnd = onSelectionDragEnd,
                             onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
                         )
                     }
@@ -664,6 +667,7 @@ internal fun ParagraphItem(
     wordHighlightEnabled: Boolean = false,
     onWordSelected: (word: String, start: Int, end: Int) -> Unit,
     onSelectionDragged: (start: Int, end: Int) -> Unit = { _, _ -> },
+    onSelectionDragEnd: () -> Unit = {},
     onTap: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
@@ -681,6 +685,7 @@ internal fun ParagraphItem(
     val currentSelStart by rememberUpdatedState(newValue = selectedWordStart)
     val currentSelEnd by rememberUpdatedState(newValue = selectedWordEnd)
     val currentOnDragged by rememberUpdatedState(newValue = onSelectionDragged)
+    val currentOnDragEnd by rememberUpdatedState(newValue = onSelectionDragEnd)
     val currentOnWordSelected by rememberUpdatedState(newValue = onWordSelected)
     val currentLayoutForGesture by rememberUpdatedState(newValue = textLayoutResult)
     val currentIterForGesture by rememberUpdatedState(newValue = wordIterator)
@@ -731,29 +736,34 @@ internal fun ParagraphItem(
 
                     var lastBoundary = if (side == HandleSide.START) selStart else selEnd
 
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == downId } ?: break
-                        if (!change.pressed) break
-                        change.consume()
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == downId } ?: break
+                            if (!change.pressed) break
+                            change.consume()
 
-                        val curLayout = currentLayoutForGesture ?: continue
-                        val iter = currentIterForGesture ?: continue
-                        val charIdx = curLayout.getOffsetForPosition(change.position).coerceIn(0, text.length)
-                        val snapped = when (side) {
-                            HandleSide.START -> snapToWordStart(charIdx, text, iter)
-                            HandleSide.END -> snapToWordEnd(charIdx, text, iter)
+                            val curLayout = currentLayoutForGesture ?: continue
+                            val iter = currentIterForGesture ?: continue
+                            val charIdx = curLayout.getOffsetForPosition(change.position).coerceIn(0, text.length)
+                            val snapped = when (side) {
+                                HandleSide.START -> snapToWordStart(charIdx, text, iter)
+                                HandleSide.END -> snapToWordEnd(charIdx, text, iter)
+                            }
+                            val curOther = if (side == HandleSide.START) currentSelEnd else currentSelStart
+                            val clamped = when (side) {
+                                HandleSide.START -> snapped.coerceIn(0, (curOther - 1).coerceAtLeast(0))
+                                HandleSide.END -> snapped.coerceIn((curOther + 1).coerceAtMost(text.length), text.length)
+                            }
+                            if (clamped != lastBoundary) {
+                                lastBoundary = clamped
+                                if (side == HandleSide.START) currentOnDragged(clamped, currentSelEnd)
+                                else currentOnDragged(currentSelStart, clamped)
+                            }
                         }
-                        val curOther = if (side == HandleSide.START) currentSelEnd else currentSelStart
-                        val clamped = when (side) {
-                            HandleSide.START -> snapped.coerceIn(0, (curOther - 1).coerceAtLeast(0))
-                            HandleSide.END -> snapped.coerceIn((curOther + 1).coerceAtMost(text.length), text.length)
-                        }
-                        if (clamped != lastBoundary) {
-                            lastBoundary = clamped
-                            if (side == HandleSide.START) currentOnDragged(clamped, currentSelEnd)
-                            else currentOnDragged(currentSelStart, clamped)
-                        }
+                    } finally {
+                        // Release or cancellation (pointer stolen / pointerInput restarted): never leave the popup Pending.
+                        currentOnDragEnd()
                     }
                 }
             }

@@ -29,6 +29,7 @@ import com.example.splitreader.domain.repository.TranslatorSettings
 import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,6 +47,8 @@ internal class FakeTranslationRepository : TranslationRepository {
     /** The provider each [translate] call was asked to serve with, paired with its text. */
     val served: MutableList<Pair<String, TranslationProvider>> = Collections.synchronizedList(mutableListOf())
     val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
+    /** A request for a text with a gate here suspends (after being recorded) until the gate completes. */
+    val gates: MutableMap<String, CompletableDeferred<Unit>> = Collections.synchronizedMap(mutableMapOf())
 
     override fun resolve(provider: TranslationProvider, source: Language, target: Language) = resolution(provider)
 
@@ -57,6 +60,7 @@ internal class FakeTranslationRepository : TranslationRepository {
             if (calls.size == RUNAWAY_LIMIT + 1) throw AssertionError("runaway engine: >$RUNAWAY_LIMIT calls, last=$text")
             awaitCancellation()
         }
+        gates[text]?.await()
         if (text in failOn) throw IOException("down: $text")
         return "${target.code}:$text"
     }

@@ -571,9 +571,11 @@ class ReaderViewModel @Inject constructor(
         selectionTranslator.dragTo(substring, safeStart, safeEnd, newType)
     }
 
+    /** Saves [word] with the translation the popup shows; a no-op until that translation is [SelectionTranslation.Ready]. */
     fun saveWord(word: String, chapterIndex: Int, paragraphIndex: Int) {
         val s = _state.value
         val book = s.book ?: return
+        val translation = (s.wordSelection?.translation as? SelectionTranslation.Ready)?.text ?: return
         val context = book.chapters
             .getOrNull(chapterIndex)?.paragraphs?.getOrElse(paragraphIndex) { "" }
             ?.take(120) ?: ""
@@ -587,7 +589,7 @@ class ReaderViewModel @Inject constructor(
                 bookTitle = book.title,
                 chapterIndex = chapterIndex,
                 paragraphIndex = paragraphIndex,
-                provider = s.translatorProvider,
+                translation = translation,
             )
             _wordSaveEvent.trySend(result)
         }

@@ -37,7 +37,6 @@
     <string name="saved_to_dictionary">Saved to dictionary</string>
     <string name="already_in_dictionary">Already in your dictionary</string>
     <string name="nothing_to_save">Nothing to save</string>
-    <string name="word_translation_failed">Couldn\'t translate this word — check the translator in Settings</string>
     <string name="bubble_word">WORD</string>
     <string name="bubble_sentence">SENTENCE</string>
     <string name="translating">Translating…</string>

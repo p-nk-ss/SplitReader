@@ -290,6 +290,7 @@ class ScrollSyncGlueTest {
                     translationListState = bottom,
                     onWordSelected = { _, _, _, _, _ -> },
                     onSelectionDragged = { _, _ -> },
+                    onSelectionDragEnd = {},
                     onSaveWord = { _, _, _ -> },
                     onSpeak = { _, _ -> },
                     onDismiss = {},
