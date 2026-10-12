@@ -2,12 +2,10 @@ package com.example.splitreader.presentation.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitreader.domain.repository.TranslatorKeyStore
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.repository.SpeechSynthesizer
-import com.example.splitreader.domain.repository.TranslationUsageStats
-import com.example.splitreader.domain.repository.TranslatorEndpointStore
+import com.example.splitreader.domain.repository.TranslatorSettings
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
@@ -16,9 +14,7 @@ import com.example.splitreader.domain.repository.EntitlementRepository
 import com.example.splitreader.domain.translator.InstalledPack
 import com.example.splitreader.domain.translator.ModelPair
 import com.example.splitreader.domain.translator.OfflineModelStore
-import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.domain.model.TranslatorConfigState
-import com.example.splitreader.presentation.reader.buildTranslatorConfigState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -65,39 +61,25 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val progressManager: ReadingPreferences,
-    private val apiKeyManager: TranslatorKeyStore,
-    private val translatorEndpoints: TranslatorEndpointStore,
-    private val usageTracker: TranslationUsageStats,
+    private val translatorSettings: TranslatorSettings,
     private val translationRepository: TranslationRepository,
     private val textToSpeechManager: SpeechSynthesizer,
     private val entitlementRepository: EntitlementRepository,
-    private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
     private val offlineModelStore: OfflineModelStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(loadState())
     val state = _state.asStateFlow()
 
-    private fun buildTranslatorConfig(current: TranslationProvider): TranslatorConfigState =
-        buildTranslatorConfigState(translationProviders, translatorEndpoints, usageTracker, current)
-
-    /**
-     * Rebuilds [TranslatorConfigState] off the main thread — [buildTranslatorConfig] reads
-     * [TranslatorKeyStore] (Android Keystore IPC), which must not run at construction/on the caller's
-     * (often main) thread.
-     */
-    private fun refreshTranslatorConfig(provider: TranslationProvider) {
-        viewModelScope.launch(Dispatchers.Default) {
-            val cfg = buildTranslatorConfig(provider)
-            _state.update { if (it.translatorProvider == provider) it.copy(translatorConfig = cfg) else it }
-        }
-    }
-
     init {
         refreshCacheCount()
-        // Populate the real translator config (Keystore read) off the main thread; loadState()
-        // above only seeds a cheap prefs-only placeholder.
-        refreshTranslatorConfig(progressManager.getTranslatorProvider())
+        // loadState() seeds a cheap prefs-only placeholder; refresh() builds the real config off the main thread.
+        viewModelScope.launch { translatorSettings.refresh() }
+        viewModelScope.launch {
+            translatorSettings.config.collect { cfg ->
+                _state.update { it.copy(translatorProvider = cfg.current, translatorConfig = cfg) }
+            }
+        }
         viewModelScope.launch {
             entitlementRepository.isPremium.collect { premium ->
                 _state.update { it.copy(isPremium = premium) }
@@ -133,8 +115,8 @@ class SettingsViewModel @Inject constructor(
         textIndent = progressManager.getTextIndent(),
         paragraphSpacing = progressManager.getParagraphSpacing(),
         justifyText = progressManager.getJustifyText(),
-        translatorProvider = progressManager.getTranslatorProvider(),
-        translatorConfig = TranslatorConfigState(current = progressManager.getTranslatorProvider(), configs = emptyMap()),
+        translatorProvider = translatorSettings.config.value.current,
+        translatorConfig = translatorSettings.config.value,
         ttsRate = progressManager.getTtsRate(),
         ttsPitch = progressManager.getTtsPitch(),
     )
@@ -223,37 +205,24 @@ class SettingsViewModel @Inject constructor(
     // ── Translation engine ─────────────────────────────────────────────────────
 
     fun selectProvider(provider: TranslationProvider) {
-        progressManager.setTranslatorProvider(provider)
-        _state.update { it.copy(translatorProvider = provider) }
-        refreshTranslatorConfig(provider)
+        viewModelScope.launch { translatorSettings.select(provider) }
     }
 
+    /** Saves the key/endpoint and selects [provider]. */
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
-        viewModelScope.launch(Dispatchers.Default) {
-            if (key != null) apiKeyManager.setKey(provider, key)
-            if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
-            val current = _state.value.translatorProvider
-            val cfg = buildTranslatorConfig(current)
-            _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-        }
+        viewModelScope.launch { translatorSettings.saveKey(provider, key, secondary) }
     }
 
     fun clearProvider(provider: TranslationProvider) {
-        viewModelScope.launch(Dispatchers.Default) {
-            apiKeyManager.setKey(provider, null)
-            val current = _state.value.translatorProvider
-            val cfg = buildTranslatorConfig(current)
-            _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-        }
+        viewModelScope.launch { translatorSettings.clear(provider) }
     }
 
     fun refreshTranslationUsage() {
-        refreshTranslatorConfig(_state.value.translatorProvider)
+        viewModelScope.launch { translatorSettings.refresh() }
     }
 
     fun resetTranslationUsage(provider: TranslationProvider) {
-        usageTracker.reset(provider)
-        refreshTranslationUsage()
+        viewModelScope.launch { translatorSettings.resetUsage(provider) }
     }
 
     fun deleteLanguagePack(pair: ModelPair) {

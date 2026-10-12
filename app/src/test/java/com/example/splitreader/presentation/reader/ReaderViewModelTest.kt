@@ -10,7 +10,9 @@ import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.fakes.FakeLegacyReadingPositionStore
 import com.example.splitreader.fakes.FakeReadingPreferences
 import com.example.splitreader.fakes.FakeTranslationRepository
+import com.example.splitreader.fakes.FakeTranslatorSettings
 import java.util.Collections
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -48,7 +50,10 @@ class ReaderViewModelTest {
         prefs: FakeReadingPreferences = FakeReadingPreferences(provider = TranslationProvider.QUICK_TRANSLATE),
         repo: FakeTranslationRepository = FakeTranslationRepository(),
         legacy: FakeLegacyReadingPositionStore = FakeLegacyReadingPositionStore(),
-    ) = ReaderViewModelHarness(book, prefs = prefs, repo = repo, legacy = legacy, ioDispatcher = main.dispatcher)
+        settings: FakeTranslatorSettings = FakeTranslatorSettings(current = TranslationProvider.QUICK_TRANSLATE),
+    ) = ReaderViewModelHarness(
+        book, prefs = prefs, repo = repo, legacy = legacy, settings = settings, ioDispatcher = main.dispatcher,
+    )
 
     /** Subscribes to uiState (it is WhileSubscribed), opens the book and waits for it. */
     private suspend fun TestScope.open(h: ReaderViewModelHarness): ReaderUiState.Success {
@@ -200,24 +205,70 @@ class ReaderViewModelTest {
     }
 
     /**
-     * Entering an API key selects the provider before the key write (async, Dispatchers.Default)
-     * lands, so the visible paragraphs may already have been translated by the fallback engine.
-     * The key write must invalidate them, not merely clear an error.
+     * DeepL is current and on screen (a stale key, or a fallback in the real repository). Saving a new
+     * key must re-plan the screen only once the key is durable: a re-plan before it would resolve the
+     * provider with the old (or no) key, and nothing would re-plan after the write since the provider
+     * didn't change. The fake translates any provider, so a DeepL request is the observable re-plan.
      */
     @Test
-    fun `a key set for the current provider retranslates what is on screen`() = runTest(main.dispatcher) {
+    fun `saving a key retranslates the screen only after the key is stored`() = runTest(main.dispatcher) {
+        val settings = FakeTranslatorSettings(current = TranslationProvider.DEEPL)
+        val h = harness(book(20), settings = settings)
+        open(h)
+        h.vm.onVisibleRange(0, 0, 0, 4)
+        advanceUntilIdle()
+        val visible = (0..4).map { "c0p$it" }
+        fun deeplCounts() = h.repo.servedBy(TranslationProvider.DEEPL).let { d -> visible.map { v -> d.count { it == v } } }
+        val before = deeplCounts()
+        assertEquals("precondition", List(5) { 1 }, before)
+        val write = CompletableDeferred<Unit>()
+        settings.writeDelay = { write.await() }
+
+        h.vm.configureProvider(TranslationProvider.DEEPL, "k", null)
+        advanceUntilIdle()
+        assertEquals("re-requested with DeepL before the key was stored", before, deeplCounts())
+
+        write.complete(Unit)
+        advanceUntilIdle()
+        val after = deeplCounts()
+        for (i in 0..4) assertTrue("c0p$i not re-requested with DeepL after the key write: $after", after[i] > before[i])
+        assertEquals("ru:c0p0", h.text(0, 0))
+    }
+
+    /**
+     * Pins that the switch to ML Kit reaches the engine (observed failing when the config collector
+     * doesn't notify the engine). The VM's own invalidate() after clear is not what makes this pass:
+     * the provider change already resets the engine, so dropping it leaves this test green.
+     */
+    @Test
+    fun `clearing the current provider's key switches to ML Kit and retranslates`() = runTest(main.dispatcher) {
+        val settings = FakeTranslatorSettings(current = TranslationProvider.DEEPL, configured = setOf(TranslationProvider.DEEPL))
+        val h = harness(book(20), settings = settings)
+        open(h)
+        h.vm.onVisibleRange(0, 0, 0, 4)
+        advanceUntilIdle()
+        assertTrue("precondition", "c0p0" in h.repo.servedBy(TranslationProvider.DEEPL))
+
+        h.vm.clearProvider(TranslationProvider.DEEPL)
+        advanceUntilIdle()
+
+        assertEquals(TranslationProvider.MLKIT, h.success().translatorProvider)
+        val mlkit = h.repo.servedBy(TranslationProvider.MLKIT)
+        for (i in 0..4) assertTrue("c0p$i not retranslated with ML Kit: $mlkit", "c0p$i" in mlkit)
+    }
+
+    @Test
+    fun `selecting a provider reaches the engine`() = runTest(main.dispatcher) {
         val h = harness(book(20))
         open(h)
         h.vm.onVisibleRange(0, 0, 0, 4)
         advanceUntilIdle()
-        val before = h.repo.texts().count { it == "c0p0" }
-        assertEquals("precondition", 1, before)
 
-        h.vm.configureProvider(h.success().translatorProvider, "k", null)
+        h.vm.selectProvider(TranslationProvider.AZURE)
+        advanceUntilIdle()
 
-        val requestedAgain = pollUntil(KEY_WRITE_TIMEOUT_MS) { h.repo.texts().count { it == "c0p0" } > before }
-        assertTrue("c0p0 was not requested again after the key write: ${h.repo.texts()}", requestedAgain)
-        assertEquals("ru:c0p0", h.text(0, 0))
+        val azure = h.repo.servedBy(TranslationProvider.AZURE)
+        for (i in 0..4) assertTrue("c0p$i not re-requested with Azure: $azure", "c0p$i" in azure)
     }
 
     /**
@@ -260,7 +311,6 @@ class ReaderViewModelTest {
     }
 
     private companion object {
-        const val KEY_WRITE_TIMEOUT_MS = 5_000L
         const val RELOAD_WINDOW_MS = 1_500L
     }
 }

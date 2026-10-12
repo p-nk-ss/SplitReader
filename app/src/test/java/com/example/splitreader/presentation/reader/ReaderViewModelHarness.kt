@@ -21,9 +21,8 @@ import com.example.splitreader.fakes.FakeReadingSessionRepository
 import com.example.splitreader.fakes.FakeSavedWordRepository
 import com.example.splitreader.fakes.FakeSpeechSynthesizer
 import com.example.splitreader.fakes.FakeTranslationRepository
-import com.example.splitreader.fakes.FakeTranslationUsageStats
-import com.example.splitreader.fakes.FakeTranslatorEndpointStore
-import com.example.splitreader.fakes.FakeTranslatorKeyStore
+import com.example.splitreader.fakes.FakeTranslatorSettings
+import com.example.splitreader.domain.model.TranslationProvider
 import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +45,7 @@ internal class ReaderViewModelHarness(
     val legacy: FakeLegacyReadingPositionStore = FakeLegacyReadingPositionStore(),
     val crash: FakeCrashReporter = FakeCrashReporter(),
     val sessions: FakeReadingSessionRepository = FakeReadingSessionRepository(),
+    val settings: FakeTranslatorSettings = FakeTranslatorSettings(current = TranslationProvider.QUICK_TRANSLATE),
     ioDispatcher: CoroutineDispatcher,
 ) {
     val bookmarks = FakeBookmarkRepository()
@@ -67,11 +67,8 @@ internal class ReaderViewModelHarness(
         crashReporter = crash,
         progressManager = prefs,
         languageDetector = FakeLanguageDetector(),
-        apiKeyManager = FakeTranslatorKeyStore(),
-        translatorEndpoints = FakeTranslatorEndpointStore(),
-        usageTracker = FakeTranslationUsageStats(),
+        translatorSettings = settings,
         textToSpeechManager = FakeSpeechSynthesizer(),
-        translationProviders = emptyMap(),
         context = context,
     )
 }
@@ -84,8 +81,7 @@ class MainDispatcherRule(val dispatcher: TestDispatcher = StandardTestDispatcher
 }
 
 /**
- * Waits for the book to open. The VM hops to the real Dispatchers.IO (parsing, migration) and
- * Dispatchers.Default (translator config), which virtual time cannot drive, so this alternates
+ * Waits for the book to open. The VM hops to the real Dispatchers.IO (parsing, migration), which virtual time cannot drive, so this alternates
  * draining the test dispatcher with short real sleeps, bounded by a 10 s wall-clock deadline
  * (a cold Robolectric start alone takes ~2 s on a fast machine).
  */

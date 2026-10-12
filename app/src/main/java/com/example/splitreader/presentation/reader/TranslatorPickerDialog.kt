@@ -56,6 +56,7 @@ import com.example.splitreader.domain.model.TranslatorConfigState
 internal fun TranslatorPickerDialog(
     state: TranslatorConfigState,
     onSelect: (TranslationProvider) -> Unit,
+    /** Saves the key/endpoint and selects the provider. */
     onConfigure: (provider: TranslationProvider, key: String?, secondary: String?) -> Unit,
     onClear: (TranslationProvider) -> Unit,
     onResetUsage: (TranslationProvider) -> Unit,
@@ -150,7 +151,6 @@ internal fun TranslatorPickerDialog(
             helpUrl = provider.helpUrl,
             onSave = { key, secondary ->
                 onConfigure(provider, key, secondary)
-                onSelect(provider)
                 keyDialogTarget = null
             },
             onClear = {

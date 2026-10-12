@@ -4,10 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitreader.domain.repository.TranslatorKeyStore
 import com.example.splitreader.domain.repository.ReadingPreferences
 import com.example.splitreader.domain.repository.SpeechSynthesizer
-import com.example.splitreader.domain.repository.TranslatorEndpointStore
+import com.example.splitreader.domain.repository.TranslatorSettings
 import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
@@ -24,8 +23,6 @@ import com.example.splitreader.domain.model.isAtStart
 import com.example.splitreader.domain.model.paragraphsAdvanced
 import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
-import com.example.splitreader.domain.repository.TranslationUsageStats
-import com.example.splitreader.domain.translator.TranslationProviderApi
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.MigrateLegacyReadingPositionsUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
@@ -68,28 +65,10 @@ class ReaderViewModel @Inject constructor(
     private val crashReporter: CrashReporter,
     private val progressManager: ReadingPreferences,
     private val languageDetector: LanguageDetector,
-    private val apiKeyManager: TranslatorKeyStore,
-    private val translatorEndpoints: TranslatorEndpointStore,
-    private val usageTracker: TranslationUsageStats,
+    private val translatorSettings: TranslatorSettings,
     private val textToSpeechManager: SpeechSynthesizer,
-    private val translationProviders: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
-
-    private fun buildTranslatorConfig(current: TranslationProvider): TranslatorConfigState =
-        buildTranslatorConfigState(translationProviders, translatorEndpoints, usageTracker, current)
-
-    /**
-     * Rebuilds [TranslatorConfigState] off the main thread — [buildTranslatorConfig] reads
-     * [TranslatorKeyStore] (Android Keystore IPC), which must not run at construction/on the caller's
-     * (often main) thread.
-     */
-    private fun refreshTranslatorConfig(provider: TranslationProvider) {
-        viewModelScope.launch(Dispatchers.Default) {
-            val cfg = buildTranslatorConfig(provider)
-            _state.update { if (it.translatorProvider == provider) it.copy(translatorConfig = cfg) else it }
-        }
-    }
 
     private data class InternalState(
         val book: Book? = null,
@@ -149,8 +128,8 @@ class ReaderViewModel @Inject constructor(
             showIllustrations = progressManager.getShowIllustrations(),
             horizontalMargin = progressManager.getHorizontalMargin(),
             orientationLock = progressManager.getOrientationLock(),
-            translatorProvider = progressManager.getTranslatorProvider(),
-            translatorConfig = TranslatorConfigState(current = progressManager.getTranslatorProvider(), configs = emptyMap()),
+            translatorProvider = translatorSettings.config.value.current,
+            translatorConfig = translatorSettings.config.value,
         )
     )
 
@@ -215,9 +194,16 @@ class ReaderViewModel @Inject constructor(
     private var selectionTranslateJob: Job? = null
 
     init {
-        // Populate the real translator config (Keystore read) off the main thread; the field
-        // initializer above only seeds a cheap prefs-only placeholder.
-        refreshTranslatorConfig(progressManager.getTranslatorProvider())
+        // The seeded config is a cheap prefs-only placeholder; refresh() builds the real one off the main thread.
+        viewModelScope.launch { translatorSettings.refresh() }
+        // Mirror the translator config into UI state; a new current provider re-plans the engine.
+        viewModelScope.launch {
+            translatorSettings.config.collect { cfg ->
+                val changed = _state.value.translatorProvider != cfg.current
+                _state.update { it.copy(translatorProvider = cfg.current, translatorConfig = cfg) }
+                if (changed) notifyEngineSettings()
+            }
+        }
         // Fold the translation engine's snapshots (translated text + foreground banner state) into UI state.
         viewModelScope.launch {
             engine.state.collect { update ->
@@ -510,46 +496,37 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(orientationLock = lock) }
     }
 
+    /** The config collector in `init` tells the engine once the selection is stored. */
     fun selectProvider(provider: TranslationProvider) {
-        if (_state.value.translatorProvider == provider) return
-        progressManager.setTranslatorProvider(provider)
-        _state.update { it.copy(translatorProvider = provider) }
-        refreshTranslatorConfig(provider)
-        notifyEngineSettings()
+        viewModelScope.launch { translatorSettings.select(provider) }
     }
 
+    /**
+     * Saves the key/endpoint and selects [provider]. The engine is invalidated only after both are
+     * durable: re-planning earlier would resolve the provider without its key again.
+     */
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
-        viewModelScope.launch(Dispatchers.Default) {
-            if (key != null) apiKeyManager.setKey(provider, key)
-            if (provider.secondaryLabel != null && secondary != null) translatorEndpoints.setSecondary(provider, secondary)
-            val current = _state.value.translatorProvider
-            val cfg = buildTranslatorConfig(current)
-            _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-            // A new or removed key changes which engine actually translates for the current provider
-            // (it falls back to ML Kit without a key): discard what is shown and translate it again.
-            if (provider == _state.value.translatorProvider) engine.invalidate()
+        viewModelScope.launch {
+            translatorSettings.saveKey(provider, key, secondary)
+            engine.invalidate()
         }
     }
 
+    /** Removes the key; clearing the current provider switches to ML Kit and retranslates the screen. */
     fun clearProvider(provider: TranslationProvider) {
-        viewModelScope.launch(Dispatchers.Default) {
-            apiKeyManager.setKey(provider, null)
-            val current = _state.value.translatorProvider
-            val cfg = buildTranslatorConfig(current)
-            _state.update { if (it.translatorProvider == current) it.copy(translatorConfig = cfg) else it }
-            // A new or removed key changes which engine actually translates for the current provider
-            // (it falls back to ML Kit without a key): discard what is shown and translate it again.
-            if (provider == _state.value.translatorProvider) engine.invalidate()
+        viewModelScope.launch {
+            val wasCurrent = _state.value.translatorProvider == provider
+            translatorSettings.clear(provider)
+            if (wasCurrent) engine.invalidate()
         }
     }
 
     fun refreshTranslationUsage() {
-        refreshTranslatorConfig(_state.value.translatorProvider)
+        viewModelScope.launch { translatorSettings.refresh() }
     }
 
     fun resetTranslationUsage(provider: TranslationProvider) {
-        usageTracker.reset(provider)
-        refreshTranslationUsage()
+        viewModelScope.launch { translatorSettings.resetUsage(provider) }
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {

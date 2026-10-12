@@ -12,7 +12,8 @@ import com.example.splitreader.domain.model.ReadingSession
 import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.SavedWord
 import com.example.splitreader.domain.model.TranslationProvider
-import com.example.splitreader.domain.model.TranslationUsage
+import com.example.splitreader.domain.model.TranslatorConfigState
+import com.example.splitreader.domain.model.ProviderConfig
 import com.example.splitreader.domain.model.stats.BookMinutes
 import com.example.splitreader.domain.model.stats.DailyMinutes
 import com.example.splitreader.domain.model.stats.LangMinutes
@@ -24,15 +25,14 @@ import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
 import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationRepository
-import com.example.splitreader.domain.repository.TranslationUsageStats
-import com.example.splitreader.domain.repository.TranslatorEndpointStore
-import com.example.splitreader.domain.repository.TranslatorKeyStore
+import com.example.splitreader.domain.repository.TranslatorSettings
 import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -43,11 +43,14 @@ internal class FakeTranslationRepository : TranslationRepository {
     /** What [resolve] answers for each provider; Ready by default. */
     var resolution: (TranslationProvider) -> Resolution = { Resolution.Ready(it) }
     val calls: MutableList<Pair<String, Language>> = Collections.synchronizedList(mutableListOf())
+    /** The provider each [translate] call was asked to serve with, paired with its text. */
+    val served: MutableList<Pair<String, TranslationProvider>> = Collections.synchronizedList(mutableListOf())
     val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
     override fun resolve(provider: TranslationProvider, source: Language, target: Language) = resolution(provider)
 
     override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
+        served += text to provider
         calls += text to target
         // A runaway engine would spin the test thread forever; past the limit, report once and park.
         if (calls.size > RUNAWAY_LIMIT) {
@@ -62,6 +65,9 @@ internal class FakeTranslationRepository : TranslationRepository {
     override suspend fun clearCache() = Unit
 
     fun texts(): List<String> = synchronized(calls) { calls.map { it.first } }
+
+    fun servedBy(provider: TranslationProvider): List<String> =
+        synchronized(served) { served.filter { it.second == provider }.map { it.first } }
 
     private companion object {
         const val RUNAWAY_LIMIT = 1_000
@@ -116,19 +122,52 @@ internal class FakeBookmarkRepository : BookmarkRepository {
         bookUri == uri && chapterIndex == chapter && paragraphIndex == paragraph
 }
 
-internal class FakeTranslatorKeyStore : TranslatorKeyStore {
-    override fun getKey(provider: TranslationProvider): String? = null
-    override fun setKey(provider: TranslationProvider, value: String?) = Unit
-}
+/**
+ * In-memory [TranslatorSettings] on the caller's dispatcher: records each command in [log] and
+ * publishes the result to [config]. [writeDelay] runs inside [saveKey] before anything is stored, so a
+ * test can hold the key write (e.g. `CompletableDeferred.await()`).
+ */
+internal class FakeTranslatorSettings(
+    current: TranslationProvider = TranslationProvider.MLKIT,
+    configured: Set<TranslationProvider> = emptySet(),
+) : TranslatorSettings {
+    val log: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    var writeDelay: suspend () -> Unit = {}
+    val mutableConfig = MutableStateFlow(
+        TranslatorConfigState(current = current, configs = configured.associateWith { ProviderConfig(configured = true) }),
+    )
+    override val config: StateFlow<TranslatorConfigState> = mutableConfig
 
-internal class FakeTranslatorEndpointStore : TranslatorEndpointStore {
-    override fun getSecondary(provider: TranslationProvider): String = ""
-    override fun setSecondary(provider: TranslationProvider, value: String?) = Unit
-}
+    override suspend fun select(provider: TranslationProvider) {
+        log += "select $provider"
+        if (mutableConfig.value.current != provider) mutableConfig.update { it.copy(current = provider) }
+    }
 
-internal class FakeTranslationUsageStats : TranslationUsageStats {
-    override fun usage(provider: TranslationProvider) = TranslationUsage(0, null)
-    override fun reset(provider: TranslationProvider) = Unit
+    override suspend fun saveKey(provider: TranslationProvider, key: String?, secondary: String?) {
+        log += "saveKey $provider"
+        writeDelay()
+        mutableConfig.update {
+            it.copy(current = provider, configs = it.configs + (provider to ProviderConfig(true, secondary.orEmpty())))
+        }
+    }
+
+    override suspend fun clear(provider: TranslationProvider) {
+        log += "clear $provider"
+        mutableConfig.update {
+            it.copy(
+                current = if (it.current == provider) TranslationProvider.MLKIT else it.current,
+                configs = it.configs + (provider to ProviderConfig(configured = false)),
+            )
+        }
+    }
+
+    override suspend fun resetUsage(provider: TranslationProvider) {
+        log += "resetUsage $provider"
+    }
+
+    override suspend fun refresh() {
+        log += "refresh"
+    }
 }
 
 internal class FakeSpeechSynthesizer : SpeechSynthesizer {
