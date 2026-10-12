@@ -28,6 +28,9 @@ import org.junit.Test
 private fun http429(): HttpException =
     HttpException(Response.error<String>(429, "rate limited".toResponseBody(null)))
 
+private fun http500(): HttpException =
+    HttpException(Response.error<String>(500, "server error".toResponseBody(null)))
+
 /**
  * Translates by wrapping the text. Throws [error] for paragraphs listed in [failOn] (every call)
  * and for the first N calls of paragraphs in [transientFailures]. Records every call.
@@ -43,6 +46,8 @@ private class FakeTranslationRepository(
     val calls = mutableListOf<String>()
     /** The provider each [translate] call was made with, parallel to [calls]. */
     val served = mutableListOf<TranslationProvider>()
+    /** The provider each [prepare] call was made with. */
+    val prepared = mutableListOf<TranslationProvider>()
 
     override fun resolve(provider: TranslationProvider, source: Language, target: Language) = resolution(provider)
 
@@ -58,7 +63,12 @@ private class FakeTranslationRepository(
         return "t:$text"
     }
 
-    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> = flow {
+    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> {
+        prepared += provider
+        return preparing()
+    }
+
+    private fun preparing(): Flow<Float> = flow {
         prepareProgress.forEach { emit(it) }
         prepareError?.let { throw it }
     }
@@ -284,7 +294,7 @@ class TranslateTextUseCaseTest {
     }
 
     @Test
-    fun `engine unavailable is worded as a fallback to ML Kit`() = runTest {
+    fun `engine unavailable says Offline HQ is unavailable without promising ML Kit`() = runTest {
         val repo = FakeTranslationRepository(
             failOn = setOf("a"),
             error = { OfflineEngineUnavailableException("dlopen") },
@@ -293,7 +303,7 @@ class TranslateTextUseCaseTest {
             listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
         ).toList().last() as TranslationState.Error
 
-        assertEquals("Offline HQ isn't available on this device — using ML Kit.", err.message)
+        assertEquals("Offline HQ isn't available on this device.", err.message)
     }
 
     @Test
@@ -313,5 +323,46 @@ class TranslateTextUseCaseTest {
         val states = useCase(repo)(listOf("a", "b"), Language.ENGLISH, Language.HINDI, TranslationProvider.DEEPL, 0, 1).toList()
         assertEquals(1, states.count { it is TranslationState.FallbackNotice })
         assertEquals(listOf(TranslationProvider.MLKIT, TranslationProvider.MLKIT), repo.served)
+    }
+
+    @Test
+    fun `an unavailable offline engine falls back and only ML Kit is prepared`() = runTest {
+        val repo = FakeTranslationRepository(resolution = {
+            Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.ENGINE_UNAVAILABLE)
+        })
+        useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT, 0, 0).toList()
+        assertEquals("the broken Offline HQ engine must not be prepared", listOf(TranslationProvider.MLKIT), repo.prepared)
+    }
+
+    @Test
+    fun `a network provider falling back to ML Kit prepares the on-device model`() = runTest {
+        val repo = FakeTranslationRepository(resolution = {
+            Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR)
+        })
+        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.HINDI, TranslationProvider.DEEPL, 0, 0).toList()
+        assertTrue("ML Kit serves, so its model must be prepared", states.any { it is TranslationState.DownloadingModel })
+    }
+
+    @Test
+    fun `errors under a fallback name the provider that served`() = runTest {
+        val repo = FakeTranslationRepository(
+            failOn = setOf("a"),
+            error = { http500() },
+            resolution = { Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR) },
+        )
+        val message = useCase(repo)(listOf("a"), Language.ENGLISH, Language.HINDI, TranslationProvider.DEEPL, 0, 0)
+            .toList().filterIsInstance<TranslationState.Error>().single().message
+        assertTrue("expected the serving provider in: $message", message.startsWith(TranslationProvider.MLKIT.displayName))
+    }
+
+    @Test
+    fun `a prepare failure under a fallback names the provider that served`() = runTest {
+        val repo = FakeTranslationRepository(
+            prepareError = http500(),
+            resolution = { Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.ENGINE_UNAVAILABLE) },
+        )
+        val message = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT, 0, 0)
+            .toList().filterIsInstance<TranslationState.Error>().single().message
+        assertTrue("expected the serving provider in: $message", message.startsWith(TranslationProvider.MLKIT.displayName))
     }
 }

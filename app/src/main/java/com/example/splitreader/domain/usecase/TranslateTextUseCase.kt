@@ -139,7 +139,7 @@ class TranslateTextUseCase @Inject constructor(
         e is InsufficientStorageException ->
             "Not enough storage for the Offline HQ pack (needs ${e.neededBytes / 1_000_000} MB free)."
         e is OfflineEngineUnavailableException ->
-            "Offline HQ isn't available on this device — using ML Kit."
+            "Offline HQ isn't available on this device."
         e is HttpException -> when (e.code()) {
             401, 403 -> "Invalid ${provider.displayName} API key — open Translator menu to update"
             // Quick Translate has no quota to exhaust — its 429 is the free endpoint asking for a
