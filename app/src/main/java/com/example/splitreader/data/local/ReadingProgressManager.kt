@@ -16,7 +16,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,27 +32,38 @@ class ReadingProgressManager @Inject constructor(
 
     private val _appearance = MutableStateFlow(readAppearance())
 
-    /** See `ReadingPreferences.appearance`. Kept in sync with the individual getters/setters below. */
+    /** See `ReadingPreferences.appearance`. */
     override val appearance: StateFlow<ReadingAppearance> = _appearance.asStateFlow()
 
-    /** Reads every appearance field through today's individual getters, so the keys, defaults and
-     *  orientation form-factor fallback are identical to the old API — then sanitizes the result. */
+    /** Builds the appearance from the stored keys (missing key -> [ReadingDefaults]), then sanitizes it. */
     private fun readAppearance(): ReadingAppearance = ReadingAppearance(
-        theme = ReadingAppearance.themeFromName(getReaderThemeName()),
-        font = ReadingAppearance.fontFromName(getReadingFontName()),
-        textSize = getTextSize(),
-        lineHeight = getLineHeightMultiplier(),
-        letterSpacing = getLetterSpacing(),
-        textIndent = getTextIndent(),
-        paragraphSpacing = getParagraphSpacing(),
-        justify = getJustifyText(),
-        splitRatio = getSplitRatio(),
-        verticalSplitRatio = getVerticalSplitRatio(),
-        horizontalMargin = getHorizontalMargin(),
-        showTranslation = getShowTranslation(),
-        showIllustrations = getShowIllustrations(),
-        orientationLock = getOrientationLock(),
+        theme = ReadingAppearance.themeFromName(prefs.getString("reader_theme", null)),
+        font = ReadingAppearance.fontFromName(prefs.getString("reading_font", null)),
+        textSize = prefs.getFloat("text_size", ReadingDefaults.TEXT_SIZE),
+        lineHeight = prefs.getFloat("line_height_multiplier", ReadingDefaults.LINE_HEIGHT),
+        letterSpacing = prefs.getFloat("letter_spacing", ReadingDefaults.LETTER_SPACING),
+        textIndent = prefs.getFloat("text_indent", ReadingDefaults.TEXT_INDENT),
+        paragraphSpacing = prefs.getFloat("paragraph_spacing", ReadingDefaults.PARAGRAPH_SPACING),
+        justify = prefs.getBoolean("justify_text", ReadingDefaults.JUSTIFY_TEXT),
+        splitRatio = prefs.getFloat("split_ratio", ReadingDefaults.SPLIT_RATIO),
+        verticalSplitRatio = prefs.getFloat("vertical_split_ratio", ReadingDefaults.VERTICAL_SPLIT_RATIO),
+        horizontalMargin = prefs.getFloat("horizontal_margin", ReadingDefaults.HORIZONTAL_MARGIN),
+        showTranslation = prefs.getBoolean("show_translation", ReadingDefaults.SHOW_TRANSLATION),
+        showIllustrations = prefs.getBoolean("show_illustrations", ReadingDefaults.SHOW_ILLUSTRATIONS),
+        orientationLock = readOrientationLock(),
     ).sanitized()
+
+    /**
+     * No stored value ⇒ the user has not chosen ⇒ derive from form factor every read. The seed is
+     * deliberately NOT written back on read (nor by an unrelated [updateAppearance]), so the choice
+     * stays "unset" (and would re-derive correctly if prefs were restored onto a
+     * different-form-factor device) until an explicit change.
+     */
+    private fun readOrientationLock(): OrientationLock {
+        val name = prefs.getString("orientation_lock", null)
+            ?: return defaultOrientationLock(isTablet)
+        return OrientationLock.entries.find { it.name == name } ?: defaultOrientationLock(isTablet)
+    }
 
     @Synchronized
     override fun updateAppearance(transform: (ReadingAppearance) -> ReadingAppearance) {
@@ -81,9 +91,6 @@ class ReadingProgressManager @Inject constructor(
             if (next.orientationLock != cur.orientationLock) putString("orientation_lock", next.orientationLock.name)
         }.apply()
         _appearance.value = next
-        // AppThemeViewModel still reads these two flows directly until Task 3 — keep them in sync.
-        if (next.theme != cur.theme) _readerThemeName.value = next.theme.name
-        if (next.orientationLock != cur.orientationLock) _orientationLock.value = next.orientationLock
     }
 
     override fun getLastBookUri(): String? = prefs.getString("last_book_uri", null)
@@ -168,73 +175,6 @@ class ReadingProgressManager @Inject constructor(
         return Language.entries.find { it.code == code } ?: Language.ENGLISH
     }
 
-    override fun saveNavigationSideLeft(isLeft: Boolean) {
-        prefs.edit().putBoolean("navigation_side_left", isLeft).apply()
-    }
-
-    override fun isNavigationLeft(): Boolean =
-        prefs.getBoolean("navigation_side_left", ReadingDefaults.NAVIGATION_SIDE_LEFT)
-
-    private val _readerThemeName = MutableStateFlow(getReaderThemeName())
-
-    /** Reactive stream of the persisted reader-theme name, so the whole app
-     *  (not just the reading pane) can follow the selected theme. */
-    override val readerThemeName: StateFlow<String> = _readerThemeName.asStateFlow()
-
-    override fun saveReaderTheme(themeName: String) {
-        prefs.edit().putString("reader_theme", themeName).apply()
-        _readerThemeName.value = themeName
-        _appearance.update { it.copy(theme = ReadingAppearance.themeFromName(themeName)).sanitized() }
-    }
-
-    override fun getReaderThemeName(): String =
-        prefs.getString("reader_theme", ReadingDefaults.READER_THEME) ?: ReadingDefaults.READER_THEME
-
-    private val _orientationLock = MutableStateFlow(getOrientationLock())
-
-    /** Reactive stream of the orientation policy so [MainActivity] can re-apply it without a restart. */
-    override val orientationLock: StateFlow<OrientationLock> = _orientationLock.asStateFlow()
-
-    override fun saveOrientationLock(lock: OrientationLock) {
-        prefs.edit().putString("orientation_lock", lock.name).apply()
-        _orientationLock.value = lock
-        _appearance.update { it.copy(orientationLock = lock).sanitized() }
-    }
-
-    /**
-     * No stored value ⇒ the user has not chosen ⇒ derive from form factor every read. The seed is
-     * deliberately NOT written back on read, so the choice stays "unset" (and would re-derive
-     * correctly if prefs were restored onto a different-form-factor device) until an explicit save.
-     */
-    override fun getOrientationLock(): OrientationLock {
-        val name = prefs.getString("orientation_lock", null)
-            ?: return defaultOrientationLock(isTablet)
-        return OrientationLock.entries.find { it.name == name } ?: defaultOrientationLock(isTablet)
-    }
-
-    override fun saveLineHeightMultiplier(multiplier: Float) {
-        prefs.edit().putFloat("line_height_multiplier", multiplier).apply()
-        _appearance.update { it.copy(lineHeight = multiplier).sanitized() }
-    }
-
-    override fun getLineHeightMultiplier(): Float =
-        prefs.getFloat("line_height_multiplier", ReadingDefaults.LINE_HEIGHT)
-
-    override fun saveSplitRatio(ratio: Float) {
-        prefs.edit().putFloat("split_ratio", ratio).apply()
-        _appearance.update { it.copy(splitRatio = ratio).sanitized() }
-    }
-
-    override fun getSplitRatio(): Float = prefs.getFloat("split_ratio", ReadingDefaults.SPLIT_RATIO)
-
-    override fun saveVerticalSplitRatio(ratio: Float) {
-        prefs.edit().putFloat("vertical_split_ratio", ratio).apply()
-        _appearance.update { it.copy(verticalSplitRatio = ratio).sanitized() }
-    }
-
-    override fun getVerticalSplitRatio(): Float =
-        prefs.getFloat("vertical_split_ratio", ReadingDefaults.VERTICAL_SPLIT_RATIO)
-
     override fun savePortraitHintDismissed(dismissed: Boolean) {
         prefs.edit().putBoolean("portrait_hint_dismissed", dismissed).apply()
     }
@@ -242,84 +182,12 @@ class ReadingProgressManager @Inject constructor(
     override fun getPortraitHintDismissed(): Boolean =
         prefs.getBoolean("portrait_hint_dismissed", ReadingDefaults.PORTRAIT_HINT_DISMISSED)
 
-    override fun saveShowTranslation(show: Boolean) {
-        prefs.edit().putBoolean("show_translation", show).apply()
-        _appearance.update { it.copy(showTranslation = show).sanitized() }
-    }
-
-    override fun getShowTranslation(): Boolean =
-        prefs.getBoolean("show_translation", ReadingDefaults.SHOW_TRANSLATION)
-
-    override fun saveShowIllustrations(show: Boolean) {
-        prefs.edit().putBoolean("show_illustrations", show).apply()
-        _appearance.update { it.copy(showIllustrations = show).sanitized() }
-    }
-
-    override fun getShowIllustrations(): Boolean =
-        prefs.getBoolean("show_illustrations", ReadingDefaults.SHOW_ILLUSTRATIONS)
-
-    override fun saveHorizontalMargin(margin: Float) {
-        prefs.edit().putFloat("horizontal_margin", margin).apply()
-        _appearance.update { it.copy(horizontalMargin = margin).sanitized() }
-    }
-
-    override fun getHorizontalMargin(): Float =
-        prefs.getFloat("horizontal_margin", ReadingDefaults.HORIZONTAL_MARGIN)
-
     override fun setTranslatorProvider(provider: TranslationProvider) {
         prefs.edit().putString("translator_provider", provider.name).apply()
     }
 
     override fun getTranslatorProvider(): TranslationProvider =
         TranslationProvider.fromName(prefs.getString("translator_provider", null))
-
-    // ── Typography (reading panes) ─────────────────────────────────────────────
-
-    override fun saveTextSize(size: Float) {
-        prefs.edit().putFloat("text_size", size).apply()
-        _appearance.update { it.copy(textSize = size).sanitized() }
-    }
-
-    override fun getTextSize(): Float = prefs.getFloat("text_size", ReadingDefaults.TEXT_SIZE)
-
-    /** Persisted reading typeface name; falls back to SERIF for unknown/legacy values. */
-    override fun saveReadingFont(name: String) {
-        prefs.edit().putString("reading_font", name).apply()
-        _appearance.update { it.copy(font = ReadingAppearance.fontFromName(name)).sanitized() }
-    }
-
-    override fun getReadingFontName(): String =
-        prefs.getString("reading_font", ReadingDefaults.READING_FONT) ?: ReadingDefaults.READING_FONT
-
-    override fun saveParagraphSpacing(spacing: Float) {
-        prefs.edit().putFloat("paragraph_spacing", spacing).apply()
-        _appearance.update { it.copy(paragraphSpacing = spacing).sanitized() }
-    }
-
-    override fun getParagraphSpacing(): Float =
-        prefs.getFloat("paragraph_spacing", ReadingDefaults.PARAGRAPH_SPACING)
-
-    override fun saveLetterSpacing(spacing: Float) {
-        prefs.edit().putFloat("letter_spacing", spacing).apply()
-        _appearance.update { it.copy(letterSpacing = spacing).sanitized() }
-    }
-
-    override fun getLetterSpacing(): Float =
-        prefs.getFloat("letter_spacing", ReadingDefaults.LETTER_SPACING)
-
-    override fun saveTextIndent(indent: Float) {
-        prefs.edit().putFloat("text_indent", indent).apply()
-        _appearance.update { it.copy(textIndent = indent).sanitized() }
-    }
-
-    override fun getTextIndent(): Float = prefs.getFloat("text_indent", ReadingDefaults.TEXT_INDENT)
-
-    override fun saveJustifyText(justify: Boolean) {
-        prefs.edit().putBoolean("justify_text", justify).apply()
-        _appearance.update { it.copy(justify = justify).sanitized() }
-    }
-
-    override fun getJustifyText(): Boolean = prefs.getBoolean("justify_text", ReadingDefaults.JUSTIFY_TEXT)
 
     // ── Read-aloud (TTS) ───────────────────────────────────────────────────────
 

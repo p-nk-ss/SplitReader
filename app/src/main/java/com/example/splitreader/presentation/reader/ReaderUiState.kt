@@ -4,12 +4,11 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
-import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
-import com.example.splitreader.domain.model.ReaderThemeKey
 import com.example.splitreader.domain.model.ReadingFont
 import com.example.splitreader.domain.model.TranslatorConfigState
 
@@ -66,22 +65,8 @@ sealed interface ReaderUiState {
         val chapterTranslations: Map<Int, List<String>>,
         val translationNotice: TranslationState.FallbackNotice? = null,
         val pendingJump: ReadingPosition? = null,
-        val textSize: Float = ReadingDefaults.TEXT_SIZE,
-        val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
-        val readingFont: ReadingFont = ReadingFont.SERIF,
-        val letterSpacing: Float = ReadingDefaults.LETTER_SPACING,
-        val textIndent: Float = ReadingDefaults.TEXT_INDENT,
-        val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
-        val justifyText: Boolean = ReadingDefaults.JUSTIFY_TEXT,
-        val splitRatio: Float = ReadingDefaults.SPLIT_RATIO,
-        val verticalSplitRatio: Float = ReadingDefaults.VERTICAL_SPLIT_RATIO,
+        val appearance: ReadingAppearance = ReadingAppearance.defaults(isTablet = false),
         val portraitHintDismissed: Boolean = ReadingDefaults.PORTRAIT_HINT_DISMISSED,
-        val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
-        val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
-        val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
-        val navigationSide: NavigationSide = NavigationSide.RIGHT,
-        val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
-        val orientationLock: OrientationLock = OrientationLock.AUTO,
         val bookmarks: List<Bookmark> = emptyList(),
         val isCurrentPositionBookmarked: Boolean = false,
         val wordSelection: WordSelection? = null,
@@ -94,13 +79,13 @@ sealed interface ReaderUiState {
 
         val readingStyle: ReadingStyle
             get() = ReadingStyle(
-                font = readingFont,
-                textSize = textSize,
-                lineHeightMultiplier = lineHeightMultiplier,
-                letterSpacing = letterSpacing,
-                textIndent = textIndent,
-                paragraphSpacing = paragraphSpacing,
-                justify = justifyText,
+                font = appearance.font,
+                textSize = appearance.textSize,
+                lineHeightMultiplier = appearance.lineHeight,
+                letterSpacing = appearance.letterSpacing,
+                textIndent = appearance.textIndent,
+                paragraphSpacing = appearance.paragraphSpacing,
+                justify = appearance.justify,
             )
 
         val currentChapter: Chapter

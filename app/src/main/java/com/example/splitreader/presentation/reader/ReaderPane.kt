@@ -94,27 +94,6 @@ import java.text.BreakIterator
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// ── Page edge tap targets ─────────────────────────────────────────────────
-
-@Composable
-private fun PageEdgeTap(side: NavigationSide, onClick: () -> Unit) {
-    val palette = LocalReaderPalette.current
-    Box(
-        modifier = Modifier
-            .width(48.dp)
-            .fillMaxHeight()
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = if (side == NavigationSide.LEFT) "‹" else "›",
-            fontFamily = Newsreader,
-            fontSize = 22.sp,
-            color = palette.ink3,
-        )
-    }
-}
-
 // ── Page gutter ───────────────────────────────────────────────────────────
 
 @Composable
@@ -316,6 +295,8 @@ internal fun BookSpread(
     showTranslation: Boolean,
     showIllustrations: Boolean,
     splitRatio: Float,
+    /** Outer page margin in dp (`ReadingAppearance.horizontalMargin`); the 12 dp gutter beside the divider is fixed. */
+    horizontalMargin: Float,
     style: ReadingStyle,
     wordSelection: WordSelection?,
     wordHighlightEnabled: Boolean,
@@ -376,7 +357,7 @@ internal fun BookSpread(
                             drawLine(ruleColor, Offset(gutterX, 0f), Offset(gutterX, size.height), 1.dp.toPx())
                         },
                     ) {
-                        Box(Modifier.weight(effectiveRatio).padding(start = 32.dp, end = 12.dp)) {
+                        Box(Modifier.weight(effectiveRatio).padding(start = horizontalMargin.dp, end = 12.dp)) {
                             ParagraphItem(
                                 text = original,
                                 index = idx,
@@ -396,7 +377,7 @@ internal fun BookSpread(
                         Box(
                             Modifier
                                 .weight(1f - effectiveRatio)
-                                .padding(start = 12.dp, end = 32.dp)
+                                .padding(start = 12.dp, end = horizontalMargin.dp)
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
                         ) {
                             // Translation text always visible (dimmed when bubble is active).
@@ -429,7 +410,7 @@ internal fun BookSpread(
                         }
                     }
                 } else {
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp)) {
                         ParagraphItem(
                             text = original,
                             index = idx,

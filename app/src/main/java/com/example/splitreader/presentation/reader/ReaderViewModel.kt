@@ -12,8 +12,8 @@ import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
-import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ParseResult
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
@@ -30,8 +30,6 @@ import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.domain.usecase.SaveWordUseCase
 import com.example.splitreader.domain.usecase.ToggleBookmarkUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
-import com.example.splitreader.domain.model.ReaderThemeKey
-import com.example.splitreader.domain.model.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -77,22 +75,8 @@ class ReaderViewModel @Inject constructor(
         val chapterTranslations: Map<Int, List<String>> = emptyMap(),
         val translationNotice: TranslationState.FallbackNotice? = null,
         val pendingJump: ReadingPosition? = null,
-        val textSize: Float = ReadingDefaults.TEXT_SIZE,
-        val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
-        val readingFont: ReadingFont = ReadingFont.SERIF,
-        val letterSpacing: Float = ReadingDefaults.LETTER_SPACING,
-        val textIndent: Float = ReadingDefaults.TEXT_INDENT,
-        val paragraphSpacing: Float = ReadingDefaults.PARAGRAPH_SPACING,
-        val justifyText: Boolean = ReadingDefaults.JUSTIFY_TEXT,
-        val splitRatio: Float = ReadingDefaults.SPLIT_RATIO,
-        val verticalSplitRatio: Float = ReadingDefaults.VERTICAL_SPLIT_RATIO,
+        val appearance: ReadingAppearance = ReadingAppearance.defaults(isTablet = false),
         val portraitHintDismissed: Boolean = ReadingDefaults.PORTRAIT_HINT_DISMISSED,
-        val showTranslation: Boolean = ReadingDefaults.SHOW_TRANSLATION,
-        val showIllustrations: Boolean = ReadingDefaults.SHOW_ILLUSTRATIONS,
-        val readerTheme: ReaderThemeKey = ReaderThemeKey.PAPER,
-        val navigationSide: NavigationSide = NavigationSide.RIGHT,
-        val horizontalMargin: Float = ReadingDefaults.HORIZONTAL_MARGIN,
-        val orientationLock: OrientationLock = OrientationLock.AUTO,
         val isLoading: Boolean = false,
         val error: String? = null,
         val bookmarks: List<Bookmark> = emptyList(),
@@ -105,27 +89,8 @@ class ReaderViewModel @Inject constructor(
     private val _state = MutableStateFlow(
         InternalState(
             targetLanguage = progressManager.getTargetLanguage(),
-            navigationSide = if (progressManager.isNavigationLeft()) NavigationSide.LEFT else NavigationSide.RIGHT,
-            readerTheme = when (progressManager.getReaderThemeName()) {
-                "DEFAULT" -> ReaderThemeKey.PAPER // migrate old persisted value
-                else -> ReaderThemeKey.entries.find { it.name == progressManager.getReaderThemeName() }
-                    ?: ReaderThemeKey.PAPER
-            },
-            lineHeightMultiplier = progressManager.getLineHeightMultiplier(),
-            textSize = progressManager.getTextSize(),
-            readingFont = ReadingFont.entries.find { it.name == progressManager.getReadingFontName() }
-                ?: ReadingFont.SERIF,
-            letterSpacing = progressManager.getLetterSpacing(),
-            textIndent = progressManager.getTextIndent(),
-            paragraphSpacing = progressManager.getParagraphSpacing(),
-            justifyText = progressManager.getJustifyText(),
-            splitRatio = progressManager.getSplitRatio(),
-            verticalSplitRatio = progressManager.getVerticalSplitRatio(),
+            appearance = progressManager.appearance.value,
             portraitHintDismissed = progressManager.getPortraitHintDismissed(),
-            showTranslation = progressManager.getShowTranslation(),
-            showIllustrations = progressManager.getShowIllustrations(),
-            horizontalMargin = progressManager.getHorizontalMargin(),
-            orientationLock = progressManager.getOrientationLock(),
             translatorProvider = translatorSettings.config.value.current,
             translatorConfig = translatorSettings.config.value,
         )
@@ -149,22 +114,8 @@ class ReaderViewModel @Inject constructor(
                     chapterTranslations = s.chapterTranslations,
                     translationNotice = s.translationNotice,
                     pendingJump = s.pendingJump,
-                    textSize = s.textSize,
-                    lineHeightMultiplier = s.lineHeightMultiplier,
-                    readingFont = s.readingFont,
-                    letterSpacing = s.letterSpacing,
-                    textIndent = s.textIndent,
-                    paragraphSpacing = s.paragraphSpacing,
-                    justifyText = s.justifyText,
-                    splitRatio = s.splitRatio,
-                    verticalSplitRatio = s.verticalSplitRatio,
+                    appearance = s.appearance,
                     portraitHintDismissed = s.portraitHintDismissed,
-                    showTranslation = s.showTranslation,
-                    showIllustrations = s.showIllustrations,
-                    readerTheme = s.readerTheme,
-                    navigationSide = s.navigationSide,
-                    horizontalMargin = s.horizontalMargin,
-                    orientationLock = s.orientationLock,
                     bookmarks = s.bookmarks,
                     isCurrentPositionBookmarked = s.bookmarks.any {
                         it.chapterIndex == s.position.chapter && it.paragraphIndex == s.position.paragraph
@@ -183,10 +134,14 @@ class ReaderViewModel @Inject constructor(
 
     private val engine = ReaderTranslationEngine(viewModelScope, translateTextUseCase)
 
-    /** Tells the engine the facts it plans from; it decides what (if anything) to reset. */
+    /**
+     * Tells the engine the facts it plans from; it decides what (if anything) to reset. Visibility
+     * is read from prefs, not `_state`: [updateAppearance] calls this before the `appearance`
+     * collector has mirrored the new value into `_state`.
+     */
     private fun notifyEngineSettings() {
         val s = _state.value
-        engine.settingsChanged(s.targetLanguage, s.translatorProvider, s.showTranslation)
+        engine.settingsChanged(s.targetLanguage, s.translatorProvider, progressManager.appearance.value.showTranslation)
     }
 
     private val selectionTranslator = SelectionTranslator(viewModelScope, translateTextUseCase)
@@ -221,6 +176,10 @@ class ReaderViewModel @Inject constructor(
         // Mirror the popup's selection (and its translation) into UI state.
         viewModelScope.launch {
             selectionTranslator.state.collect { sel -> _state.update { it.copy(wordSelection = sel) } }
+        }
+        // Mirror the persisted appearance (written here, from Settings, or anywhere else) into UI state.
+        viewModelScope.launch {
+            progressManager.appearance.collect { a -> _state.update { it.copy(appearance = a) } }
         }
     }
 
@@ -259,7 +218,7 @@ class ReaderViewModel @Inject constructor(
 
     private suspend fun handleBookLoaded(book: Book) {
         // The migration's prefs write is a synchronous commit(); keep it off the main thread.
-        val showIllustrations = _state.value.showIllustrations
+        val showIllustrations = _state.value.appearance.showIllustrations
         try {
             withContext(Dispatchers.IO) { migrateLegacyReadingPositions(book, showIllustrations) }
         } catch (e: CancellationException) {
@@ -294,7 +253,7 @@ class ReaderViewModel @Inject constructor(
         }
         // Seed the restored paragraph so it translates first, before the screen's first visible-range report.
         engine.open(
-            book, detectedLang, targetLang, _state.value.translatorProvider, _state.value.showTranslation,
+            book, detectedLang, targetLang, _state.value.translatorProvider, _state.value.appearance.showTranslation,
             start = saved,
         )
         // Begin tracking reading time now that the book is on screen
@@ -404,104 +363,28 @@ class ReaderViewModel @Inject constructor(
         _state.update { it.copy(pendingJump = null) }
     }
 
-    fun adjustTextSize(delta: Float) {
-        val newSize = (_state.value.textSize + delta).coerceIn(ReadingDefaults.TEXT_SIZE_RANGE)
-        progressManager.saveTextSize(newSize)
-        _state.update { it.copy(textSize = newSize) }
-    }
-
-    fun setReadingFont(font: ReadingFont) {
-        progressManager.saveReadingFont(font.name)
-        _state.update { it.copy(readingFont = font) }
-    }
-
-    fun setLetterSpacing(spacing: Float) {
-        val clamped = spacing.coerceIn(ReadingDefaults.LETTER_SPACING_RANGE)
-        progressManager.saveLetterSpacing(clamped)
-        _state.update { it.copy(letterSpacing = clamped) }
-    }
-
-    fun setTextIndent(indent: Float) {
-        val clamped = indent.coerceIn(ReadingDefaults.TEXT_INDENT_RANGE)
-        progressManager.saveTextIndent(clamped)
-        _state.update { it.copy(textIndent = clamped) }
-    }
-
-    fun setParagraphSpacing(spacing: Float) {
-        val clamped = spacing.coerceIn(ReadingDefaults.PARAGRAPH_SPACING_RANGE)
-        progressManager.saveParagraphSpacing(clamped)
-        _state.update { it.copy(paragraphSpacing = clamped) }
-    }
-
-    fun setJustifyText(justify: Boolean) {
-        progressManager.saveJustifyText(justify)
-        _state.update { it.copy(justifyText = justify) }
-    }
-
-    fun setNavigationSide(side: NavigationSide) {
-        progressManager.saveNavigationSideLeft(side == NavigationSide.LEFT)
-        _state.update { it.copy(navigationSide = side) }
-    }
-
-    fun setReaderTheme(theme: ReaderThemeKey) {
-        progressManager.saveReaderTheme(theme.name)
-        _state.update { it.copy(readerTheme = theme) }
-    }
-
-    fun adjustLineHeight(delta: Float) {
-        val newMultiplier = (_state.value.lineHeightMultiplier + delta).coerceIn(ReadingDefaults.LINE_HEIGHT_RANGE)
-        progressManager.saveLineHeightMultiplier(newMultiplier)
-        _state.update { it.copy(lineHeightMultiplier = newMultiplier) }
-    }
-
-    fun setSplitRatio(ratio: Float) {
-        val clamped = ratio.coerceIn(ReadingDefaults.SPLIT_RATIO_RANGE)
-        progressManager.saveSplitRatio(clamped)
-        _state.update { it.copy(splitRatio = clamped) }
-    }
-
-    fun setVerticalSplitRatio(ratio: Float) {
-        val clamped = ratio.coerceIn(ReadingDefaults.VERTICAL_SPLIT_RATIO_RANGE)
-        progressManager.saveVerticalSplitRatio(clamped)
-        _state.update { it.copy(verticalSplitRatio = clamped) }
+    /**
+     * Applies [transform] to the persisted appearance; the `appearance` collector in `init` mirrors
+     * the result into UI state. Only a translation-visibility change concerns the engine: hiding the
+     * pane must stop a paid provider, showing it must resume.
+     *
+     * Theme and orientation reach the rest of the app through
+     * [com.example.splitreader.presentation.AppThemeViewModel], which `MainActivity` applies — no
+     * extra wiring here. Since the manifest declares no `configChanges`, an orientation change
+     * recreates the Activity, the same path a physical rotation already takes.
+     */
+    fun updateAppearance(transform: (ReadingAppearance) -> ReadingAppearance) {
+        // Read "before" from prefs too: two calls in a row (hide, show) would otherwise compare
+        // against a `_state` the collector has not refreshed yet and miss the second change.
+        val wasVisible = progressManager.appearance.value.showTranslation
+        progressManager.updateAppearance(transform)
+        if (progressManager.appearance.value.showTranslation != wasVisible) notifyEngineSettings()
     }
 
     /** [dontShowAgain] persists; otherwise the hint simply does not reappear this entry. */
     fun dismissPortraitHint(dontShowAgain: Boolean) {
         if (dontShowAgain) progressManager.savePortraitHintDismissed(true)
         _state.update { it.copy(portraitHintDismissed = it.portraitHintDismissed || dontShowAgain) }
-    }
-
-    fun toggleTranslation() {
-        val newValue = !_state.value.showTranslation
-        progressManager.saveShowTranslation(newValue)
-        _state.update { it.copy(showTranslation = newValue) }
-        notifyEngineSettings()
-    }
-
-    fun toggleIllustrations() {
-        val newValue = !_state.value.showIllustrations
-        progressManager.saveShowIllustrations(newValue)
-        _state.update { it.copy(showIllustrations = newValue) }
-    }
-
-    fun setHorizontalMargin(margin: Float) {
-        val clamped = margin.coerceIn(ReadingDefaults.HORIZONTAL_MARGIN_RANGE)
-        progressManager.saveHorizontalMargin(clamped)
-        _state.update { it.copy(horizontalMargin = clamped) }
-    }
-
-    /**
-     * The saved value is picked up reactively by [com.example.splitreader.presentation.AppThemeViewModel]
-     * (which exposes [ReadingPreferences.orientationLock] directly) and applied to
-     * `Activity.requestedOrientation` by `MainActivity` — no extra wiring needed here, same as a
-     * write from Settings. Note: since the manifest declares no `configChanges`, an orientation
-     * change recreates the Activity; the reader re-composes and restores scroll by item index
-     * rather than a pixel-exact offset. That is the same path a physical rotation already takes.
-     */
-    fun setOrientationLock(lock: OrientationLock) {
-        progressManager.saveOrientationLock(lock)
-        _state.update { it.copy(orientationLock = lock) }
     }
 
     /** The config collector in `init` tells the engine once the selection is stored. */

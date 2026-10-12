@@ -10,6 +10,7 @@ import androidx.core.view.WindowCompat
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.reader.ReadingStyle
 import com.example.splitreader.presentation.reader.VERTICAL_BOTTOM_PANE
 import com.example.splitreader.presentation.reader.VERTICAL_TOP_PANE
@@ -54,6 +55,7 @@ abstract class ReaderGestureTest {
                     chapterTranslations = fixtureTranslations,
                     showIllustrations = false,
                     verticalSplitRatio = 0.5f,
+                    horizontalMargin = ReadingDefaults.HORIZONTAL_MARGIN,
                     style = ReadingStyle(),
                     wordSelection = null,
                     wordHighlightEnabled = false,

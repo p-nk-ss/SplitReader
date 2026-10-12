@@ -8,6 +8,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.reader.ReadingStyle
 import com.example.splitreader.presentation.reader.VERTICAL_BACKGROUND
 import com.example.splitreader.presentation.reader.VERTICAL_BOTTOM_PANE
@@ -113,6 +114,7 @@ class VerticalReaderInsetTest : ShellInsetTest() {
             chapterTranslations = fixtureTranslations,
             showIllustrations = false,
             verticalSplitRatio = 0.5f,
+            horizontalMargin = ReadingDefaults.HORIZONTAL_MARGIN,
             style = ReadingStyle(),
             wordSelection = null,
             wordHighlightEnabled = false,
@@ -141,6 +143,7 @@ class VerticalReaderInsetTest : ShellInsetTest() {
                     chapterTranslations = fixtureTranslations,
                     showIllustrations = false,
                     verticalSplitRatio = 0.5f,
+                    horizontalMargin = ReadingDefaults.HORIZONTAL_MARGIN,
                     style = ReadingStyle(),
                     wordSelection = null,
                     wordHighlightEnabled = false,

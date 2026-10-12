@@ -13,6 +13,7 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.SplitReaderTheme
 import com.example.splitreader.screenshot.PHONE_PORTRAIT
 import kotlinx.coroutines.runBlocking
@@ -283,6 +284,7 @@ class ScrollSyncGlueTest {
                     chapterTranslations = fixtureTranslations,
                     showIllustrations = true,
                     verticalSplitRatio = 0.5f,
+                    horizontalMargin = ReadingDefaults.HORIZONTAL_MARGIN,
                     style = ReadingStyle(),
                     wordSelection = null,
                     wordHighlightEnabled = false,

@@ -60,7 +60,7 @@ import kotlinx.coroutines.flow.filterNotNull
 /**
  * The stacked (portrait/narrow-window) layout: original above, translation below, a draggable
  * horizontal divider between. Used in place of [BookSpread] when
- * `isCompactWidth(maxWidth) && state.showTranslation` — see the branch in `ReaderContent`.
+ * `isCompactWidth(maxWidth) && appearance.showTranslation` — see the branch in `ReaderContent`.
  *
  * There is deliberately no `showTranslation` parameter: the caller only reaches this composable
  * when translation is on, so accepting the flag here would create a second, unreachable
@@ -80,6 +80,8 @@ internal fun VerticalBookSpread(
     chapterTranslations: Map<Int, List<String>>,
     showIllustrations: Boolean,
     verticalSplitRatio: Float,
+    /** Outer page margin in dp (`ReadingAppearance.horizontalMargin`), both panes. */
+    horizontalMargin: Float,
     style: ReadingStyle,
     wordSelection: WordSelection?,
     wordHighlightEnabled: Boolean,
@@ -276,7 +278,7 @@ internal fun VerticalBookSpread(
                             ?.takeIf { isSelected }
                             ?.let { it.startChar to it.endChar }
                             ?: (-1 to -1)
-                        Box(Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
+                        Box(Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp)) {
                             ParagraphItem(
                                 text = original,
                                 index = idx,
@@ -338,7 +340,7 @@ internal fun VerticalBookSpread(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 32.dp)
+                                .padding(horizontal = horizontalMargin.dp)
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
                         ) {
                             // Two nested alphas, matching the landscape spread exactly: the outer

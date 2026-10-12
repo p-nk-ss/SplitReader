@@ -42,8 +42,9 @@ import com.example.splitreader.BuildConfig
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.OrientationLock
+import com.example.splitreader.domain.model.ReadingAppearance
+import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.reader.TranslatorPickerDialog
-import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase.Companion.FREE_BOOK_LIMIT
@@ -52,13 +53,11 @@ import com.example.splitreader.presentation.premium.PurchaseEventEffect
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.NightPalette
 import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.animatedSelection
-import com.example.splitreader.presentation.theme.PaperPalette
-import com.example.splitreader.presentation.theme.SepiaPalette
 import com.example.splitreader.presentation.ui.SectionEyebrow
 import com.example.splitreader.presentation.ui.SliderRow
+import com.example.splitreader.presentation.ui.ThemeSwatchRow
 import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
 
@@ -71,20 +70,8 @@ fun SettingsRoute(
     PurchaseEventEffect(premiumViewModel)
     SettingsScreen(
         state = state,
-        onSetReaderTheme = viewModel::setReaderTheme,
+        onAppearanceChange = viewModel::updateAppearance,
         onSetTargetLanguage = viewModel::setTargetLanguage,
-        onSetSplitRatio = viewModel::setSplitRatio,
-        onSetShowTranslation = viewModel::setShowTranslation,
-        onSetShowIllustrations = viewModel::setShowIllustrations,
-        onSetHorizontalMargin = viewModel::setHorizontalMargin,
-        onSetOrientationLock = viewModel::setOrientationLock,
-        onSetReadingFont = viewModel::setReadingFont,
-        onSetTextSize = viewModel::setTextSize,
-        onSetLineHeight = viewModel::setLineHeight,
-        onSetLetterSpacing = viewModel::setLetterSpacing,
-        onSetTextIndent = viewModel::setTextIndent,
-        onSetParagraphSpacing = viewModel::setParagraphSpacing,
-        onSetJustifyText = viewModel::setJustifyText,
         onSelectProvider = viewModel::selectProvider,
         onConfigureProvider = viewModel::configureProvider,
         onClearProvider = viewModel::clearProvider,
@@ -103,20 +90,8 @@ fun SettingsRoute(
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
-    onSetReaderTheme: (com.example.splitreader.domain.model.ReaderThemeKey) -> Unit,
+    onAppearanceChange: ((ReadingAppearance) -> ReadingAppearance) -> Unit,
     onSetTargetLanguage: (Language) -> Unit,
-    onSetSplitRatio: (Float) -> Unit,
-    onSetShowTranslation: (Boolean) -> Unit,
-    onSetShowIllustrations: (Boolean) -> Unit,
-    onSetHorizontalMargin: (Float) -> Unit,
-    onSetOrientationLock: (OrientationLock) -> Unit,
-    onSetReadingFont: (com.example.splitreader.domain.model.ReadingFont) -> Unit,
-    onSetTextSize: (Float) -> Unit,
-    onSetLineHeight: (Float) -> Unit,
-    onSetLetterSpacing: (Float) -> Unit,
-    onSetTextIndent: (Float) -> Unit,
-    onSetParagraphSpacing: (Float) -> Unit,
-    onSetJustifyText: (Boolean) -> Unit,
     onSelectProvider: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
     onConfigureProvider: (com.example.splitreader.domain.model.TranslationProvider, String?, String?) -> Unit,
     onClearProvider: (com.example.splitreader.domain.model.TranslationProvider) -> Unit,
@@ -132,6 +107,7 @@ fun SettingsScreen(
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
+    val appearance = state.appearance
 
     var showTranslatorPicker by remember { mutableStateOf(false) }
     var showClearCacheConfirm by remember { mutableStateOf(false) }
@@ -167,76 +143,45 @@ fun SettingsScreen(
         SettingsSection(title = "Reading") {
             SectionEyebrow("Theme")
             Spacer(Modifier.height(sp.xs))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf(PaperPalette, SepiaPalette, NightPalette, AmoledPalette).forEach { p ->
-                    val selected = state.readerTheme == p.key
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(LocalRadii.current.md))
-                            .background(p.bg)
-                            .border(if (selected) 2.dp else 1.dp, animatedSelection(if (selected) p.ink else p.edge, "themeSwatchBorder"), RoundedCornerShape(LocalRadii.current.md))
-                            .clickable { onSetReaderTheme(p.key) }
-                            .padding(vertical = sp.sm),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Aa", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 16.sp, color = p.ink)
-                            Text(p.displayName.uppercase(), fontFamily = JetBrainsMono, fontSize = 11.sp, color = p.ink2)
-                        }
-                    }
-                }
-            }
+            ThemeSwatchRow(
+                selected = appearance.theme,
+                onSelect = { theme -> onAppearanceChange { it.copy(theme = theme) } },
+            )
 
             Divider()
 
-            TypographyControls(
-                readingFont = state.readingFont,
-                onSetReadingFont = onSetReadingFont,
-                textSize = state.textSize,
-                onSetTextSize = onSetTextSize,
-                lineHeightMultiplier = state.lineHeightMultiplier,
-                onSetLineHeight = onSetLineHeight,
-                letterSpacing = state.letterSpacing,
-                onSetLetterSpacing = onSetLetterSpacing,
-                textIndent = state.textIndent,
-                onSetTextIndent = onSetTextIndent,
-                paragraphSpacing = state.paragraphSpacing,
-                onSetParagraphSpacing = onSetParagraphSpacing,
-                justify = state.justifyText,
-                onSetJustify = onSetJustifyText,
-            )
+            TypographyControls(appearance = appearance, onChange = onAppearanceChange)
 
             Divider()
 
             SliderRow(
                 label = "Split ratio",
-                value = state.splitRatio,
-                valueLabel = "${(state.splitRatio * 100).toInt()}%",
+                value = appearance.splitRatio,
+                valueLabel = "${(appearance.splitRatio * 100).toInt()}%",
                 valueRange = 0.3f..0.7f,
-                onValueChange = onSetSplitRatio,
+                onValueChange = { v -> onAppearanceChange { it.copy(splitRatio = v) } },
             )
             Spacer(Modifier.height(sp.sm))
             SliderRow(
                 label = "Page margins",
-                value = state.horizontalMargin,
-                valueLabel = "${state.horizontalMargin.toInt()}dp",
-                valueRange = 4f..32f,
-                onValueChange = onSetHorizontalMargin,
+                value = appearance.horizontalMargin,
+                valueLabel = "${appearance.horizontalMargin.toInt()}dp",
+                valueRange = ReadingDefaults.HORIZONTAL_MARGIN_RANGE,
+                onValueChange = { v -> onAppearanceChange { it.copy(horizontalMargin = v) } },
             )
             Spacer(Modifier.height(sp.sm))
             ToggleRow(
                 label = "Show translation",
                 sub = "Show the translated pane by default",
-                checked = state.showTranslation,
-                onToggle = { onSetShowTranslation(!state.showTranslation) },
+                checked = appearance.showTranslation,
+                onToggle = { onAppearanceChange { it.copy(showTranslation = !it.showTranslation) } },
             )
             Spacer(Modifier.height(sp.sm))
             ToggleRow(
                 label = "Show illustrations",
                 sub = "Display book images inline",
-                checked = state.showIllustrations,
-                onToggle = { onSetShowIllustrations(!state.showIllustrations) },
+                checked = appearance.showIllustrations,
+                onToggle = { onAppearanceChange { it.copy(showIllustrations = !it.showIllustrations) } },
             )
 
             Divider()
@@ -258,7 +203,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(sp.xs))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OrientationLock.entries.forEach { opt ->
-                    val selected = state.orientationLock == opt
+                    val selected = appearance.orientationLock == opt
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -271,7 +216,7 @@ fun SettingsScreen(
                                 ),
                                 RoundedCornerShape(LocalRadii.current.md),
                             )
-                            .clickable { onSetOrientationLock(opt) }
+                            .clickable { onAppearanceChange { it.copy(orientationLock = opt) } }
                             .padding(vertical = sp.sm),
                         contentAlignment = Alignment.Center,
                     ) {

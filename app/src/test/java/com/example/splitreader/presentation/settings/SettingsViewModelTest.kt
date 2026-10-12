@@ -1,6 +1,7 @@
 package com.example.splitreader.presentation.settings
 
 import com.example.splitreader.domain.model.ProviderConfig
+import com.example.splitreader.domain.model.ReaderThemeKey
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslatorConfigState
 import com.example.splitreader.fakes.FakeEntitlementRepository
@@ -16,15 +17,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
-/** SettingsViewModel's translator section is a thin delegate to the shared TranslatorSettings. */
+/** SettingsViewModel's translator and appearance sections are thin delegates to the shared ports. */
 class SettingsViewModelTest {
 
     @get:Rule val main = MainDispatcherRule()
 
     private val settings = FakeTranslatorSettings(current = TranslationProvider.QUICK_TRANSLATE)
 
-    private fun vm() = SettingsViewModel(
-        progressManager = FakeReadingPreferences(),
+    private fun vm(prefs: FakeReadingPreferences = FakeReadingPreferences()) = SettingsViewModel(
+        progressManager = prefs,
         translatorSettings = settings,
         translationRepository = FakeTranslationRepository(),
         textToSpeechManager = FakeSpeechSynthesizer(),
@@ -48,6 +49,20 @@ class SettingsViewModelTest {
             listOf("select AZURE", "saveKey DEEPL", "clear DEEPL", "resetUsage AZURE"),
             settings.log.toList(),
         )
+    }
+
+    @Test
+    fun `updateAppearance reaches prefs and UI state`() = runTest(main.dispatcher) {
+        val prefs = FakeReadingPreferences()
+        val vm = vm(prefs)
+        advanceUntilIdle()
+
+        vm.updateAppearance { it.copy(horizontalMargin = 20f, theme = ReaderThemeKey.SEPIA) }
+        advanceUntilIdle()
+
+        assertEquals(20f, prefs.appearance.value.horizontalMargin, 0f)
+        assertEquals(ReaderThemeKey.SEPIA, prefs.appearance.value.theme)
+        assertEquals(prefs.appearance.value, vm.state.value.appearance)
     }
 
     @Test

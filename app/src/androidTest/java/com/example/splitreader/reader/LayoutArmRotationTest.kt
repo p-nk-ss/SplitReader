@@ -22,8 +22,8 @@ import org.junit.runner.RunWith
  * after rotation throws `IllegalStateException: No compose hierarchies found in the app`, and
  * `assertDoesNotExist()` — the one query that does not throw on an empty hierarchy — passes
  * vacuously as a result. This was proven, not assumed: forcing `ReaderScreen.kt`'s
- * `val vertical = isCompactWidth(maxWidth) && state.showTranslation` to
- * `val vertical = true && state.showTranslation` (deliberately breaking the arm switch) and
+ * `val vertical = isCompactWidth(maxWidth) && appearance.showTranslation` to
+ * `val vertical = true && appearance.showTranslation` (deliberately breaking the arm switch) and
  * re-running still left a `topPane.assertDoesNotExist()` assertion green — it could not tell a
  * switched arm from a torn-down composition. That assertion has been removed from this test rather
  * than kept as decoration; see `task-6-report.md` for the paired runs (predicate correct, predicate

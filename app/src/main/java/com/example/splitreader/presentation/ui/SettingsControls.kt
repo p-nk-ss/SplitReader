@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
@@ -84,24 +85,13 @@ fun SliderRow(
 /**
  * The full set of reading-typography controls (typeface, size, spacing, indent, justification,
  * hyphenation), shared verbatim by the reader's in-session Display dialog and the global Settings
- * screen. Values are absolute; the caller decides how to persist them.
+ * screen. Each control hands [onChange] a transform of the current [appearance]; the caller
+ * persists it (bounds are applied there, by `ReadingAppearance.sanitized`).
  */
 @Composable
 fun TypographyControls(
-    readingFont: ReadingFont,
-    onSetReadingFont: (ReadingFont) -> Unit,
-    textSize: Float,
-    onSetTextSize: (Float) -> Unit,
-    lineHeightMultiplier: Float,
-    onSetLineHeight: (Float) -> Unit,
-    letterSpacing: Float,
-    onSetLetterSpacing: (Float) -> Unit,
-    textIndent: Float,
-    onSetTextIndent: (Float) -> Unit,
-    paragraphSpacing: Float,
-    onSetParagraphSpacing: (Float) -> Unit,
-    justify: Boolean,
-    onSetJustify: (Boolean) -> Unit,
+    appearance: ReadingAppearance,
+    onChange: ((ReadingAppearance) -> ReadingAppearance) -> Unit,
 ) {
     val sp = LocalSpacing.current
 
@@ -113,8 +103,8 @@ fun TypographyControls(
             rowFonts.forEach { font ->
                 FontChip(
                     font = font,
-                    selected = readingFont == font,
-                    onClick = { onSetReadingFont(font) },
+                    selected = appearance.font == font,
+                    onClick = { onChange { it.copy(font = font) } },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -126,50 +116,50 @@ fun TypographyControls(
     Spacer(Modifier.height(sp.md))
     SliderRow(
         label = "Font size",
-        value = textSize,
-        valueLabel = "${textSize.toInt()}sp",
+        value = appearance.textSize,
+        valueLabel = "${appearance.textSize.toInt()}sp",
         valueRange = ReadingDefaults.TEXT_SIZE_RANGE,
-        onValueChange = onSetTextSize,
+        onValueChange = { v -> onChange { it.copy(textSize = v) } },
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
         label = "Line height",
-        value = lineHeightMultiplier,
-        valueLabel = "×${"%.2f".format(lineHeightMultiplier)}",
+        value = appearance.lineHeight,
+        valueLabel = "×${"%.2f".format(appearance.lineHeight)}",
         valueRange = 1.20f..2.00f,
-        onValueChange = onSetLineHeight,
+        onValueChange = { v -> onChange { it.copy(lineHeight = v) } },
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
         label = "Paragraph spacing",
-        value = paragraphSpacing,
-        valueLabel = "${paragraphSpacing.toInt()}dp",
+        value = appearance.paragraphSpacing,
+        valueLabel = "${appearance.paragraphSpacing.toInt()}dp",
         valueRange = 4f..48f,
-        onValueChange = onSetParagraphSpacing,
+        onValueChange = { v -> onChange { it.copy(paragraphSpacing = v) } },
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
         label = "Letter spacing",
-        value = letterSpacing,
-        valueLabel = "${"%.2f".format(letterSpacing)}sp",
+        value = appearance.letterSpacing,
+        valueLabel = "${"%.2f".format(appearance.letterSpacing)}sp",
         valueRange = 0f..2f,
-        onValueChange = onSetLetterSpacing,
+        onValueChange = { v -> onChange { it.copy(letterSpacing = v) } },
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
         label = "First-line indent",
-        value = textIndent,
-        valueLabel = "${textIndent.toInt()}sp",
+        value = appearance.textIndent,
+        valueLabel = "${appearance.textIndent.toInt()}sp",
         valueRange = 0f..48f,
-        onValueChange = onSetTextIndent,
+        onValueChange = { v -> onChange { it.copy(textIndent = v) } },
     )
 
     Spacer(Modifier.height(sp.sm))
     ToggleRow(
         label = "Justify text",
         sub = "Align both edges of each line",
-        checked = justify,
-        onToggle = { onSetJustify(!justify) },
+        checked = appearance.justify,
+        onToggle = { onChange { it.copy(justify = !it.justify) } },
     )
 }
 

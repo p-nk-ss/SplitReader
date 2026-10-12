@@ -27,14 +27,15 @@ import com.example.splitreader.presentation.catalog.DriveUiState
 import com.example.splitreader.presentation.home.BookItem
 import com.example.splitreader.presentation.home.HomeUiState
 import com.example.splitreader.presentation.profile.AccountUiState
-import com.example.splitreader.presentation.reader.NavigationSide
 import com.example.splitreader.domain.model.ProviderConfig
 import com.example.splitreader.presentation.reader.ReaderUiState
 import com.example.splitreader.domain.model.TranslatorConfigState
 import com.example.splitreader.presentation.reader.SelectionTranslation
 import com.example.splitreader.presentation.reader.WordSelection
 import com.example.splitreader.presentation.settings.SettingsUiState
+import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReaderThemeKey
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingFont
 import com.example.splitreader.presentation.words.LangFilter
 import java.time.LocalDate
@@ -311,19 +312,23 @@ object ScreenFixtures {
     )
 
     val settingsState = SettingsUiState(
-        readerTheme = ReaderThemeKey.PAPER,
+        // horizontalMargin = 32 (the default) since the margins slider was wired; it was 12 before.
+        appearance = ReadingAppearance.defaults(isTablet = false).copy(
+            theme = ReaderThemeKey.PAPER,
+            splitRatio = 0.5f,
+            showTranslation = true,
+            showIllustrations = true,
+            horizontalMargin = 32f,
+            font = ReadingFont.SERIF,
+            textSize = 16f,
+            lineHeight = 1.5f,
+            letterSpacing = 0f,
+            textIndent = 0f,
+            paragraphSpacing = 18f,
+            justify = true,
+            orientationLock = OrientationLock.AUTO,
+        ),
         targetLanguage = Language.RUSSIAN,
-        splitRatio = 0.5f,
-        showTranslation = true,
-        showIllustrations = true,
-        horizontalMargin = 12f,
-        readingFont = ReadingFont.SERIF,
-        textSize = 16f,
-        lineHeightMultiplier = 1.5f,
-        letterSpacing = 0f,
-        textIndent = 0f,
-        paragraphSpacing = 18f,
-        justifyText = true,
         translatorProvider = TranslationProvider.MLKIT,
         translatorConfig = settingsTranslatorConfig,
         cachedTranslationCount = 128,
@@ -470,19 +475,23 @@ object ScreenFixtures {
         targetLanguage = Language.RUSSIAN,
         translationState = TranslationState.Idle,
         chapterTranslations = readerChapterTranslations,
-        textSize = 16f,
-        lineHeightMultiplier = 1.5f,
-        readingFont = ReadingFont.SERIF,
-        letterSpacing = 0f,
-        textIndent = 0f,
-        paragraphSpacing = 18f,
-        justifyText = true,
-        splitRatio = 0.5f,
-        showTranslation = true,
-        showIllustrations = true,
-        readerTheme = ReaderThemeKey.PAPER,
-        navigationSide = NavigationSide.RIGHT,
-        horizontalMargin = 12f,
+        // horizontalMargin = 32 = the outer padding the reader hard-coded before the slider was
+        // wired, so the reader goldens are pixel-identical (the old fixture's 12 was never read).
+        appearance = ReadingAppearance.defaults(isTablet = false).copy(
+            textSize = 16f,
+            lineHeight = 1.5f,
+            font = ReadingFont.SERIF,
+            letterSpacing = 0f,
+            textIndent = 0f,
+            paragraphSpacing = 18f,
+            justify = true,
+            splitRatio = 0.5f,
+            showTranslation = true,
+            showIllustrations = true,
+            theme = ReaderThemeKey.PAPER,
+            horizontalMargin = 32f,
+            orientationLock = OrientationLock.AUTO,
+        ),
         bookmarks = readerBookmarks,
         isCurrentPositionBookmarked = false,
         wordSelection = null,

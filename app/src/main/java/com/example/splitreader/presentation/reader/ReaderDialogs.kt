@@ -62,14 +62,10 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.domain.model.ReaderThemeKey
-import com.example.splitreader.domain.model.ReadingFont
-import com.example.splitreader.presentation.theme.AmoledPalette
-import com.example.splitreader.presentation.theme.NightPalette
-import com.example.splitreader.presentation.theme.PaperPalette
-import com.example.splitreader.presentation.theme.SepiaPalette
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.presentation.ui.SectionEyebrow
 import com.example.splitreader.presentation.ui.SliderRow
+import com.example.splitreader.presentation.ui.ThemeSwatchRow
 import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
 
@@ -248,52 +244,25 @@ internal fun LanguagePickerDialog(
 @Composable
 internal fun DisplaySettingsDialog(
     state: ReaderUiState.Success,
-    onSetReaderTheme: (ReaderThemeKey) -> Unit,
-    onAdjustTextSize: (Float) -> Unit,
-    onAdjustLineHeight: (Float) -> Unit,
-    onSetReadingFont: (ReadingFont) -> Unit,
-    onSetLetterSpacing: (Float) -> Unit,
-    onSetTextIndent: (Float) -> Unit,
-    onSetParagraphSpacing: (Float) -> Unit,
-    onSetJustifyText: (Boolean) -> Unit,
-    onSetSplitRatio: (Float) -> Unit,
+    onAppearanceChange: ((ReadingAppearance) -> ReadingAppearance) -> Unit,
     vertical: Boolean,
-    onSetVerticalSplitRatio: (Float) -> Unit,
-    onToggleTranslation: () -> Unit,
-    onToggleIllustrations: () -> Unit,
     wordHighlightEnabled: Boolean,
     onToggleWordHighlight: () -> Unit,
-    onSetOrientationLock: (OrientationLock) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
+    val appearance = state.appearance
 
     EditorialDialog(eyebrow = "Reading", title = "Display", onDismiss = onDismiss) {
         // Theme swatches
         SectionEyebrow("Theme")
         Spacer(Modifier.height(sp.xs))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(PaperPalette, SepiaPalette, NightPalette, AmoledPalette).forEach { p ->
-                val selected = state.readerTheme == p.key
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(radii.md))
-                        .background(p.bg)
-                        .border(if (selected) 2.dp else 1.dp, animatedSelection(if (selected) p.ink else p.edge, "readerThemeSwatchBorder"), RoundedCornerShape(radii.md))
-                        .clickable { onSetReaderTheme(p.key) }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Aa", fontFamily = Newsreader, fontWeight = FontWeight.Medium, fontSize = 16.sp, color = p.ink)
-                        Text(p.displayName.uppercase(), fontFamily = JetBrainsMono, fontSize = 11.sp, color = p.ink2)
-                    }
-                }
-            }
-        }
+        ThemeSwatchRow(
+            selected = appearance.theme,
+            onSelect = { theme -> onAppearanceChange { it.copy(theme = theme) } },
+        )
 
         Spacer(Modifier.height(sp.md))
 
@@ -302,7 +271,7 @@ internal fun DisplaySettingsDialog(
         Spacer(Modifier.height(sp.xs))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OrientationLock.entries.forEach { opt ->
-                val selected = state.orientationLock == opt
+                val selected = appearance.orientationLock == opt
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -312,7 +281,7 @@ internal fun DisplaySettingsDialog(
                             animatedSelection(if (selected) palette.ink else palette.edge, "orientationBorder_${opt.name}"),
                             RoundedCornerShape(radii.md),
                         )
-                        .clickable { onSetOrientationLock(opt) }
+                        .clickable { onAppearanceChange { it.copy(orientationLock = opt) } }
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -332,40 +301,25 @@ internal fun DisplaySettingsDialog(
         Spacer(Modifier.height(sp.md))
 
         // Typography (shared with the global Settings screen)
-        TypographyControls(
-            readingFont = state.readingFont,
-            onSetReadingFont = onSetReadingFont,
-            textSize = state.textSize,
-            onSetTextSize = { onAdjustTextSize(it - state.textSize) },
-            lineHeightMultiplier = state.lineHeightMultiplier,
-            onSetLineHeight = { onAdjustLineHeight(it - state.lineHeightMultiplier) },
-            letterSpacing = state.letterSpacing,
-            onSetLetterSpacing = onSetLetterSpacing,
-            textIndent = state.textIndent,
-            onSetTextIndent = onSetTextIndent,
-            paragraphSpacing = state.paragraphSpacing,
-            onSetParagraphSpacing = onSetParagraphSpacing,
-            justify = state.justifyText,
-            onSetJustify = onSetJustifyText,
-        )
+        TypographyControls(appearance = appearance, onChange = onAppearanceChange)
 
-        if (state.showTranslation) {
+        if (appearance.showTranslation) {
             Spacer(Modifier.height(sp.sm))
             if (vertical) {
                 SliderRow(
                     label = "Vertical split",
-                    value = state.verticalSplitRatio,
-                    valueLabel = "${(state.verticalSplitRatio * 100).roundToInt()} / ${100 - (state.verticalSplitRatio * 100).roundToInt()}",
+                    value = appearance.verticalSplitRatio,
+                    valueLabel = "${(appearance.verticalSplitRatio * 100).roundToInt()} / ${100 - (appearance.verticalSplitRatio * 100).roundToInt()}",
                     valueRange = ReadingDefaults.VERTICAL_SPLIT_RATIO_RANGE,
-                    onValueChange = onSetVerticalSplitRatio,
+                    onValueChange = { v -> onAppearanceChange { it.copy(verticalSplitRatio = v) } },
                 )
             } else {
                 SliderRow(
                     label = "Split position",
-                    value = state.splitRatio,
-                    valueLabel = "${(state.splitRatio * 100).roundToInt()} / ${100 - (state.splitRatio * 100).roundToInt()}",
+                    value = appearance.splitRatio,
+                    valueLabel = "${(appearance.splitRatio * 100).roundToInt()} / ${100 - (appearance.splitRatio * 100).roundToInt()}",
                     valueRange = ReadingDefaults.SPLIT_RATIO_RANGE,
-                    onValueChange = onSetSplitRatio,
+                    onValueChange = { v -> onAppearanceChange { it.copy(splitRatio = v) } },
                 )
             }
         }
@@ -378,15 +332,15 @@ internal fun DisplaySettingsDialog(
         ToggleRow(
             label = "Show translation",
             sub = "Hide to read original only",
-            checked = state.showTranslation,
-            onToggle = onToggleTranslation,
+            checked = appearance.showTranslation,
+            onToggle = { onAppearanceChange { it.copy(showTranslation = !it.showTranslation) } },
         )
         Spacer(Modifier.height(sp.sm))
         ToggleRow(
             label = "Show illustrations",
             sub = "Display book images inline",
-            checked = state.showIllustrations,
-            onToggle = onToggleIllustrations,
+            checked = appearance.showIllustrations,
+            onToggle = { onAppearanceChange { it.copy(showIllustrations = !it.showIllustrations) } },
         )
         Spacer(Modifier.height(sp.sm))
         ToggleRow(

@@ -5,10 +5,12 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReaderThemeKey
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.ReadingFont
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,7 +21,7 @@ import org.robolectric.annotation.Config
  * `ReadingProgressManager.appearance`/`updateAppearance` over the existing `"reading_progress"`
  * keys. Real SharedPreferences under Robolectric — the plausible defects are key names (a field
  * written under the wrong key, corrupting a sibling field) and dropped sanitization, which a fake
- * cannot observe. Raw prefs are seeded/read exactly as the individual getters/setters already do.
+ * cannot observe. Raw prefs are seeded/read under the same keys the old per-setting API used.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -150,27 +152,56 @@ class ReadingProgressManagerAppearanceTest {
         assertEquals(max, prefs.getFloat("horizontal_margin", -1f), 1e-6f)
     }
 
+    // ── Folded in from the former ReadingProgressManagerSplitPrefsTest ─────────
+
+    /** Fresh prefs (Robolectric's default configuration is a phone) read as the declared defaults. */
     @Test
-    fun `an old setter keeps appearance in sync`() {
+    fun `unset preferences fall back to the declared defaults`() {
         manager = newManager()
 
-        manager.saveTextSize(18f)
-
-        assertEquals(18f, manager.appearance.value.textSize, 1e-6f)
+        assertEquals(ReadingAppearance.defaults(isTablet = false), manager.appearance.value)
+        assertFalse(manager.getPortraitHintDismissed())
     }
 
     @Test
-    fun `updateAppearance keeps the readerThemeName flow in sync`() {
+    fun `the portrait hint flag round-trips`() {
         manager = newManager()
 
-        manager.updateAppearance { it.copy(theme = ReaderThemeKey.NIGHT) }
+        manager.savePortraitHintDismissed(true)
 
-        assertEquals("NIGHT", manager.readerThemeName.value)
+        assertTrue(newManager().getPortraitHintDismissed())
+    }
+
+    /** The mirror of `the two split ratios are independent`: writing the horizontal ratio must not move the vertical one. */
+    @Test
+    fun `the horizontal ratio leaves the vertical one alone`() {
+        manager = newManager()
+
+        manager.updateAppearance { it.copy(splitRatio = 0.35f) }
+
+        assertEquals(
+            "updateAppearance wrote the horizontal ratio into the vertical ratio's key.",
+            ReadingDefaults.VERTICAL_SPLIT_RATIO,
+            prefs.getFloat("vertical_split_ratio", ReadingDefaults.VERTICAL_SPLIT_RATIO),
+            1e-6f,
+        )
+    }
+
+    /** Both directions at once, read back by a fresh manager, so a swap of the two keys (on write or on read) cannot cancel itself out. */
+    @Test
+    fun `the two ratios hold independent values simultaneously`() {
+        manager = newManager()
+
+        manager.updateAppearance { it.copy(splitRatio = 0.35f, verticalSplitRatio = 0.65f) }
+
+        val fresh = newManager().appearance.value
+        assertEquals(0.35f, fresh.splitRatio, 1e-6f)
+        assertEquals(0.65f, fresh.verticalSplitRatio, 1e-6f)
     }
 
     /**
      * On fresh prefs, orientation is "unset" — derived from form factor on every read, never
-     * written back (see the KDoc on `getOrientationLock`). An unrelated `updateAppearance` call
+     * written back (see the KDoc on `readOrientationLock`). An unrelated `updateAppearance` call
      * must not disturb that: a "write every field" implementation (vs. the diff-per-field one)
      * would persist the derived default under `orientation_lock`, turning an unset preference into
      * an explicit one.

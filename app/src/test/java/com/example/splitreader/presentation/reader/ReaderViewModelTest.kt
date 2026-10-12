@@ -82,20 +82,40 @@ class ReaderViewModelTest {
     }
 
     @Test
-    fun `hiding the pane stops a paid provider and showing it resumes`() = runTest(main.dispatcher) {
+    fun `hiding the translation via updateAppearance stops a paid provider and showing it resumes`() = runTest(main.dispatcher) {
         val h = harness(book(20))
         open(h)
         advanceUntilIdle()
 
-        h.vm.toggleTranslation() // hide
+        h.vm.updateAppearance { it.copy(showTranslation = false) } // hide
         h.vm.onVisibleRange(0, 10, 0, 14)
         advanceUntilIdle()
         val hidden = (10..14).map { "c0p$it" }.filter { it in h.repo.texts() }
         assertTrue("translated while hidden: $hidden", hidden.isEmpty())
+        assertFalse("the new visibility never reached uiState", h.success().appearance.showTranslation)
 
-        h.vm.toggleTranslation() // show
+        h.vm.updateAppearance { it.copy(showTranslation = true) } // show
         advanceUntilIdle()
         for (i in 10..14) assertTrue("c0p$i after showing", "c0p$i" in h.repo.texts())
+    }
+
+    /**
+     * Hide then show before the VM's `appearance` collector runs: the "was it visible?" check must
+     * not read a `_state` that still says visible, or the second call looks like a no-op and the
+     * engine stays stopped.
+     */
+    @Test
+    fun `hide then show in one frame leaves the translation running`() = runTest(main.dispatcher) {
+        val h = harness(book(20))
+        open(h)
+        advanceUntilIdle()
+
+        h.vm.updateAppearance { it.copy(showTranslation = false) }
+        h.vm.updateAppearance { it.copy(showTranslation = true) }
+        h.vm.onVisibleRange(0, 10, 0, 14)
+        advanceUntilIdle()
+
+        for (i in 10..14) assertTrue("c0p$i after hide+show", "c0p$i" in h.repo.texts())
     }
 
     @Test

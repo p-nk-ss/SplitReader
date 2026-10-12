@@ -16,7 +16,7 @@ import org.junit.Test
  * `LayoutDirection.Rtl` for the whole content tree.
  *
  * As in [ReadingScreensScreenshotTest], `ReaderContent` derives its reading-pane palette from
- * `state.readerTheme` (a per-book setting), independent of the ambient app-chrome theme — so the
+ * `state.appearance.theme` (a per-book setting), independent of the ambient app-chrome theme — so the
  * RTL reader golden keeps the default PAPER reading palette while only the layout direction flips.
  */
 class PaletteAndRtlScreenshotTest : ScreenshotTest() {
@@ -73,21 +73,7 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
             onNavigateBack = {},
             onSelectChapter = {},
             onSetTargetLanguage = {},
-            onSetReaderTheme = {},
-            onAdjustTextSize = {},
-            onAdjustLineHeight = {},
-            onSetReadingFont = {},
-            onSetLetterSpacing = {},
-            onSetTextIndent = {},
-            onSetParagraphSpacing = {},
-            onSetJustifyText = {},
-            onSetSplitRatio = {},
-            onSetVerticalSplitRatio = {},
-            onToggleTranslation = {},
-            onToggleIllustrations = {},
-            onSetNavigationSide = {},
-            onSetHorizontalMargin = {},
-            onSetOrientationLock = {},
+            onAppearanceChange = {},
             onReadingPositionChanged = {},
             onMarkFinished = {},
             onToggleBookmark = {},
@@ -121,25 +107,11 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
     @Test
     fun reader_split035_rtl_1x() = captureScreen("reader_split035_rtl_1x", theme = ReaderThemeKey.PAPER, fontScale = 1f, rtl = true) {
         ReaderContent(
-            state = readerFullyTranslated.copy(splitRatio = 0.35f),
+            state = readerFullyTranslated.copy(appearance = readerFullyTranslated.appearance.copy(splitRatio = 0.35f)),
             onNavigateBack = {},
             onSelectChapter = {},
             onSetTargetLanguage = {},
-            onSetReaderTheme = {},
-            onAdjustTextSize = {},
-            onAdjustLineHeight = {},
-            onSetReadingFont = {},
-            onSetLetterSpacing = {},
-            onSetTextIndent = {},
-            onSetParagraphSpacing = {},
-            onSetJustifyText = {},
-            onSetSplitRatio = {},
-            onSetVerticalSplitRatio = {},
-            onToggleTranslation = {},
-            onToggleIllustrations = {},
-            onSetNavigationSide = {},
-            onSetHorizontalMargin = {},
-            onSetOrientationLock = {},
+            onAppearanceChange = {},
             onReadingPositionChanged = {},
             onMarkFinished = {},
             onToggleBookmark = {},

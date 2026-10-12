@@ -47,15 +47,13 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
-import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.LocalReaderPalette
-import com.example.splitreader.domain.model.ReaderThemeKey
-import com.example.splitreader.domain.model.ReadingFont
+import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.readerPalette
 import kotlinx.coroutines.delay
@@ -119,21 +117,7 @@ internal fun ReaderRoute(
             onNavigateBack = onNavigateBack,
             onSelectChapter = viewModel::selectChapter,
             onSetTargetLanguage = viewModel::setTargetLanguage,
-            onSetReaderTheme = viewModel::setReaderTheme,
-            onAdjustTextSize = viewModel::adjustTextSize,
-            onAdjustLineHeight = viewModel::adjustLineHeight,
-            onSetReadingFont = viewModel::setReadingFont,
-            onSetLetterSpacing = viewModel::setLetterSpacing,
-            onSetTextIndent = viewModel::setTextIndent,
-            onSetParagraphSpacing = viewModel::setParagraphSpacing,
-            onSetJustifyText = viewModel::setJustifyText,
-            onSetSplitRatio = viewModel::setSplitRatio,
-            onSetVerticalSplitRatio = viewModel::setVerticalSplitRatio,
-            onToggleTranslation = viewModel::toggleTranslation,
-            onToggleIllustrations = viewModel::toggleIllustrations,
-            onSetNavigationSide = viewModel::setNavigationSide,
-            onSetHorizontalMargin = viewModel::setHorizontalMargin,
-            onSetOrientationLock = viewModel::setOrientationLock,
+            onAppearanceChange = viewModel::updateAppearance,
             onReadingPositionChanged = viewModel::onReadingPositionChanged,
             onMarkFinished = viewModel::markFinished,
             onToggleBookmark = viewModel::toggleBookmarkAtCurrentPosition,
@@ -192,21 +176,7 @@ internal fun ReaderContent(
     onNavigateBack: () -> Unit,
     onSelectChapter: (Int) -> Unit,
     onSetTargetLanguage: (Language) -> Unit,
-    onSetReaderTheme: (ReaderThemeKey) -> Unit,
-    onAdjustTextSize: (Float) -> Unit,
-    onAdjustLineHeight: (Float) -> Unit,
-    onSetReadingFont: (ReadingFont) -> Unit,
-    onSetLetterSpacing: (Float) -> Unit,
-    onSetTextIndent: (Float) -> Unit,
-    onSetParagraphSpacing: (Float) -> Unit,
-    onSetJustifyText: (Boolean) -> Unit,
-    onSetSplitRatio: (Float) -> Unit,
-    onSetVerticalSplitRatio: (Float) -> Unit,
-    onToggleTranslation: () -> Unit,
-    onToggleIllustrations: () -> Unit,
-    onSetNavigationSide: (NavigationSide) -> Unit,
-    onSetHorizontalMargin: (Float) -> Unit,
-    onSetOrientationLock: (OrientationLock) -> Unit,
+    onAppearanceChange: ((ReadingAppearance) -> ReadingAppearance) -> Unit,
     onReadingPositionChanged: (ReadingPosition) -> Unit,
     onMarkFinished: () -> Unit,
     onToggleBookmark: () -> Unit,
@@ -229,7 +199,8 @@ internal fun ReaderContent(
     onTranslateWholeChapter: () -> Unit,
     onDismissPortraitHint: (dontShowAgain: Boolean) -> Unit,
 ) {
-    val palette = readerPalette(state.readerTheme)
+    val appearance = state.appearance
+    val palette = readerPalette(appearance.theme)
 
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showDisplaySettings by remember { mutableStateOf(false) }
@@ -254,8 +225,8 @@ internal fun ReaderContent(
     val coroutineScope = rememberCoroutineScope()
 
     // Exact item↔paragraph arithmetic (mastheads and illustration items are not paragraphs).
-    val bookItemIndex = remember(state.book.chapters, state.showIllustrations) {
-        BookItemIndex(state.book, state.showIllustrations)
+    val bookItemIndex = remember(state.book.chapters, appearance.showIllustrations) {
+        BookItemIndex(state.book, appearance.showIllustrations)
     }
     // Long-lived effects below are keyed on listState only; read the index through this so an
     // illustrations toggle (which rebuilds the index) is seen by them, not the first-composition one.
@@ -319,7 +290,7 @@ internal fun ReaderContent(
       BoxWithConstraints(Modifier.fillMaxSize()) {
         // "Vertical mode" is the single predicate the stacked layout, the split slider, and the
         // portrait hint all key off. Computed once here and threaded down so they can't disagree.
-        val vertical = isCompactWidth(maxWidth) && state.showTranslation
+        val vertical = isCompactWidth(maxWidth) && appearance.showTranslation
 
         var hintShownThisEntry by rememberSaveable { mutableStateOf(false) }
 
@@ -350,8 +321,9 @@ internal fun ReaderContent(
                         modifier = Modifier.fillMaxSize(),
                         book = state.book,
                         chapterTranslations = state.chapterTranslations,
-                        showIllustrations = state.showIllustrations,
-                        verticalSplitRatio = state.verticalSplitRatio,
+                        showIllustrations = appearance.showIllustrations,
+                        verticalSplitRatio = appearance.verticalSplitRatio,
+                        horizontalMargin = appearance.horizontalMargin,
                         style = state.readingStyle,
                         wordSelection = state.wordSelection,
                         wordHighlightEnabled = wordHighlightEnabled,
@@ -364,7 +336,7 @@ internal fun ReaderContent(
                         onSpeak = onSpeak,
                         onDismiss = onClearWordSelection,
                         onToggleBars = { barsVisible = !barsVisible },
-                        onSetVerticalSplitRatio = onSetVerticalSplitRatio,
+                        onSetVerticalSplitRatio = { r -> onAppearanceChange { it.copy(verticalSplitRatio = r) } },
                         barsVisible = barsVisible,
                         sourceLang = state.sourceLanguage,
                         targetLang = state.targetLanguage,
@@ -374,9 +346,10 @@ internal fun ReaderContent(
                         modifier = Modifier.fillMaxSize(),
                         book = state.book,
                         chapterTranslations = state.chapterTranslations,
-                        showTranslation = state.showTranslation,
-                        showIllustrations = state.showIllustrations,
-                        splitRatio = state.splitRatio,
+                        showTranslation = appearance.showTranslation,
+                        showIllustrations = appearance.showIllustrations,
+                        splitRatio = appearance.splitRatio,
+                        horizontalMargin = appearance.horizontalMargin,
                         style = state.readingStyle,
                         wordSelection = state.wordSelection,
                         wordHighlightEnabled = wordHighlightEnabled,
@@ -388,7 +361,7 @@ internal fun ReaderContent(
                         onSpeak = onSpeak,
                         onDismiss = onClearWordSelection,
                         onToggleBars = { barsVisible = !barsVisible },
-                        onSetSplitRatio = onSetSplitRatio,
+                        onSetSplitRatio = { r -> onAppearanceChange { it.copy(splitRatio = r) } },
                         barsVisible = barsVisible,
                         sourceLang = state.sourceLanguage,
                         targetLang = state.targetLanguage,
@@ -419,7 +392,7 @@ internal fun ReaderContent(
                             onRetry = onRetryTranslation,
                             onOpenTranslator = { showTranslatorPicker = true },
                         )
-                    } else if (barsVisible && state.showTranslation && state.translationNotice != null) {
+                    } else if (barsVisible && appearance.showTranslation && state.translationNotice != null) {
                         // Shown with the bars (which auto-hide) so it never permanently covers the text.
                         TranslationFallbackStrip(
                             notice = state.translationNotice,
@@ -452,22 +425,10 @@ internal fun ReaderContent(
         if (showDisplaySettings) {
             DisplaySettingsDialog(
                 state = state,
-                onSetReaderTheme = onSetReaderTheme,
-                onAdjustTextSize = onAdjustTextSize,
-                onAdjustLineHeight = onAdjustLineHeight,
-                onSetReadingFont = onSetReadingFont,
-                onSetLetterSpacing = onSetLetterSpacing,
-                onSetTextIndent = onSetTextIndent,
-                onSetParagraphSpacing = onSetParagraphSpacing,
-                onSetJustifyText = onSetJustifyText,
-                onSetSplitRatio = onSetSplitRatio,
+                onAppearanceChange = onAppearanceChange,
                 vertical = vertical,
-                onSetVerticalSplitRatio = onSetVerticalSplitRatio,
-                onToggleTranslation = onToggleTranslation,
-                onToggleIllustrations = onToggleIllustrations,
                 wordHighlightEnabled = wordHighlightEnabled,
                 onToggleWordHighlight = { wordHighlightEnabled = !wordHighlightEnabled },
-                onSetOrientationLock = onSetOrientationLock,
                 onDismiss = { showDisplaySettings = false },
             )
         }
@@ -490,7 +451,7 @@ internal fun ReaderContent(
                 onResetUsage = onResetTranslationUsage,
                 // Hide the "translate whole chapter" action when the translation pane is off —
                 // translating text the reader can't see would just burn paid quota.
-                onTranslateWholeChapter = if (state.showTranslation) onTranslateWholeChapter else null,
+                onTranslateWholeChapter = if (appearance.showTranslation) onTranslateWholeChapter else null,
                 onDismiss = { showTranslatorPicker = false },
             )
         }
