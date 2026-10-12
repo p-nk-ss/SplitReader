@@ -13,6 +13,7 @@ import com.example.splitreader.data.repository.BookmarkRepositoryImpl
 import com.example.splitreader.data.repository.NoteRepositoryImpl
 import com.example.splitreader.data.repository.ReadingSessionRepositoryImpl
 import com.example.splitreader.data.repository.SavedWordRepositoryImpl
+import com.example.splitreader.data.translator.TranslatorSettingsImpl
 import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.EntitlementRepository
@@ -26,6 +27,7 @@ import com.example.splitreader.domain.repository.SpeechSynthesizer
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.repository.TranslatorKeyStore
+import com.example.splitreader.domain.repository.TranslatorSettings
 import com.example.splitreader.domain.translator.OfflineModelStore
 import com.example.splitreader.domain.IoDispatcher
 import dagger.Module
@@ -78,6 +80,9 @@ object AppModule {
 
     @Provides @Singleton
     fun provideTranslatorEndpointStore(impl: TranslatorEndpoints): TranslatorEndpointStore = impl
+
+    @Provides @Singleton
+    fun provideTranslatorSettings(impl: TranslatorSettingsImpl): TranslatorSettings = impl
 
     @Provides @Singleton
     fun provideOfflineModelStore(impl: BergamotModelStore): OfflineModelStore = impl

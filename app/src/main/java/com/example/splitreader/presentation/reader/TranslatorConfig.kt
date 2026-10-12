@@ -1,25 +1,13 @@
 package com.example.splitreader.presentation.reader
 
-import androidx.compose.runtime.Immutable
+import com.example.splitreader.domain.model.ProviderConfig
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProviderCategory
+import com.example.splitreader.domain.model.TranslatorConfigState
 import com.example.splitreader.domain.model.TranslationUsage
 import com.example.splitreader.domain.repository.TranslationUsageStats
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import com.example.splitreader.domain.translator.TranslationProviderApi
-
-@Immutable
-data class ProviderConfig(
-    val configured: Boolean,
-    val secondaryValue: String = "",
-)
-
-@Immutable
-data class TranslatorConfigState(
-    val current: TranslationProvider,
-    val configs: Map<TranslationProvider, ProviderConfig>,
-    val usage: Map<TranslationProvider, TranslationUsage> = emptyMap(),
-)
 
 /**
  * Single source of truth for the translator picker UI, built from the DI provider

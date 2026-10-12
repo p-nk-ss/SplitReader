@@ -17,7 +17,7 @@ import com.example.splitreader.domain.translator.InstalledPack
 import com.example.splitreader.domain.translator.ModelPair
 import com.example.splitreader.domain.translator.OfflineModelStore
 import com.example.splitreader.domain.translator.TranslationProviderApi
-import com.example.splitreader.presentation.reader.TranslatorConfigState
+import com.example.splitreader.domain.model.TranslatorConfigState
 import com.example.splitreader.presentation.reader.buildTranslatorConfigState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont

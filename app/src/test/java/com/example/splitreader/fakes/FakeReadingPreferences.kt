@@ -12,9 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
  * Records the provider, target language, pane visibility, positions and excerpts the caller writes;
  * every other preference is a constant. The target defaults to RUSSIAN so a reader that detects
  * ENGLISH keeps it (the VM swaps the target only when it equals the detected language).
+ * When [log] is given, every provider write appends `"select <PROVIDER>"` to it.
  */
 internal class FakeReadingPreferences(
-    var provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
+    @Volatile var provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
+    private val log: MutableList<String>? = null,
 ) : ReadingPreferences {
     @get:JvmName("storedTargetLanguage") var targetLanguage = Language.RUSSIAN
     @get:JvmName("storedShowTranslation") var showTranslation = true
@@ -62,6 +64,7 @@ internal class FakeReadingPreferences(
     override fun saveHorizontalMargin(margin: Float) = Unit
     override fun getHorizontalMargin() = 0f
     override fun setTranslatorProvider(provider: TranslationProvider) {
+        log?.add("select $provider")
         this.provider = provider
     }
     override fun getTranslatorProvider() = provider

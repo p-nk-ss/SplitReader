@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import com.example.splitreader.domain.model.TranslatorConfigState
 
 // TODO(architecture): translation now lives in ReaderTranslationEngine, but this ViewModel still
 //  owns word selection/translation and saved words, TTS, reading-session tracking and settings

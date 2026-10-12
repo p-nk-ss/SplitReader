@@ -11,6 +11,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.domain.model.TranslatorConfigState
 
 enum class SelectionType { WORD, SENTENCE }
 

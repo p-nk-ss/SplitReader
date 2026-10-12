@@ -28,9 +28,9 @@ import com.example.splitreader.presentation.home.BookItem
 import com.example.splitreader.presentation.home.HomeUiState
 import com.example.splitreader.presentation.profile.AccountUiState
 import com.example.splitreader.presentation.reader.NavigationSide
-import com.example.splitreader.presentation.reader.ProviderConfig
+import com.example.splitreader.domain.model.ProviderConfig
 import com.example.splitreader.presentation.reader.ReaderUiState
-import com.example.splitreader.presentation.reader.TranslatorConfigState
+import com.example.splitreader.domain.model.TranslatorConfigState
 import com.example.splitreader.presentation.reader.WordSelection
 import com.example.splitreader.presentation.settings.SettingsUiState
 import com.example.splitreader.presentation.theme.ReaderThemeKey

@@ -50,6 +50,7 @@ import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.WarnTone
 import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.material3.Text
+import com.example.splitreader.domain.model.TranslatorConfigState
 
 @Composable
 internal fun TranslatorPickerDialog(
