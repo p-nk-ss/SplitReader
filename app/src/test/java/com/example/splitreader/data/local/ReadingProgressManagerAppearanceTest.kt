@@ -218,4 +218,39 @@ class ReadingProgressManagerAppearanceTest {
             prefs.contains("orientation_lock"),
         )
     }
+
+    /**
+     * One `updateAppearance` call that sets every field to a distinct, in-range, non-default
+     * value (theme and font away from their defaults, every number both different from its own
+     * default and from every other field's value, every boolean flipped, orientation pinned to a
+     * value other than the phone's form-factor default). A per-field write that uses the wrong
+     * key — writing one field under a sibling's — or a diff that silently drops a field would
+     * surface here as a mismatch against the full expected value, not just in the field under
+     * direct test.
+     */
+    @Test
+    fun `every field round-trips through a fresh manager`() {
+        manager = newManager()
+
+        val expected = ReadingAppearance(
+            theme = ReaderThemeKey.NIGHT,
+            font = ReadingFont.MONO,
+            textSize = 22f,
+            lineHeight = 1.8f,
+            letterSpacing = 0.6f,
+            textIndent = 14f,
+            paragraphSpacing = 30f,
+            justify = false,
+            splitRatio = 0.35f,
+            verticalSplitRatio = 0.65f,
+            horizontalMargin = 10f,
+            showTranslation = false,
+            showIllustrations = false,
+            orientationLock = OrientationLock.LANDSCAPE,
+        )
+
+        manager.updateAppearance { expected }
+
+        assertEquals(expected, newManager().appearance.value)
+    }
 }

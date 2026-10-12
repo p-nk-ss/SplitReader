@@ -16,7 +16,8 @@ import javax.inject.Inject
 /**
  * Surfaces the persisted reader-theme selection at app scope so the entire app
  * (nav rail, Library, Almanac, Words) follows the same light/dark palette as the
- * reading pane. The in-reader theme picker remains the single source of truth.
+ * reading pane. [ReadingPreferences.appearance] is the single source of truth; both the
+ * in-reader theme picker and Settings write it.
  *
  * Both values are projections of [ReadingPreferences.appearance]: a typography change (font size,
  * spacing…) never re-emits the theme or the orientation. StateFlow conflation already guarantees
