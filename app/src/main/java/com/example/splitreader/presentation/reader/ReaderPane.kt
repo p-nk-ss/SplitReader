@@ -151,6 +151,8 @@ private fun PageGutter(modifier: Modifier = Modifier.width(28.dp).fillMaxHeight(
 @Composable
 internal fun TranslationBubble(
     wordSelection: WordSelection,
+    sourceLang: Language,
+    targetLang: Language,
     onSave: () -> Unit,
     onSpeak: () -> Unit,
     onDismiss: () -> Unit,
@@ -205,8 +207,14 @@ internal fun TranslationBubble(
             overflow = TextOverflow.Ellipsis,
         )
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
-        if (wordSelection.translation == null) {
-            Row(
+        when (val t = wordSelection.translation) {
+            SelectionTranslation.Pending -> Text(
+                text = stringResource(R.string.release_to_translate),
+                fontFamily = JetBrainsMono,
+                fontSize = 11.sp,
+                color = palette.ink3,
+            )
+            is SelectionTranslation.Translating -> Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -216,21 +224,38 @@ internal fun TranslationBubble(
                     color = palette.ink3,
                 )
                 Text(
-                    text = stringResource(R.string.translating),
+                    text = t.downloadProgress
+                        ?.let { stringResource(R.string.downloading_model_percent, (it * 100).toInt()) }
+                        ?: stringResource(R.string.translating),
                     fontFamily = JetBrainsMono,
                     fontSize = 11.sp,
                     color = palette.ink3,
                 )
             }
-        } else {
-            Text(
-                text = wordSelection.translation,
+            is SelectionTranslation.Ready -> {
+                Text(
+                    text = t.text,
+                    fontFamily = Newsreader,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 14.sp,
+                    color = palette.ink2,
+                    maxLines = 8,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                t.notice?.let { notice ->
+                    Text(
+                        text = fallbackNoticeText(notice, sourceLang, targetLang),
+                        fontFamily = Newsreader,
+                        fontSize = 11.sp,
+                        color = palette.ink3,
+                    )
+                }
+            }
+            is SelectionTranslation.Failed -> Text(
+                text = t.message,
                 fontFamily = Newsreader,
-                fontStyle = FontStyle.Italic,
                 fontSize = 14.sp,
-                color = palette.ink2,
-                maxLines = 8,
-                overflow = TextOverflow.Ellipsis,
+                color = palette.ink3,
             )
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.edge))
@@ -244,6 +269,8 @@ internal fun TranslationBubble(
                 BubbleChip(
                     label = stringResource(R.string.action_save),
                     onClick = onSave,
+                    // Save stores the popup's translation, so there must be one.
+                    enabled = wordSelection.translation is SelectionTranslation.Ready,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -256,13 +283,15 @@ private fun BubbleChip(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val palette = LocalReaderPalette.current
     Box(
         modifier = modifier
+            .alpha(if (enabled) 1f else 0.4f)
             .clip(RoundedCornerShape(6.dp))
             .border(1.dp, palette.edge, RoundedCornerShape(6.dp))
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -439,6 +468,8 @@ internal fun BookSpread(
     if (wordSelection != null) {
         TranslationBubble(
             wordSelection = wordSelection,
+            sourceLang = sourceLang,
+            targetLang = targetLang,
             onSave = { onSaveWord(wordSelection.word, wordSelection.chapterIndex, wordSelection.paragraphIndex) },
             onSpeak = { onSpeak(wordSelection.word, sourceLang.code) },
             onDismiss = onDismiss,

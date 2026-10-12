@@ -41,6 +41,8 @@
     <string name="bubble_word">WORD</string>
     <string name="bubble_sentence">SENTENCE</string>
     <string name="translating">Translating…</string>
+    <string name="release_to_translate">Release to translate</string>
+    <string name="downloading_model_percent">Downloading language model… %1$d%%</string>
     <string name="action_listen">Listen</string>
     <string name="action_save">Save</string>
     <string name="action_delete">Delete</string>

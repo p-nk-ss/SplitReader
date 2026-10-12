@@ -36,9 +36,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
@@ -191,7 +189,7 @@ class ReaderViewModel @Inject constructor(
         engine.settingsChanged(s.targetLanguage, s.translatorProvider, s.showTranslation)
     }
 
-    private var selectionTranslateJob: Job? = null
+    private val selectionTranslator = SelectionTranslator(viewModelScope, translateTextUseCase)
 
     init {
         // The seeded config is a cheap prefs-only placeholder; refresh() builds the real one off the main thread.
@@ -215,6 +213,10 @@ class ReaderViewModel @Inject constructor(
                     )
                 }
             }
+        }
+        // Mirror the popup's selection (and its translation) into UI state.
+        viewModelScope.launch {
+            selectionTranslator.state.collect { sel -> _state.update { it.copy(wordSelection = sel) } }
         }
     }
 
@@ -535,20 +537,23 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
-        _state.update {
-            it.copy(wordSelection = WordSelection(word, chapterIndex, paragraphIndex, startChar, endChar))
-        }
-        translateSelection(textToTranslate = word, expectedStart = startChar, expectedEnd = endChar, debounceMs = 0L)
+        val s = _state.value
+        selectionTranslator.select(
+            word, chapterIndex, paragraphIndex, startChar, endChar,
+            s.sourceLanguage, s.targetLanguage, s.translatorProvider,
+            // A tapped selection is a word whatever its text; only dragging can make a sentence.
+            type = SelectionType.WORD,
+        )
     }
 
-    fun clearWordSelection() {
-        selectionTranslateJob?.cancel()
-        selectionTranslateJob = null
-        _state.update { it.copy(wordSelection = null) }
-    }
+    fun clearWordSelection() = selectionTranslator.clear()
+
+    /** A selection handle was released (or its drag cancelled): translate the new range once. */
+    fun endWordSelectionDrag() = selectionTranslator.dragEnd()
 
     fun updateWordSelectionRange(startChar: Int, endChar: Int) {
-        val current = _state.value.wordSelection ?: return
+        // The translator's own state, not the mirrored UI copy, which may lag a drag step behind.
+        val current = selectionTranslator.state.value ?: return
         val paragraphText = _state.value.book?.chapters
             ?.getOrNull(current.chapterIndex)?.paragraphs
             ?.getOrNull(current.paragraphIndex) ?: return
@@ -563,52 +568,7 @@ class ReaderViewModel @Inject constructor(
 
         val newType = if (substring.any { it.isWhitespace() }) SelectionType.SENTENCE else SelectionType.WORD
 
-        _state.update {
-            it.copy(
-                wordSelection = current.copy(
-                    word = substring,
-                    startChar = safeStart,
-                    endChar = safeEnd,
-                    translation = null,
-                    selectionType = newType,
-                ),
-            )
-        }
-        translateSelection(textToTranslate = substring, expectedStart = safeStart, expectedEnd = safeEnd, debounceMs = 200L)
-    }
-
-    private fun translateSelection(
-        textToTranslate: String,
-        expectedStart: Int,
-        expectedEnd: Int,
-        debounceMs: Long,
-    ) {
-        selectionTranslateJob?.cancel()
-        selectionTranslateJob = viewModelScope.launch {
-            if (debounceMs > 0) delay(debounceMs)
-            var translation = ""
-            translateTextUseCase(
-                paragraphs = listOf(textToTranslate),
-                sourceLanguage = _state.value.sourceLanguage,
-                targetLanguage = _state.value.targetLanguage,
-                provider = _state.value.translatorProvider,
-                startIndex = 0,
-                endIndex = 0,
-            ).collect { state ->
-                when (state) {
-                    is TranslationState.Partial -> translation = state.text
-                    // Nothing translated (e.g. a missing API key): show why instead of a blank popup.
-                    is TranslationState.Error -> if (translation.isEmpty()) translation = state.message
-                    else -> Unit
-                }
-            }
-            _state.update { s ->
-                val sel = s.wordSelection
-                if (sel != null && sel.startChar == expectedStart && sel.endChar == expectedEnd) {
-                    s.copy(wordSelection = sel.copy(translation = translation))
-                } else s
-            }
-        }
+        selectionTranslator.dragTo(substring, safeStart, safeEnd, newType)
     }
 
     fun saveWord(word: String, chapterIndex: Int, paragraphIndex: Int) {

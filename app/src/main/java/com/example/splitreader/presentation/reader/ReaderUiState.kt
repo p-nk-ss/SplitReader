@@ -35,9 +35,24 @@ data class WordSelection(
     val paragraphIndex: Int,
     val startChar: Int,
     val endChar: Int,
-    val translation: String? = null,
     val selectionType: SelectionType = SelectionType.WORD,
+    val translation: SelectionTranslation = SelectionTranslation.Pending,
 )
+
+/** Where the popup's translation of a [WordSelection] stands. */
+sealed interface SelectionTranslation {
+    /** Handles are being dragged; nothing requested yet. */
+    data object Pending : SelectionTranslation
+
+    /** A request is running; [downloadProgress] is set while an on-device model downloads first. */
+    data class Translating(val downloadProgress: Float? = null) : SelectionTranslation
+
+    /** Translated; [notice] says another engine served it because the chosen one couldn't. */
+    data class Ready(val text: String, val notice: TranslationState.FallbackNotice? = null) : SelectionTranslation
+
+    /** Nothing was translated; [message] is the error's short (button-free) text. */
+    data class Failed(val message: String) : SelectionTranslation
+}
 
 sealed interface ReaderUiState {
     data object Loading : ReaderUiState

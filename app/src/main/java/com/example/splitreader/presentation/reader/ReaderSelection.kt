@@ -232,7 +232,8 @@ private fun ParagraphActionsOverlay(
                     letterSpacing = 0.5.sp,
                     color = palette.ink3,
                 )
-                if (wordSelection.translation == null) {
+                val translated = (wordSelection.translation as? SelectionTranslation.Ready)?.text
+                if (translated == null) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(12.dp),
                         strokeWidth = 1.5.dp,
@@ -240,7 +241,7 @@ private fun ParagraphActionsOverlay(
                     )
                 } else {
                     Text(
-                        text = wordSelection.translation,
+                        text = translated,
                         fontFamily = Newsreader,
                         fontStyle = FontStyle.Italic,
                         fontSize = 20.sp,

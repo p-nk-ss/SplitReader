@@ -1,0 +1,229 @@
+package com.example.splitreader.presentation.reader
+
+import com.example.splitreader.domain.model.FallbackReason
+import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.Resolution
+import com.example.splitreader.domain.model.TranslationProvider
+import com.example.splitreader.domain.repository.TranslationRepository
+import com.example.splitreader.domain.usecase.TranslateTextUseCase
+import java.io.IOException
+import java.util.Collections
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Translates to "<target code>:<text>"; can fail or block chosen texts; records every call. */
+private class SelectionFakeRepo : TranslationRepository {
+    /** What [resolve] answers for each provider; Ready by default. */
+    var resolution: (TranslationProvider) -> Resolution = { Resolution.Ready(it) }
+    val calls: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
+    val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
+
+    /** Progress values [prepare] emits (on-device providers only). */
+    var prepareProgress: List<Float> = emptyList()
+
+    override fun resolve(provider: TranslationProvider, source: Language, target: Language) = resolution(provider)
+
+    override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
+        calls += text
+        gates[text]?.await()
+        if (text in failOn) throw IOException("down: $text")
+        return "${target.code}:$text"
+    }
+
+    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> =
+        prepareProgress.asFlow()
+
+    override suspend fun cachedCount() = 0
+    override suspend fun clearCache() = Unit
+}
+
+private val SEL_PAID = TranslationProvider.QUICK_TRANSLATE
+
+class SelectionTranslatorTest {
+
+    private fun TestScope.translator(repo: SelectionFakeRepo) =
+        SelectionTranslator(backgroundScope, TranslateTextUseCase(repo, StandardTestDispatcher(testScheduler)))
+
+    /**
+     * Drains pending work. The module runs on `backgroundScope`, which `advanceUntilIdle()` skips;
+     * `runCurrent()` runs every task at the current virtual time, background ones included.
+     */
+    private fun TestScope.settle() = runCurrent()
+
+    /** Every state the module publishes, in order (an unconfined collector sees each value). */
+    private fun TestScope.history(t: SelectionTranslator): List<WordSelection?> {
+        val seen = Collections.synchronizedList(mutableListOf<WordSelection?>())
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { t.state.collect { seen += it } }
+        return seen
+    }
+
+    private fun SelectionTranslator.pick(
+        word: String,
+        chapter: Int = 0,
+        paragraph: Int = 1,
+        start: Int = 0,
+        end: Int = word.length,
+        provider: TranslationProvider = SEL_PAID,
+    ) = select(word, chapter, paragraph, start, end, Language.ENGLISH, Language.RUSSIAN, provider, SelectionType.WORD)
+
+    @Test
+    fun `select translates once and becomes Ready`() = runTest {
+        val repo = SelectionFakeRepo()
+        val t = translator(repo)
+
+        t.pick("run")
+        settle()
+
+        assertEquals(listOf("run"), repo.calls)
+        assertEquals(SelectionTranslation.Ready("ru:run"), t.state.value?.translation)
+    }
+
+    @Test
+    fun `dragging requests nothing until release, then exactly once`() = runTest {
+        val repo = SelectionFakeRepo()
+        val t = translator(repo)
+        t.pick("run", start = 0, end = 3)
+        settle()
+        repo.calls.clear()
+
+        t.dragTo("run f", 0, 5, SelectionType.SENTENCE)
+        settle()
+        t.dragTo("run fa", 0, 6, SelectionType.SENTENCE)
+        settle()
+        t.dragTo("run fast", 0, 8, SelectionType.SENTENCE)
+        settle()
+
+        assertEquals("no request while dragging", emptyList<String>(), repo.calls)
+        assertEquals(SelectionTranslation.Pending, t.state.value?.translation)
+
+        t.dragEnd()
+        settle()
+
+        assertEquals(listOf("run fast"), repo.calls)
+        assertEquals(SelectionTranslation.Ready("ru:run fast"), t.state.value?.translation)
+    }
+
+    @Test
+    fun `releasing without a change after Ready requests nothing`() = runTest {
+        val repo = SelectionFakeRepo()
+        val t = translator(repo)
+        t.pick("run")
+        settle()
+        repo.calls.clear()
+
+        t.dragEnd()
+        settle()
+
+        assertEquals(emptyList<String>(), repo.calls)
+        assertEquals(SelectionTranslation.Ready("ru:run"), t.state.value?.translation)
+    }
+
+    /**
+     * Three guards drop the stale result: cancelling the previous request, the request number, and
+     * the chapter/paragraph/offset match. Any one of them is enough in this single-threaded test,
+     * so removing a single guard stays green; the test fails only with all three removed. The
+     * number and the match are defence-in-depth for a result queued before the cancel.
+     */
+    @Test
+    fun `a late result from a previous selection is dropped`() = runTest {
+        val repo = SelectionFakeRepo()
+        val gate = CompletableDeferred<Unit>().also { repo.gates["a"] = it }
+        val t = translator(repo)
+        val seen = history(t)
+
+        t.pick("a", chapter = 0, paragraph = 1, start = 0, end = 1)
+        settle()
+        t.pick("b", chapter = 0, paragraph = 2, start = 0, end = 1)
+        gate.complete(Unit)
+        settle()
+
+        assertEquals("b", t.state.value?.word)
+        assertEquals(SelectionTranslation.Ready("ru:b"), t.state.value?.translation)
+        assertTrue(
+            "the stale translation was published: $seen",
+            seen.none { (it?.translation as? SelectionTranslation.Ready)?.text == "ru:a" },
+        )
+    }
+
+    @Test
+    fun `model download shows progress`() = runTest {
+        val repo = SelectionFakeRepo().apply { prepareProgress = listOf(0.5f) }
+        val gate = CompletableDeferred<Unit>().also { repo.gates["run"] = it }
+        val t = translator(repo)
+
+        t.pick("run", provider = TranslationProvider.MLKIT)
+        settle()
+
+        assertEquals(SelectionTranslation.Translating(0.5f), t.state.value?.translation)
+
+        gate.complete(Unit)
+        settle()
+
+        assertEquals(SelectionTranslation.Ready("ru:run"), t.state.value?.translation)
+    }
+
+    @Test
+    fun `a fallback note travels with the translation`() = runTest {
+        val repo = SelectionFakeRepo().apply {
+            resolution = { Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR) }
+        }
+        val t = translator(repo)
+
+        t.pick("run")
+        settle()
+
+        val ready = t.state.value?.translation as? SelectionTranslation.Ready
+        assertNotNull("not Ready: ${t.state.value?.translation}", ready)
+        assertEquals("ru:run", ready!!.text)
+        assertNotNull("the fallback notice was lost", ready.notice)
+    }
+
+    @Test
+    fun `an error becomes Failed with the short text`() = runTest {
+        val repo = SelectionFakeRepo().apply { resolution = { Resolution.NotConfigured(it) } }
+        val t = translator(repo)
+
+        t.pick("run", provider = TranslationProvider.DEEPL)
+        settle()
+
+        assertEquals(
+            SelectionTranslation.Failed("${TranslationProvider.DEEPL.displayName} API key isn't set"),
+            t.state.value?.translation,
+        )
+    }
+
+    /**
+     * The "no Ready" check is also guarded by `apply` ignoring a result when the selection is
+     * null, so removing the cancel/request bump from `clear` alone stays green; this test pins the
+     * outcome (empty, nothing published), not which guard produced it.
+     */
+    @Test
+    fun `clear cancels and empties`() = runTest {
+        val repo = SelectionFakeRepo()
+        val gate = CompletableDeferred<Unit>().also { repo.gates["run"] = it }
+        val t = translator(repo)
+        val seen = history(t)
+
+        t.pick("run")
+        settle()
+        t.clear()
+        gate.complete(Unit)
+        settle()
+
+        assertNull(t.state.value)
+        assertTrue("a Ready was published: $seen", seen.none { it?.translation is SelectionTranslation.Ready })
+    }
+}

@@ -31,6 +31,7 @@ import com.example.splitreader.presentation.reader.NavigationSide
 import com.example.splitreader.domain.model.ProviderConfig
 import com.example.splitreader.presentation.reader.ReaderUiState
 import com.example.splitreader.domain.model.TranslatorConfigState
+import com.example.splitreader.presentation.reader.SelectionTranslation
 import com.example.splitreader.presentation.reader.WordSelection
 import com.example.splitreader.presentation.settings.SettingsUiState
 import com.example.splitreader.presentation.theme.ReaderThemeKey
@@ -443,7 +444,7 @@ object ScreenFixtures {
         paragraphIndex = 1,
         startChar = 20,
         endChar = 26,
-        translation = "селезёнка",
+        translation = SelectionTranslation.Ready("селезёнка"),
     )
 
     val readerTranslatorConfig = TranslatorConfigState(

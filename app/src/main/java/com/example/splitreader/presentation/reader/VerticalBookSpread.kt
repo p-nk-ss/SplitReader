@@ -379,6 +379,8 @@ internal fun VerticalBookSpread(
         if (wordSelection != null) {
             TranslationBubble(
                 wordSelection = wordSelection,
+                sourceLang = sourceLang,
+                targetLang = targetLang,
                 onSave = { onSaveWord(wordSelection.word, wordSelection.chapterIndex, wordSelection.paragraphIndex) },
                 onSpeak = { onSpeak(wordSelection.word, sourceLang.code) },
                 onDismiss = onDismiss,

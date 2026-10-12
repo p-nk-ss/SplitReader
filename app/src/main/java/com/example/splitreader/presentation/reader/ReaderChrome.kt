@@ -365,6 +365,22 @@ internal fun TranslationErrorBanner(
 }
 
 /**
+ * Wording for a [TranslationState.FallbackNotice], shared by [TranslationFallbackStrip] and the
+ * selection popup so the two never diverge.
+ */
+internal fun fallbackNoticeText(
+    notice: TranslationState.FallbackNotice,
+    source: Language,
+    target: Language,
+): String = when (notice.reason) {
+    FallbackReason.UNSUPPORTED_PAIR ->
+        "${notice.requested.displayName} doesn't support ${source.code.uppercase()}→${target.code.uppercase()}" +
+            " — translated by ${notice.servedBy.displayName}"
+    FallbackReason.ENGINE_UNAVAILABLE ->
+        "${notice.requested.displayName} isn't available on this device — translated by ${notice.servedBy.displayName}"
+}
+
+/**
  * A quiet, single-line notice that [notice.servedBy] translated this segment because
  * [notice.requested] couldn't — no buttons, unlike [TranslationErrorBanner] (nothing failed).
  */
@@ -376,13 +392,7 @@ internal fun TranslationFallbackStrip(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalReaderPalette.current
-    val text = when (notice.reason) {
-        FallbackReason.UNSUPPORTED_PAIR ->
-            "${notice.requested.displayName} doesn't support ${source.code.uppercase()}→${target.code.uppercase()}" +
-                " — translated by ${notice.servedBy.displayName}"
-        FallbackReason.ENGINE_UNAVAILABLE ->
-            "${notice.requested.displayName} isn't available on this device — translated by ${notice.servedBy.displayName}"
-    }
+    val text = fallbackNoticeText(notice, source, target)
     Box(
         modifier = modifier
             .fillMaxWidth()

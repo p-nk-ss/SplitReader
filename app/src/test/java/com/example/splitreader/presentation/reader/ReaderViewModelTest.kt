@@ -338,7 +338,7 @@ class ReaderViewModelTest {
     }
 
     @Test
-    fun `a word whose provider has no key shows the error in the popup instead of a blank`() = runTest(main.dispatcher) {
+    fun `a word whose provider has no key fails in the popup with the short error`() = runTest(main.dispatcher) {
         val repo = FakeTranslationRepository().apply { resolution = { Resolution.NotConfigured(it) } }
         val h = harness(book(5), repo = repo)
         open(h)
@@ -347,8 +347,11 @@ class ReaderViewModelTest {
         h.vm.selectWord("c0p1", chapterIndex = 0, paragraphIndex = 1, startChar = 0, endChar = 4)
         advanceUntilIdle()
 
-        val translation = h.success().wordSelection?.translation
-        assertTrue("popup translation was \"$translation\"", translation?.contains("API key isn't set") == true)
+        val provider = h.success().translatorProvider
+        assertEquals(
+            SelectionTranslation.Failed("${provider.displayName} API key isn't set"),
+            h.success().wordSelection?.translation,
+        )
     }
 
     private companion object {

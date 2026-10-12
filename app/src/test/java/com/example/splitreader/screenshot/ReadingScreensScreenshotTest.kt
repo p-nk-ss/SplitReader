@@ -3,6 +3,7 @@ package com.example.splitreader.screenshot
 import com.example.splitreader.presentation.almanac.AlmanacScreen
 import com.example.splitreader.presentation.reader.DisplaySettingsDialog
 import com.example.splitreader.presentation.reader.ReaderContent
+import com.example.splitreader.presentation.reader.SelectionTranslation
 import com.example.splitreader.presentation.reader.WordSelection
 import com.example.splitreader.presentation.theme.ReaderThemeKey
 import org.junit.Test
@@ -417,7 +418,7 @@ class ReadingScreensScreenshotTest : ScreenshotTest() {
                     paragraphIndex = 0,
                     startChar = 8,
                     endChar = 15,
-                    translation = "Измаил",
+                    translation = SelectionTranslation.Ready("Измаил"),
                 ),
             ),
             onNavigateBack = {},
