@@ -199,7 +199,11 @@ class ReaderViewModel @Inject constructor(
             translatorSettings.config.collect { cfg ->
                 val changed = _state.value.translatorProvider != cfg.current
                 _state.update { it.copy(translatorProvider = cfg.current, translatorConfig = cfg) }
-                if (changed) notifyEngineSettings()
+                if (changed) {
+                    // The popup was translated by the old provider (and a drag would still use it).
+                    selectionTranslator.clear()
+                    notifyEngineSettings()
+                }
             }
         }
         // Fold the translation engine's snapshots (translated text + foreground banner state) into UI state.
@@ -347,6 +351,8 @@ class ReaderViewModel @Inject constructor(
     fun setTargetLanguage(lang: Language) {
         progressManager.saveTargetLanguage(lang)
         _state.update { it.copy(targetLanguage = lang) }
+        // The popup's translation is in the old language; Save would file it under the new one.
+        selectionTranslator.clear()
         notifyEngineSettings()
     }
 
@@ -515,6 +521,7 @@ class ReaderViewModel @Inject constructor(
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
         viewModelScope.launch {
             translatorSettings.saveKey(provider, key, secondary)
+            selectionTranslator.clear()
             engine.invalidate()
         }
     }
@@ -524,7 +531,10 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             val wasCurrent = _state.value.translatorProvider == provider
             translatorSettings.clear(provider)
-            if (wasCurrent) engine.invalidate()
+            if (wasCurrent) {
+                selectionTranslator.clear()
+                engine.invalidate()
+            }
         }
     }
 

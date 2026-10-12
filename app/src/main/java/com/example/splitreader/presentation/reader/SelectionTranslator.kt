@@ -4,8 +4,10 @@ import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +33,9 @@ class SelectionTranslator(
 
     /**
      * Selects [word] and translates it at once. [source]/[target]/[provider] are remembered for the
-     * next [dragEnd]. [type] is the caller's: a tapped selection is a WORD regardless of its text.
+     * next [dragEnd]; the caller must [clear] when any of them changes (the ViewModel does), so a
+     * selection never outlives what it was translated with. [type] is the caller's: a tapped
+     * selection is a WORD regardless of its text.
      */
     fun select(
         word: String,
@@ -95,20 +99,27 @@ class SelectionTranslator(
         job = scope.launch {
             var notice: TranslationState.FallbackNotice? = null
             var done = false
-            translateText(listOf(sel.word), src, tgt, prov, 0, 0).collect { s ->
-                when (s) {
-                    // A finished download (1f) means the translation itself is now running: show
-                    // "Translating…", not a "100%" that would sit there until the result arrives.
-                    is TranslationState.DownloadingModel ->
-                        apply(my, sel, SelectionTranslation.Translating(s.progress?.takeIf { it < 1f }))
-                    is TranslationState.FallbackNotice -> notice = s
-                    is TranslationState.Partial -> {
-                        done = true
-                        apply(my, sel, SelectionTranslation.Ready(s.text, notice))
+            try {
+                translateText(listOf(sel.word), src, tgt, prov, 0, 0).collect { s ->
+                    when (s) {
+                        // A finished download (1f) means the translation itself is now running: show
+                        // "Translating…", not a "100%" that would sit there until the result arrives.
+                        is TranslationState.DownloadingModel ->
+                            apply(my, sel, SelectionTranslation.Translating(s.progress?.takeIf { it < 1f }))
+                        is TranslationState.FallbackNotice -> notice = s
+                        is TranslationState.Partial -> {
+                            done = true
+                            apply(my, sel, SelectionTranslation.Ready(s.text, notice))
+                        }
+                        is TranslationState.Error -> if (!done) apply(my, sel, SelectionTranslation.Failed(s.short))
+                        else -> Unit
                     }
-                    is TranslationState.Error -> if (!done) apply(my, sel, SelectionTranslation.Failed(s.short))
-                    else -> Unit
                 }
+            } catch (e: CancellationException) {
+                // Ours (clear/drag/new selection) → rethrow. Foreign (e.g. ML Kit's shared translator
+                // closed by the engine requesting another pair) → say so instead of Translating forever.
+                if (!isActive) throw e
+                apply(my, sel, SelectionTranslation.Failed("Translation was interrupted — tap the word again"))
             }
         }
     }

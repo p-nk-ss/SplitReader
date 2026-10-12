@@ -333,6 +333,16 @@ class TranslateTextUseCaseTest {
     }
 
     @Test
+    fun `a 403 from a keyless provider is transient and names no API key`() = runTest {
+        val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http(403) })
+        val e = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 0,
+        ).toList().filterIsInstance<TranslationState.Error>().single()
+        assertFalse("a keyless provider's 403 was made persistent: $e", e.persistent)
+        assertFalse("a keyless provider's 403 blames an API key: ${e.message}", e.message.contains("API key"))
+    }
+
+    @Test
     fun `a network failure is transient and its short text equals the message`() = runTest {
         val repo = FakeTranslationRepository(failOn = setOf("a")) // default error is IOException
         val e = useCase(repo)(

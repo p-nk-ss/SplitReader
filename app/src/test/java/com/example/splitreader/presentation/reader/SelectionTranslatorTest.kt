@@ -7,6 +7,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import java.util.Collections
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
@@ -32,6 +33,9 @@ private class SelectionFakeRepo : TranslationRepository {
     val finished: MutableList<String> = Collections.synchronizedList(mutableListOf())
     val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
 
+    /** Texts whose [translate] throws a foreign [CancellationException] (e.g. a closed ML Kit translator). */
+    val interrupted = mutableSetOf<String>()
+
     /** Progress values [prepare] emits (on-device providers only). */
     var prepareProgress: List<Float> = emptyList()
 
@@ -40,6 +44,7 @@ private class SelectionFakeRepo : TranslationRepository {
     override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
         calls += text
         gates[text]?.await()
+        if (text in interrupted) throw CancellationException("translator closed")
         finished += text
         return "${target.code}:$text"
     }
@@ -245,5 +250,42 @@ class SelectionTranslatorTest {
         assertNull(t.state.value)
         assertEquals("the dismissed request kept running", emptyList<String>(), repo.finished)
         assertTrue("a Ready was published: $seen", seen.none { it?.translation is SelectionTranslation.Ready })
+    }
+
+    /**
+     * A tap's request is cancelled by the drag that follows it, not left running (and billing a
+     * paid provider) until release: [SelectionFakeRepo.finished] proves it never got past its gate.
+     */
+    @Test
+    fun `dragging cancels the tap's in-flight request`() = runTest {
+        val repo = SelectionFakeRepo()
+        val gate = CompletableDeferred<Unit>().also { repo.gates["run"] = it }
+        val t = translator(repo)
+
+        t.pick("run", start = 0, end = 3)
+        settle()
+        t.dragTo("run fast", 0, 8, SelectionType.SENTENCE)
+        gate.complete(Unit)
+        settle()
+
+        assertTrue("the tap's request kept running after the drag: ${repo.finished}", "run" !in repo.finished)
+    }
+
+    /**
+     * A CancellationException that isn't ours (ML Kit closing its shared translator because the
+     * engine asked for another pair) must not end the request silently at Translating forever.
+     */
+    @Test
+    fun `a foreign cancellation becomes Failed, not Translating forever`() = runTest {
+        val repo = SelectionFakeRepo().apply { interrupted += "run" }
+        val t = translator(repo)
+
+        t.pick("run")
+        settle()
+
+        assertEquals(
+            SelectionTranslation.Failed("Translation was interrupted — tap the word again"),
+            t.state.value?.translation,
+        )
     }
 }

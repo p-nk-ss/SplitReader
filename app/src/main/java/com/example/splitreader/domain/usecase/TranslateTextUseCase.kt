@@ -143,8 +143,9 @@ class TranslateTextUseCase @Inject constructor(
 
     private fun friendlyError(e: Exception, provider: TranslationProvider): Friendly {
         // A bad/expired key won't self-heal on retry or on scrolling past it — persistent, and the
-        // popup's short text names no button (the popup has none to name).
-        if (e is HttpException && (e.code() == 401 || e.code() == 403)) {
+        // popup's short text names no button (the popup has none to name). A keyless provider has no
+        // key to blame: its 401/403 falls through to the generic, transient HTTP error.
+        if (provider.requiresApiKey && e is HttpException && (e.code() == 401 || e.code() == 403)) {
             return Friendly(
                 message = "Invalid ${provider.displayName} API key — tap Switch translator to update it",
                 persistent = true,

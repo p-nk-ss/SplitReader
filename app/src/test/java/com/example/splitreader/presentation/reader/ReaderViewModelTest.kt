@@ -428,6 +428,57 @@ class ReaderViewModelTest {
         assertEquals("saved a failed translation", emptyList<Any>(), h.savedWords.words.value)
     }
 
+    /**
+     * A Ready popup translated into Russian must not survive a switch to German: Save would store the
+     * Russian text as a German translation (saveWord reads the target at save time).
+     */
+    @Test
+    fun `a target change drops the selection so Save can't store the old-language text`() = runTest(main.dispatcher) {
+        val h = harness(runBook())
+        open(h)
+        h.vm.selectWord("run", chapterIndex = 0, paragraphIndex = 0, startChar = 0, endChar = 3)
+        advanceUntilIdle()
+        assertEquals("precondition", SelectionTranslation.Ready("ru:run"), h.success().wordSelection?.translation)
+
+        h.vm.setTargetLanguage(Language.GERMAN)
+        advanceUntilIdle()
+        assertNull("the selection survived the target change", h.success().wordSelection)
+
+        h.vm.saveWord("run", chapterIndex = 0, paragraphIndex = 0)
+        advanceUntilIdle()
+        assertEquals("saved the old-language translation", emptyList<Any>(), h.savedWords.words.value)
+    }
+
+    @Test
+    fun `a provider change drops the selection`() = runTest(main.dispatcher) {
+        val h = harness(runBook())
+        open(h)
+        h.vm.selectWord("run", chapterIndex = 0, paragraphIndex = 0, startChar = 0, endChar = 3)
+        advanceUntilIdle()
+        assertEquals("precondition", SelectionTranslation.Ready("ru:run"), h.success().wordSelection?.translation)
+
+        h.vm.selectProvider(TranslationProvider.AZURE)
+        advanceUntilIdle()
+
+        assertNull("the selection survived the provider change", h.success().wordSelection)
+    }
+
+    /** A new key for the current provider changes no provider, so only configureProvider can drop it. */
+    @Test
+    fun `saving a key for the current provider drops the selection`() = runTest(main.dispatcher) {
+        val settings = FakeTranslatorSettings(current = TranslationProvider.DEEPL)
+        val h = harness(runBook(), settings = settings)
+        open(h)
+        h.vm.selectWord("run", chapterIndex = 0, paragraphIndex = 0, startChar = 0, endChar = 3)
+        advanceUntilIdle()
+        assertEquals("precondition", SelectionTranslation.Ready("ru:run"), h.success().wordSelection?.translation)
+
+        h.vm.configureProvider(TranslationProvider.DEEPL, "k", null)
+        advanceUntilIdle()
+
+        assertNull("the selection survived the key change", h.success().wordSelection)
+    }
+
     private companion object {
         const val RELOAD_WINDOW_MS = 1_500L
     }
