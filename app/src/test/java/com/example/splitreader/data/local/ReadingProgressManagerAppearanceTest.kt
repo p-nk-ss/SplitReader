@@ -8,6 +8,7 @@ import com.example.splitreader.domain.model.ReaderThemeKey
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.ReadingFont
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -165,5 +166,25 @@ class ReadingProgressManagerAppearanceTest {
         manager.updateAppearance { it.copy(theme = ReaderThemeKey.NIGHT) }
 
         assertEquals("NIGHT", manager.readerThemeName.value)
+    }
+
+    /**
+     * On fresh prefs, orientation is "unset" — derived from form factor on every read, never
+     * written back (see the KDoc on `getOrientationLock`). An unrelated `updateAppearance` call
+     * must not disturb that: a "write every field" implementation (vs. the diff-per-field one)
+     * would persist the derived default under `orientation_lock`, turning an unset preference into
+     * an explicit one.
+     */
+    @Test
+    fun `an unrelated updateAppearance leaves orientation unset`() {
+        manager = newManager()
+
+        manager.updateAppearance { it.copy(textSize = 20f) }
+
+        assertFalse(
+            "updateAppearance persisted orientation_lock although orientationLock did not change " +
+                "— orientation must stay unset until the user explicitly chooses one.",
+            prefs.contains("orientation_lock"),
+        )
     }
 }
