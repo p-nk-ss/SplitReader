@@ -4,6 +4,7 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingPosition
+import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.TranslationRepository
@@ -29,13 +30,17 @@ import org.junit.Test
 
 /** Translates to "<target code>:<text>"; can fail or block chosen paragraphs; records every call. */
 private class FakeRepo : TranslationRepository {
+    /** What [resolve] answers for each provider; Ready by default. */
+    var resolution: (TranslationProvider) -> Resolution = { Resolution.Ready(it) }
     val calls: MutableList<Pair<String, Language>> = Collections.synchronizedList(mutableListOf())
     val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
     val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
     val cancelOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
-    override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
-        calls += text to targetLanguage
+    override fun resolve(provider: TranslationProvider, source: Language, target: Language) = resolution(provider)
+
+    override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
+        calls += text to target
         // An engine that re-plans the same work forever would spin runCurrent() on the test thread,
         // where runTest's timeout cannot reach it. Past the limit, the first call reports the runaway
         // (an Error, which the use case does not swallow) and every later call parks forever: an
@@ -49,9 +54,9 @@ private class FakeRepo : TranslationRepository {
         // What a provider's own withTimeout, or a cancelled Play-services Task.await(), throws while
         // the caller is still active; TranslateTextUseCase rethrows every CancellationException.
         if (text in cancelOn) throw CancellationException("timed out: $text")
-        return "${targetLanguage.code}:$text"
+        return "${target.code}:$text"
     }
-    override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> = emptyFlow()
+    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> = emptyFlow()
     override suspend fun cachedCount() = 0
     override suspend fun clearCache() = Unit
 

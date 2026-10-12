@@ -9,6 +9,7 @@ import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.ReadingSession
+import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.SavedWord
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationUsage
@@ -39,20 +40,24 @@ import kotlinx.coroutines.flow.update
 
 /** Translates to "<target code>:<text>"; fails the paragraphs in [failOn]; records every call. */
 internal class FakeTranslationRepository : TranslationRepository {
+    /** What [resolve] answers for each provider; Ready by default. */
+    var resolution: (TranslationProvider) -> Resolution = { Resolution.Ready(it) }
     val calls: MutableList<Pair<String, Language>> = Collections.synchronizedList(mutableListOf())
     val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
-    override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
-        calls += text to targetLanguage
+    override fun resolve(provider: TranslationProvider, source: Language, target: Language) = resolution(provider)
+
+    override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
+        calls += text to target
         // A runaway engine would spin the test thread forever; past the limit, report once and park.
         if (calls.size > RUNAWAY_LIMIT) {
             if (calls.size == RUNAWAY_LIMIT + 1) throw AssertionError("runaway engine: >$RUNAWAY_LIMIT calls, last=$text")
             awaitCancellation()
         }
         if (text in failOn) throw IOException("down: $text")
-        return "${targetLanguage.code}:$text"
+        return "${target.code}:$text"
     }
-    override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> = emptyFlow()
+    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> = emptyFlow()
     override suspend fun cachedCount() = 0
     override suspend fun clearCache() = Unit
 

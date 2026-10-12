@@ -1,6 +1,8 @@
 package com.example.splitreader.domain.usecase
 
+import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.TranslationRepository
@@ -36,11 +38,17 @@ private class FakeTranslationRepository(
     private val error: (String) -> Exception = { IOException("network hiccup on $it") },
     private val prepareProgress: List<Float> = emptyList(),
     private val prepareError: Exception? = null,
+    private val resolution: (TranslationProvider) -> Resolution = { Resolution.Ready(it) },
 ) : TranslationRepository {
     val calls = mutableListOf<String>()
+    /** The provider each [translate] call was made with, parallel to [calls]. */
+    val served = mutableListOf<TranslationProvider>()
 
-    override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
+    override fun resolve(provider: TranslationProvider, source: Language, target: Language) = resolution(provider)
+
+    override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
         calls += text
+        served += provider
         val remaining = transientFailures[text] ?: 0
         if (remaining > 0) {
             transientFailures[text] = remaining - 1
@@ -50,7 +58,7 @@ private class FakeTranslationRepository(
         return "t:$text"
     }
 
-    override fun prepare(sourceLanguage: Language, targetLanguage: Language): Flow<Float> = flow {
+    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> = flow {
         prepareProgress.forEach { emit(it) }
         prepareError?.let { throw it }
     }
@@ -111,12 +119,14 @@ class TranslateTextUseCaseTest {
     fun `cancellation propagates instead of being swallowed as a translation failure`() = runTest {
         val repo = object : TranslationRepository {
             val calls = mutableListOf<String>()
-            override suspend fun translate(text: String, sourceLanguage: Language, targetLanguage: Language): String {
+            override fun resolve(provider: TranslationProvider, source: Language, target: Language) =
+                Resolution.Ready(provider)
+            override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
                 calls += text
                 if (text == "b") throw kotlinx.coroutines.CancellationException("worker cancelled")
                 return "t:$text"
             }
-            override fun prepare(sourceLanguage: Language, targetLanguage: Language) = emptyFlow<Float>()
+            override fun prepare(source: Language, target: Language, provider: TranslationProvider) = emptyFlow<Float>()
             override suspend fun cachedCount() = 0
             override suspend fun clearCache() = Unit
         }
@@ -284,5 +294,24 @@ class TranslateTextUseCaseTest {
         ).toList().last() as TranslationState.Error
 
         assertEquals("Offline HQ isn't available on this device — using ML Kit.", err.message)
+    }
+
+    @Test
+    fun `a provider without its key emits a clear error and translates nothing`() = runTest {
+        val repo = FakeTranslationRepository(resolution = { Resolution.NotConfigured(it) })
+        val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.DEEPL, 0, 0).toList()
+        assertTrue(repo.calls.isEmpty())
+        val error = states.single() as TranslationState.Error
+        assertTrue(error.message, error.message.contains("API key isn't set"))
+    }
+
+    @Test
+    fun `a fallback is announced once and the segment is translated by ML Kit`() = runTest {
+        val repo = FakeTranslationRepository(resolution = {
+            Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR)
+        })
+        val states = useCase(repo)(listOf("a", "b"), Language.ENGLISH, Language.HINDI, TranslationProvider.DEEPL, 0, 1).toList()
+        assertEquals(1, states.count { it is TranslationState.FallbackNotice })
+        assertEquals(listOf(TranslationProvider.MLKIT, TranslationProvider.MLKIT), repo.served)
     }
 }

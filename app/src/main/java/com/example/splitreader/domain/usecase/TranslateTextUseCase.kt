@@ -1,6 +1,7 @@
 package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.TranslationRepository
@@ -24,11 +25,11 @@ import javax.inject.Inject
  * Translates a range of paragraphs through [TranslationRepository], emitting [TranslationState]
  * updates (model download, per-paragraph partials, or a friendly error).
  *
- * The `provider` argument does not pick the engine that translates: the repository resolves that
- * itself from the saved preference, falling back to ML Kit when that provider is not configured or
- * does not support the pair. Here the provider only decides whether an on-device model/pack is
- * prepared first ([TranslationRepository.prepare], for providers that do not require the network)
- * and how errors are worded; the reader's translation engine also uses it to gate metered providers.
+ * The `provider` argument is the reader's explicit choice, resolved once per segment through
+ * [TranslationRepository.resolve]: a provider missing its API key emits an error and translates
+ * nothing; one that can't serve the pair/device emits a single [TranslationState.FallbackNotice] and
+ * the segment is translated by the fallback engine. The engine that serves decides whether an
+ * on-device model/pack is prepared first, which provider translates, and how errors are worded.
  */
 class TranslateTextUseCase @Inject constructor(
     private val repository: TranslationRepository,
@@ -46,18 +47,31 @@ class TranslateTextUseCase @Inject constructor(
         startIndex: Int = 0,
         endIndex: Int = -1,
     ): Flow<TranslationState> = flow {
+        // Resolved once per segment: the engine that serves every paragraph below.
+        val served = when (val r = repository.resolve(provider, sourceLanguage, targetLanguage)) {
+            is Resolution.NotConfigured -> {
+                emit(TranslationState.Error("${r.provider.displayName} API key isn't set — open Translator to add it"))
+                return@flow
+            }
+            is Resolution.Fallback -> {
+                emit(TranslationState.FallbackNotice(r.requested, r.servedBy, r.reason))
+                r.servedBy
+            }
+            is Resolution.Ready -> r.provider
+        }
+
         // Offline engines may have to fetch a model/pack first; the banner shows that wait, and a
         // failure here is the user's error to see (an unreported pack download looks like a hang).
-        if (!provider.requiresNetwork) {
+        if (!served.requiresNetwork) {
             emit(TranslationState.DownloadingModel())
             try {
-                repository.prepare(sourceLanguage, targetLanguage).collect {
+                repository.prepare(sourceLanguage, targetLanguage, served).collect {
                     emit(TranslationState.DownloadingModel(it))
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                emit(TranslationState.Error(friendlyError(e, provider)))
+                emit(TranslationState.Error(friendlyError(e, served)))
                 return@flow
             }
         }
@@ -77,7 +91,7 @@ class TranslateTextUseCase @Inject constructor(
         for (index in order) {
             val paragraph = paragraphs[index]
             try {
-                val translated = translateWithRateLimitRetry(paragraph, sourceLanguage, targetLanguage)
+                val translated = translateWithRateLimitRetry(paragraph, sourceLanguage, targetLanguage, served)
                 emit(TranslationState.Partial(index, translated))
                 consecutiveFailures = 0
             } catch (e: CancellationException) {
@@ -87,7 +101,7 @@ class TranslateTextUseCase @Inject constructor(
                 if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) break
             }
         }
-        firstError?.let { emit(TranslationState.Error(friendlyError(it, provider))) }
+        firstError?.let { emit(TranslationState.Error(friendlyError(it, served))) }
     }.flowOn(ioDispatcher)
 
     /**
@@ -100,11 +114,12 @@ class TranslateTextUseCase @Inject constructor(
         text: String,
         source: Language,
         target: Language,
+        provider: TranslationProvider,
     ): String {
         var attempt = 0
         while (true) {
             try {
-                return repository.translate(text, source, target)
+                return repository.translate(text, source, target, provider)
             } catch (e: HttpException) {
                 if (e.code() != 429 || attempt >= RATE_LIMIT_BACKOFF_MS.size) throw e
                 delay(RATE_LIMIT_BACKOFF_MS[attempt])
