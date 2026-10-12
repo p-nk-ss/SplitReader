@@ -54,8 +54,8 @@ import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.LocalReaderPalette
-import com.example.splitreader.presentation.theme.ReaderThemeKey
-import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.domain.model.ReaderThemeKey
+import com.example.splitreader.domain.model.ReadingFont
 import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.readerPalette
 import kotlinx.coroutines.delay

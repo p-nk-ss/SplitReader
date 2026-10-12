@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.repository.ReadingPreferences
-import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.domain.model.ReaderThemeKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

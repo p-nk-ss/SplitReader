@@ -103,14 +103,14 @@ fun SettingsRoute(
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
-    onSetReaderTheme: (com.example.splitreader.presentation.theme.ReaderThemeKey) -> Unit,
+    onSetReaderTheme: (com.example.splitreader.domain.model.ReaderThemeKey) -> Unit,
     onSetTargetLanguage: (Language) -> Unit,
     onSetSplitRatio: (Float) -> Unit,
     onSetShowTranslation: (Boolean) -> Unit,
     onSetShowIllustrations: (Boolean) -> Unit,
     onSetHorizontalMargin: (Float) -> Unit,
     onSetOrientationLock: (OrientationLock) -> Unit,
-    onSetReadingFont: (com.example.splitreader.presentation.theme.ReadingFont) -> Unit,
+    onSetReadingFont: (com.example.splitreader.domain.model.ReadingFont) -> Unit,
     onSetTextSize: (Float) -> Unit,
     onSetLineHeight: (Float) -> Unit,
     onSetLetterSpacing: (Float) -> Unit,

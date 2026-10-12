@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.example.splitreader.domain.model.ReaderThemeKey
 
 // Reading-pane palette. The user picks one of these in the Display sheet.
 // Only the reader content area swaps palettes; the side rail, library, etc.
@@ -26,8 +27,6 @@ data class ReaderPalette(
     val mossSoft: Color,
     val isDark: Boolean,
 )
-
-enum class ReaderThemeKey { PAPER, SEPIA, NIGHT, AMOLED }
 
 val PaperPalette = ReaderPalette(
     key = ReaderThemeKey.PAPER, displayName = "Paper",

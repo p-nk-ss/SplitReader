@@ -19,7 +19,8 @@ object ReadingDefaults {
     const val PORTRAIT_HINT_DISMISSED = false
     const val SHOW_TRANSLATION = true
     const val SHOW_ILLUSTRATIONS = true
-    const val HORIZONTAL_MARGIN = 12f
+    // 32 = the reader's hard-coded outer padding before this was wired (ReaderPane.kt, VerticalBookSpread.kt).
+    const val HORIZONTAL_MARGIN = 32f
     const val TEXT_SIZE = 16f
     const val READING_FONT = "SERIF"
     const val PARAGRAPH_SPACING = 18f // was 8f in the persistence layer — 18f is the UI-designed value
@@ -36,7 +37,7 @@ object ReadingDefaults {
     val TEXT_SIZE_RANGE = 14f..30f // unified (Settings used 14..24, Reader used 14..30)
     val SPLIT_RATIO_RANGE = 0.3f..0.7f
     val VERTICAL_SPLIT_RATIO_RANGE = 0.3f..0.7f
-    val HORIZONTAL_MARGIN_RANGE = 4f..32f
+    val HORIZONTAL_MARGIN_RANGE = 4f..48f
     val LINE_HEIGHT_RANGE = 1.1f..2.5f
     val LETTER_SPACING_RANGE = 0f..2f
     val TEXT_INDENT_RANGE = 0f..48f

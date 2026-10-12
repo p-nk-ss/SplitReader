@@ -15,8 +15,8 @@ import com.example.splitreader.domain.translator.InstalledPack
 import com.example.splitreader.domain.translator.ModelPair
 import com.example.splitreader.domain.translator.OfflineModelStore
 import com.example.splitreader.domain.model.TranslatorConfigState
-import com.example.splitreader.presentation.theme.ReaderThemeKey
-import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.domain.model.ReaderThemeKey
+import com.example.splitreader.domain.model.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

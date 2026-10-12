@@ -2,7 +2,7 @@ package com.example.splitreader.screenshot
 
 import com.example.splitreader.presentation.catalog.CatalogScreen
 import com.example.splitreader.presentation.home.HomeScreen
-import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.domain.model.ReaderThemeKey
 import com.example.splitreader.presentation.words.WordsScreen
 import org.junit.Test
 

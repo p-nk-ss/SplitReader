@@ -62,8 +62,8 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.ReaderThemeKey
-import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.domain.model.ReaderThemeKey
+import com.example.splitreader.domain.model.ReadingFont
 import com.example.splitreader.presentation.theme.AmoledPalette
 import com.example.splitreader.presentation.theme.NightPalette
 import com.example.splitreader.presentation.theme.PaperPalette

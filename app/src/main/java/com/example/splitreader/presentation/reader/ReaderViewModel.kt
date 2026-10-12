@@ -30,8 +30,8 @@ import com.example.splitreader.domain.usecase.SaveWordResult
 import com.example.splitreader.domain.usecase.SaveWordUseCase
 import com.example.splitreader.domain.usecase.ToggleBookmarkUseCase
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
-import com.example.splitreader.presentation.theme.ReaderThemeKey
-import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.domain.model.ReaderThemeKey
+import com.example.splitreader.domain.model.ReadingFont
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers

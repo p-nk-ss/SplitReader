@@ -11,7 +11,7 @@ import com.example.splitreader.presentation.navigation.READER_ROUTE
 import com.example.splitreader.presentation.profile.ProfileScreen
 import com.example.splitreader.presentation.reader.ReaderContent
 import com.example.splitreader.presentation.settings.SettingsScreen
-import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.domain.model.ReaderThemeKey
 import com.example.splitreader.presentation.words.WordsScreen
 import org.junit.Test
 import org.robolectric.annotation.Config

@@ -32,7 +32,8 @@ import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
-import com.example.splitreader.presentation.theme.ReadingFont
+import com.example.splitreader.domain.model.ReadingFont
+import com.example.splitreader.presentation.theme.fontFamily
 import com.example.splitreader.presentation.theme.animatedSelection
 
 /**

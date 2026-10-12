@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import com.example.splitreader.R
+import com.example.splitreader.domain.model.ReadingFont
 
 // The app's editorial serif, bundled as a variable font (res/font/newsreader*.ttf). Each declared
 // weight points at the variable resource with the matching wght axis so the chrome keeps its
@@ -50,38 +51,22 @@ private val AtkinsonHyperlegible = FontFamily(Font(R.font.atkinson))
 private val FiraCode = FontFamily(Font(R.font.firacode))
 
 /**
- * User-selectable typeface for the reading panes (original + translation).
- *
- * The first three map to the platform's built-in families (always available); the rest are
- * bundled OFL fonts. The chip for each option renders its own label in that typeface as a preview.
+ * Compose typeface for a [ReadingFont]. The enum itself moved to `domain.model.ReadingFont` (pure,
+ * no Compose); this mapping is the presentation-side counterpart. The chip for each option renders
+ * its own label in that typeface as a preview.
  */
-enum class ReadingFont(val displayName: String) {
-    SERIF("Serif"),
-    SANS("Sans"),
-    MONO("Mono"),
-    NEWSREADER("Newsreader"),
-    LITERATA("Literata"),
-    LORA("Lora"),
-    MERRIWEATHER("Merriweather"),
-    EB_GARAMOND("Garamond"),
-    INTER("Inter"),
-    LEXEND("Lexend"),
-    ATKINSON("Atkinson"),
-    FIRA_CODE("Fira Code");
-
-    val fontFamily: FontFamily
-        get() = when (this) {
-            SERIF -> FontFamily.Serif
-            SANS -> FontFamily.SansSerif
-            MONO -> FontFamily.Monospace
-            NEWSREADER -> Newsreader
-            LITERATA -> Literata
-            LORA -> Lora
-            MERRIWEATHER -> Merriweather
-            EB_GARAMOND -> EbGaramond
-            INTER -> Inter
-            LEXEND -> Lexend
-            ATKINSON -> AtkinsonHyperlegible
-            FIRA_CODE -> FiraCode
-        }
-}
+val ReadingFont.fontFamily: FontFamily
+    get() = when (this) {
+        ReadingFont.SERIF -> FontFamily.Serif
+        ReadingFont.SANS -> FontFamily.SansSerif
+        ReadingFont.MONO -> FontFamily.Monospace
+        ReadingFont.NEWSREADER -> Newsreader
+        ReadingFont.LITERATA -> Literata
+        ReadingFont.LORA -> Lora
+        ReadingFont.MERRIWEATHER -> Merriweather
+        ReadingFont.EB_GARAMOND -> EbGaramond
+        ReadingFont.INTER -> Inter
+        ReadingFont.LEXEND -> Lexend
+        ReadingFont.ATKINSON -> AtkinsonHyperlegible
+        ReadingFont.FIRA_CODE -> FiraCode
+    }

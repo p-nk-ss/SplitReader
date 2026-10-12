@@ -3,7 +3,7 @@ package com.example.splitreader.screenshot
 import com.example.splitreader.presentation.auth.AuthScreen
 import com.example.splitreader.presentation.profile.ProfileScreen
 import com.example.splitreader.presentation.settings.SettingsScreen
-import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.domain.model.ReaderThemeKey
 import org.junit.Test
 
 /**

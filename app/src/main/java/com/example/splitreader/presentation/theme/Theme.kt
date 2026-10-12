@@ -5,6 +5,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import com.example.splitreader.domain.model.ReaderThemeKey
 
 // Outer-chrome ColorScheme (Library, NavRail, Almanac, Words). It is now driven
 // by the active reader palette, so selecting a dark reader theme (Night/AMOLED)

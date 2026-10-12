@@ -11,7 +11,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
-import com.example.splitreader.presentation.theme.ReaderThemeKey
+import com.example.splitreader.domain.model.ReaderThemeKey
 import com.example.splitreader.presentation.theme.SplitReaderTheme
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
