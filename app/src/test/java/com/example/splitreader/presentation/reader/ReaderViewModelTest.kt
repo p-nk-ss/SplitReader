@@ -5,6 +5,7 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingPosition
+import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.fakes.FakeLegacyReadingPositionStore
@@ -334,6 +335,20 @@ class ReaderViewModelTest {
         assertEquals("the jump moved the viewport", "ru:c2p0", h.text(2, 0))
 
         for (i in 0..4) assertEquals("ru:c0p$i", h.text(0, i))
+    }
+
+    @Test
+    fun `a word whose provider has no key shows the error in the popup instead of a blank`() = runTest(main.dispatcher) {
+        val repo = FakeTranslationRepository().apply { resolution = { Resolution.NotConfigured(it) } }
+        val h = harness(book(5), repo = repo)
+        open(h)
+        advanceUntilIdle()
+
+        h.vm.selectWord("c0p1", chapterIndex = 0, paragraphIndex = 1, startChar = 0, endChar = 4)
+        advanceUntilIdle()
+
+        val translation = h.success().wordSelection?.translation
+        assertTrue("popup translation was \"$translation\"", translation?.contains("API key isn't set") == true)
     }
 
     private companion object {

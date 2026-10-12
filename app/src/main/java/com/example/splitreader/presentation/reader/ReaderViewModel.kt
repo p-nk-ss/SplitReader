@@ -595,7 +595,12 @@ class ReaderViewModel @Inject constructor(
                 startIndex = 0,
                 endIndex = 0,
             ).collect { state ->
-                if (state is TranslationState.Partial) translation = state.text
+                when (state) {
+                    is TranslationState.Partial -> translation = state.text
+                    // Nothing translated (e.g. a missing API key): show why instead of a blank popup.
+                    is TranslationState.Error -> if (translation.isEmpty()) translation = state.message
+                    else -> Unit
+                }
             }
             _state.update { s ->
                 val sel = s.wordSelection

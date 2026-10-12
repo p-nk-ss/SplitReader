@@ -104,6 +104,7 @@ internal fun ReaderRoute(
                 SaveWordResult.SAVED -> context.getString(R.string.saved_to_dictionary)
                 SaveWordResult.DUPLICATE -> context.getString(R.string.already_in_dictionary)
                 SaveWordResult.EMPTY -> context.getString(R.string.nothing_to_save)
+                SaveWordResult.TRANSLATION_FAILED -> context.getString(R.string.word_translation_failed)
             }
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
@@ -415,7 +416,8 @@ internal fun ReaderContent(
                             onRetry = onRetryTranslation,
                             onOpenTranslator = { showTranslatorPicker = true },
                         )
-                    } else if (state.showTranslation && state.translationNotice != null) {
+                    } else if (barsVisible && state.showTranslation && state.translationNotice != null) {
+                        // Shown with the bars (which auto-hide) so it never permanently covers the text.
                         TranslationFallbackStrip(
                             notice = state.translationNotice,
                             source = state.sourceLanguage,

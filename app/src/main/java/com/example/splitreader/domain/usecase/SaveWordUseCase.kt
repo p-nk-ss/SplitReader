@@ -7,7 +7,7 @@ import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.repository.SavedWordRepository
 import javax.inject.Inject
 
-enum class SaveWordResult { SAVED, DUPLICATE, EMPTY }
+enum class SaveWordResult { SAVED, DUPLICATE, EMPTY, TRANSLATION_FAILED }
 
 /** Strips leading/trailing punctuation and lowercases, keeping inner apostrophes/hyphens. */
 fun normalizeWord(raw: String): String =
@@ -15,7 +15,8 @@ fun normalizeWord(raw: String): String =
 
 /**
  * Saves a word to the vocabulary: normalizes it (see [normalizeWord]), skips duplicates for the
- * same source language, translates it, and persists the entry. Returns a [SaveWordResult].
+ * same source language, translates it, and persists the entry. A word whose translation failed is
+ * not saved ([SaveWordResult.TRANSLATION_FAILED]). Returns a [SaveWordResult].
  */
 class SaveWordUseCase @Inject constructor(
     private val savedWordRepository: SavedWordRepository,
@@ -41,6 +42,7 @@ class SaveWordUseCase @Inject constructor(
         }
 
         var translation = ""
+        var failed = false
         translateTextUseCase(
             paragraphs = listOf(normalized),
             sourceLanguage = sourceLang,
@@ -49,10 +51,14 @@ class SaveWordUseCase @Inject constructor(
             startIndex = 0,
             endIndex = 0,
         ).collect { state ->
-            if (state is TranslationState.Partial) {
-                translation = state.text
+            when (state) {
+                is TranslationState.Partial -> translation = state.text
+                is TranslationState.Error -> failed = true
+                else -> Unit
             }
         }
+        // An untranslated entry would be permanent: the duplicate guard above blocks re-saving it.
+        if (failed && translation.isEmpty()) return SaveWordResult.TRANSLATION_FAILED
         savedWordRepository.save(
             SavedWord(
                 word = normalized,
