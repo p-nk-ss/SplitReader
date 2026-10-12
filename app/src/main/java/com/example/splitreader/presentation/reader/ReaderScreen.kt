@@ -391,36 +391,37 @@ internal fun ReaderContent(
                     )
                 }
 
-                val downloading = state.translationState as? TranslationState.DownloadingModel
-                if (downloading != null) {
-                    val pct = downloading.progress?.let { (it * 100).toInt() }
-                    TranslationBanner(
-                        label = if (pct == null) "Preparing translation…" else "Preparing translation… $pct%",
-                        modifier = Modifier.align(Alignment.TopCenter),
-                    )
-                }
-                if (state.translationState is TranslationState.Translating) {
-                    val progress = (state.translationState as TranslationState.Translating).progress
-                    TranslationBanner(
-                        label = if (progress <= 0) "Translating…" else "Translating… $progress%",
-                        progress = progress,
-                        modifier = Modifier.align(Alignment.TopCenter),
-                    )
-                }
-                if (state.translationState is TranslationState.Error) {
-                    TranslationErrorBanner(
-                        message = (state.translationState as TranslationState.Error).message,
-                        onRetry = onRetryTranslation,
-                        onOpenTranslator = { showTranslatorPicker = true },
-                        modifier = Modifier.align(Alignment.TopCenter),
-                    )
-                } else if (state.showTranslation && state.translationNotice != null) {
-                    TranslationFallbackStrip(
-                        notice = state.translationNotice,
-                        source = state.sourceLanguage,
-                        target = state.targetLanguage,
-                        modifier = Modifier.align(Alignment.TopCenter),
-                    )
+                Column(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    val downloading = state.translationState as? TranslationState.DownloadingModel
+                    if (downloading != null) {
+                        val pct = downloading.progress?.let { (it * 100).toInt() }
+                        TranslationBanner(
+                            label = if (pct == null) "Preparing translation…" else "Preparing translation… $pct%",
+                        )
+                    }
+                    if (state.translationState is TranslationState.Translating) {
+                        val progress = (state.translationState as TranslationState.Translating).progress
+                        TranslationBanner(
+                            label = if (progress <= 0) "Translating…" else "Translating… $progress%",
+                            progress = progress,
+                        )
+                    }
+                    if (state.translationState is TranslationState.Error) {
+                        TranslationErrorBanner(
+                            message = (state.translationState as TranslationState.Error).message,
+                            onRetry = onRetryTranslation,
+                            onOpenTranslator = { showTranslatorPicker = true },
+                        )
+                    } else if (state.showTranslation && state.translationNotice != null) {
+                        TranslationFallbackStrip(
+                            notice = state.translationNotice,
+                            source = state.sourceLanguage,
+                            target = state.targetLanguage,
+                        )
+                    }
                 }
             }
 
