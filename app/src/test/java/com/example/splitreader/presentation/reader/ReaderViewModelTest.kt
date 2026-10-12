@@ -47,7 +47,7 @@ class ReaderViewModelTest {
 
     private fun harness(
         book: Book,
-        prefs: FakeReadingPreferences = FakeReadingPreferences(provider = TranslationProvider.QUICK_TRANSLATE),
+        prefs: FakeReadingPreferences = FakeReadingPreferences(),
         repo: FakeTranslationRepository = FakeTranslationRepository(),
         legacy: FakeLegacyReadingPositionStore = FakeLegacyReadingPositionStore(),
         settings: FakeTranslatorSettings = FakeTranslatorSettings(current = TranslationProvider.QUICK_TRANSLATE),
@@ -233,6 +233,32 @@ class ReaderViewModelTest {
         val after = deeplCounts()
         for (i in 0..4) assertTrue("c0p$i not re-requested with DeepL after the key write: $after", after[i] > before[i])
         assertEquals("ru:c0p0", h.text(0, 0))
+    }
+
+    /**
+     * The dialog's old race: the provider was selected before its key was written, so the screen was
+     * re-planned against a provider with no key. Nothing may be sent to the new provider until the
+     * save (key, then selection) has returned.
+     */
+    @Test
+    fun `saving a key for a new provider sends nothing to it until the key is stored`() = runTest(main.dispatcher) {
+        val settings = FakeTranslatorSettings(current = TranslationProvider.QUICK_TRANSLATE)
+        val h = harness(book(20), settings = settings)
+        open(h)
+        h.vm.onVisibleRange(0, 0, 0, 4)
+        advanceUntilIdle()
+        assertTrue("precondition", "c0p0" in h.repo.servedBy(TranslationProvider.QUICK_TRANSLATE))
+        val write = CompletableDeferred<Unit>()
+        settings.writeDelay = { write.await() }
+
+        h.vm.configureProvider(TranslationProvider.DEEPL, "k", null)
+        advanceUntilIdle()
+        assertEquals("sent to DeepL before its key was stored", emptyList<String>(), h.repo.servedBy(TranslationProvider.DEEPL))
+
+        write.complete(Unit)
+        advanceUntilIdle()
+        val deepl = h.repo.servedBy(TranslationProvider.DEEPL)
+        for (i in 0..4) assertTrue("c0p$i not requested with DeepL after the key write: $deepl", "c0p$i" in deepl)
     }
 
     /**

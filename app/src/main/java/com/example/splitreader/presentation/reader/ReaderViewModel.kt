@@ -504,6 +504,11 @@ class ReaderViewModel @Inject constructor(
     /**
      * Saves the key/endpoint and selects [provider]. The engine is invalidated only after both are
      * durable: re-planning earlier would resolve the provider without its key again.
+     *
+     * When the save also switches the provider, the config collector in `init` has already re-planned,
+     * so this invalidate() is a redundant but harmless second reset (at most one in-flight request is
+     * wasted). It is intentionally unconditional: gating it on a pre-read "was current" check would race
+     * with a preceding [selectProvider] whose write hasn't landed yet.
      */
     fun configureProvider(provider: TranslationProvider, key: String?, secondary: String?) {
         viewModelScope.launch {
