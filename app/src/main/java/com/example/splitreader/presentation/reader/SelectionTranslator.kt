@@ -63,7 +63,8 @@ class SelectionTranslator(
             endChar = end,
             selectionType = type,
             translation = SelectionTranslation.Pending,
-        )    }
+        )
+    }
 
     /**
      * The handle was released: translates the range once. Only a [SelectionTranslation.Pending]
@@ -96,7 +97,10 @@ class SelectionTranslator(
             var done = false
             translateText(listOf(sel.word), src, tgt, prov, 0, 0).collect { s ->
                 when (s) {
-                    is TranslationState.DownloadingModel -> apply(my, sel, SelectionTranslation.Translating(s.progress))
+                    // A finished download (1f) means the translation itself is now running: show
+                    // "Translating…", not a "100%" that would sit there until the result arrives.
+                    is TranslationState.DownloadingModel ->
+                        apply(my, sel, SelectionTranslation.Translating(s.progress?.takeIf { it < 1f }))
                     is TranslationState.FallbackNotice -> notice = s
                     is TranslationState.Partial -> {
                         done = true

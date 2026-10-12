@@ -6,7 +6,6 @@ import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
-import java.io.IOException
 import java.util.Collections
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -23,12 +22,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Translates to "<target code>:<text>"; can fail or block chosen texts; records every call. */
+/** Translates to "<target code>:<text>"; can block chosen texts; records every call and every finish. */
 private class SelectionFakeRepo : TranslationRepository {
     /** What [resolve] answers for each provider; Ready by default. */
     var resolution: (TranslationProvider) -> Resolution = { Resolution.Ready(it) }
     val calls: MutableList<String> = Collections.synchronizedList(mutableListOf())
-    val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
+
+    /** Texts whose request ran past its gate, i.e. was not cancelled while blocked. */
+    val finished: MutableList<String> = Collections.synchronizedList(mutableListOf())
     val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
 
     /** Progress values [prepare] emits (on-device providers only). */
@@ -39,7 +40,7 @@ private class SelectionFakeRepo : TranslationRepository {
     override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
         calls += text
         gates[text]?.await()
-        if (text in failOn) throw IOException("down: $text")
+        finished += text
         return "${target.code}:$text"
     }
 
@@ -176,6 +177,23 @@ class SelectionTranslatorTest {
     }
 
     @Test
+    fun `a finished download shows translating, not 100 percent`() = runTest {
+        val repo = SelectionFakeRepo().apply { prepareProgress = listOf(0.5f, 1f) }
+        val gate = CompletableDeferred<Unit>().also { repo.gates["run"] = it }
+        val t = translator(repo)
+
+        t.pick("run", provider = TranslationProvider.MLKIT)
+        settle()
+
+        assertEquals(SelectionTranslation.Translating(null), t.state.value?.translation)
+
+        gate.complete(Unit)
+        settle()
+
+        assertEquals(SelectionTranslation.Ready("ru:run"), t.state.value?.translation)
+    }
+
+    @Test
     fun `a fallback note travels with the translation`() = runTest {
         val repo = SelectionFakeRepo().apply {
             resolution = { Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR) }
@@ -206,9 +224,10 @@ class SelectionTranslatorTest {
     }
 
     /**
-     * The "no Ready" check is also guarded by `apply` ignoring a result when the selection is
-     * null, so removing the cancel/request bump from `clear` alone stays green; this test pins the
-     * outcome (empty, nothing published), not which guard produced it.
+     * A dismissed request must stop, not keep running (and billing a paid provider) in the
+     * background: [SelectionFakeRepo.finished] proves the blocked call never got past its gate.
+     * The "no Ready" check is additionally guarded by `apply` ignoring results once the selection
+     * is null; `clear`'s request bump is redundant with that and the cancel.
      */
     @Test
     fun `clear cancels and empties`() = runTest {
@@ -224,6 +243,7 @@ class SelectionTranslatorTest {
         settle()
 
         assertNull(t.state.value)
+        assertEquals("the dismissed request kept running", emptyList<String>(), repo.finished)
         assertTrue("a Ready was published: $seen", seen.none { it?.translation is SelectionTranslation.Ready })
     }
 }
