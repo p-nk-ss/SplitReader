@@ -1,7 +1,5 @@
 package com.example.splitreader.presentation.reader
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextLayoutResult
 import java.text.BreakIterator
 
@@ -37,27 +35,6 @@ internal fun handleAnchor(
         val bounds = layout.getPathForRange(rangeStart, rangeEnd).getBounds()
         bounds.right to bounds.bottom
     }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMarker(
-    color: Color,
-    anchorX: Float,
-    anchorY: Float,
-    lineHeightPx: Float,
-    circleRadiusPx: Float,
-    lineStrokePx: Float,
-) {
-    drawLine(
-        color = color,
-        start = Offset(anchorX, anchorY),
-        end = Offset(anchorX, anchorY + lineHeightPx),
-        strokeWidth = lineStrokePx,
-    )
-    drawCircle(
-        color = color,
-        radius = circleRadiusPx,
-        center = Offset(anchorX, anchorY + lineHeightPx + circleRadiusPx),
-    )
 }
 
 internal fun snapToWordStart(charIndex: Int, text: String, iter: BreakIterator): Int {

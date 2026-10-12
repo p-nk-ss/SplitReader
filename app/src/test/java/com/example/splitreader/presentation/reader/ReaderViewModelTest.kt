@@ -413,6 +413,21 @@ class ReaderViewModelTest {
         advanceUntilIdle()
     }
 
+    @Test
+    fun `save does nothing when the translation failed`() = runTest(main.dispatcher) {
+        val repo = FakeTranslationRepository().apply { resolution = { Resolution.NotConfigured(it) } }
+        val h = harness(runBook(), repo = repo)
+        open(h)
+        h.vm.selectWord("run", chapterIndex = 0, paragraphIndex = 0, startChar = 0, endChar = 3)
+        advanceUntilIdle()
+        assertTrue("precondition", h.success().wordSelection?.translation is SelectionTranslation.Failed)
+
+        h.vm.saveWord("run", chapterIndex = 0, paragraphIndex = 0)
+        advanceUntilIdle()
+
+        assertEquals("saved a failed translation", emptyList<Any>(), h.savedWords.words.value)
+    }
+
     private companion object {
         const val RELOAD_WINDOW_MS = 1_500L
     }
