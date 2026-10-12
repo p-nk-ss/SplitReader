@@ -96,7 +96,7 @@ class ReaderTranslationEngine(
         data class Partial(val epoch: Int, val chapter: Int, val index: Int, val text: String) : Event
         data class Downloading(val seq: Int, val progress: Float?) : Event
         data class Notice(val epoch: Int, val value: TranslationState.FallbackNotice) : Event
-        data class SegmentDone(val seq: Int, val error: String?) : Event
+        data class SegmentDone(val seq: Int, val error: String?, val persistent: Boolean = false) : Event
     }
 
     private enum class Kind { VISIBLE, FILL, BACKGROUND }
@@ -120,6 +120,7 @@ class ReaderTranslationEngine(
     private var snapshot: Map<Int, List<String>> = emptyMap()
     private var fill: Int? = null
     private var foregroundError: String? = null
+    private var foregroundErrorPersistent = false
     private var backgroundPaused = false
     private var banner: TranslationState = TranslationState.Idle
     private var notice: TranslationState.FallbackNotice? = null
@@ -155,7 +156,9 @@ class ReaderTranslationEngine(
                 if (book == null) return
                 start = event.start
                 end = event.end
-                foregroundError = null
+                // A persistent error (no/invalid key) won't resolve itself on scroll — clearing it
+                // would silently re-fire the same failing request on every viewport.
+                if (!foregroundErrorPersistent) foregroundError = null
                 backgroundPaused = false
             }
             is Event.Settings -> {
@@ -176,11 +179,13 @@ class ReaderTranslationEngine(
                 val chapter = book?.chapters?.getOrNull(event.chapter) ?: return
                 if (chapter.paragraphs.isNotEmpty()) fill = event.chapter
                 foregroundError = null
+                foregroundErrorPersistent = false
                 backgroundPaused = false
             }
             Event.Retry -> {
                 if (book == null) return
                 foregroundError = null
+                foregroundErrorPersistent = false
                 backgroundPaused = false
             }
             Event.Invalidate -> {
@@ -221,6 +226,7 @@ class ReaderTranslationEngine(
                         backgroundPaused = true
                     } else {
                         foregroundError = event.error
+                        foregroundErrorPersistent = event.persistent
                         setBanner(TranslationState.Error(event.error))
                     }
                 }
@@ -293,6 +299,7 @@ class ReaderTranslationEngine(
         val prov = provider
         running = scope.launch {
             var error: String? = null
+            var persistent = false
             try {
                 translateText(paragraphs, src, tgt, prov, segment.start, segment.endInclusive).collect { s ->
                     when (s) {
@@ -300,7 +307,10 @@ class ReaderTranslationEngine(
                             events.send(Event.Partial(myEpoch, segment.chapterIndex, s.index, s.text))
                         is TranslationState.DownloadingModel -> events.send(Event.Downloading(mySeq, s.progress))
                         is TranslationState.FallbackNotice -> events.send(Event.Notice(myEpoch, s))
-                        is TranslationState.Error -> error = s.message
+                        is TranslationState.Error -> {
+                            error = s.message
+                            persistent = s.persistent
+                        }
                         else -> Unit
                     }
                 }
@@ -315,7 +325,7 @@ class ReaderTranslationEngine(
                 // Defence-in-depth, not demonstrated by a test: the use case catches Exception itself.
                 error = e.message ?: "Translation failed"
             } finally {
-                events.trySend(Event.SegmentDone(mySeq, error))
+                events.trySend(Event.SegmentDone(mySeq, error, persistent))
             }
         }
     }
@@ -334,6 +344,7 @@ class ReaderTranslationEngine(
         snapshot = emptyMap()
         fill = null
         foregroundError = null
+        foregroundErrorPersistent = false
         backgroundPaused = false
         banner = TranslationState.Idle
         notice = null

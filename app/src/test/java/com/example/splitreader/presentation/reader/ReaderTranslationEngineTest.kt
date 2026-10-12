@@ -381,6 +381,39 @@ class ReaderTranslationEngineTest {
     }
 
     @Test
+    fun `E16 a persistent error survives a new viewport, a transient one is retried`() = runTest {
+        // NotConfigured resolves (and fails) before ever reaching repository.translate, so repo.calls
+        // staying empty is true either way and cannot witness "nothing was re-requested". Counting
+        // resolve() attempts is the direct, falsifiable witness: one per segment the engine launches.
+        var resolveCalls = 0
+        val repo = FakeRepo().apply { resolution = { resolveCalls++; Resolution.NotConfigured(it) } }
+        val e = engine(repo)
+        e.open(book(30), Language.ENGLISH, Language.RUSSIAN, PAID, paneVisible = true)
+        e.viewport(p(0, 0), p(0, 4))
+        settle()
+        assertTrue(e.state.value.state is TranslationState.Error)
+        val afterFirst = resolveCalls
+
+        e.viewport(p(0, 10), p(0, 14))
+        settle()
+        assertTrue("persistent error must stay", e.state.value.state is TranslationState.Error)
+        assertEquals("a persistent error must not trigger a new attempt", afterFirst, resolveCalls)
+        assertTrue(repo.calls.isEmpty())
+
+        val net = FakeRepo().apply { failOn += "c0p1" } // transient (IOException)
+        val t = engine(net)
+        t.open(book(30), Language.ENGLISH, Language.RUSSIAN, PAID, paneVisible = true)
+        t.viewport(p(0, 0), p(0, 4))
+        settle()
+        assertTrue(t.state.value.state is TranslationState.Error)
+
+        net.failOn.clear()
+        t.viewport(p(0, 1), p(0, 5))
+        settle()
+        assertEquals("ru:c0p1", t.text(0, 1))
+    }
+
+    @Test
     fun `E15 a fallback notice is published and cleared by a target change`() = runTest {
         val repo = FakeRepo().apply {
             resolution = { Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR) }

@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -30,6 +31,9 @@ private fun http429(): HttpException =
 
 private fun http500(): HttpException =
     HttpException(Response.error<String>(500, "server error".toResponseBody(null)))
+
+private fun http(code: Int): HttpException =
+    HttpException(Response.error<String>(code, "error".toResponseBody(null)))
 
 /**
  * Translates by wrapping the text. Throws [error] for paragraphs listed in [failOn] (every call)
@@ -307,14 +311,35 @@ class TranslateTextUseCaseTest {
     }
 
     @Test
-    fun `a provider without its key emits a clear error and translates nothing`() = runTest {
+    fun `a provider without its key emits a persistent error naming the real button`() = runTest {
         val repo = FakeTranslationRepository(resolution = { Resolution.NotConfigured(it) })
         val states = useCase(repo)(listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.DEEPL, 0, 0).toList()
         assertTrue(repo.calls.isEmpty())
-        val error = states.single() as TranslationState.Error
-        assertTrue(error.message, error.message.contains("API key isn't set"))
-        // The error banner's buttons are Retry and Switch translator; the copy must name a real one.
-        assertTrue(error.message, error.message.contains("tap Switch translator"))
+        val e = states.single() as TranslationState.Error
+        assertTrue(e.persistent)
+        assertEquals("DeepL API key isn't set", e.short)
+        assertEquals("DeepL API key isn't set — tap Switch translator to add it", e.message)
+    }
+
+    @Test
+    fun `a 401 from DeepL is a persistent error naming the real button`() = runTest {
+        val repo = FakeTranslationRepository(failOn = setOf("a"), error = { http(401) })
+        val e = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.DEEPL, 0, 0,
+        ).toList().filterIsInstance<TranslationState.Error>().single()
+        assertTrue(e.persistent)
+        assertEquals("Invalid DeepL API key — tap Switch translator to update it", e.message)
+        assertEquals("Invalid DeepL API key", e.short)
+    }
+
+    @Test
+    fun `a network failure is transient and its short text equals the message`() = runTest {
+        val repo = FakeTranslationRepository(failOn = setOf("a")) // default error is IOException
+        val e = useCase(repo)(
+            listOf("a"), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.QUICK_TRANSLATE, 0, 0,
+        ).toList().filterIsInstance<TranslationState.Error>().single()
+        assertFalse(e.persistent)
+        assertEquals(e.message, e.short)
     }
 
     @Test

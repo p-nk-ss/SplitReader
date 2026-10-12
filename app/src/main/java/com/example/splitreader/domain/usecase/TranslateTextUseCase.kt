@@ -50,7 +50,13 @@ class TranslateTextUseCase @Inject constructor(
         // Resolved once per segment: the engine that serves every paragraph below.
         val served = when (val r = repository.resolve(provider, sourceLanguage, targetLanguage)) {
             is Resolution.NotConfigured -> {
-                emit(TranslationState.Error("${r.provider.displayName} API key isn't set — tap Switch translator to add it"))
+                emit(
+                    TranslationState.Error(
+                        "${r.provider.displayName} API key isn't set — tap Switch translator to add it",
+                        persistent = true,
+                        short = "${r.provider.displayName} API key isn't set",
+                    ),
+                )
                 return@flow
             }
             is Resolution.Fallback -> {
@@ -71,7 +77,8 @@ class TranslateTextUseCase @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                emit(TranslationState.Error(friendlyError(e, served)))
+                val f = friendlyError(e, served)
+                emit(TranslationState.Error(f.message, f.persistent, f.short))
                 return@flow
             }
         }
@@ -101,7 +108,10 @@ class TranslateTextUseCase @Inject constructor(
                 if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) break
             }
         }
-        firstError?.let { emit(TranslationState.Error(friendlyError(it, served))) }
+        firstError?.let {
+            val f = friendlyError(it, served)
+            emit(TranslationState.Error(f.message, f.persistent, f.short))
+        }
     }.flowOn(ioDispatcher)
 
     /**
@@ -128,31 +138,45 @@ class TranslateTextUseCase @Inject constructor(
         }
     }
 
-    private fun friendlyError(e: Exception, provider: TranslationProvider): String = when {
-        e is ModelDownloadException ->
-            "Couldn't download the offline translation model. Check your internet and Google Play services, then retry."
-        e is OfflinePackDownloadException ->
-            "Couldn't download the Offline HQ language pack (${e.pair.source.code}→${e.pair.target.code}, " +
-                "${e.bytes / 1_000_000} MB). Check your internet and retry."
-        e is OfflinePackCorruptException ->
-            "The Offline HQ pack was corrupted and could not be re-downloaded."
-        e is InsufficientStorageException ->
-            "Not enough storage for the Offline HQ pack (needs ${e.neededBytes / 1_000_000} MB free)."
-        e is OfflineEngineUnavailableException ->
-            "Offline HQ isn't available on this device."
-        e is HttpException -> when (e.code()) {
-            401, 403 -> "Invalid ${provider.displayName} API key — open Translator menu to update"
-            // Quick Translate has no quota to exhaust — its 429 is the free endpoint asking for a
-            // pause, and "quota exceeded" sends users hunting for a limit that doesn't exist.
-            429 -> if (provider == TranslationProvider.QUICK_TRANSLATE) {
-                "${provider.displayName} is temporarily rate-limited — wait a minute or switch to ML Kit"
-            } else {
-                "${provider.displayName} quota exceeded — try a different provider"
-            }
-            else -> "${provider.displayName} error (${e.code()}): ${e.message()}"
+    /** [message]/[persistent]/[short] match [TranslationState.Error]'s fields of the same name. */
+    private data class Friendly(val message: String, val persistent: Boolean, val short: String)
+
+    private fun friendlyError(e: Exception, provider: TranslationProvider): Friendly {
+        // A bad/expired key won't self-heal on retry or on scrolling past it — persistent, and the
+        // popup's short text names no button (the popup has none to name).
+        if (e is HttpException && (e.code() == 401 || e.code() == 403)) {
+            return Friendly(
+                message = "Invalid ${provider.displayName} API key — tap Switch translator to update it",
+                persistent = true,
+                short = "Invalid ${provider.displayName} API key",
+            )
         }
-        e is IOException -> "No internet — switch to ML Kit for offline translation"
-        else -> e.message ?: "Translation failed"
+        val text = when {
+            e is ModelDownloadException ->
+                "Couldn't download the offline translation model. Check your internet and Google Play services, then retry."
+            e is OfflinePackDownloadException ->
+                "Couldn't download the Offline HQ language pack (${e.pair.source.code}→${e.pair.target.code}, " +
+                    "${e.bytes / 1_000_000} MB). Check your internet and retry."
+            e is OfflinePackCorruptException ->
+                "The Offline HQ pack was corrupted and could not be re-downloaded."
+            e is InsufficientStorageException ->
+                "Not enough storage for the Offline HQ pack (needs ${e.neededBytes / 1_000_000} MB free)."
+            e is OfflineEngineUnavailableException ->
+                "Offline HQ isn't available on this device."
+            e is HttpException -> when (e.code()) {
+                // Quick Translate has no quota to exhaust — its 429 is the free endpoint asking for a
+                // pause, and "quota exceeded" sends users hunting for a limit that doesn't exist.
+                429 -> if (provider == TranslationProvider.QUICK_TRANSLATE) {
+                    "${provider.displayName} is temporarily rate-limited — wait a minute or switch to ML Kit"
+                } else {
+                    "${provider.displayName} quota exceeded — try a different provider"
+                }
+                else -> "${provider.displayName} error (${e.code()}): ${e.message()}"
+            }
+            e is IOException -> "No internet — switch to ML Kit for offline translation"
+            else -> e.message ?: "Translation failed"
+        }
+        return Friendly(text, persistent = false, short = text)
     }
 
     private companion object {
