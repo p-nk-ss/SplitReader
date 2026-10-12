@@ -88,7 +88,7 @@ class BergamotTranslationProviderTest {
 
     /**
      * Spec §6: after a native failure the provider must stay unavailable for the session, so the
-     * error copy ("— using ML Kit.") is actually true — resolveProvider then falls back on the
+     * error copy ("— using ML Kit.") is actually true — resolve() then falls back on the
      * very next paragraph instead of failing again through a broken engine.
      */
     @Test

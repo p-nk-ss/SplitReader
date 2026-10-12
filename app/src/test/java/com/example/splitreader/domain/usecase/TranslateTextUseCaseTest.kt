@@ -313,6 +313,8 @@ class TranslateTextUseCaseTest {
         assertTrue(repo.calls.isEmpty())
         val error = states.single() as TranslationState.Error
         assertTrue(error.message, error.message.contains("API key isn't set"))
+        // The error banner's buttons are Retry and Switch translator; the copy must name a real one.
+        assertTrue(error.message, error.message.contains("tap Switch translator"))
     }
 
     @Test

@@ -50,7 +50,7 @@ class TranslateTextUseCase @Inject constructor(
         // Resolved once per segment: the engine that serves every paragraph below.
         val served = when (val r = repository.resolve(provider, sourceLanguage, targetLanguage)) {
             is Resolution.NotConfigured -> {
-                emit(TranslationState.Error("${r.provider.displayName} API key isn't set — open Translator to add it"))
+                emit(TranslationState.Error("${r.provider.displayName} API key isn't set — tap Switch translator to add it"))
                 return@flow
             }
             is Resolution.Fallback -> {

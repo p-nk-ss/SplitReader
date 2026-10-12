@@ -27,8 +27,8 @@ class BergamotTranslationProvider(
 
     /**
      * Spec §6: a *terminal* native failure retires the provider for the rest of the process. The
-     * error copy promises a fallback to ML Kit, and `resolveProvider` only delivers it while this
-     * reads false.
+     * error copy promises a fallback to ML Kit, and `TranslationRepository.resolve()` only answers
+     * with that fallback (ENGINE_UNAVAILABLE) once this reads false.
      *
      * Terminal means there is nothing smaller left to try: the library is missing ([BergamotEngine.available]
      * false), or the engine failed while already [BergamotEngine.degraded] — down to one resident model,

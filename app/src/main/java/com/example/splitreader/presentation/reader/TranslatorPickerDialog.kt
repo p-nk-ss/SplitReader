@@ -152,6 +152,8 @@ internal fun TranslatorPickerDialog(
             onSave = { key, secondary ->
                 onConfigure(provider, key, secondary)
                 keyDialogTarget = null
+                // Saving selects the provider, so the picker's job is done (as a plain select).
+                onDismiss()
             },
             onClear = {
                 onClear(provider)
