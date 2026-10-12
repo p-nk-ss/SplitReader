@@ -414,6 +414,13 @@ internal fun ReaderContent(
                         onOpenTranslator = { showTranslatorPicker = true },
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
+                } else if (state.showTranslation && state.translationNotice != null) {
+                    TranslationFallbackStrip(
+                        notice = state.translationNotice,
+                        source = state.sourceLanguage,
+                        target = state.targetLanguage,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
                 }
             }
 

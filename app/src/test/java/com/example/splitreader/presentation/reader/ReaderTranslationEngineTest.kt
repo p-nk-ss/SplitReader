@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.reader
 
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
+import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.Resolution
@@ -377,5 +378,22 @@ class ReaderTranslationEngineTest {
         val texts = repo.texts()
         assertEquals("first request: $texts", "c0p30", texts.first())
         assertFalse("the book start was requested: $texts", "c0p0" in texts)
+    }
+
+    @Test
+    fun `E15 a fallback notice is published and cleared by a target change`() = runTest {
+        val repo = FakeRepo().apply {
+            resolution = { Resolution.Fallback(it, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR) }
+        }
+        val e = engine(repo)
+        e.open(book(5), Language.ENGLISH, Language.HINDI, PAID, paneVisible = true)
+        e.viewport(p(0, 0), p(0, 1))
+        settle()
+        assertEquals(FallbackReason.UNSUPPORTED_PAIR, e.state.value.notice?.reason)
+
+        repo.resolution = { Resolution.Ready(it) }
+        e.settingsChanged(Language.GERMAN, PAID, paneVisible = true)
+        settle()
+        assertEquals(null, e.state.value.notice)
     }
 }

@@ -16,10 +16,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-/** A snapshot of translated paragraphs plus the foreground translation banner state. */
+/**
+ * A snapshot of translated paragraphs plus the foreground translation banner state.
+ * [notice] is set when the chosen provider can't serve the current pair/device and a fallback
+ * engine is translating instead; it is cleared by [ReaderTranslationEngine.discardTranslations]
+ * (a target/provider change, [ReaderTranslationEngine.invalidate], or a new [ReaderTranslationEngine.open]).
+ */
 data class TranslationUpdate(
     val translations: Map<Int, List<String>>,
     val state: TranslationState,
+    val notice: TranslationState.FallbackNotice? = null,
 )
 
 /**
@@ -89,6 +95,7 @@ class ReaderTranslationEngine(
         data object Invalidate : Event
         data class Partial(val epoch: Int, val chapter: Int, val index: Int, val text: String) : Event
         data class Downloading(val seq: Int, val progress: Float?) : Event
+        data class Notice(val epoch: Int, val value: TranslationState.FallbackNotice) : Event
         data class SegmentDone(val seq: Int, val error: String?) : Event
     }
 
@@ -115,6 +122,7 @@ class ReaderTranslationEngine(
     private var foregroundError: String? = null
     private var backgroundPaused = false
     private var banner: TranslationState = TranslationState.Idle
+    private var notice: TranslationState.FallbackNotice? = null
     private var epoch = 0
     private var seq = 0
     private var running: Job? = null
@@ -197,6 +205,11 @@ class ReaderTranslationEngine(
             is Event.Downloading -> {
                 if (event.seq != seq) return
                 if (current?.kind != Kind.BACKGROUND) setBanner(TranslationState.DownloadingModel(event.progress))
+            }
+            is Event.Notice -> {
+                if (event.epoch != epoch) return
+                notice = event.value
+                publish()
             }
             is Event.SegmentDone -> {
                 if (event.seq != seq) return
@@ -286,6 +299,7 @@ class ReaderTranslationEngine(
                         is TranslationState.Partial ->
                             events.send(Event.Partial(myEpoch, segment.chapterIndex, s.index, s.text))
                         is TranslationState.DownloadingModel -> events.send(Event.Downloading(mySeq, s.progress))
+                        is TranslationState.FallbackNotice -> events.send(Event.Notice(myEpoch, s))
                         is TranslationState.Error -> error = s.message
                         else -> Unit
                     }
@@ -322,6 +336,7 @@ class ReaderTranslationEngine(
         foregroundError = null
         backgroundPaused = false
         banner = TranslationState.Idle
+        notice = null
         publish()
     }
 
@@ -352,7 +367,7 @@ class ReaderTranslationEngine(
     }
 
     private fun publish() {
-        _state.value = TranslationUpdate(snapshot, banner)
+        _state.value = TranslationUpdate(snapshot, banner, notice)
     }
 
     private companion object {

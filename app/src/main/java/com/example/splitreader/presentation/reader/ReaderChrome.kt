@@ -47,6 +47,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.splitreader.domain.model.FallbackReason
+import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.Newsreader
@@ -358,5 +361,39 @@ internal fun TranslationErrorBanner(
                 )
             }
         }
+    }
+}
+
+/**
+ * A quiet, single-line notice that [notice.servedBy] translated this segment because
+ * [notice.requested] couldn't — no buttons, unlike [TranslationErrorBanner] (nothing failed).
+ */
+@Composable
+internal fun TranslationFallbackStrip(
+    notice: TranslationState.FallbackNotice,
+    source: Language,
+    target: Language,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalReaderPalette.current
+    val text = when (notice.reason) {
+        FallbackReason.UNSUPPORTED_PAIR ->
+            "${notice.requested.displayName} doesn't support ${source.code.uppercase()}→${target.code.uppercase()}" +
+                " — translated by ${notice.servedBy.displayName}"
+        FallbackReason.ENGINE_UNAVAILABLE ->
+            "${notice.requested.displayName} isn't available on this device — translated by ${notice.servedBy.displayName}"
+    }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(palette.bg2)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = text,
+            fontFamily = Newsreader,
+            fontSize = 12.sp,
+            color = palette.ink3,
+        )
     }
 }

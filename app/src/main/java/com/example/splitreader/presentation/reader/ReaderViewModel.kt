@@ -97,6 +97,7 @@ class ReaderViewModel @Inject constructor(
         val targetLanguage: Language = Language.ENGLISH,
         val translationState: TranslationState = TranslationState.Idle,
         val chapterTranslations: Map<Int, List<String>> = emptyMap(),
+        val translationNotice: TranslationState.FallbackNotice? = null,
         val pendingJump: ReadingPosition? = null,
         val textSize: Float = ReadingDefaults.TEXT_SIZE,
         val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
@@ -168,6 +169,7 @@ class ReaderViewModel @Inject constructor(
                     targetLanguage = s.targetLanguage,
                     translationState = s.translationState,
                     chapterTranslations = s.chapterTranslations,
+                    translationNotice = s.translationNotice,
                     pendingJump = s.pendingJump,
                     textSize = s.textSize,
                     lineHeightMultiplier = s.lineHeightMultiplier,
@@ -218,7 +220,13 @@ class ReaderViewModel @Inject constructor(
         // Fold the translation engine's snapshots (translated text + foreground banner state) into UI state.
         viewModelScope.launch {
             engine.state.collect { update ->
-                _state.update { it.copy(chapterTranslations = update.translations, translationState = update.state) }
+                _state.update {
+                    it.copy(
+                        chapterTranslations = update.translations,
+                        translationState = update.state,
+                        translationNotice = update.notice,
+                    )
+                }
             }
         }
     }

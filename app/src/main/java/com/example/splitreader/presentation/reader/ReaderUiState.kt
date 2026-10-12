@@ -48,6 +48,7 @@ sealed interface ReaderUiState {
         val targetLanguage: Language,
         val translationState: TranslationState,
         val chapterTranslations: Map<Int, List<String>>,
+        val translationNotice: TranslationState.FallbackNotice? = null,
         val pendingJump: ReadingPosition? = null,
         val textSize: Float = ReadingDefaults.TEXT_SIZE,
         val lineHeightMultiplier: Float = ReadingDefaults.LINE_HEIGHT,
