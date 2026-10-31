@@ -69,11 +69,29 @@ class EpubParser @Inject constructor() : BookParser {
 
         val bookHash = stableId(uri.toString())
         val chapters = mutableListOf<Chapter>()
+        // Images from image-only files (plates, cover/title pages). They never become chapters:
+        // that would renumber the chapters of every book with an image cover page, and saved
+        // positions, bookmarks and excerpts address chapters by index. They open the next chapter.
+        val pendingImages = mutableListOf<String>()
+        fun leading(): List<ChapterImage> = pendingImages.map { ChapterImage(0, it) }.also { pendingImages.clear() }
+
         opf.spineIds.filter { id -> id !in opf.navItemIds }.forEach { id ->
             val href = opf.manifestMap[id] ?: return@forEach
             val fullPath = "$opfDir$href"
             val htmlContent = entryMap[fullPath] ?: entryMap[href] ?: return@forEach
             val result = HtmlChapterExtractor.parse(htmlContent)
+            // The XHTML file's directory is the base for relative image src URLs.
+            val contentDir = fullPath.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
+            fun save(ref: HtmlChapterExtractor.ImageRef): String? {
+                val bytes = resolveImageBytes(ref.src, contentDir, imageMap) ?: return null
+                val name = "${bookHash}_${normalizePath(contentDir + decodeSrc(ref.src)).substringAfterLast('/')}"
+                return ImageStore.save(context, bytes, name)
+            }
+
+            if (result.isImageOnly) {
+                result.imageRefs.mapNotNullTo(pendingImages) { save(it) }
+                return@forEach
+            }
 
             // Content before the chapter heading -> standalone chapter (no title)
             if (result.preHeadingParagraphs.isNotEmpty()) {
@@ -81,27 +99,29 @@ class EpubParser @Inject constructor() : BookParser {
                     index = chapters.size,
                     title = "",
                     paragraphs = result.preHeadingParagraphs,
+                    images = leading(),
                 ))
             }
 
             // Main chapter: epigraph paragraphs first, then body paragraphs
             val allParagraphs = result.epigraphParagraphs + result.mainParagraphs
             if (result.headingTitle != null || allParagraphs.isNotEmpty()) {
-                // The XHTML file's directory is the base for relative image src URLs.
-                val contentDir = fullPath.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
-                val images = result.imageRefs.mapNotNull { ref ->
-                    val bytes = resolveImageBytes(ref.src, contentDir, imageMap) ?: return@mapNotNull null
-                    val name = "${bookHash}_${normalizePath(contentDir + decodeSrc(ref.src)).substringAfterLast('/')}"
-                    ImageStore.save(context, bytes, name)?.let { ChapterImage(ref.anchorParagraph, it) }
-                }
+                val images = result.imageRefs.mapNotNull { ref -> save(ref)?.let { ChapterImage(ref.anchorParagraph, it) } }
                 chapters.add(Chapter(
                     index = chapters.size,
                     title = result.headingTitle ?: "Chapter ${chapters.size + 1}",
                     paragraphs = allParagraphs,
                     epigraphCount = result.epigraphParagraphs.size,
-                    images = images,
+                    images = leading() + images,
                 ))
             }
+        }
+        // Image-only files after the last text: they close the book.
+        if (pendingImages.isNotEmpty() && chapters.isNotEmpty()) {
+            val last = chapters.last()
+            chapters[chapters.lastIndex] = last.copy(
+                images = last.images + pendingImages.map { ChapterImage(last.paragraphs.size, it) },
+            )
         }
 
         val coverPath = opf.coverHref?.let { href ->

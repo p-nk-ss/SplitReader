@@ -36,6 +36,9 @@ object HtmlChapterExtractor {
                 preHeadingParagraphs.isEmpty() &&
                 epigraphParagraphs.isEmpty() &&
                 mainParagraphs.isEmpty()
+
+        /** No heading and no text, only images: a plate, cover or title page. */
+        val isImageOnly: Boolean get() = isEmpty && imageRefs.isNotEmpty()
     }
 
     /** Parses raw HTML bytes (with declared encoding fallback to UTF-8). */
@@ -56,20 +59,32 @@ object HtmlChapterExtractor {
         val headingTitle = headingEl?.text()?.takeIf { it.isNotBlank() }
 
         if (headingEl == null) {
-            val paras = body.select("p").map { it.text().trim() }.filter { it.isNotBlank() }
-                .ifEmpty {
-                    body.select("div, section, blockquote")
-                        .map { it.ownText().trim() }.filter { it.length > 20 }
+            // Images count too: a chapter file without an h1–h3 (Gutenberg's illustrated "Alice"
+            // has none) lost every image, and a file of only images was dropped whole.
+            val paras = mutableListOf<String>()
+            val refs = mutableListOf<ImageRef>()
+            for (el in body.select("p, img, image")) {
+                if (el.tagName() == "p") {
+                    el.text().trim().takeIf { it.isNotBlank() }?.let(paras::add)
+                } else {
+                    imageSrc(el)?.let { refs.add(ImageRef(it, paras.size)) }
                 }
-            return Result(null, emptyList(), emptyList(), paras)
+            }
+            if (paras.isEmpty()) {
+                paras += body.select("div, section, blockquote")
+                    .map { it.ownText().trim() }.filter { it.length > 20 }
+            }
+            return Result(null, emptyList(), emptyList(), paras, refs.map { it.copy(anchorParagraph = minOf(it.anchorParagraph, paras.size)) })
         }
 
         val preHeading = mutableListOf<String>()
         val epigraph = mutableListOf<String>()
         val main = mutableListOf<String>()
         // Anchors recorded in MAIN-relative space (count of main paragraphs so far); offset by
-        // epigraph.size below since the final list is epigraph + main. Pre-heading images are dropped.
+        // epigraph.size below since the final list is epigraph + main. Images before the heading
+        // open the chapter (final anchor 0, ahead of any epigraph).
         val imageRefs = mutableListOf<ImageRef>()
+        val leadingImageRefs = mutableListOf<ImageRef>()
         var foundHeading = false
 
         for (el in body.select("h1, h2, h3, blockquote, p, img, image")) {
@@ -79,6 +94,7 @@ object HtmlChapterExtractor {
                 (tag == "img" || tag == "image") && foundHeading -> {
                     imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size)) }
                 }
+                tag == "img" || tag == "image" -> imageSrc(el)?.let { leadingImageRefs.add(ImageRef(it, 0)) }
                 !foundHeading && tag == "p" && el.closest("blockquote") == null -> {
                     val text = el.text().trim()
                     if (text.isNotBlank()) preHeading.add(text)
@@ -96,7 +112,7 @@ object HtmlChapterExtractor {
             }
         }
 
-        val finalImageRefs = imageRefs.map { it.copy(anchorParagraph = epigraph.size + it.anchorParagraph) }
+        val finalImageRefs = leadingImageRefs + imageRefs.map { it.copy(anchorParagraph = epigraph.size + it.anchorParagraph) }
         return Result(headingTitle, preHeading, epigraph, main, finalImageRefs)
     }
 
