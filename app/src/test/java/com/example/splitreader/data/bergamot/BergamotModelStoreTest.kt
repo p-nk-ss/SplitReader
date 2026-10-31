@@ -7,6 +7,8 @@ import com.example.splitreader.domain.translator.OfflinePackCorruptException
 import com.example.splitreader.domain.translator.OfflinePackDownloadException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
@@ -145,6 +147,35 @@ class BergamotModelStoreTest {
         assertTrue("waiter saw in-flight progress: $waited", waited.any { it > 0f && it < 1f })
         assertTrue(waited.zipWithNext().all { (x, y) -> y >= x })
         assertEquals(1f, waited.last())
+    }
+
+    /**
+     * Review: a waiter that mirrored the leader up to ~0.89 and then, after the leader failed
+     * corrupt, started its own attempt from 0 showed the percentage going backwards. Each caller's
+     * own sequence must never decrease, whatever it mirrors or downloads itself.
+     */
+    @Test
+    fun `a waiter's progress never goes backwards when it takes over after a failure`() = runTest {
+        val s = store(FakeFetcher(yieldBetweenChunks = true), manifest(sha = "0".repeat(64)))
+        val a = async { runCatching { s.ensure(enRu).toList() } }
+        val seen = mutableListOf<Float>()
+        val b = async { runCatching { s.ensure(enRu).collect { seen += it } } }
+        a.await(); b.await()
+        assertTrue("waiter mirrored some progress: $seen", seen.isNotEmpty())
+        assertTrue("monotonic: $seen", seen.zipWithNext().all { (x, y) -> y >= x })
+    }
+
+    /** The language-switch handoff: the leader is cancelled mid-download; the waiter resumes from its bytes. */
+    @Test
+    fun `a waiter resumes from the bytes a cancelled download left behind`() = runTest {
+        val fetcher = FakeFetcher(yieldBetweenChunks = true)
+        val s = store(fetcher)
+        val leader = launch { s.ensure(enRu).collect { if (it > 0.3f) cancel() } }
+        val waiter = async { s.ensure(enRu).toList() }
+        leader.join()
+        assertEquals(1f, waiter.await().last())
+        assertTrue("resumed with a Range offset: ${fetcher.offsets}", fetcher.offsets.any { it > 0 })
+        assertEquals(modelBytes.toList(), s.packDir(enRu).resolve(BergamotModelStore.MODEL).readBytes().toList())
     }
 
     @Test

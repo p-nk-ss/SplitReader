@@ -251,9 +251,12 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success) {
 
 // ── Translation banner ────────────────────────────────────────────────────
 
-/** Shown over the reader when the book has nothing to display (no text, no shown images). */
+/**
+ * Shown over the reader when the book has nothing to display (no text, no shown images).
+ * [imagesHidden]: the book has images but Illustrations are off — the useful advice is to turn them on.
+ */
 @Composable
-internal fun EmptyBookNotice(modifier: Modifier = Modifier) {
+internal fun EmptyBookNotice(imagesHidden: Boolean = false, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     Column(
         modifier = modifier.padding(horizontal = 32.dp),
@@ -267,7 +270,11 @@ internal fun EmptyBookNotice(modifier: Modifier = Modifier) {
             color = palette.ink,
         )
         Text(
-            text = "This book has no text Mirrolit can show. It may contain only images or use a layout that isn't supported yet.",
+            text = if (imagesHidden) {
+                "This book has only images. Turn on Show illustrations in Display to see them."
+            } else {
+                "This book has no text Mirrolit can show. It may contain only images or use a layout that isn't supported yet."
+            },
             fontFamily = Newsreader,
             fontStyle = FontStyle.Italic,
             fontSize = 14.sp,

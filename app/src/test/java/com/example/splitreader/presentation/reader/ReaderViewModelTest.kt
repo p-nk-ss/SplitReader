@@ -149,11 +149,6 @@ class ReaderViewModelTest {
         assertEquals("ru:c0p1", h.text(0, 1))
     }
 
-    /**
-     * Saved at (1, 0, 0): what the reader persists at the first real paragraph of a book whose
-     * first chapter is empty. A saved START would not discriminate: it coerces to START, which a
-     * plain `== START` check also treats as "not started".
-     */
     /** The Library card reads this; by chapter, a one-chapter book showed 0% there and 100% in the reader. */
     @Test
     fun `the reading position saves paragraph progress for the Library`() = runTest(main.dispatcher) {
@@ -163,6 +158,11 @@ class ReaderViewModelTest {
         assertEquals(0.5f, h.prefs.progress.getValue(h.uri.toString()), 0.0001f)
     }
 
+    /**
+     * Saved at (1, 0, 0): what the reader persists at the first real paragraph of a book whose
+     * first chapter is empty. A saved START would not discriminate: it coerces to START, which a
+     * plain `== START` check also treats as "not started".
+     */
     @Test
     fun `an empty first chapter does not mark the book started`() = runTest(main.dispatcher) {
         val h = harness(book(0, 3))

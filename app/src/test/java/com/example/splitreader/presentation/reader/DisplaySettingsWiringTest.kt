@@ -80,6 +80,21 @@ class DisplaySettingsWiringTest {
         composeRule.onNodeWithText("Nothing to read here").assertExists()
     }
 
+    /** Images present but hidden: the useful advice is to turn Illustrations on (review). */
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun `an image-only book with illustrations off says how to show them`() {
+        val base = ScreenFixtures.readerContentState
+        val imagesOnly = base.book.copy(chapters = listOf(
+            com.example.splitreader.domain.model.Chapter(
+                index = 0, title = "Plates", paragraphs = emptyList(),
+                images = listOf(com.example.splitreader.domain.model.ChapterImage(0, "/img/a.png")),
+            ),
+        ))
+        composeReader(base.copy(book = imagesOnly, appearance = base.appearance.copy(showIllustrations = false)))
+        composeRule.onNodeWithText("Turn on Show illustrations", substring = true).assertExists()
+    }
+
     @Test
     @Config(qualifiers = PHONE_PORTRAIT)
     fun `a book with text shows no empty-book notice`() {

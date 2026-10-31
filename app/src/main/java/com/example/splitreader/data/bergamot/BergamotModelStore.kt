@@ -102,12 +102,23 @@ class BergamotModelStore(
         if (isInstalled(pair)) { send(1f); return@channelFlow }
         val lock = locks.getOrPut(pair.id) { Mutex() }
         val shared = progress.getOrPut(pair.id) { MutableStateFlow(0f) }
-        val mirror = launch { shared.collect { if (it > 0f) send(it) } }
+        // This caller's sequence never decreases, whatever it mirrors and then downloads itself
+        // (taking over after a corrupt failure restarts from 0).
+        var sent = 0f
+        val mirror = launch { shared.collect { if (it > sent) { sent = it; send(it) } } }
         lock.withLock {
             mirror.cancelAndJoin()
             if (isInstalled(pair)) { send(1f); return@withLock }
-            shared.value = 0f
-            download(pair) { p -> shared.value = p; send(p) }
+            try {
+                download(pair) { p ->
+                    shared.value = p
+                    if (p > sent || p == 1f) { sent = maxOf(sent, p); send(p) }
+                }
+            } finally {
+                // Waiters ignore 0, so a later caller never mirrors this download's last value
+                // (a stale 1f after a delete, or a failed attempt's 0.89).
+                shared.value = 0f
+            }
         }
     }.flowOn(ioDispatcher)
 
@@ -219,7 +230,8 @@ class BergamotModelStore(
     }
 
     override suspend fun delete(pair: ModelPair) {
-        packDir(pair).deleteRecursively()
+        // Under the pack's lock, so a delete never pulls the directory from under a download.
+        locks.getOrPut(pair.id) { Mutex() }.withLock { packDir(pair).deleteRecursively() }
         installedFlow.value = scanInstalled()
     }
 

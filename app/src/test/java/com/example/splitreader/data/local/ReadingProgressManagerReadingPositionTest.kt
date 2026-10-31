@@ -111,4 +111,13 @@ class ReadingProgressManagerReadingPositionTest {
         manager.clearProgress("/b/x")
         assertEquals(ReadingPosition.START, manager.getReadingPosition("/b/x"))
     }
+
+    @Test
+    fun `progress is null until saved, round-trips, and is cleared with the rest of the book's progress`() {
+        assertNull(manager.getProgress("/b/x"))
+        manager.saveProgress("/b/x", 0.25f)
+        assertEquals(0.25f, manager.getProgress("/b/x")!!, 0f)
+        manager.clearProgress("/b/x")
+        assertNull(manager.getProgress("/b/x"))
+    }
 }

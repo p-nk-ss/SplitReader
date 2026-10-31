@@ -16,9 +16,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +39,9 @@ import androidx.compose.material.icons.outlined.StickyNote2
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -166,7 +168,11 @@ fun AppShell(
         // "Keyboard up" means it takes height. Not WindowInsets.isImeVisible: that reads true until
         // the system first reports insets, and in the screenshot tests (where none are reported) it
         // hid the bottom bar in every shell golden since the keyboard-band fix.
-        val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        // derivedStateOf: the inset animates every frame while the keyboard moves; recompose the
+        // shell only when "up" actually flips.
+        val ime = WindowInsets.ime
+        val density = LocalDensity.current
+        val imeVisible by remember(ime, density) { derivedStateOf { ime.getBottom(density) > 0 } }
 
         // ONE skeleton for all three arms, and `content()` is called from exactly one place in it.
         // The arms differ only in which chrome they draw. This is load-bearing: rotating the device
