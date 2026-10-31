@@ -113,6 +113,28 @@ if (hasReleaseKeystore && billingPublicKey.isBlank()) {
     }
 }
 
+// Every signed bundle lands in ONE folder, named by version, whichever checkout built it (main or
+// a worktree): `mirrolit.releaseDir` in local.properties (gitignored, per machine), else
+// `<root>/releases` (also gitignored). bundleRelease → releases/mirrolit-<name>-<code>.aab, plus
+// that version's docs/store-assets/release-notes-<name>-<code>.md beside it when it exists.
+val localProperties = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) load(FileInputStream(f))
+}
+val releaseDir = localProperties.getProperty("mirrolit.releaseDir")?.let(::file) ?: rootProject.file("releases")
+val copyReleaseBundle by tasks.registering(Copy::class) {
+    val versionLabel = android.defaultConfig.let { "${it.versionName}-${it.versionCode}" }
+    from(layout.buildDirectory.file("outputs/bundle/release/app-release.aab")) {
+        rename { "mirrolit-$versionLabel.aab" }
+    }
+    from(rootProject.file("docs/store-assets/release-notes-$versionLabel.md")) {
+        rename { "mirrolit-$versionLabel-release-notes.md" }
+    }
+    into(releaseDir)
+    doLast { logger.lifecycle("Release bundle → ${releaseDir.resolve("mirrolit-$versionLabel.aab")}") }
+}
+tasks.matching { it.name == "bundleRelease" }.configureEach { finalizedBy(copyReleaseBundle) }
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

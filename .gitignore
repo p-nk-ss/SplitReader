@@ -38,3 +38,6 @@ app/google-services.json
 # Copyright-protected QA test books — staged into androidTest assets locally, never committed
 /qa_book/
 /app/build/generated/qaAssets/
+
+# Built release bundles (see copyReleaseBundle in app/build.gradle.kts)
+/releases/
