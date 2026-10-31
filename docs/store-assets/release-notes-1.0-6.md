@@ -1,13 +1,9 @@
 # Release notes — Mirrolit 1.0 (versionCode 6), internal testing
 
-## Play Console → "What's new" (en-US, 486 chars)
+## Play Console → "What's new" (en-US, 178 chars)
 
 ```
-• The word popup now shows its state: download progress, "Translating…", the translation or a short error. Save keeps the translation you see, with no second paid request.
-• A missing or invalid API key shows a clear error instead of silently switching to ML Kit. A strip names the engine when another one translated.
-• Page margins in Settings now work (4–48 dp).
-• Books reopen at the exact paragraph; bookmarks are more precise.
-• A hidden translation pane no longer uses paid quota.
+Clearer word translation popup, and Save no longer sends a second paid request. Wrong API keys now show an error. Page margins setting works. Books reopen at the exact paragraph.
 ```
 
 ## Note for internal testers
