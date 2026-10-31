@@ -259,7 +259,12 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success) {
 internal fun EmptyBookNotice(imagesHidden: Boolean = false, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
     Column(
-        modifier = modifier.padding(horizontal = 32.dp),
+        modifier = modifier
+            .padding(horizontal = 32.dp)
+            // Opaque: in the side-by-side layout the divider grip runs down the middle and would
+            // otherwise cross the text (seen on a tablet).
+            .background(palette.bg)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
