@@ -10,6 +10,9 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -48,11 +51,14 @@ class ScrollToItemAndHoldTest {
         repeat(count) { i -> add(if (i >= 30) 10 else 60) }
     }
 
+    private lateinit var scope: CoroutineScope
+
     private fun compose(hold: Boolean): () -> LazyListState {
         lateinit var state: LazyListState
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             state = rememberLazyListState()
+            scope = rememberCoroutineScope()
             Box(Modifier.size(320.dp, 400.dp)) {
                 LazyColumn(state = state, modifier = Modifier.testTag("list")) {
                     items(count) { i -> Box(Modifier.fillMaxWidth().height(heights[i].dp)) }
@@ -113,6 +119,20 @@ class ScrollToItemAndHoldTest {
         composeRule.mainClock.advanceTimeBy(200)
         assertNotEquals(target, state().firstVisibleItemIndex)
         assertEquals(afterDrag, state().firstVisibleItemIndex)
+    }
+
+    /**
+     * Any scroll the hold did not make ends it — the chapter picker's scrollToItem, the stacked
+     * layout's pane sync, a divider-strip drag (raw deltas, no DragInteraction), a mouse wheel.
+     * Found in review: the first version only stopped on a DragInteraction and snapped these back.
+     */
+    @Test
+    fun `a scroll the hold did not make ends it`() {
+        val state = compose(hold = true)
+        composeRule.runOnUiThread { scope.launch { runCatching { state().scrollToItem(5) } } }
+        composeRule.mainClock.advanceTimeBy(200)
+        growTail()
+        assertEquals(5, state().firstVisibleItemIndex)
     }
 
     @Test

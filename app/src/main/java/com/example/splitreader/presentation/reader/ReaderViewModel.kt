@@ -380,11 +380,13 @@ class ReaderViewModel @Inject constructor(
         progressManager.updateAppearance(transform)
         val after = progressManager.appearance.value
         if (after.showTranslation != before.showTranslation) notifyEngineSettings()
-        // Illustrations are list items, so toggling them shifts every item index: re-anchor on the
-        // paragraph being read (through the one jump path) or the list shows, and then saves, a
-        // different one. The pixel offset belongs to the old layout, so it is dropped.
+        // Illustrations are list items. When the top item is one being hidden, its key disappears
+        // and the list falls back to the old item index — a paragraph several screens away, which
+        // then got saved. Re-anchor on the paragraph being read through the one jump path. The
+        // offset is kept: a paragraph's own layout does not depend on illustrations, and
+        // positionAt already reports 0 when the top item is an illustration.
         if (after.showIllustrations != before.showIllustrations) {
-            _state.update { s -> s.copy(pendingJump = s.position.copy(offset = 0)) }
+            _state.update { s -> s.copy(pendingJump = s.position) }
         }
     }
 

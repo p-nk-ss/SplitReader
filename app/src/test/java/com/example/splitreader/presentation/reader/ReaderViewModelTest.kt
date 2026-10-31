@@ -193,8 +193,7 @@ class ReaderViewModelTest {
         h.vm.updateAppearance { it.copy(showIllustrations = !it.showIllustrations) }
         advanceUntilIdle()
 
-        // Offset 0: a pixel offset into the old layout means nothing in the new one.
-        assertEquals(ReadingPosition(2, 1, 0), h.success().pendingJump)
+        assertEquals(ReadingPosition(2, 1, 37), h.success().pendingJump)
     }
 
     @Test
