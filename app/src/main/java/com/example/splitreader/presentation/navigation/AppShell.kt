@@ -16,9 +16,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
+
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -162,8 +163,10 @@ fun AppShell(
             isRailTooTall(maxHeight) -> ShellArm.SHORT_RAIL
             else -> ShellArm.FULL_RAIL
         }
-        @OptIn(ExperimentalLayoutApi::class)
-        val imeVisible = WindowInsets.isImeVisible
+        // "Keyboard up" means it takes height. Not WindowInsets.isImeVisible: that reads true until
+        // the system first reports insets, and in the screenshot tests (where none are reported) it
+        // hid the bottom bar in every shell golden since the keyboard-band fix.
+        val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
         // ONE skeleton for all three arms, and `content()` is called from exactly one place in it.
         // The arms differ only in which chrome they draw. This is load-bearing: rotating the device
