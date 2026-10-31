@@ -154,159 +154,117 @@ fun AppShell(
             .fillMaxSize()
             .background(palette.bg),
     ) {
-        when {
-            isCompactWidth(maxWidth) -> {
-                @OptIn(ExperimentalLayoutApi::class)
-                val imeVisible = WindowInsets.isImeVisible
-                Column(Modifier.fillMaxSize()) {
-                    if (isReader) {
-                        // The strip is pure chrome — wordmark and either "ML KIT READY" or the
-                        // avatar — and while reading it is only lost page area. But it is also
-                        // the app's only consumer of the top inset, so it cannot simply vanish:
-                        // without this spacer the first line of text would run under the system
-                        // clock. Reclaims the strip's 30/44dp and keeps the inset.
-                        Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
-                    } else {
-                        AppStatusStrip(
-                            height = sp.statusBarCompact,
-                            trailing = {
-                                CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
-                            },
-                        )
-                    }
-                    Box(
-                        Modifier
-                            .testTag(ShellTestTags.CONTENT)
-                            .weight(1f)
-                            .fillMaxWidth()
-                            // No rail beside this arm's content, so it takes both sides.
-                            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Horizontal))
-                            // The top inset is spent ABOVE this Box — by AppStatusStrip, or by
-                            // the bare Spacer in the reader arms. windowInsetsPadding publishes its
-                            // consumption only to DESCENDANTS, and those are siblings, so without
-                            // this line a child that pads for statusBars itself pads it a second
-                            // time. That is not hypothetical: the stacked reader's top pane did
-                            // exactly that and gained a 24dp blank band above the first line.
-                            .consumeWindowInsets(shellInsets.only(WindowInsetsSides.Top))
-                            // imePadding goes on the content, NOT on the bar: otherwise the bar
-                            // rides up on top of the keyboard and covers the field being typed
-                            // into (Words/Catalog search).
-                            .imePadding(),
-                    ) {
-                        content()
-                    }
-                    // The bar leaves while the keyboard is up. It cannot simply stay: insets are
-                    // measured from the WINDOW edge, so with the bar still stacked below it the
-                    // content's imePadding ended one bar-height (64dp + gesture inset) above the
-                    // keyboard and the shell background showed through as an empty band over every
-                    // search field. Pinned by ImeInsetInvariantTest.
-                    if (!isReader && !imeVisible) {
-                        EditorialBottomBar(
+        val arm = when {
+            isCompactWidth(maxWidth) -> ShellArm.COMPACT
+            // Wide but short (e.g. a phone in landscape): a bottom bar would spend the scarce axis,
+            // so this posture gets a rail instead — just the icon-only one, which doesn't need the
+            // full rail's 530dp of headroom.
+            isRailTooTall(maxHeight) -> ShellArm.SHORT_RAIL
+            else -> ShellArm.FULL_RAIL
+        }
+        @OptIn(ExperimentalLayoutApi::class)
+        val imeVisible = WindowInsets.isImeVisible
+
+        // ONE skeleton for all three arms, and `content()` is called from exactly one place in it.
+        // The arms differ only in which chrome they draw. This is load-bearing: rotating the device
+        // recreates the activity and can switch arms, and every `rememberSaveable` below the shell
+        // (the NavHost's per-screen saved state, the reader's scroll position) is keyed by its
+        // position in the composition. When each arm called `content()` from its own `when` branch,
+        // the restored state was filed under a different key and silently dropped — turning a phone
+        // to landscape showed the start of the book. Pinned by AppShellStateRestorationTest.
+        Column(Modifier.fillMaxSize()) {
+            when {
+                // The strip is pure chrome — wordmark and either "ML KIT READY" or the avatar —
+                // and while reading it is only lost page area. But it is also the app's only
+                // consumer of the top inset, so it cannot simply vanish: without this spacer the
+                // first line of text would run under the system clock. Reclaims the strip's
+                // 30/44dp and keeps the inset. The short-rail arm never shows the strip: the
+                // account avatar lives in the rail, so the strip would hold only the wordmark and
+                // "ML KIT READY" — decoration, in the posture with the least room.
+                isReader || arm == ShellArm.SHORT_RAIL ->
+                    Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
+                arm == ShellArm.COMPACT -> AppStatusStrip(
+                    height = sp.statusBarCompact,
+                    trailing = {
+                        CompactAvatar(label = avatarLabel, onClick = onNavigateToAccount)
+                    },
+                )
+                else -> AppStatusStrip()
+            }
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                if (!isReader) {
+                    when (arm) {
+                        ShellArm.SHORT_RAIL -> CompactNavigationRail(
                             currentRoute = currentRoute,
+                            avatarLabel = avatarLabel,
                             onNavigateToHome = onNavigateToHome,
                             onNavigateToCatalog = onNavigateToCatalog,
                             onNavigateToAlmanac = onNavigateToAlmanac,
                             onNavigateToWords = onNavigateToWords,
                             onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToAccount = onNavigateToAccount,
                         )
+                        ShellArm.FULL_RAIL -> EditorialNavigationRail(
+                            currentRoute = currentRoute,
+                            avatarLabel = avatarLabel,
+                            avatarSubtitle = avatarSubtitle,
+                            onNavigateToHome = onNavigateToHome,
+                            onNavigateToCatalog = onNavigateToCatalog,
+                            onNavigateToAlmanac = onNavigateToAlmanac,
+                            onNavigateToWords = onNavigateToWords,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToAccount = onNavigateToAccount,
+                        )
+                        ShellArm.COMPACT -> Unit
                     }
+                }
+                // A rail (when present) already consumed the Start inset for itself, so content only
+                // needs the End. With no rail — the compact arm, or any arm while reading — nothing
+                // else consumes it, so the content takes both sides.
+                val contentInsetSides =
+                    if (arm == ShellArm.COMPACT || isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
+                Box(
+                    Modifier
+                        .testTag(ShellTestTags.CONTENT)
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .windowInsetsPadding(shellInsets.only(contentInsetSides))
+                        // The top inset is spent ABOVE this Box — by AppStatusStrip, or by the bare
+                        // Spacer in the reader arms. windowInsetsPadding publishes its consumption
+                        // only to DESCENDANTS, and those are siblings, so without this line a child
+                        // that pads for statusBars itself pads it a second time. That is not
+                        // hypothetical: the stacked reader's top pane did exactly that and gained a
+                        // 24dp blank band above the first line.
+                        .consumeWindowInsets(shellInsets.only(WindowInsetsSides.Top))
+                        // imePadding goes on the content, NOT on the bar: otherwise the bar rides up
+                        // on top of the keyboard and covers the field being typed into
+                        // (Words/Catalog search). Compact arm only, as before.
+                        .then(if (arm == ShellArm.COMPACT) Modifier.imePadding() else Modifier),
+                ) {
+                    content()
                 }
             }
-            isRailTooTall(maxHeight) -> {
-                // Wide but short (e.g. a phone in landscape): a bottom bar would spend the
-                // scarce axis, so this posture gets a rail instead — just the icon-only one,
-                // which doesn't need the full rail's 530dp of headroom. No status strip here in
-                // either the reader or elsewhere: the account avatar lives in the rail, so the
-                // strip would hold only the wordmark and "ML KIT READY" — decoration, in the
-                // posture with the least room. The bare inset spacer keeps the top inset
-                // consumed without spending height on chrome.
-                Column(Modifier.fillMaxSize()) {
-                    Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
-                    Row(Modifier.weight(1f).fillMaxWidth()) {
-                        if (!isReader) {
-                            CompactNavigationRail(
-                                currentRoute = currentRoute,
-                                avatarLabel = avatarLabel,
-                                onNavigateToHome = onNavigateToHome,
-                                onNavigateToCatalog = onNavigateToCatalog,
-                                onNavigateToAlmanac = onNavigateToAlmanac,
-                                onNavigateToWords = onNavigateToWords,
-                                onNavigateToSettings = onNavigateToSettings,
-                                onNavigateToAccount = onNavigateToAccount,
-                            )
-                        }
-                        // The rail (when present) already consumed the Start inset for itself.
-                        // With no rail (isReader) nothing else consumes it, so the content takes
-                        // both sides instead of just the End.
-                        val contentInsetSides = if (isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
-                        Box(
-                            Modifier
-                                .testTag(ShellTestTags.CONTENT)
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .windowInsetsPadding(shellInsets.only(contentInsetSides))
-                                // The top inset is spent ABOVE this Box — by AppStatusStrip, or by
-                                // the bare Spacer in the reader arms. windowInsetsPadding publishes its
-                                // consumption only to DESCENDANTS, and those are siblings, so without
-                                // this line a child that pads for statusBars itself pads it a second
-                                // time. That is not hypothetical: the stacked reader's top pane did
-                                // exactly that and gained a 24dp blank band above the first line.
-                                .consumeWindowInsets(shellInsets.only(WindowInsetsSides.Top)),
-                        ) {
-                            content()
-                        }
-                    }
-                }
-            }
-            else -> {
-                Column(Modifier.fillMaxSize()) {
-                    if (isReader) {
-                        // Same inset trap as the branches above: the strip is the only consumer
-                        // of the top inset, so the reader still needs a bare spacer for it.
-                        Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
-                    } else {
-                        AppStatusStrip()
-                    }
-                    Row(Modifier.weight(1f).fillMaxWidth()) {
-                        if (!isReader) {
-                            EditorialNavigationRail(
-                                currentRoute = currentRoute,
-                                avatarLabel = avatarLabel,
-                                avatarSubtitle = avatarSubtitle,
-                                onNavigateToHome = onNavigateToHome,
-                                onNavigateToCatalog = onNavigateToCatalog,
-                                onNavigateToAlmanac = onNavigateToAlmanac,
-                                onNavigateToWords = onNavigateToWords,
-                                onNavigateToSettings = onNavigateToSettings,
-                                onNavigateToAccount = onNavigateToAccount,
-                            )
-                        }
-                        // Same asymmetry as the compact-height arm above: the rail (when present)
-                        // already consumed the Start inset, so content only needs the End — unless
-                        // the rail is hidden (isReader), in which case content takes both sides.
-                        val contentInsetSides = if (isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
-                        Box(
-                            Modifier
-                                .testTag(ShellTestTags.CONTENT)
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .windowInsetsPadding(shellInsets.only(contentInsetSides))
-                                // The top inset is spent ABOVE this Box — by AppStatusStrip, or by
-                                // the bare Spacer in the reader arms. windowInsetsPadding publishes its
-                                // consumption only to DESCENDANTS, and those are siblings, so without
-                                // this line a child that pads for statusBars itself pads it a second
-                                // time. That is not hypothetical: the stacked reader's top pane did
-                                // exactly that and gained a 24dp blank band above the first line.
-                                .consumeWindowInsets(shellInsets.only(WindowInsetsSides.Top)),
-                        ) {
-                            content()
-                        }
-                    }
-                }
+            // The bar leaves while the keyboard is up. It cannot simply stay: insets are measured
+            // from the WINDOW edge, so with the bar still stacked below it the content's imePadding
+            // ended one bar-height (64dp + gesture inset) above the keyboard and the shell
+            // background showed through as an empty band over every search field. Pinned by
+            // ImeInsetInvariantTest.
+            if (arm == ShellArm.COMPACT && !isReader && !imeVisible) {
+                EditorialBottomBar(
+                    currentRoute = currentRoute,
+                    onNavigateToHome = onNavigateToHome,
+                    onNavigateToCatalog = onNavigateToCatalog,
+                    onNavigateToAlmanac = onNavigateToAlmanac,
+                    onNavigateToWords = onNavigateToWords,
+                    onNavigateToSettings = onNavigateToSettings,
+                )
             }
         }
     }
 }
+
+/** The shell's three postures; see the inset table above. */
+private enum class ShellArm { COMPACT, SHORT_RAIL, FULL_RAIL }
 
 @Composable
 private fun AppStatusStrip(
