@@ -6,6 +6,8 @@ import com.example.splitreader.domain.translator.ModelPair
 import com.example.splitreader.domain.translator.OfflinePackCorruptException
 import com.example.splitreader.domain.translator.OfflinePackDownloadException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -58,7 +60,10 @@ class BergamotModelStoreTest {
     private inner class FakeFetcher(
         var cutAfter: Long = -1,
         private val corruptModelOnce: Boolean = false,
+        /** Suspend between chunks, as a real socket read does, so concurrent downloads interleave. */
+        private val yieldBetweenChunks: Boolean = false,
     ) : PackFetcher {
+        val fetchedUrls = mutableListOf<String>()
         private val bodies = mapOf(
             "https://bucket/models/m.gz" to gz(modelBytes),
             "https://bucket/models/v.gz" to gz(vocabBytes),
@@ -69,6 +74,7 @@ class BergamotModelStoreTest {
         val offsets = mutableListOf<Long>()
         override suspend fun fetch(url: String, offset: Long, onChunk: suspend (ByteArray, Int) -> Unit): Long {
             offsets += offset
+            fetchedUrls += url
             var body = bodies.getValue(url)
             if (corrupted && url.endsWith("m.gz")) { corrupted = false; body = gz(modelBytes.reversedArray()) }
             var sent = 0L
@@ -78,6 +84,7 @@ class BergamotModelStoreTest {
                 if (cutAfter in 0..(sent + n - 1)) { cutAfter = -1; throw IOException("cut") }
                 onChunk(body.copyOfRange(i, i + n), n)
                 i += n; sent += n
+                if (yieldBetweenChunks) yield()
             }
             return sent
         }
@@ -105,6 +112,50 @@ class BergamotModelStoreTest {
         assertTrue(s.isInstalled(enRu))
         assertEquals(1f, progress.last())
         assertTrue(progress.zipWithNext().all { (a, b) -> b >= a })
+        assertEquals(modelBytes.toList(), s.packDir(enRu).resolve(BergamotModelStore.MODEL).readBytes().toList())
+    }
+
+    /**
+     * Found on a tablet: switching to a new language with Offline HQ made the translation pane's
+     * prepare() and the word popup's prepare() download the same pack at once. Both appended to the
+     * one `.gz.part`, the bytes interleaved, the hash failed, the retry deleted the file under the
+     * other download — "The Offline HQ pack was corrupted and could not be re-downloaded."
+     */
+    @Test
+    fun `two concurrent ensures of the same pack download it once and both succeed`() = runTest {
+        val fetcher = FakeFetcher(yieldBetweenChunks = true)
+        val s = store(fetcher)
+        val a = async { s.ensure(enRu).toList() }
+        val b = async { s.ensure(enRu).toList() }
+        assertEquals(1f, a.await().last())
+        assertEquals(1f, b.await().last())
+        assertTrue(s.isInstalled(enRu))
+        assertEquals(modelBytes.toList(), s.packDir(enRu).resolve(BergamotModelStore.MODEL).readBytes().toList())
+        assertEquals("the model is fetched once", 1, fetcher.fetchedUrls.count { it.endsWith("m.gz") })
+    }
+
+    /** The waiting caller (e.g. the word popup) still shows a moving percentage, not a frozen 0%. */
+    @Test
+    fun `a caller waiting on a running download sees its progress`() = runTest {
+        val s = store(FakeFetcher(yieldBetweenChunks = true))
+        val a = async { s.ensure(enRu).toList() }
+        val b = async { s.ensure(enRu).toList() }
+        a.await()
+        val waited = b.await()
+        assertTrue("waiter saw in-flight progress: $waited", waited.any { it > 0f && it < 1f })
+        assertTrue(waited.zipWithNext().all { (x, y) -> y >= x })
+        assertEquals(1f, waited.last())
+    }
+
+    @Test
+    fun `when the running download fails, a waiting caller makes its own attempt`() = runTest {
+        val fetcher = FakeFetcher(cutAfter = 3000, yieldBetweenChunks = true)
+        val s = store(fetcher)
+        val a = async { runCatching { s.ensure(enRu).toList() } }
+        val b = async { s.ensure(enRu).toList() }
+        assertTrue("first download was cut", a.await().exceptionOrNull() is OfflinePackDownloadException)
+        assertEquals(1f, b.await().last())
+        assertTrue(s.isInstalled(enRu))
         assertEquals(modelBytes.toList(), s.packDir(enRu).resolve(BergamotModelStore.MODEL).readBytes().toList())
     }
 

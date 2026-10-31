@@ -8,14 +8,20 @@ import com.example.splitreader.domain.translator.OfflineModelStore
 import com.example.splitreader.domain.translator.OfflinePackCorruptException
 import com.example.splitreader.domain.translator.OfflinePackDownloadException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
@@ -81,8 +87,31 @@ class BergamotModelStore(
         emitAll(installedFlow.filterNotNull())
     }
 
-    override fun ensure(pair: ModelPair): Flow<Float> = flow {
-        if (isInstalled(pair)) { emit(1f); return@flow }
+    /**
+     * One download per pack at a time. The reader's pane, the word popup and every paragraph's
+     * translate() call ensure() for the same pair at once after a language change; without this
+     * they all appended to the same `.gz.part`, interleaving bytes, and the hash check then failed
+     * ("corrupted and could not be re-downloaded"), found on a device. A caller that finds the pack
+     * being downloaded mirrors that download's progress while it waits, then takes the lock: by then
+     * the pack is installed (it emits 1f), or the other download failed and it makes its own attempt.
+     */
+    private val locks = ConcurrentHashMap<String, Mutex>()
+    private val progress = ConcurrentHashMap<String, MutableStateFlow<Float>>()
+
+    override fun ensure(pair: ModelPair): Flow<Float> = channelFlow {
+        if (isInstalled(pair)) { send(1f); return@channelFlow }
+        val lock = locks.getOrPut(pair.id) { Mutex() }
+        val shared = progress.getOrPut(pair.id) { MutableStateFlow(0f) }
+        val mirror = launch { shared.collect { if (it > 0f) send(it) } }
+        lock.withLock {
+            mirror.cancelAndJoin()
+            if (isInstalled(pair)) { send(1f); return@withLock }
+            shared.value = 0f
+            download(pair) { p -> shared.value = p; send(p) }
+        }
+    }.flowOn(ioDispatcher)
+
+    private suspend fun download(pair: ModelPair, emit: suspend (Float) -> Unit) {
         val entry = manifest.find(pair)
             ?: throw OfflinePackDownloadException(pair, 0, IllegalStateException("not in manifest"))
         val needed = (entry.model.size ?: 0L) * 2
@@ -132,7 +161,7 @@ class BergamotModelStore(
         // installed() must not stay stale while isInstalled() already reports true.
         installedFlow.value = scanInstalled()
         emit(1f)
-    }.flowOn(ioDispatcher)
+    }
 
     private suspend fun downloadOne(
         pair: ModelPair, dir: File, mf: ManifestFile, name: String, progress: suspend (Float) -> Unit,
