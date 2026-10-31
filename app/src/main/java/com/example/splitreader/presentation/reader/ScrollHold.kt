@@ -27,10 +27,12 @@ internal const val JUMP_HOLD_MILLIS = 10_000L
  * is what gets saved). So, on each layout change, the target is re-applied if the list has drifted
  * from it.
  *
- * Only while the list sits exactly where this function last left it: rows growing below the first
- * visible item do not move that item, so the clamp case is caught, while ANY other scroll — a drag,
- * a fling, the chapter picker's scrollToItem, the stacked layout's pane sync, a divider-strip drag
- * (raw deltas, no DragInteraction), a mouse wheel, TalkBack — moves it and ends the hold for good.
+ * Only while the list sits where this function last left it, or is still pinned at its end: rows
+ * growing below the first visible item do not move that item, and a list that merely re-clamps (a
+ * taller viewport when the reader's bars auto-hide, a row shrinking) stays at the end — both keep
+ * the hold going. ANY other scroll — a drag, a fling, the chapter picker's scrollToItem, the stacked
+ * layout's pane sync, a divider-strip drag (raw deltas, no DragInteraction), a mouse wheel,
+ * TalkBack — leaves the list somewhere it can still scroll forward from and ends the hold for good.
  * The drag listener just ends it a frame earlier.
  */
 internal suspend fun LazyListState.scrollToItemAndHold(index: Int, offset: Int) {
@@ -47,7 +49,9 @@ internal suspend fun LazyListState.scrollToItemAndHold(index: Int, offset: Int) 
                 .collect {
                     val now = firstVisibleItemIndex to firstVisibleItemScrollOffset
                     if (now == index to offset) return@collect
-                    if (now != leftAt) { // someone else scrolled: the position is theirs now
+                    // Moved, and not just re-clamped at the end (a taller viewport when the bars
+                    // auto-hide, a row shrinking): someone else scrolled, the position is theirs.
+                    if (now != leftAt && canScrollForward) {
                         this@coroutineScope.cancel()
                         return@collect
                     }

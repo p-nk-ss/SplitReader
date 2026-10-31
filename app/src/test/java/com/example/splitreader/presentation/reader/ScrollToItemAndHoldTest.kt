@@ -9,7 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -53,13 +56,16 @@ class ScrollToItemAndHoldTest {
 
     private lateinit var scope: CoroutineScope
 
+    /** Viewport height in dp; the reader's bars hiding makes the list taller. */
+    private var viewport by mutableIntStateOf(400)
+
     private fun compose(hold: Boolean): () -> LazyListState {
         lateinit var state: LazyListState
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             state = rememberLazyListState()
             scope = rememberCoroutineScope()
-            Box(Modifier.size(320.dp, 400.dp)) {
+            Box(Modifier.size(320.dp, viewport.dp)) {
                 LazyColumn(state = state, modifier = Modifier.testTag("list")) {
                     items(count) { i -> Box(Modifier.fillMaxWidth().height(heights[i].dp)) }
                 }
@@ -133,6 +139,21 @@ class ScrollToItemAndHoldTest {
         composeRule.mainClock.advanceTimeBy(200)
         growTail()
         assertEquals(5, state().firstVisibleItemIndex)
+    }
+
+    /**
+     * The reader's bars auto-hide 3.5 s after a jump, so the list gets taller and, clamped at the
+     * end, re-clamps to an earlier item by itself. That is not someone else's scroll: the hold
+     * must keep going so late translations still land the target. Found in re-review.
+     */
+    @Test
+    fun `the list re-clamping by itself at the end does not end the hold`() {
+        viewport = 300
+        val state = compose(hold = true)
+        composeRule.runOnUiThread { viewport = 400; Snapshot.sendApplyNotifications() }
+        composeRule.mainClock.advanceTimeBy(200)
+        growTail()
+        assertEquals(target, state().firstVisibleItemIndex)
     }
 
     @Test
