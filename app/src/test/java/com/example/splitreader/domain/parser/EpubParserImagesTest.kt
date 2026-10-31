@@ -40,7 +40,7 @@ class EpubParserImagesTest {
     private fun img(name: String) = """<div class="figright"><img src="$name" alt="x"/><span class="caption">Caption $name</span></div>"""
 
     /** Writes an EPUB whose spine is [files] in order; images a.png..d.png are always present. */
-    private fun epub(vararg files: String): Uri {
+    private fun epub(vararg files: String, cover: String? = null, svg: Boolean = false): Uri {
         val f = File(tmp.root, "b${System.nanoTime()}.epub")
         ZipOutputStream(f.outputStream()).use { z ->
             val mime = "application/epub+zip".toByteArray()
@@ -52,8 +52,12 @@ class EpubParserImagesTest {
             put("META-INF/container.xml", """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""".toByteArray())
             files.forEachIndexed { i, body -> put("OEBPS/c$i.xhtml", html(body).toByteArray()) }
             listOf("a", "b", "c", "d").forEach { put("OEBPS/$it.png", png + it.toByteArray()) }
+            if (svg) put("OEBPS/t.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".toByteArray())
             val manifest = files.indices.joinToString("") { """<item id="c$it" href="c$it.xhtml" media-type="application/xhtml+xml"/>""" } +
-                listOf("a", "b", "c", "d").joinToString("") { """<item id="$it" href="$it.png" media-type="image/png"/>""" }
+                listOf("a", "b", "c", "d").joinToString("") {
+                    val prop = if (cover == "$it.png") " properties=\"cover-image\"" else ""
+                    """<item id="$it" href="$it.png" media-type="image/png"$prop/>"""
+                } + (if (svg) """<item id="t" href="t.svg" media-type="image/svg+xml"/>""" else "")
             val spine = files.indices.joinToString("") { """<itemref idref="c$it"/>""" }
             put("OEBPS/content.opf", """<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">x</dc:identifier><dc:title>T</dc:title><dc:language>en</dc:language></metadata><manifest>$manifest</manifest><spine>$spine</spine></package>""".toByteArray())
         }
@@ -97,5 +101,42 @@ class EpubParserImagesTest {
         val book = parse(epub(img("d.png") + "<h1>One</h1>" + p(2, "A")))
         assertEquals(1, book.chapters.size)
         assertEquals(listOf(0), book.chapters[0].images.map { it.anchorParagraph })
+    }
+
+    @Test
+    fun `the cover page does not repeat the library cover in chapter 1`() = runTest {
+        val book = parse(epub(img("a.png"), "<h1>One</h1>" + p(2, "A"), cover = "a.png"))
+        assertEquals(1, book.chapters.size)
+        assertTrue(book.chapters[0].images.isEmpty())
+    }
+
+    @Test
+    fun `an SVG title page is skipped, not shown as an empty slot`() = runTest {
+        val book = parse(epub(img("t.svg"), "<h1>One</h1>" + p(2, "A"), svg = true))
+        assertTrue(book.chapters[0].images.isEmpty())
+    }
+
+    @Test
+    fun `a drop-cap image inside text stays a letter, not an illustration`() = runTest {
+        val book = parse(epub("""<p><img src="a.png" alt="C"/>hapter text that starts with a drop cap and goes on.</p>""" + p(1, "B")))
+        assertTrue(book.chapters[0].images.isEmpty())
+        assertTrue(book.chapters[0].paragraphs[0], book.chapters[0].paragraphs[0].startsWith("Chapter text"))
+    }
+
+    @Test
+    fun `a book of only images gets one chapter holding them`() = runTest {
+        val book = parse(epub(img("a.png"), img("b.png")))
+        assertEquals(1, book.chapters.size)
+        assertEquals(2, book.chapters[0].images.size)
+    }
+
+    @Test
+    fun `only images the old parser produced are marked as legacy layout`() = runTest {
+        val book = parse(epub(
+            p(1, "A") + img("a.png") + p(1, "B"),                       // heading-less: new
+            img("c.png") + "<h1>Two</h1>" + p(1, "C") + img("b.png") + p(1, "D"), // before heading: new; after: old
+        ))
+        assertEquals(listOf(false), book.chapters[0].images.map { it.inLegacyLayout })
+        assertEquals(listOf(false, true), book.chapters[1].images.map { it.inLegacyLayout })
     }
 }

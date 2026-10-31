@@ -78,7 +78,8 @@ class MigrateLegacyReadingPositionsUseCase @Inject constructor(
             showIllustrations: Boolean,
         ): ReadingPosition {
             if (chapter.paragraphs.isEmpty()) return ReadingPosition(chapterIndex, 0, 0)
-            val images = if (showIllustrations) chapter.images else emptyList()
+            // Only images the old parser produced: the saved item indices were written against them.
+            val images = if (showIllustrations) chapter.images.filter { it.inLegacyLayout } else emptyList()
             val layout: List<Int?> = buildList {
                 add(null) // masthead
                 chapter.paragraphs.indices.forEach { idx ->

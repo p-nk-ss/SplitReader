@@ -108,6 +108,21 @@ class MigrateLegacyReadingPositionsUseCaseTest {
     // broken (a single combined test's assertEquals calls stop at the first failure, masking the
     // rest). Values are unchanged from the original combined test.
 
+    /**
+     * Review of the 2026-10 parser change: images the new parser adds (a cover page's image opening
+     * chapter 1) did not exist when legacy item indices were saved. Counting them shifted every
+     * position one paragraph up and merged neighbouring bookmarks.
+     */
+    @Test
+    fun `images added by the new parser are not part of the legacy layout`() {
+        val ch = Chapter(
+            index = 0, title = "C", paragraphs = listOf("p0", "p1", "p2"),
+            images = listOf(ChapterImage(0, "/cover.png", inLegacyLayout = false)),
+        )
+        assertEquals(ReadingPosition(0, 0, 0), legacyItemToPosition(ch, 0, 1, 0, showIllustrations = true))
+        assertEquals(ReadingPosition(0, 1, 0), legacyItemToPosition(ch, 0, 2, 0, showIllustrations = true))
+    }
+
     @Test
     fun `legacy item 0, the masthead, maps to the first paragraph below`() {
         assertEquals(ReadingPosition(0, 0, 0), legacyItemToPosition(ch0, 0, 0, 9, showIllustrations = true))

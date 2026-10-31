@@ -16,4 +16,11 @@ data class Chapter(
 data class ChapterImage(
     val anchorParagraph: Int,
     val path: String,
+    /**
+     * True for images the pre-2026-10 parser also produced (EPUB images after a chapter heading;
+     * every MOBI/FB2 image). Legacy item-index migration replays the OLD layout and must count only
+     * these, or a position saved before images were added converts to an earlier paragraph and
+     * neighbouring bookmarks merge. Never persisted: books are parsed on every open.
+     */
+    val inLegacyLayout: Boolean = true,
 )

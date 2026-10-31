@@ -22,7 +22,12 @@ object HtmlChapterExtractor {
 
     /** An inline image reference. [src] is the raw HTML src/href; [anchorParagraph] indexes into the
      * FINAL chapter paragraph list (epigraph + main), before which the image renders. */
-    data class ImageRef(val src: String, val anchorParagraph: Int)
+    data class ImageRef(
+        val src: String,
+        val anchorParagraph: Int,
+        /** Produced before 2026-10 too (an image after the heading) — see ChapterImage.inLegacyLayout. */
+        val inLegacyLayout: Boolean = false,
+    )
 
     data class Result(
         val headingTitle: String?,
@@ -61,6 +66,16 @@ object HtmlChapterExtractor {
         if (headingEl == null) {
             // Images count too: a chapter file without an h1–h3 (Gutenberg's illustrated "Alice"
             // has none) lost every image, and a file of only images was dropped whole.
+            // A small image inside a paragraph of text is a glyph (a Gutenberg drop cap "C"), not an
+            // illustration: keep its letter in the text instead of a full-width image after it.
+            for (glyph in body.select("p img")) {
+                val p = glyph.closest("p") ?: continue
+                if (p.text().isBlank()) continue
+                val alt = glyph.attr("alt").trim()
+                val looksLikeGlyph = alt.length in 1..3 ||
+                    glyph.classNames().any { c -> listOf("drop", "initial", "cap").any { it in c.lowercase() } }
+                if (looksLikeGlyph) glyph.replaceWith(org.jsoup.nodes.TextNode(alt))
+            }
             val paras = mutableListOf<String>()
             val refs = mutableListOf<ImageRef>()
             for (el in body.select("p, img, image")) {
@@ -92,7 +107,7 @@ object HtmlChapterExtractor {
             when {
                 tag in listOf("h1", "h2", "h3") -> foundHeading = true
                 (tag == "img" || tag == "image") && foundHeading -> {
-                    imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size)) }
+                    imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size, inLegacyLayout = true)) }
                 }
                 tag == "img" || tag == "image" -> imageSrc(el)?.let { leadingImageRefs.add(ImageRef(it, 0)) }
                 !foundHeading && tag == "p" && el.closest("blockquote") == null -> {
