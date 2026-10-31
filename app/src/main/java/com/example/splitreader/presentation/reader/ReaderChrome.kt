@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationState
+import com.example.splitreader.domain.model.progressAt
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.Newsreader
@@ -200,8 +201,7 @@ internal fun ChapterMasthead(
 internal fun ReaderStatusFooter(state: ReaderUiState.Success) {
     val palette = LocalReaderPalette.current
     val edgeColor = palette.edge
-    val progress = if (state.book.chapters.isNotEmpty())
-        (state.currentChapterIndex + 1).toFloat() / state.book.chapters.size else 0f
+    val progress = state.book.progressAt(state.position)
 
     Row(
         modifier = Modifier
@@ -250,6 +250,33 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success) {
 }
 
 // ── Translation banner ────────────────────────────────────────────────────
+
+/** Shown over the reader when the book has nothing to display (no text, no shown images). */
+@Composable
+internal fun EmptyBookNotice(modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
+    Column(
+        modifier = modifier.padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "Nothing to read here",
+            fontFamily = Newsreader,
+            fontWeight = FontWeight.Medium,
+            fontSize = 20.sp,
+            color = palette.ink,
+        )
+        Text(
+            text = "This book has no text Mirrolit can show. It may contain only images or use a layout that isn't supported yet.",
+            fontFamily = Newsreader,
+            fontStyle = FontStyle.Italic,
+            fontSize = 14.sp,
+            color = palette.ink2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+}
 
 @Composable
 internal fun TranslationBanner(label: String, modifier: Modifier = Modifier, progress: Int? = null) {

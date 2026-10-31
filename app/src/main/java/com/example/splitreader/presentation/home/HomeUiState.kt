@@ -11,7 +11,12 @@ data class BookItem(
     val lastOpenedAt: Long = 0L,
     val synopsis: String? = null,
     val excerpt: String? = null,
-)
+    /** 0f..1f by paragraph (Book.progressAt), 1f once finished; chapter ratio for books read before it was saved. */
+    val progress: Float = 0f,
+) {
+    /** Opened and read past its first paragraph; "Reading" vs "Unread" on the shelf. */
+    val isStarted: Boolean get() = progress > 0f || lastChapterIndex > 0
+}
 
 data class HomeUiState(
     val books: List<BookItem> = emptyList(),

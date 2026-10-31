@@ -177,9 +177,9 @@ internal fun HomeScreen(
 
     val filteredBooks = remember(uiState.books, shelfFilter, searchQuery) {
         val byShelf = when (shelfFilter) {
-            1 -> uiState.books.filter { it.lastChapterIndex > 0 && !it.isFinished }
+            1 -> uiState.books.filter { it.isStarted && !it.isFinished }
             2 -> uiState.books.filter { it.isFinished }
-            3 -> uiState.books.filter { it.lastChapterIndex == 0 && !it.isFinished }
+            3 -> uiState.books.filter { !it.isStarted && !it.isFinished }
             else -> uiState.books
         }
         val query = searchQuery.trim()
@@ -299,9 +299,9 @@ internal fun HomeScreen(
         item(span = { GridItemSpan(maxLineSpan) }) {
             ShelfHeader(
                 totalCount = uiState.books.size,
-                readingCount = uiState.books.count { it.lastChapterIndex > 0 && !it.isFinished },
+                readingCount = uiState.books.count { it.isStarted && !it.isFinished },
                 finishedCount = uiState.books.count { it.isFinished },
-                unreadCount = uiState.books.count { it.lastChapterIndex == 0 && !it.isFinished },
+                unreadCount = uiState.books.count { !it.isStarted && !it.isFinished },
                 selectedFilter = shelfFilter,
                 onFilterSelected = { shelfFilter = it },
             )

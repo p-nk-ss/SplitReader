@@ -158,7 +158,7 @@ internal fun coverSpec(title: String, uri: String): CoverSpec {
 internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> Unit) {
     val palette = LocalReaderPalette.current
     val spec = coverSpec(book.title, book.uri)
-    val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
+    val progress = book.progress
     val finished = book.isFinished
     var showConfirmDelete by remember { mutableStateOf(false) }
 

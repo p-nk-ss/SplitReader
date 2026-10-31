@@ -61,4 +61,21 @@ class ReadingPositionTest {
         assertEquals(2, b.paragraphsAdvanced(ReadingPosition(0, 2), ReadingPosition(1, 1))) // ordinal 2 -> 4
         assertEquals(0, b.paragraphsAdvanced(ReadingPosition(1, 1), ReadingPosition(0, 0)))
     }
+
+    @Test
+    fun `progress is counted by paragraph, so a one-chapter book starts at 0`() {
+        val b = book(10)
+        assertEquals(0f, b.progressAt(ReadingPosition.START), 0f)
+        assertEquals(0.5f, b.progressAt(ReadingPosition(0, 5)), 0.0001f)
+    }
+
+    @Test
+    fun `progress spans chapters`() {
+        assertEquals(0.5f, book(4, 6).progressAt(ReadingPosition(1, 1)), 0.0001f) // 5 of 10 before
+    }
+
+    @Test
+    fun `an empty book has no progress`() {
+        assertEquals(0f, book().progressAt(ReadingPosition.START), 0f)
+    }
 }

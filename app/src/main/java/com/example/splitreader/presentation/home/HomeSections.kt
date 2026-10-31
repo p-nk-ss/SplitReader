@@ -483,7 +483,7 @@ internal fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: 
     val radii = LocalRadii.current
     val palette = LocalReaderPalette.current
     val spec = coverSpec(book.title, book.uri)
-    val progress = if (book.chapterCount > 0) book.lastChapterIndex.toFloat() / book.chapterCount else 0f
+    val progress = book.progress
 
     // Hoisted so both branches carry an identical container.
     val container = Modifier
@@ -760,7 +760,7 @@ private fun ShelfTitle(totalCount: Int) {
             color = palette.ink,
         )
         Text(
-            text = "· $totalCount VOLUMES",
+            text = "· $totalCount ${plural(totalCount, "volume").uppercase()}",
             fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Medium,
             fontSize = 11.sp,

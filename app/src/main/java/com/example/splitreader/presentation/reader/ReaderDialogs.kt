@@ -51,7 +51,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
-import kotlin.math.roundToInt
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
@@ -68,6 +67,7 @@ import com.example.splitreader.presentation.ui.SliderRow
 import com.example.splitreader.presentation.ui.ThemeSwatchRow
 import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
+import com.example.splitreader.presentation.ui.splitLabel
 
 // ── Shared dialog shell ───────────────────────────────────────────────────
 
@@ -309,7 +309,7 @@ internal fun DisplaySettingsDialog(
                 SliderRow(
                     label = "Vertical split",
                     value = appearance.verticalSplitRatio,
-                    valueLabel = "${(appearance.verticalSplitRatio * 100).roundToInt()} / ${100 - (appearance.verticalSplitRatio * 100).roundToInt()}",
+                    valueLabel = splitLabel(appearance.verticalSplitRatio),
                     valueRange = ReadingDefaults.VERTICAL_SPLIT_RATIO_RANGE,
                     onValueChange = { v -> onAppearanceChange { it.copy(verticalSplitRatio = v) } },
                 )
@@ -317,7 +317,7 @@ internal fun DisplaySettingsDialog(
                 SliderRow(
                     label = "Split position",
                     value = appearance.splitRatio,
-                    valueLabel = "${(appearance.splitRatio * 100).roundToInt()} / ${100 - (appearance.splitRatio * 100).roundToInt()}",
+                    valueLabel = splitLabel(appearance.splitRatio),
                     valueRange = ReadingDefaults.SPLIT_RATIO_RANGE,
                     onValueChange = { v -> onAppearanceChange { it.copy(splitRatio = v) } },
                 )

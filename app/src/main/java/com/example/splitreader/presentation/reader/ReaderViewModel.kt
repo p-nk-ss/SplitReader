@@ -20,6 +20,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.model.coercedTo
 import com.example.splitreader.domain.model.isAtStart
+import com.example.splitreader.domain.model.progressAt
 import com.example.splitreader.domain.model.paragraphsAdvanced
 import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
@@ -320,6 +321,7 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book ?: return
         _state.update { it.copy(position = position) }
         progressManager.saveReadingPosition(book.filePath, position)
+        progressManager.saveProgress(book.filePath, book.progressAt(position))
         // "Continue reading" excerpt for the Library hero; nothing has been read at the very start.
         if (!book.isAtStart(position)) {
             val paragraph = book.chapters.getOrNull(position.chapter)?.paragraphs?.getOrNull(position.paragraph)

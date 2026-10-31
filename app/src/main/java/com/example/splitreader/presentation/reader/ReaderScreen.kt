@@ -375,6 +375,13 @@ internal fun ReaderContent(
                     )
                 }
 
+                // A book the parser found nothing showable in used to open as a blank page with no
+                // explanation (found on a device). Images count as content when they are shown.
+                val hasContent = state.book.chapters.any {
+                    it.paragraphs.isNotEmpty() || (appearance.showIllustrations && it.images.isNotEmpty())
+                }
+                if (!hasContent) EmptyBookNotice(Modifier.align(Alignment.Center))
+
                 Column(
                     modifier = Modifier.align(Alignment.TopCenter),
                     horizontalAlignment = Alignment.CenterHorizontally,

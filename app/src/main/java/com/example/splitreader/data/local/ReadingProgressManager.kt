@@ -141,6 +141,12 @@ class ReadingProgressManager @Inject constructor(
     }
 
     /** Persists the paragraph the reader last stopped on, shown in the Library's Continue Reading hero. */
+    override fun saveProgress(bookUri: String, progress: Float) =
+        prefs.edit().putFloat("progress_$bookUri", progress).apply()
+
+    override fun getProgress(bookUri: String): Float? =
+        if (prefs.contains("progress_$bookUri")) prefs.getFloat("progress_$bookUri", 0f) else null
+
     override fun saveExcerpt(bookUri: String, text: String) =
         prefs.edit().putString("last_excerpt_$bookUri", text).apply()
 
@@ -161,6 +167,7 @@ class ReadingProgressManager @Inject constructor(
             .remove("last_paragraph_offset_$bookUri")
             .remove("finished_$bookUri")
             .remove("last_excerpt_$bookUri")
+            .remove("progress_$bookUri")
             .apply()
     }
 

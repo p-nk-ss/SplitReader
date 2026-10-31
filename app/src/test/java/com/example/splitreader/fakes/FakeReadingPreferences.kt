@@ -32,6 +32,9 @@ internal class FakeReadingPreferences(
         excerpts[bookUri] = text
     }
     override fun getExcerpt(bookUri: String): String? = excerpts[bookUri]
+    val progress = mutableMapOf<String, Float>()
+    override fun saveProgress(bookUri: String, progress: Float) { this.progress[bookUri] = progress }
+    override fun getProgress(bookUri: String): Float? = progress[bookUri]
     override fun markFinished(bookUri: String) = Unit
     override fun isFinished(bookUri: String) = false
     override fun clearProgress(bookUri: String) = Unit

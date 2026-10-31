@@ -66,6 +66,7 @@ import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.FadeInOnAppear
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.animatedSelection
+import com.example.splitreader.presentation.ui.plural
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -113,7 +114,7 @@ internal fun MasterPane(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "${words.size} saved words",
+                text = "${words.size} saved ${plural(words.size, "word")}",
                 fontFamily = JetBrainsMono,
                 fontSize = 11.sp,
                 color = palette.ink3,

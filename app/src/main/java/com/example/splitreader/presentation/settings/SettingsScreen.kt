@@ -58,6 +58,7 @@ import com.example.splitreader.presentation.theme.animatedSelection
 import com.example.splitreader.presentation.ui.SectionEyebrow
 import com.example.splitreader.presentation.ui.SliderRow
 import com.example.splitreader.presentation.ui.ThemeSwatchRow
+import com.example.splitreader.presentation.ui.splitLabel
 import com.example.splitreader.presentation.ui.ToggleRow
 import com.example.splitreader.presentation.ui.TypographyControls
 
@@ -157,7 +158,9 @@ fun SettingsScreen(
             SliderRow(
                 label = "Split ratio",
                 value = appearance.splitRatio,
-                valueLabel = "${(appearance.splitRatio * 100).toInt()}%",
+                // Same rounding and format as the reader's Display dialog, so one value never reads
+                // "51%" here and "50 / 50" there (found on a device).
+                valueLabel = splitLabel(appearance.splitRatio),
                 valueRange = 0.3f..0.7f,
                 onValueChange = { v -> onAppearanceChange { it.copy(splitRatio = v) } },
             )

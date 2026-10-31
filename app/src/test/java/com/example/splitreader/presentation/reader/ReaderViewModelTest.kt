@@ -154,6 +154,15 @@ class ReaderViewModelTest {
      * first chapter is empty. A saved START would not discriminate: it coerces to START, which a
      * plain `== START` check also treats as "not started".
      */
+    /** The Library card reads this; by chapter, a one-chapter book showed 0% there and 100% in the reader. */
+    @Test
+    fun `the reading position saves paragraph progress for the Library`() = runTest(main.dispatcher) {
+        val h = harness(book(10))
+        open(h)
+        h.vm.onReadingPositionChanged(ReadingPosition(0, 5, 0))
+        assertEquals(0.5f, h.prefs.progress.getValue(h.uri.toString()), 0.0001f)
+    }
+
     @Test
     fun `an empty first chapter does not mark the book started`() = runTest(main.dispatcher) {
         val h = harness(book(0, 3))

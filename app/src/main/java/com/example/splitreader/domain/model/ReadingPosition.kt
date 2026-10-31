@@ -32,6 +32,16 @@ fun Book.paragraphOrdinal(position: ReadingPosition): Int {
 /** True when [position] is the book's first paragraph with no scroll into it — nothing read yet. Empty leading chapters don't count. */
 fun Book.isAtStart(position: ReadingPosition): Boolean = paragraphOrdinal(position) == 0 && position.offset == 0
 
+/**
+ * Share of the book's paragraphs before [position], 0f..1f — the reading progress shown in the
+ * reader's footer and on Library cards. Counted by paragraph, not chapter: by chapter, a
+ * one-chapter book read 100% on its first page (found on a device).
+ */
+fun Book.progressAt(position: ReadingPosition): Float {
+    val total = chapters.sumOf { it.paragraphs.size }
+    return if (total == 0) 0f else paragraphOrdinal(position).toFloat() / total
+}
+
 /** How far the reader moved from [from] to [to], in paragraphs; going back counts as 0. */
 fun Book.paragraphsAdvanced(from: ReadingPosition, to: ReadingPosition): Int =
     (paragraphOrdinal(to) - paragraphOrdinal(from)).coerceAtLeast(0)

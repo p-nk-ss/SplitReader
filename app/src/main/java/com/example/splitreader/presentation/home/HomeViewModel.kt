@@ -86,14 +86,21 @@ class HomeViewModel @Inject constructor(
             ?.displayName?.trim()?.substringBefore(" ")?.takeIf { it.isNotBlank() }
         HomeUiState(
             books = books.map {
+                val finished = progressManager.isFinished(it.uri)
+                val chapter = progressManager.getReadingPosition(it.uri).chapter
                 BookItem(
                     uri = it.uri,
                     title = it.title,
                     author = it.author,
                     coverPath = it.coverPath,
                     chapterCount = it.chapterCount,
-                    lastChapterIndex = progressManager.getReadingPosition(it.uri).chapter,
-                    isFinished = progressManager.isFinished(it.uri),
+                    lastChapterIndex = chapter,
+                    isFinished = finished,
+                    progress = when {
+                        finished -> 1f
+                        else -> progressManager.getProgress(it.uri)
+                            ?: if (it.chapterCount > 0) chapter.toFloat() / it.chapterCount else 0f
+                    },
                     lastOpenedAt = it.lastOpenedAt,
                     synopsis = it.synopsis,
                     excerpt = progressManager.getExcerpt(it.uri),

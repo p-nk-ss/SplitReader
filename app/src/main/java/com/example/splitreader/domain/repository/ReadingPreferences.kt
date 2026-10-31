@@ -13,6 +13,10 @@ interface ReadingPreferences {
     fun saveReadingPosition(bookUri: String, position: ReadingPosition)
     /** [bookUri]'s saved Reading position; [ReadingPosition.START] if it was never read. */
     fun getReadingPosition(bookUri: String): ReadingPosition
+    /** [bookUri]'s reading progress (Book.progressAt), saved with the position for the Library cards. */
+    fun saveProgress(bookUri: String, progress: Float)
+    /** Null for a book whose progress was never saved (read before this existed): callers fall back. */
+    fun getProgress(bookUri: String): Float?
     fun saveExcerpt(bookUri: String, text: String)
     fun getExcerpt(bookUri: String): String?
     fun markFinished(bookUri: String)

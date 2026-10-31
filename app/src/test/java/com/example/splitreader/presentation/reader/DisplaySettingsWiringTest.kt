@@ -71,11 +71,29 @@ class DisplaySettingsWiringTest {
         composeRule.onAllNodesWithText("Vertical split").assertCountEquals(0)
     }
 
-    private fun composeReader() {
+    /** A book with nothing showable used to open as a blank page; it now says so (found on a device). */
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun `an empty book explains itself instead of a blank page`() {
+        val base = ScreenFixtures.readerContentState
+        composeReader(base.copy(book = base.book.copy(chapters = emptyList())))
+        composeRule.onNodeWithText("Nothing to read here").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = PHONE_PORTRAIT)
+    fun `a book with text shows no empty-book notice`() {
+        composeReader()
+        composeRule.onAllNodesWithText("Nothing to read here").assertCountEquals(0)
+    }
+
+    private fun composeReader(
+        state: ReaderUiState.Success = ScreenFixtures.readerContentState,
+    ) {
         composeRule.setContent {
             SplitReaderTheme {
                 ReaderContent(
-                    state = ScreenFixtures.readerContentState.copy(portraitHintDismissed = true),
+                    state = state.copy(portraitHintDismissed = true),
                     onNavigateBack = {},
                     onSelectChapter = {},
                     onSetTargetLanguage = {},
