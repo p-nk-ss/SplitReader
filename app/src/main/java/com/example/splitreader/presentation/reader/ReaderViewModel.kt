@@ -376,9 +376,16 @@ class ReaderViewModel @Inject constructor(
     fun updateAppearance(transform: (ReadingAppearance) -> ReadingAppearance) {
         // Read "before" from prefs too: two calls in a row (hide, show) would otherwise compare
         // against a `_state` the collector has not refreshed yet and miss the second change.
-        val wasVisible = progressManager.appearance.value.showTranslation
+        val before = progressManager.appearance.value
         progressManager.updateAppearance(transform)
-        if (progressManager.appearance.value.showTranslation != wasVisible) notifyEngineSettings()
+        val after = progressManager.appearance.value
+        if (after.showTranslation != before.showTranslation) notifyEngineSettings()
+        // Illustrations are list items, so toggling them shifts every item index: re-anchor on the
+        // paragraph being read (through the one jump path) or the list shows, and then saves, a
+        // different one. The pixel offset belongs to the old layout, so it is dropped.
+        if (after.showIllustrations != before.showIllustrations) {
+            _state.update { s -> s.copy(pendingJump = s.position.copy(offset = 0)) }
+        }
     }
 
     /** [dontShowAgain] persists; otherwise the hint simply does not reappear this entry. */

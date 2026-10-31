@@ -177,6 +177,39 @@ class ReaderViewModelTest {
         assertEquals("Legacy reading-position migration failed", h.crash.recorded.single().second)
     }
 
+    /**
+     * Toggling illustrations rebuilds the item list (illustrations are items, paragraphs are not
+     * renumbered), so the list's old item index now points at a different paragraph. Found on a
+     * device: the view slid ~5 paragraphs and that wrong spot was then saved as the position.
+     * The fix re-anchors the reader on the paragraph it was showing, via the one jump path.
+     */
+    @Test
+    fun `toggling illustrations re-anchors the reader on the current paragraph`() = runTest(main.dispatcher) {
+        val h = harness(book(3, 4))
+        open(h)
+        h.vm.onReadingPositionChanged(ReadingPosition(2, 1, 37))
+        advanceUntilIdle()
+
+        h.vm.updateAppearance { it.copy(showIllustrations = !it.showIllustrations) }
+        advanceUntilIdle()
+
+        // Offset 0: a pixel offset into the old layout means nothing in the new one.
+        assertEquals(ReadingPosition(2, 1, 0), h.success().pendingJump)
+    }
+
+    @Test
+    fun `other appearance changes do not jump`() = runTest(main.dispatcher) {
+        val h = harness(book(3, 4))
+        open(h)
+        h.vm.onReadingPositionChanged(ReadingPosition(2, 1, 37))
+        advanceUntilIdle()
+
+        h.vm.updateAppearance { it.copy(textSize = it.textSize + 2f) }
+        advanceUntilIdle()
+
+        assertNull(h.success().pendingJump)
+    }
+
     @Test
     fun `jumping to a bookmark sets and then clears pendingJump`() = runTest(main.dispatcher) {
         val h = harness(book(3, 4))
