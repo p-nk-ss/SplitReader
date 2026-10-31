@@ -56,6 +56,7 @@ import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.presentation.theme.isCompactWidth
 import com.example.splitreader.presentation.theme.readerPalette
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -232,10 +233,16 @@ internal fun ReaderContent(
     // illustrations toggle (which rebuilds the index) is seen by them, not the first-composition one.
     val currentBookItemIndex by rememberUpdatedState(bookItemIndex)
 
-    // The single scroll-to-position path: book-load restore and bookmark jumps both arrive here.
+    // The single scroll-to-position path: book-load restore, bookmark jumps and the illustrations
+    // toggle all arrive here. The jump keeps re-anchoring for a few seconds while rows settle (see
+    // scrollToItemAndHold). It runs in the screen's scope, not this effect's: consuming the jump
+    // changes this effect's key, which would cancel the hold the moment it started.
+    val jumpHold = remember { arrayOfNulls<Job>(1) }
     LaunchedEffect(state.pendingJump, bookItemIndex) {
         val jump = state.pendingJump ?: return@LaunchedEffect
-        listState.scrollToItem(bookItemIndex.itemIndexOf(jump.chapter, jump.paragraph), jump.offset)
+        val index = bookItemIndex.itemIndexOf(jump.chapter, jump.paragraph)
+        jumpHold[0]?.cancel()
+        jumpHold[0] = coroutineScope.launch { listState.scrollToItemAndHold(index, jump.offset) }
         onConsumePendingJump()
     }
 
