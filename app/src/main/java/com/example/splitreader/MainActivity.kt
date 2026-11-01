@@ -3,6 +3,7 @@ package com.example.splitreader
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
@@ -11,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.splitreader.data.local.TextToSpeechManager
+import com.example.splitreader.data.update.PlayAppUpdates
 import com.example.splitreader.domain.model.toActivityInfo
 import com.example.splitreader.presentation.AppThemeViewModel
 import com.example.splitreader.presentation.navigation.SplitReaderNavHost
@@ -24,9 +26,14 @@ class MainActivity : ComponentActivity() {
     private val themeViewModel: AppThemeViewModel by viewModels()
 
     @Inject lateinit var textToSpeechManager: TextToSpeechManager
+    @Inject lateinit var appUpdates: PlayAppUpdates
+
+    // Play's update confirmation. Its result needs no handling (see PlayAppUpdates).
+    private val updateConfirmation = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appUpdates.attach(updateConfirmation)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestedOrientation = themeViewModel.orientationLock.value.toActivityInfo()
         lifecycleScope.launch {
@@ -44,7 +51,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Every return, not only a cold start: an update may have finished downloading meanwhile.
+        lifecycleScope.launch { appUpdates.refresh() }
+    }
+
     override fun onDestroy() {
+        appUpdates.detach(updateConfirmation)
         // Release the shared on-device TTS engine when the app is actually closing,
         // not on configuration-change recreations (the manager is a process-wide singleton).
         if (isFinishing) textToSpeechManager.shutdown()

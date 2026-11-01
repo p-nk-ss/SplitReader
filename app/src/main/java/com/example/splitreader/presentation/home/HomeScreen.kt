@@ -96,6 +96,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.splitreader.presentation.update.AppUpdateViewModel
+import com.example.splitreader.presentation.update.UpdateBanner
+import com.example.splitreader.presentation.update.showsBanner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
@@ -126,6 +129,8 @@ internal fun HomeRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activity = LocalContext.current as Activity
     val premiumViewModel: PremiumViewModel = hiltViewModel()
+    val updateViewModel: AppUpdateViewModel = hiltViewModel()
+    val update by updateViewModel.state.collectAsStateWithLifecycle()
     val price by premiumViewModel.priceText.collectAsStateWithLifecycle()
     PurchaseEventEffect(premiumViewModel)
     var showLimitDialog by remember { mutableStateOf(false) }
@@ -158,6 +163,11 @@ internal fun HomeRoute(
         onOpenFromLibrary = viewModel::openBookFromLibrary,
         onDeleteBook = viewModel::deleteBook,
         onDismissError = viewModel::dismissError,
+        topBanner = if (update.showsBanner) {
+            { UpdateBanner(update, updateViewModel::update, updateViewModel::restart, updateViewModel::notNow) }
+        } else {
+            null
+        },
     )
 }
 
@@ -168,6 +178,8 @@ internal fun HomeScreen(
     onOpenFromLibrary: (String) -> Unit,
     onDeleteBook: (String) -> Unit,
     onDismissError: () -> Unit,
+    /** Full-width row above the greeting (the update banner); null adds no row and no gap. */
+    topBanner: (@Composable () -> Unit)? = null,
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
@@ -237,6 +249,10 @@ internal fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(sp.lg),
         horizontalArrangement = Arrangement.spacedBy(sp.lg),
     ) {
+        if (topBanner != null) {
+            item(span = { GridItemSpan(maxLineSpan) }) { topBanner() }
+        }
+
         // Header — full width
         item(span = { GridItemSpan(maxLineSpan) }) {
             LibraryHeader(

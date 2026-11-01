@@ -193,6 +193,7 @@ dependencies {
     implementation(libs.googleid)
     implementation(libs.play.services.auth)
     implementation(libs.billing.ktx)
+    implementation(libs.play.app.update)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)

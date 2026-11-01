@@ -29,6 +29,7 @@ googleid = "1.1.1"
 googleServices = "4.4.2"
 playServicesAuth = "21.6.0"
 billing = "8.0.0"
+appUpdate = "2.1.0"
 roborazzi = "1.26.0"
 robolectric = "4.13"
 
@@ -68,6 +69,7 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "appUpdate" }
 coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 

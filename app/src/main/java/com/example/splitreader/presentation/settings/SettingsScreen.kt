@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.splitreader.domain.model.UpdateState
+import com.example.splitreader.presentation.update.AppUpdateViewModel
+import com.example.splitreader.presentation.update.updateStatusText
 import com.example.splitreader.BuildConfig
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
@@ -66,8 +69,10 @@ import com.example.splitreader.presentation.ui.TypographyControls
 fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
     premiumViewModel: PremiumViewModel = hiltViewModel(),
+    updateViewModel: AppUpdateViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val update by updateViewModel.state.collectAsState()
     PurchaseEventEffect(premiumViewModel)
     SettingsScreen(
         state = state,
@@ -85,6 +90,9 @@ fun SettingsRoute(
         onTestVoice = viewModel::testVoice,
         onSetPremiumDebug = viewModel::setPremiumDebug,
         onRestorePurchase = premiumViewModel::restore,
+        update = update,
+        onUpdate = updateViewModel::update,
+        onRestartToUpdate = updateViewModel::restart,
     )
 }
 
@@ -105,6 +113,9 @@ fun SettingsScreen(
     onTestVoice: () -> Unit,
     onSetPremiumDebug: (Boolean) -> Unit,
     onRestorePurchase: () -> Unit,
+    update: UpdateState = UpdateState.None,
+    onUpdate: () -> Unit = {},
+    onRestartToUpdate: () -> Unit = {},
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
@@ -369,7 +380,7 @@ fun SettingsScreen(
         }
 
         // ── About ───────────────────────────────────────────────────────────
-        AboutSection()
+        AboutSection(update, onUpdate, onRestartToUpdate)
 
         Spacer(Modifier.height(sp.xxl))
     }
@@ -505,7 +516,7 @@ private fun SelectChip(label: String, selected: Boolean, onClick: () -> Unit, mo
 }
 
 @Composable
-private fun AboutSection() {
+private fun AboutSection(update: UpdateState, onUpdate: () -> Unit, onRestart: () -> Unit) {
     val context = LocalContext.current
     val version = remember {
         runCatching {
@@ -514,6 +525,22 @@ private fun AboutSection() {
     }
     SettingsSection(title = "About") {
         AboutRow("Version", version)
+        // Shown even after "Not now" on Home. Nothing for None: that is also "Play can't tell".
+        updateStatusText(update)?.let { status ->
+            Spacer(Modifier.height(6.dp))
+            Text(status, fontFamily = Newsreader, fontSize = 13.sp, color = LocalReaderPalette.current.ink2)
+            when (update) {
+                is UpdateState.Available -> {
+                    Spacer(Modifier.height(6.dp))
+                    SelectChip(label = stringResource(R.string.update_action), selected = false, onClick = onUpdate)
+                }
+                UpdateState.Downloaded -> {
+                    Spacer(Modifier.height(6.dp))
+                    SelectChip(label = stringResource(R.string.update_restart), selected = false, onClick = onRestart)
+                }
+                else -> Unit
+            }
+        }
         Spacer(Modifier.height(6.dp))
         AboutRow("Formats", "EPUB · FB2 · MOBI")
         Spacer(Modifier.height(6.dp))
