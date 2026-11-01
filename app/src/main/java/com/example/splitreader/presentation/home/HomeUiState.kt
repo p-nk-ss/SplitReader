@@ -14,9 +14,40 @@ data class BookItem(
     /** 0f..1f by paragraph (Book.progressAt), 1f once finished; chapter ratio for books read before it was saved. */
     val progress: Float = 0f,
 ) {
-    /** Opened and read past its first paragraph; "Reading" vs "Unread" on the shelf. */
-    val isStarted: Boolean get() = progress > 0f || lastChapterIndex > 0
+    /**
+     * Read into, "Reading" vs "Unread" on the shelf. The excerpt counts: the reader saves it as soon as
+     * the position leaves the very start (Book.isAtStart), and paragraph progress is still 0 inside
+     * the first paragraph — the card read "Unread" under a "Continue reading" excerpt.
+     */
+    val isStarted: Boolean get() = progress > 0f || lastChapterIndex > 0 || excerpt != null
 }
+
+/**
+ * A library card from what the reader saved for [book]: [finished] reads 100%; otherwise the
+ * paragraph [savedProgress], or for books read before it was saved, the chapter ratio.
+ */
+internal fun bookItemOf(
+    book: com.example.splitreader.domain.model.LibraryBook,
+    finished: Boolean,
+    chapter: Int,
+    savedProgress: Float?,
+    excerpt: String?,
+) = BookItem(
+    uri = book.uri,
+    title = book.title,
+    author = book.author,
+    coverPath = book.coverPath,
+    chapterCount = book.chapterCount,
+    lastChapterIndex = chapter,
+    isFinished = finished,
+    progress = when {
+        finished -> 1f
+        else -> savedProgress ?: if (book.chapterCount > 0) chapter.toFloat() / book.chapterCount else 0f
+    },
+    lastOpenedAt = book.lastOpenedAt,
+    synopsis = book.synopsis,
+    excerpt = excerpt,
+)
 
 data class HomeUiState(
     val books: List<BookItem> = emptyList(),
