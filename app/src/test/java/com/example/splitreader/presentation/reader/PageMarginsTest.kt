@@ -141,12 +141,11 @@ class PageMarginsTest {
                 }
             }
         }
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.waitForIdle()
-        val original = composeRule.onNodeWithTag("original").fetchSemanticsNode().boundsInRoot.height
-        val translation = composeRule.onNodeWithTag("translation").fetchSemanticsNode().boundsInRoot.height
+        // Each pane reads the file's size on its own background call; wait for both.
+        fun height(tag: String) = composeRule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.height
+        composeRule.waitUntil(5_000) { height("original") > 0f && height("translation") > 0f }
+        val original = height("original")
+        val translation = height("translation")
         assertEquals(dpToPx(200f + 32f), original, 1f)
         assertEquals(original, translation, 1f)
     }
