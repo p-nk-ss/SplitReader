@@ -58,24 +58,40 @@ class ReaderStatusFooterTest {
     }
 
     // 100 items, the last one end_padding; the viewport is 1000 px tall.
+    private fun view(vararg items: LazyListItemInfo, viewportEnd: Int = 1000, scrolledDown: Boolean = true) =
+        BookEndView(items.toList(), 100, viewportEnd, scrolledDown)
+
     @Test
     fun `the end is the bottom of the last row on screen`() {
-        assertTrue(isBookEndVisible(listOf(item(97, 0, 600), item(98, 600, 400)), 100, 1000, scrolledDown = true))
+        assertTrue(bookEndAfter(false, view(item(97, 0, 600), item(98, 600, 400))))
     }
 
     @Test
     fun `the first lines of a long last paragraph are not the end`() {
-        assertFalse(isBookEndVisible(listOf(item(97, 0, 900), item(98, 900, 700)), 100, 1000, scrolledDown = true))
+        assertFalse(bookEndAfter(false, view(item(97, 0, 900), item(98, 900, 700))))
     }
 
     @Test
     fun `the row before the last on screen is not the end`() {
-        assertFalse(isBookEndVisible(listOf(item(96, 0, 500), item(97, 500, 500)), 100, 1000, scrolledDown = true))
+        assertFalse(bookEndAfter(false, view(item(96, 0, 500), item(97, 500, 500))))
+    }
+
+    @Test
+    fun `opening the bars, which pushes the last row's bottom off screen, keeps the end`() {
+        // Found on a tablet: the top bar shrinks the list, the footer then read 99%.
+        assertTrue(bookEndAfter(true, view(item(97, 100, 600), item(98, 700, 400), viewportEnd = 900)))
+    }
+
+    @Test
+    fun `scrolling the last row off screen leaves the end`() {
+        assertFalse(bookEndAfter(true, view(item(96, 0, 600), item(97, 600, 400))))
     }
 
     @Test
     fun `a book that fits one screen, or was merely opened, is not finished`() {
-        assertFalse(isBookEndVisible(listOf(item(0, 0, 300), item(1, 300, 100)), 3, 1000, scrolledDown = false))
-        assertFalse(isBookEndVisible(emptyList(), 1, 1000, scrolledDown = true))
+        val all = BookEndView(listOf(item(0, 0, 300), item(1, 300, 100)), 3, 1000, scrolledDown = false)
+        assertFalse(bookEndAfter(false, all))
+        assertFalse(bookEndAfter(true, all))
+        assertFalse(bookEndAfter(false, BookEndView(emptyList(), 1, 1000, scrolledDown = true)))
     }
 }

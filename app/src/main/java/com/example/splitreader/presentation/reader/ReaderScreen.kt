@@ -25,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -260,16 +259,16 @@ internal fun ReaderContent(
 
     // The end of the last chapter is on screen: the book is finished (Library shows 100%), and the
     // footer says 100% too — its paragraph count stops at the top line, 95–98% on the last screen.
-    val bookEndVisible by remember(listState) {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            isBookEndVisible(info.visibleItemsInfo, info.totalItemsCount, info.viewportEndOffset, listState.canScrollBackward)
-        }
-    }
+    var bookEndVisible by remember(listState) { mutableStateOf(false) }
     LaunchedEffect(listState) {
-        snapshotFlow { bookEndVisible }
-            .distinctUntilChanged()
-            .collect { if (it) onMarkFinished() }
+        snapshotFlow {
+            val info = listState.layoutInfo
+            BookEndView(info.visibleItemsInfo, info.totalItemsCount, info.viewportEndOffset, listState.canScrollBackward)
+        }.collect { view ->
+            val atEnd = bookEndAfter(bookEndVisible, view)
+            if (atEnd && !bookEndVisible) onMarkFinished()
+            bookEndVisible = atEnd
+        }
     }
 
     // Report the *visible paragraph span* (first→last visible item, which may cross chapter
@@ -499,13 +498,26 @@ internal fun ReaderContent(
     }
 }
 
+/** What the end-of-book check reads from the reader list's layout. */
+internal data class BookEndView(
+    val items: List<LazyListItemInfo>,
+    val total: Int,
+    val viewportEnd: Int,
+    val scrolledDown: Boolean,
+)
+
 /**
- * The bottom of the book's last row (the one before `end_padding`) is on screen after scrolling — not
- * merely its first pixel, or a long last paragraph read 100% with a screen still to go.
+ * Whether the reader is at the end of the book, given whether it was ([wasAtEnd]).
+ *
+ * It arrives when the bottom of the last row (the one before `end_padding`) is on screen after
+ * scrolling — not merely its first pixel, or a long last paragraph read 100% with a screen to go.
+ * It leaves only when that row is off screen: showing the reader's top bar shrinks the list from
+ * the top and pushes the bottom of the last row out of view, which dropped the footer to 99% the
+ * moment the reader opened the bars to look at it (found on a tablet).
  * `scrolledDown` guards against a book that fits one screen, or was merely opened.
  */
-internal fun isBookEndVisible(items: List<LazyListItemInfo>, total: Int, viewportEnd: Int, scrolledDown: Boolean): Boolean {
-    if (!scrolledDown || total < 2) return false
-    val last = items.firstOrNull { it.index == total - 2 } ?: return false
-    return last.offset + last.size <= viewportEnd
+internal fun bookEndAfter(wasAtEnd: Boolean, view: BookEndView): Boolean {
+    if (!view.scrolledDown || view.total < 2) return false
+    val last = view.items.firstOrNull { it.index == view.total - 2 } ?: return false
+    return wasAtEnd || last.offset + last.size <= view.viewportEnd
 }
