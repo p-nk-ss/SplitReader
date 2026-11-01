@@ -316,13 +316,17 @@ internal fun VerticalBookSpread(
             // covers only the word-selection popup, not this pane), so without this the last line
             // of the translation sits under the gesture bar. Same placement rule as the top pane:
             // last in the chain, after `weight`, and on the pane itself rather than the spread's
-            // root.
+            // root. Not while the bars are up: the status footer below then pads the same inset, and
+            // both together left a blank band above the footer.
             LazyColumn(
                 state = translationListState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f - effectiveRatio)
-                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                    .then(
+                        if (barsVisible) Modifier
+                        else Modifier.windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+                    )
                     .testTag(VERTICAL_BOTTOM_PANE),
             ) {
                 bookItems(

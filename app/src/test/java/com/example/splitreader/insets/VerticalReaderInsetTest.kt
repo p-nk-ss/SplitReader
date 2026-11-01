@@ -134,7 +134,7 @@ class VerticalReaderInsetTest : ShellInsetTest() {
         )
     }
 
-    private fun composeVerticalReader(dispatched: WindowInsetsCompat) {
+    private fun composeVerticalReader(dispatched: WindowInsetsCompat, barsVisible: Boolean = false) {
         composeRule.setContent {
             SplitReaderTheme {
                 VerticalBookSpread(
@@ -157,7 +157,7 @@ class VerticalReaderInsetTest : ShellInsetTest() {
                     onDismiss = {},
                     onToggleBars = {},
                     onSetVerticalSplitRatio = {},
-                    barsVisible = true,
+                    barsVisible = barsVisible,
                     sourceLang = Language.ENGLISH,
                     targetLang = Language.RUSSIAN,
                 )
@@ -175,7 +175,8 @@ class VerticalReaderInsetTest : ShellInsetTest() {
     /**
      * The bottom pane's last line must clear the gesture bar. The reader draws edge-to-edge, so
      * without an explicit bottom inset the final line of the translation sits under the system
-     * navigation and is unreadable exactly where the eye ends up.
+     * navigation and is unreadable exactly where the eye ends up. (With the bars up the status
+     * footer below pads it instead — see the next test.)
      */
     @Test
     fun `the bottom pane clears the navigation bar`() {
@@ -190,6 +191,24 @@ class VerticalReaderInsetTest : ShellInsetTest() {
                 "at least the ${navPx}px gesture inset short of it, or the last line of the " +
                 "translation is under the navigation bar.",
             pane.bottom <= spread.bottom - navPx + 1f,
+        )
+    }
+
+    /**
+     * With the bars up the status footer sits below the spread and pads the navigation bar itself;
+     * the pane padding it too left a blank band above the footer.
+     */
+    @Test
+    fun `with the bars up the bottom pane leaves the inset to the footer`() {
+        composeVerticalReader(insets(statusBars = 63, navigationBars = 48), barsVisible = true)
+
+        val pane = boundsOf(VERTICAL_BOTTOM_PANE)
+        val spread = boundsOf(VERTICAL_SPREAD_ROOT)
+
+        assertTrue(
+            "The bottom pane ends at ${pane.bottom} and the spread at ${spread.bottom}; with the " +
+                "footer below it, it must run to the spread's edge.",
+            pane.bottom >= spread.bottom - 1f,
         )
     }
 

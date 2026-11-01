@@ -94,41 +94,44 @@ class ReaderStatusFooterTest {
         override val contentType: Any? = null
     }
 
-    // 100 items, the last one end_padding; the viewport is 1000 px tall.
-    private fun view(vararg items: LazyListItemInfo, viewportEnd: Int = 1000, scrolledDown: Boolean = true) =
-        BookEndView(items.toList(), 100, viewportEnd, scrolledDown)
+    // 100 items, the last one end_padding; the viewport is 1000 px tall. first = scroll position.
+    private fun view(vararg items: LazyListItemInfo, viewportEnd: Int = 1000, first: Int = items.first().index, offset: Int = 0) =
+        BookEndView(items.toList(), 100, viewportEnd, scrolledDown = true, firstIndex = first, firstOffset = offset)
+
+    private val arrived = BookEnd(true, anchorIndex = 97, anchorOffset = 0)
 
     @Test
     fun `the end is the bottom of the last row on screen`() {
-        assertTrue(bookEndAfter(false, view(item(97, 0, 600), item(98, 600, 400))))
+        assertTrue(bookEndAfter(BookEnd.NotAtEnd, view(item(97, 0, 600), item(98, 600, 400))).atEnd)
     }
 
     @Test
     fun `the first lines of a long last paragraph are not the end`() {
-        assertFalse(bookEndAfter(false, view(item(97, 0, 900), item(98, 900, 700))))
+        assertFalse(bookEndAfter(BookEnd.NotAtEnd, view(item(97, 0, 900), item(98, 900, 700))).atEnd)
     }
 
     @Test
     fun `the row before the last on screen is not the end`() {
-        assertFalse(bookEndAfter(false, view(item(96, 0, 500), item(97, 500, 500))))
+        assertFalse(bookEndAfter(BookEnd.NotAtEnd, view(item(96, 0, 500), item(97, 500, 500))).atEnd)
     }
 
     @Test
-    fun `opening the bars, which pushes the last row's bottom off screen, keeps the end`() {
-        // Found on a tablet: the top bar shrinks the list, the footer then read 99%.
-        assertTrue(bookEndAfter(true, view(item(97, 100, 600), item(98, 700, 400), viewportEnd = 900)))
+    fun `opening the bars keeps the end, even when they push a short last line off screen`() {
+        // Found on a tablet: the bars shrink the list (here by 250 px), the footer then read 99%.
+        // The list keeps its first visible item, so the scroll position is where the end arrived.
+        assertTrue(bookEndAfter(arrived, view(item(97, 0, 700), viewportEnd = 750, first = 97)).atEnd)
     }
 
     @Test
-    fun `scrolling the last row off screen leaves the end`() {
-        assertFalse(bookEndAfter(true, view(item(96, 0, 600), item(97, 600, 400))))
+    fun `scrolling back from the end leaves it, even with the last row still on screen`() {
+        assertFalse(bookEndAfter(arrived, view(item(96, 0, 300), item(97, 300, 700), item(98, 1000, 40), first = 96)).atEnd)
     }
 
     @Test
     fun `a book that fits one screen, or was merely opened, is not finished`() {
         val all = BookEndView(listOf(item(0, 0, 300), item(1, 300, 100)), 3, 1000, scrolledDown = false)
-        assertFalse(bookEndAfter(false, all))
-        assertFalse(bookEndAfter(true, all))
-        assertFalse(bookEndAfter(false, BookEndView(emptyList(), 1, 1000, scrolledDown = true)))
+        assertFalse(bookEndAfter(BookEnd.NotAtEnd, all).atEnd)
+        assertFalse(bookEndAfter(BookEnd(true), all).atEnd)
+        assertFalse(bookEndAfter(BookEnd.NotAtEnd, BookEndView(emptyList(), 1, 1000, scrolledDown = true)).atEnd)
     }
 }

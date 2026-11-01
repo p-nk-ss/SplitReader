@@ -259,15 +259,19 @@ internal fun ReaderContent(
 
     // The end of the last chapter is on screen: the book is finished (Library shows 100%), and the
     // footer says 100% too — its paragraph count stops at the top line, 95–98% on the last screen.
-    var bookEndVisible by remember(listState) { mutableStateOf(false) }
+    var bookEnd by remember(listState) { mutableStateOf(BookEnd.NotAtEnd) }
+    val bookEndVisible = bookEnd.atEnd
     LaunchedEffect(listState) {
         snapshotFlow {
             val info = listState.layoutInfo
-            BookEndView(info.visibleItemsInfo, info.totalItemsCount, info.viewportEndOffset, listState.canScrollBackward)
+            BookEndView(
+                info.visibleItemsInfo, info.totalItemsCount, info.viewportEndOffset, listState.canScrollBackward,
+                listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset,
+            )
         }.collect { view ->
-            val atEnd = bookEndAfter(bookEndVisible, view)
-            if (atEnd && !bookEndVisible) onMarkFinished()
-            bookEndVisible = atEnd
+            val next = bookEndAfter(bookEnd, view)
+            if (next.atEnd && !bookEnd.atEnd) onMarkFinished()
+            bookEnd = next
         }
     }
 
@@ -498,26 +502,42 @@ internal fun ReaderContent(
     }
 }
 
-/** What the end-of-book check reads from the reader list's layout. */
+/** What the end-of-book check reads from the reader list's layout and scroll position. */
 internal data class BookEndView(
     val items: List<LazyListItemInfo>,
     val total: Int,
     val viewportEnd: Int,
     val scrolledDown: Boolean,
+    val firstIndex: Int = 0,
+    val firstOffset: Int = 0,
 )
 
+/** At the end of the book or not; [anchor] is the scroll position where the end was last seen. */
+internal data class BookEnd(val atEnd: Boolean, val anchorIndex: Int = 0, val anchorOffset: Int = 0) {
+    companion object {
+        val NotAtEnd = BookEnd(false)
+    }
+}
+
 /**
- * Whether the reader is at the end of the book, given whether it was ([wasAtEnd]).
+ * Whether the reader is at the end of the book, after [prev].
  *
  * It arrives when the bottom of the last row (the one before `end_padding`) is on screen after
  * scrolling — not merely its first pixel, or a long last paragraph read 100% with a screen to go.
- * It leaves only when that row is off screen: showing the reader's top bar shrinks the list from
- * the top and pushes the bottom of the last row out of view, which dropped the footer to 99% the
- * moment the reader opened the bars to look at it (found on a tablet).
+ * It leaves only when the reader scrolls back from where it arrived. A change of the list's size
+ * does not count: showing the reader's bars shrinks the list and pushes the last rows out of view
+ * (a short last line entirely), which dropped the footer to 99% the moment the reader opened the
+ * bars to look at it (found on a tablet). The list keeps its first visible item in place then, so
+ * the scroll position is unchanged.
  * `scrolledDown` guards against a book that fits one screen, or was merely opened.
  */
-internal fun bookEndAfter(wasAtEnd: Boolean, view: BookEndView): Boolean {
-    if (!view.scrolledDown || view.total < 2) return false
-    val last = view.items.firstOrNull { it.index == view.total - 2 } ?: return false
-    return wasAtEnd || last.offset + last.size <= view.viewportEnd
+internal fun bookEndAfter(prev: BookEnd, view: BookEndView): BookEnd {
+    if (!view.scrolledDown || view.total < 2) return BookEnd.NotAtEnd
+    val last = view.items.firstOrNull { it.index == view.total - 2 }
+    if (last != null && last.offset + last.size <= view.viewportEnd) {
+        return BookEnd(true, view.firstIndex, view.firstOffset)
+    }
+    val scrolledBack = view.firstIndex < prev.anchorIndex ||
+        (view.firstIndex == prev.anchorIndex && view.firstOffset < prev.anchorOffset)
+    return if (prev.atEnd && !scrolledBack) prev else BookEnd.NotAtEnd
 }
