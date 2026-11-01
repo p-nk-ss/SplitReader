@@ -190,6 +190,31 @@ class BergamotModelStoreTest {
         assertEquals(modelBytes.toList(), s.packDir(enRu).resolve(BergamotModelStore.MODEL).readBytes().toList())
     }
 
+    /**
+     * Review of v8: a pack still corrupt after its retry failed for every waiter in turn, each
+     * downloading the whole pack again (a dozen callers ensure() after a language change).
+     */
+    @Test
+    fun `a waiter shares a corrupt failure instead of downloading the pack again`() = runTest {
+        val fetcher = FakeFetcher(yieldBetweenChunks = true)
+        val s = store(fetcher, manifest(sha = "0".repeat(64)))
+        val a = async { runCatching { s.ensure(enRu).toList() } }
+        val b = async { runCatching { s.ensure(enRu).toList() } }
+        assertTrue(a.await().exceptionOrNull() is OfflinePackCorruptException)
+        assertTrue(b.await().exceptionOrNull() is OfflinePackCorruptException)
+        // The leader's attempt and its one retry; the waiter fetched nothing.
+        assertEquals(2, fetcher.fetchedUrls.count { it.endsWith("m.gz") })
+    }
+
+    @Test
+    fun `asking again after a corrupt failure makes a new attempt`() = runTest {
+        val fetcher = FakeFetcher()
+        val s = store(fetcher, manifest(sha = "0".repeat(64)))
+        assertTrue(runCatching { s.ensure(enRu).toList() }.exceptionOrNull() is OfflinePackCorruptException)
+        assertTrue(runCatching { s.ensure(enRu).toList() }.exceptionOrNull() is OfflinePackCorruptException)
+        assertEquals(4, fetcher.fetchedUrls.count { it.endsWith("m.gz") })
+    }
+
     @Test
     fun `a cut transfer is resumed from the bytes already on disk`() = runTest {
         val fetcher = FakeFetcher(cutAfter = 2048)

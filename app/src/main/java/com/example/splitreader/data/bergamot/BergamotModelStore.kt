@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
@@ -98,6 +99,15 @@ class BergamotModelStore(
     private val locks = ConcurrentHashMap<String, Mutex>()
     private val progress = ConcurrentHashMap<String, MutableStateFlow<Float>>()
 
+    /**
+     * Download attempts per pack, and the last one that failed for good (a pack still corrupt after
+     * its retry, or no room). Callers waiting while it ran share that failure instead of each making
+     * the same doomed attempt in turn — after a language change a dozen callers re-downloaded a
+     * corrupt pack one after another. A cut transfer is not shared: the next caller resumes it.
+     */
+    private val attempts = ConcurrentHashMap<String, AtomicInteger>()
+    private val finalFailures = ConcurrentHashMap<String, Pair<Int, Exception>>()
+
     override fun ensure(pair: ModelPair): Flow<Float> = channelFlow {
         if (isInstalled(pair)) { send(1f); return@channelFlow }
         val lock = locks.getOrPut(pair.id) { Mutex() }
@@ -106,14 +116,25 @@ class BergamotModelStore(
         // (taking over after a corrupt failure restarts from 0).
         var sent = 0f
         val mirror = launch { shared.collect { if (it > sent) { sent = it; send(it) } } }
+        val attempt = attempts.getOrPut(pair.id) { AtomicInteger() }
+        val asked = attempt.get()
         lock.withLock {
             mirror.cancelAndJoin()
             if (isInstalled(pair)) { send(1f); return@withLock }
+            // An attempt that started after this caller asked has failed for good: share its error.
+            finalFailures[pair.id]?.let { (n, e) -> if (n > asked) throw e }
+            val mine = attempt.incrementAndGet()
             try {
                 download(pair) { p ->
                     shared.value = p
                     if (p > sent || p == 1f) { sent = maxOf(sent, p); send(p) }
                 }
+            } catch (e: OfflinePackCorruptException) {
+                finalFailures[pair.id] = mine to e
+                throw e
+            } catch (e: InsufficientStorageException) {
+                finalFailures[pair.id] = mine to e
+                throw e
             } finally {
                 // Waiters ignore 0, so a later caller never mirrors this download's last value
                 // (a stale 1f after a delete, or a failed attempt's 0.89).
