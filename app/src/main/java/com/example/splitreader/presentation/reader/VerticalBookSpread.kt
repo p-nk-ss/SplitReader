@@ -276,7 +276,12 @@ internal fun VerticalBookSpread(
                     book = book,
                     showIllustrations = showIllustrations,
                     masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin) },
-                    image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight) },
+                    image = { _, _, img ->
+                        Illustration(
+                            path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight,
+                            onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
+                        )
+                    },
                     paragraph = { chapterIndex, idx, original ->
                         val isSelected = wordSelection?.chapterIndex == chapterIndex &&
                             wordSelection.paragraphIndex == idx
@@ -342,7 +347,12 @@ internal fun VerticalBookSpread(
                     // Parity item, not a re-decode: the index must exist in this pane or every
                     // later index shifts, but the picture itself is already on screen above.
                     // The picture's own space, so the two panes' rows keep pace when scrolled in sync.
-                    image = { _, _, img -> IllustrationSpace(path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight) },
+                    image = { _, _, img ->
+                        IllustrationSpace(
+                            path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight,
+                            onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
+                        )
+                    },
                     paragraph = { chapterIndex, idx, original ->
                         val translated = chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
                         val awaiting = original.isNotBlank() && translated.isEmpty()

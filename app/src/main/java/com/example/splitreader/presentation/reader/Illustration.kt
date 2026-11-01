@@ -2,6 +2,8 @@ package com.example.splitreader.presentation.reader
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +33,9 @@ import kotlinx.coroutines.withContext
 
 /** Test tag on an [Illustration]'s picture. */
 internal const val ILLUSTRATION_TAG = "illustration"
+
+/** Test tag on a picture's whole row (the tap target). */
+internal const val ILLUSTRATION_ROW_TAG = "illustration_row"
 
 private val VerticalPadding = 16.dp
 
@@ -78,17 +84,26 @@ private fun rememberImagePixels(path: String): IntSize? {
     return pixels
 }
 
-/** A picture's padded frame on the page; [content] fills the picture's size. Nothing for an unreadable file. */
+/**
+ * A picture's padded frame on the page; [content] fills the picture's size. Nothing for an unreadable
+ * file. A tap anywhere on the row is [onTap] (the reader's bars), as on text: a picture now can fill
+ * the screen, leaving no text to tap (found on a tablet).
+ */
 @Composable
 private fun IllustrationFrame(
     path: String,
     horizontalMargin: Float,
     maxHeight: Dp,
+    onTap: () -> Unit,
     content: @Composable (DpSize) -> Unit,
 ) {
     val pixels = rememberImagePixels(path) ?: return
     BoxWithConstraints(
-        Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp, vertical = VerticalPadding),
+        Modifier
+            .fillMaxWidth()
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onTap)
+            .testTag(ILLUSTRATION_ROW_TAG)
+            .padding(horizontal = horizontalMargin.dp, vertical = VerticalPadding),
         contentAlignment = Alignment.Center,
     ) {
         content(illustrationSize(pixels, maxWidth, maxHeight))
@@ -105,7 +120,7 @@ private fun IllustrationFrame(
  * [maxHeight]: see [illustrationMaxHeight].
  */
 @Composable
-internal fun Illustration(path: String, horizontalMargin: Float, maxHeight: Dp) {
+internal fun Illustration(path: String, horizontalMargin: Float, maxHeight: Dp, onTap: () -> Unit = {}) {
     val configuration = LocalConfiguration.current
     val (screenWidthPx, screenHeightPx) = with(LocalDensity.current) {
         configuration.screenWidthDp.dp.toPx().toInt().coerceAtLeast(1) to
@@ -123,7 +138,7 @@ internal fun Illustration(path: String, horizontalMargin: Float, maxHeight: Dp) 
             }.getOrNull()
         }
     }
-    IllustrationFrame(path, horizontalMargin, maxHeight) { size ->
+    IllustrationFrame(path, horizontalMargin, maxHeight, onTap) { size ->
         Box(Modifier.size(size).clip(RoundedCornerShape(4.dp)).testTag(ILLUSTRATION_TAG)) {
             bitmap?.let { Image(it, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) }
         }
@@ -132,6 +147,6 @@ internal fun Illustration(path: String, horizontalMargin: Float, maxHeight: Dp) 
 
 /** The empty space an [Illustration] takes — the stacked layout's translation pane, which shows no pictures. */
 @Composable
-internal fun IllustrationSpace(path: String, horizontalMargin: Float, maxHeight: Dp) {
-    IllustrationFrame(path, horizontalMargin, maxHeight) { size -> Box(Modifier.size(size)) }
+internal fun IllustrationSpace(path: String, horizontalMargin: Float, maxHeight: Dp, onTap: () -> Unit = {}) {
+    IllustrationFrame(path, horizontalMargin, maxHeight, onTap) { size -> Box(Modifier.size(size)) }
 }

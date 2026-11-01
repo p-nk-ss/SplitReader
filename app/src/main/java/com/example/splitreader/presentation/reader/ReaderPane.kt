@@ -334,7 +334,12 @@ internal fun BookSpread(
             masthead = { chapterIndex, chapter ->
                 ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex, horizontalMargin = horizontalMargin)
             },
-            image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight) },
+            image = { _, _, img ->
+                Illustration(
+                    path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight,
+                    onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
+                )
+            },
             paragraph = { chapterIndex, idx, original ->
                 val translated = if (showTranslation)
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""

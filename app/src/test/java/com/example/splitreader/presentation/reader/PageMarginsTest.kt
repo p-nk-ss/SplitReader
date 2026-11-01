@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
@@ -59,9 +60,9 @@ class PageMarginsTest {
             }
         }
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG)).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
-        assertEquals(dpToPx(margin), leftOf(composeRule.onNodeWithTag(ILLUSTRATION_TAG)), 1f)
+        assertEquals(dpToPx(margin), leftOf(composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true)), 1f)
     }
 
     private fun png(width: Int, height: Int): File =
@@ -77,7 +78,7 @@ class PageMarginsTest {
             }
         }
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG)).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -89,7 +90,7 @@ class PageMarginsTest {
     @Config(qualifiers = "w800dp-h600dp-xhdpi")
     fun `a small picture is one dp per image pixel, not one screen pixel`() {
         showIllustration(png(100, 50))
-        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertEquals(dpToPx(100f), bounds.width, 1f)
         assertEquals(dpToPx(50f), bounds.height, 1f)
     }
@@ -99,7 +100,7 @@ class PageMarginsTest {
     @Config(qualifiers = "w800dp-h600dp-xhdpi")
     fun `a picture wider than the page fits between the margins, keeping its shape`() {
         showIllustration(png(2000, 1000))
-        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertEquals(dpToPx(400f - 2 * margin), bounds.width, 1f)
         assertEquals(bounds.width / 2, bounds.height, 1f)
     }
@@ -109,7 +110,7 @@ class PageMarginsTest {
     fun `a very large picture, decoded smaller, is still sized by the file's own pixels`() {
         // 4000 px is over twice this screen's width, so the bitmap is subsampled to 2000 px.
         showIllustration(png(4000, 100))
-        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertEquals(dpToPx(400f - 2 * margin), bounds.width, 1f)
         assertEquals(dpToPx((400f - 2 * margin) / 40f), bounds.height, 1f)
     }
@@ -119,7 +120,7 @@ class PageMarginsTest {
     fun `a portrait plate taller than the pane fits its height, keeping its shape`() {
         maxHeight = 300.dp
         showIllustration(png(300, 600))
-        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertEquals(dpToPx(300f), bounds.height, 1f)
         assertEquals(dpToPx(150f), bounds.width, 1f)
     }
@@ -141,13 +142,38 @@ class PageMarginsTest {
             }
         }
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG)).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.waitForIdle()
         val original = composeRule.onNodeWithTag("original").fetchSemanticsNode().boundsInRoot.height
         val translation = composeRule.onNodeWithTag("translation").fetchSemanticsNode().boundsInRoot.height
         assertEquals(dpToPx(200f + 32f), original, 1f)
         assertEquals(original, translation, 1f)
+    }
+
+    /**
+     * Found on a tablet: a picture can now fill the screen, and a tap on it did nothing, so with no
+     * text in view there was no way to bring up the reader's bars.
+     */
+    @Test
+    @Config(qualifiers = "w800dp-h600dp-xhdpi")
+    fun `a tap on a picture, or on its space in the translation pane, toggles the bars`() {
+        val file = png(300, 200)
+        var taps = 0
+        composeRule.setContent {
+            SplitReaderTheme {
+                androidx.compose.foundation.layout.Column {
+                    Box(Modifier.width(400.dp)) { Illustration(file.path, margin, Dp.Infinity, onTap = { taps++ }) }
+                    Box(Modifier.width(400.dp)) { IllustrationSpace(file.path, margin, Dp.Infinity, onTap = { taps++ }) }
+                }
+            }
+        }
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_ROW_TAG)).fetchSemanticsNodes().size == 2
+        }
+        composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_ROW_TAG))[0].performClick()
+        composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_ROW_TAG))[1].performClick()
+        assertEquals(2, taps)
     }
 
     @Test

@@ -86,14 +86,14 @@ class IllustrationStabilityTest {
                 }
             }
         }
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag(ILLUSTRATION_TAG)).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         composeRule.waitForIdle()
         // size, not boundsInRoot: the visible part is clipped by the pane, which does shrink.
-        val before = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().size
+        val before = composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true).fetchSemanticsNode().size
 
         areaHeight = 700.dp // the bars took 100 dp
         composeRule.waitForIdle()
-        val after = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().size
+        val after = composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true).fetchSemanticsNode().size
 
         assertEquals(before, after)
     }
