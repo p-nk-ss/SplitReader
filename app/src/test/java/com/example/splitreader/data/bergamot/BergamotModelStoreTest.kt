@@ -206,6 +206,20 @@ class BergamotModelStoreTest {
         assertEquals(2, fetcher.fetchedUrls.count { it.endsWith("m.gz") })
     }
 
+    /** The common case: the waiter arrives while the download is already running. */
+    @Test
+    fun `a waiter arriving mid-download shares its corrupt failure too`() = runTest {
+        val fetcher = FakeFetcher(yieldBetweenChunks = true)
+        val s = store(fetcher, manifest(sha = "0".repeat(64)))
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val a = async { runCatching { s.ensure(enRu).collect { if (it > 0f) started.complete(Unit) } } }
+        started.await()
+        val b = async { runCatching { s.ensure(enRu).toList() } }
+        assertTrue(a.await().exceptionOrNull() is OfflinePackCorruptException)
+        assertTrue(b.await().exceptionOrNull() is OfflinePackCorruptException)
+        assertEquals(2, fetcher.fetchedUrls.count { it.endsWith("m.gz") })
+    }
+
     @Test
     fun `asking again after a corrupt failure makes a new attempt`() = runTest {
         val fetcher = FakeFetcher()
