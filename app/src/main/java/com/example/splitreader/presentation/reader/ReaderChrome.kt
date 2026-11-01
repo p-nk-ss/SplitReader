@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -206,11 +207,14 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success, bookEndVisible: Bo
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp)
             .background(palette.bg2)
             .drawBehind {
                 drawLine(edgeColor, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
             }
+            // The app draws edge to edge: the background runs under the gesture bar, the text sits
+            // above it (on a tablet it was cut almost in half).
+            .navigationBarsPadding()
+            .height(36.dp)
             .padding(horizontal = 28.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

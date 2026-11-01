@@ -6,6 +6,15 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.foundation.lazy.LazyListItemInfo
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.progressAt
 import com.example.splitreader.presentation.theme.SplitReaderTheme
@@ -47,6 +56,34 @@ class ReaderStatusFooterTest {
         val expected = (book.progressAt(state.position) * 100).toInt()
         assertTrue(expected in 1..99)
         composeRule.onNodeWithText("$expected%").assertIsDisplayed()
+    }
+
+    /**
+     * Found on a tablet: the footer sat under the gesture bar, cut almost in half. The app draws
+     * edge to edge, so the footer must lift its content above the navigation bar.
+     */
+    @Test
+    fun `the footer's text stays above the navigation bar`() {
+        composeRule.setContent {
+            SplitReaderTheme {
+                Box(Modifier.fillMaxSize().testTag("root")) {
+                    Box(Modifier.align(Alignment.BottomCenter)) { ReaderStatusFooter(state) }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        val composeView = composeRule.activity
+            .findViewById<android.view.ViewGroup>(android.R.id.content)
+            .getChildAt(0)
+        val insets = WindowInsetsCompat.Builder()
+            .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 60))
+            .build()
+        composeRule.runOnUiThread { ViewCompat.dispatchApplyWindowInsets(composeView, insets) }
+        composeRule.waitForIdle()
+
+        val rootBottom = composeRule.onNodeWithTag("root").fetchSemanticsNode().boundsInRoot.bottom
+        val textBottom = composeRule.onNodeWithText("CH", substring = true).fetchSemanticsNode().boundsInRoot.bottom
+        assertTrue("text bottom $textBottom must be above the 60px bar ending at $rootBottom", textBottom <= rootBottom - 60f)
     }
 
     private fun item(index: Int, offset: Int, size: Int) = object : LazyListItemInfo {
