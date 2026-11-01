@@ -5,7 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import com.example.splitreader.domain.model.ReadingPosition
+import com.example.splitreader.domain.model.progressAt
 import com.example.splitreader.presentation.theme.SplitReaderTheme
 import com.example.splitreader.screenshot.ScreenFixtures
 import org.junit.Assert.assertFalse
@@ -42,15 +44,38 @@ class ReaderStatusFooterTest {
     @Test
     fun `before the end the footer counts paragraphs`() {
         composeRule.setContent { SplitReaderTheme { ReaderStatusFooter(state, bookEndVisible = false) } }
-        composeRule.onNodeWithText("100%").assertDoesNotExist()
+        val expected = (book.progressAt(state.position) * 100).toInt()
+        assertTrue(expected in 1..99)
+        composeRule.onNodeWithText("$expected%").assertIsDisplayed()
+    }
+
+    private fun item(index: Int, offset: Int, size: Int) = object : LazyListItemInfo {
+        override val index = index
+        override val key: Any = index
+        override val offset = offset
+        override val size = size
+        override val contentType: Any? = null
+    }
+
+    // 100 items, the last one end_padding; the viewport is 1000 px tall.
+    @Test
+    fun `the end is the bottom of the last row on screen`() {
+        assertTrue(isBookEndVisible(listOf(item(97, 0, 600), item(98, 600, 400)), 100, 1000, scrolledDown = true))
     }
 
     @Test
-    fun `the end is the last two items on screen after scrolling`() {
-        assertTrue(isBookEndVisible(lastVisible = 98, total = 100, scrolledDown = true))
-        assertFalse(isBookEndVisible(lastVisible = 97, total = 100, scrolledDown = true))
-        // A book that fits one screen, or was merely opened, is not finished.
-        assertFalse(isBookEndVisible(lastVisible = 99, total = 100, scrolledDown = false))
-        assertFalse(isBookEndVisible(lastVisible = -1, total = 0, scrolledDown = true))
+    fun `the first lines of a long last paragraph are not the end`() {
+        assertFalse(isBookEndVisible(listOf(item(97, 0, 900), item(98, 900, 700)), 100, 1000, scrolledDown = true))
+    }
+
+    @Test
+    fun `the row before the last on screen is not the end`() {
+        assertFalse(isBookEndVisible(listOf(item(96, 0, 500), item(97, 500, 500)), 100, 1000, scrolledDown = true))
+    }
+
+    @Test
+    fun `a book that fits one screen, or was merely opened, is not finished`() {
+        assertFalse(isBookEndVisible(listOf(item(0, 0, 300), item(1, 300, 100)), 3, 1000, scrolledDown = false))
+        assertFalse(isBookEndVisible(emptyList(), 1, 1000, scrolledDown = true))
     }
 }

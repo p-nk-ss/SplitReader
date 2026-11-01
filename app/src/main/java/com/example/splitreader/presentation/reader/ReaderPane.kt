@@ -324,7 +324,7 @@ internal fun BookSpread(
     var paneWidthPx by remember { mutableIntStateOf(0) }
     // The grip sits mid-height (32 dp) over the list; a little room around it.
     val gripHalfPx = with(LocalDensity.current) { 24.dp.roundToPx() }
-    val gripCovered by remember(listState) {
+    val gripCovered by remember(listState, gripHalfPx) {
         derivedStateOf {
             val info = listState.layoutInfo
             val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2
@@ -448,8 +448,9 @@ internal fun BookSpread(
             ratio = effectiveRatio,
             paneWidthPx = paneWidthPx,
             prominent = barsVisible || !dragRatio.isNaN(),
-            // Hidden over a full-width row, unless it is being dragged; the strip still takes drags.
-            hidden = gripCovered && dragRatio.isNaN(),
+            // Hidden over a full-width row, but not while prominent (bars up, or dragging): then the
+            // reader may be about to grab it. The strip takes drags either way.
+            hidden = gripCovered && !(barsVisible || !dragRatio.isNaN()),
             onDrag = { newRatio -> dragRatio = newRatio },
             onDragFinished = {
                 if (!dragRatio.isNaN()) {

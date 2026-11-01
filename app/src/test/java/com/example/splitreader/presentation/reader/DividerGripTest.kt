@@ -45,6 +45,11 @@ class DividerGripTest {
     }
 
     @Test
+    fun `an image still decoding, or undecodable, is 0 px and hides nothing`() {
+        assertFalse(isFullWidthItemUnder(listOf(row("img_0_0", 500, 0)), top, bottom))
+    }
+
+    @Test
     fun `the keys bookItems gives full-width rows`() {
         assertTrue(isFullWidthItem("masthead_0"))
         assertTrue(isFullWidthItem("img_0_1"))

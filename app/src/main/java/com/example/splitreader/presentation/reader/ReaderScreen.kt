@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -262,7 +263,7 @@ internal fun ReaderContent(
     val bookEndVisible by remember(listState) {
         derivedStateOf {
             val info = listState.layoutInfo
-            isBookEndVisible(info.visibleItemsInfo.lastOrNull()?.index ?: -1, info.totalItemsCount, listState.canScrollBackward)
+            isBookEndVisible(info.visibleItemsInfo, info.totalItemsCount, info.viewportEndOffset, listState.canScrollBackward)
         }
     }
     LaunchedEffect(listState) {
@@ -499,8 +500,12 @@ internal fun ReaderContent(
 }
 
 /**
- * The last item (or the one before it) is on screen after scrolling. `scrolledDown` guards against a
- * book that fits one screen, or was merely opened.
+ * The bottom of the book's last row (the one before `end_padding`) is on screen after scrolling — not
+ * merely its first pixel, or a long last paragraph read 100% with a screen still to go.
+ * `scrolledDown` guards against a book that fits one screen, or was merely opened.
  */
-internal fun isBookEndVisible(lastVisible: Int, total: Int, scrolledDown: Boolean): Boolean =
-    total > 0 && scrolledDown && lastVisible >= total - 2
+internal fun isBookEndVisible(items: List<LazyListItemInfo>, total: Int, viewportEnd: Int, scrolledDown: Boolean): Boolean {
+    if (!scrolledDown || total < 2) return false
+    val last = items.firstOrNull { it.index == total - 2 } ?: return false
+    return last.offset + last.size <= viewportEnd
+}

@@ -141,7 +141,8 @@ internal fun isFullWidthItem(key: Any): Boolean =
 
 /**
  * A full-width row is under the divider grip (pixels [gripTop]..[gripBottom] of the viewport). The
- * grip is drawn over the list, so without this it crossed illustrations and chapter titles.
+ * grip is drawn over the list, so without this it crossed illustrations and chapter titles. An image
+ * still decoding, or one that can't be (SVG), is 0 px tall: nothing to cross.
  */
 internal fun isFullWidthItemUnder(items: List<LazyListItemInfo>, gripTop: Int, gripBottom: Int): Boolean =
-    items.any { isFullWidthItem(it.key) && it.offset < gripBottom && it.offset + it.size > gripTop }
+    items.any { isFullWidthItem(it.key) && it.size > 0 && it.offset < gripBottom && it.offset + it.size > gripTop }
