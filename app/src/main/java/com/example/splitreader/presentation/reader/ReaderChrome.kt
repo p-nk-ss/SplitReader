@@ -165,12 +165,14 @@ private fun LangChip(source: String, target: String, onClick: () -> Unit) {
 internal fun ChapterMasthead(
     chapter: com.example.splitreader.domain.model.Chapter,
     chapterIndex: Int,
+    /** The reader's page margin in dp, the same as the text's (`ReadingAppearance.horizontalMargin`). */
+    horizontalMargin: Float,
 ) {
     val palette = LocalReaderPalette.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 36.dp, start = 32.dp, end = 32.dp, bottom = 8.dp),
+            .padding(top = 36.dp, start = horizontalMargin.dp, end = horizontalMargin.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(

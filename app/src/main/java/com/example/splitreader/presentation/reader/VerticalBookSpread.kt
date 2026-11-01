@@ -269,8 +269,8 @@ internal fun VerticalBookSpread(
                 bookItems(
                     book = book,
                     showIllustrations = showIllustrations,
-                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i) },
-                    image = { _, _, img -> Illustration(path = img.path) },
+                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin) },
+                    image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin) },
                     paragraph = { chapterIndex, idx, original ->
                         val isSelected = wordSelection?.chapterIndex == chapterIndex &&
                             wordSelection.paragraphIndex == idx
@@ -332,7 +332,7 @@ internal fun VerticalBookSpread(
                 bookItems(
                     book = book,
                     showIllustrations = showIllustrations,
-                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i) },
+                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin) },
                     // Parity item, not a re-decode: the index must exist in this pane or every
                     // later index shifts, but the picture itself is already on screen above.
                     image = { _, _, _ -> Spacer(Modifier.fillMaxWidth().height(24.dp)) },

@@ -63,6 +63,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -338,9 +339,9 @@ internal fun BookSpread(
             book = book,
             showIllustrations = showIllustrations,
             masthead = { chapterIndex, chapter ->
-                ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex)
+                ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex, horizontalMargin = horizontalMargin)
             },
-            image = { _, _, img -> Illustration(path = img.path) },
+            image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin) },
             paragraph = { chapterIndex, idx, original ->
                 val translated = if (showTranslation)
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
@@ -598,9 +599,11 @@ private fun DividerHandle(
  * Full-width inline illustration. Loads the bitmap off the main thread (downscaled to ~screen width
  * to avoid OOM on large plates) and spans both panes — images are not translated, so they are not
  * split. Renders nothing if the file is missing or undecodable (e.g. SVG), keeping the reader robust.
+ * [horizontalMargin]: the reader's page margin in dp (`ReadingAppearance.horizontalMargin`), the same
+ * as the text's, so the picture lines up with the page.
  */
 @Composable
-internal fun Illustration(path: String) {
+internal fun Illustration(path: String, horizontalMargin: Float) {
     val screenWidthPx = with(LocalDensity.current) {
         LocalConfiguration.current.screenWidthDp.dp.toPx()
     }.toInt().coerceAtLeast(1)
@@ -618,14 +621,14 @@ internal fun Illustration(path: String) {
     }
     bitmap?.let { bmp ->
         Box(
-            Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 16.dp),
+            Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
             Image(
                 bitmap = bmp,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).testTag(ILLUSTRATION_TAG),
             )
         }
     }
@@ -835,4 +838,7 @@ internal fun ParagraphItem(
             onTextLayout = { textLayoutResult = it },
         )
     }
-}
+}
+
+/** Test tag on an [Illustration]'s image. */
+internal const val ILLUSTRATION_TAG = "illustration"
