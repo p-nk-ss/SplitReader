@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -79,6 +80,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
@@ -601,13 +603,18 @@ private fun DividerHandle(
  * split. Renders nothing if the file is missing or undecodable (e.g. SVG), keeping the reader robust.
  * [horizontalMargin]: the reader's page margin in dp (`ReadingAppearance.horizontalMargin`), the same
  * as the text's, so the picture lines up with the page.
+ *
+ * Sized as browsers and e-readers size book images: one image pixel is one dp (a CSS px), at most the
+ * page width between the margins. Drawn at its bitmap size instead, a plate came out half size on a
+ * tablet and a third or less on a phone (found on a device).
  */
 @Composable
 internal fun Illustration(path: String, horizontalMargin: Float) {
     val screenWidthPx = with(LocalDensity.current) {
         LocalConfiguration.current.screenWidthDp.dp.toPx()
     }.toInt().coerceAtLeast(1)
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, path) {
+    // The decoded bitmap may be subsampled; the size on the page comes from the file's own pixels.
+    val decoded by produceState<Pair<ImageBitmap, IntSize>?>(initialValue = null, path) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -616,10 +623,11 @@ internal fun Illustration(path: String, horizontalMargin: Float) {
                 while (bounds.outWidth / sample > screenWidthPx * 2) sample *= 2
                 val opts = BitmapFactory.Options().apply { inSampleSize = sample }
                 BitmapFactory.decodeFile(path, opts)?.asImageBitmap()
+                    ?.let { it to IntSize(bounds.outWidth, bounds.outHeight) }
             }.getOrNull()
         }
     }
-    bitmap?.let { bmp ->
+    decoded?.let { (bmp, size) ->
         Box(
             Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center,
@@ -628,7 +636,12 @@ internal fun Illustration(path: String, horizontalMargin: Float) {
                 bitmap = bmp,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).testTag(ILLUSTRATION_TAG),
+                modifier = Modifier
+                    .widthIn(max = size.width.dp)
+                    .fillMaxWidth()
+                    .aspectRatio(size.width.toFloat() / size.height.coerceAtLeast(1))
+                    .clip(RoundedCornerShape(4.dp))
+                    .testTag(ILLUSTRATION_TAG),
             )
         }
     }

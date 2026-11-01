@@ -60,6 +60,46 @@ class PageMarginsTest {
         assertEquals(dpToPx(margin), leftOf(composeRule.onNodeWithTag(ILLUSTRATION_TAG)), 1f)
     }
 
+    private fun png(width: Int, height: Int): File =
+        File.createTempFile("img", ".png").apply {
+            deleteOnExit()
+            outputStream().use { Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+
+    private fun showIllustration(file: File) {
+        composeRule.setContent {
+            SplitReaderTheme {
+                Box(Modifier.width(400.dp).testTag("page")) { Illustration(file.path, horizontalMargin = margin) }
+            }
+        }
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG)).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    /**
+     * Found on a device: a plate drawn at its bitmap size came out half size on a tablet (density 2)
+     * and smaller still on a phone. One image pixel is one dp, as browsers and e-readers size it.
+     */
+    @Test
+    @Config(qualifiers = "w800dp-h600dp-xhdpi")
+    fun `a small picture is one dp per image pixel, not one screen pixel`() {
+        showIllustration(png(100, 50))
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        assertEquals(dpToPx(100f), bounds.width, 1f)
+        assertEquals(dpToPx(50f), bounds.height, 1f)
+    }
+
+    /** A guard: wide pictures already fitted before the one-dp-per-pixel change, and must still. */
+    @Test
+    @Config(qualifiers = "w800dp-h600dp-xhdpi")
+    fun `a picture wider than the page fits between the margins, keeping its shape`() {
+        showIllustration(png(2000, 1000))
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        assertEquals(dpToPx(400f - 2 * margin), bounds.width, 1f)
+        assertEquals(bounds.width / 2, bounds.height, 1f)
+    }
+
     @Test
     fun `a long chapter title wraps at the page margin`() {
         val title = "A chapter title long enough to wrap across the full width of the page several times over"
