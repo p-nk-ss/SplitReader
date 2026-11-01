@@ -172,7 +172,7 @@ fun SettingsScreen(
                 // Same rounding and format as the reader's Display dialog, so one value never reads
                 // "51%" here and "50 / 50" there (found on a device).
                 valueLabel = splitLabel(appearance.splitRatio),
-                valueRange = 0.3f..0.7f,
+                valueRange = ReadingDefaults.SPLIT_RATIO_RANGE,
                 onValueChange = { v -> onAppearanceChange { it.copy(splitRatio = v) } },
             )
             Spacer(Modifier.height(sp.sm))
@@ -326,7 +326,7 @@ fun SettingsScreen(
                 label = "Speech rate",
                 value = state.ttsRate,
                 valueLabel = "×${"%.2f".format(state.ttsRate)}",
-                valueRange = 0.5f..2.0f,
+                valueRange = ReadingDefaults.TTS_RATE_RANGE,
                 onValueChange = onSetTtsRate,
             )
             Spacer(Modifier.height(sp.sm))
@@ -334,7 +334,7 @@ fun SettingsScreen(
                 label = "Pitch",
                 value = state.ttsPitch,
                 valueLabel = "×${"%.2f".format(state.ttsPitch)}",
-                valueRange = 0.5f..2.0f,
+                valueRange = ReadingDefaults.TTS_PITCH_RANGE,
                 onValueChange = onSetTtsPitch,
             )
             Spacer(Modifier.height(sp.sm))

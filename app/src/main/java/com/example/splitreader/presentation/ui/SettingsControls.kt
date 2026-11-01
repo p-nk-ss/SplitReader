@@ -126,7 +126,7 @@ fun TypographyControls(
         label = "Line height",
         value = appearance.lineHeight,
         valueLabel = "×${"%.2f".format(appearance.lineHeight)}",
-        valueRange = 1.20f..2.00f,
+        valueRange = ReadingDefaults.LINE_HEIGHT_RANGE,
         onValueChange = { v -> onChange { it.copy(lineHeight = v) } },
     )
     Spacer(Modifier.height(sp.sm))
@@ -134,7 +134,7 @@ fun TypographyControls(
         label = "Paragraph spacing",
         value = appearance.paragraphSpacing,
         valueLabel = "${appearance.paragraphSpacing.toInt()}dp",
-        valueRange = 4f..48f,
+        valueRange = ReadingDefaults.PARAGRAPH_SPACING_RANGE,
         onValueChange = { v -> onChange { it.copy(paragraphSpacing = v) } },
     )
     Spacer(Modifier.height(sp.sm))
@@ -142,7 +142,7 @@ fun TypographyControls(
         label = "Letter spacing",
         value = appearance.letterSpacing,
         valueLabel = "${"%.2f".format(appearance.letterSpacing)}sp",
-        valueRange = 0f..2f,
+        valueRange = ReadingDefaults.LETTER_SPACING_RANGE,
         onValueChange = { v -> onChange { it.copy(letterSpacing = v) } },
     )
     Spacer(Modifier.height(sp.sm))
@@ -150,7 +150,7 @@ fun TypographyControls(
         label = "First-line indent",
         value = appearance.textIndent,
         valueLabel = "${appearance.textIndent.toInt()}sp",
-        valueRange = 0f..48f,
+        valueRange = ReadingDefaults.TEXT_INDENT_RANGE,
         onValueChange = { v -> onChange { it.copy(textIndent = v) } },
     )
 

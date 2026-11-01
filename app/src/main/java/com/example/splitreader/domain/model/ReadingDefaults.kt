@@ -36,7 +36,7 @@ object ReadingDefaults {
     val SPLIT_RATIO_RANGE = 0.3f..0.7f
     val VERTICAL_SPLIT_RATIO_RANGE = 0.3f..0.7f
     val HORIZONTAL_MARGIN_RANGE = 4f..48f
-    val LINE_HEIGHT_RANGE = 1.1f..2.5f
+    val LINE_HEIGHT_RANGE = 1.2f..2.0f // the slider's range since it shipped (the clamp allowed 1.1..2.5)
     val LETTER_SPACING_RANGE = 0f..2f
     val TEXT_INDENT_RANGE = 0f..48f
     val PARAGRAPH_SPACING_RANGE = 4f..48f
