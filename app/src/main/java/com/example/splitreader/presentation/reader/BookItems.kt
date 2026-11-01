@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.reader
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -133,3 +134,14 @@ internal fun LazyListScope.bookItems(
     }
     item(key = "end_padding") { Spacer(Modifier.height(48.dp)) }
 }
+
+/** Rows that span both panes (a chapter masthead, an illustration), by their [bookItems] key. */
+internal fun isFullWidthItem(key: Any): Boolean =
+    key is String && (key.startsWith("masthead_") || key.startsWith("img_"))
+
+/**
+ * A full-width row is under the divider grip (pixels [gripTop]..[gripBottom] of the viewport). The
+ * grip is drawn over the list, so without this it crossed illustrations and chapter titles.
+ */
+internal fun isFullWidthItemUnder(items: List<LazyListItemInfo>, gripTop: Int, gripBottom: Int): Boolean =
+    items.any { isFullWidthItem(it.key) && it.offset < gripBottom && it.offset + it.size > gripTop }

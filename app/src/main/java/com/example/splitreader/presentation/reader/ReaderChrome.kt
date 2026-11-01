@@ -198,10 +198,10 @@ internal fun ChapterMasthead(
 // ── Status footer ─────────────────────────────────────────────────────────
 
 @Composable
-internal fun ReaderStatusFooter(state: ReaderUiState.Success) {
+internal fun ReaderStatusFooter(state: ReaderUiState.Success, bookEndVisible: Boolean = false) {
     val palette = LocalReaderPalette.current
     val edgeColor = palette.edge
-    val progress = state.book.progressAt(state.position)
+    val progress = if (bookEndVisible) 1f else state.book.progressAt(state.position)
 
     Row(
         modifier = Modifier

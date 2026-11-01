@@ -37,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -321,6 +322,15 @@ internal fun BookSpread(
     var dragRatio by remember { mutableFloatStateOf(Float.NaN) }
     val effectiveRatio = if (dragRatio.isNaN()) splitRatio else dragRatio
     var paneWidthPx by remember { mutableIntStateOf(0) }
+    // The grip sits mid-height (32 dp) over the list; a little room around it.
+    val gripHalfPx = with(LocalDensity.current) { 24.dp.roundToPx() }
+    val gripCovered by remember(listState) {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2
+            isFullWidthItemUnder(info.visibleItemsInfo, mid - gripHalfPx, mid + gripHalfPx)
+        }
+    }
 
     Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width }) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(palette.bg)) {
@@ -438,6 +448,8 @@ internal fun BookSpread(
             ratio = effectiveRatio,
             paneWidthPx = paneWidthPx,
             prominent = barsVisible || !dragRatio.isNaN(),
+            // Hidden over a full-width row, unless it is being dragged; the strip still takes drags.
+            hidden = gripCovered && dragRatio.isNaN(),
             onDrag = { newRatio -> dragRatio = newRatio },
             onDragFinished = {
                 if (!dragRatio.isNaN()) {
@@ -485,6 +497,7 @@ private fun DividerHandle(
     ratio: Float,
     paneWidthPx: Int,
     prominent: Boolean,
+    hidden: Boolean,
     onDrag: (Float) -> Unit,
     onDragFinished: () -> Unit,
     onVerticalScroll: (Float) -> Unit,
@@ -492,7 +505,11 @@ private fun DividerHandle(
 ) {
     val palette = LocalReaderPalette.current
     val gripAlpha by animateFloatAsState(
-        targetValue = if (prominent) 0.9f else 0.25f,
+        targetValue = when {
+            hidden -> 0f
+            prominent -> 0.9f
+            else -> 0.25f
+        },
         label = "dividerHandleAlpha",
     )
     val currentRatio by rememberUpdatedState(ratio)

@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -256,21 +257,18 @@ internal fun ReaderContent(
             }
     }
 
-    // Mark the book finished once the user scrolls to the end of the last chapter.
-    // `canScrollBackward` guards against books that fit one screen / were merely opened.
-    LaunchedEffect(listState) {
-        snapshotFlow {
+    // The end of the last chapter is on screen: the book is finished (Library shows 100%), and the
+    // footer says 100% too — its paragraph count stops at the top line, 95–98% on the last screen.
+    val bookEndVisible by remember(listState) {
+        derivedStateOf {
             val info = listState.layoutInfo
-            Triple(
-                info.visibleItemsInfo.lastOrNull()?.index ?: -1,
-                info.totalItemsCount,
-                listState.canScrollBackward,
-            )
+            isBookEndVisible(info.visibleItemsInfo.lastOrNull()?.index ?: -1, info.totalItemsCount, listState.canScrollBackward)
         }
+    }
+    LaunchedEffect(listState) {
+        snapshotFlow { bookEndVisible }
             .distinctUntilChanged()
-            .collect { (lastVisible, total, scrolledDown) ->
-                if (total > 0 && scrolledDown && lastVisible >= total - 2) onMarkFinished()
-            }
+            .collect { if (it) onMarkFinished() }
     }
 
     // Report the *visible paragraph span* (first→last visible item, which may cross chapter
@@ -426,7 +424,7 @@ internal fun ReaderContent(
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
-                ReaderStatusFooter(state = state)
+                ReaderStatusFooter(state = state, bookEndVisible = bookEndVisible)
             }
         }
 
@@ -499,3 +497,10 @@ internal fun ReaderContent(
       }
     }
 }
+
+/**
+ * The last item (or the one before it) is on screen after scrolling. `scrolledDown` guards against a
+ * book that fits one screen, or was merely opened.
+ */
+internal fun isBookEndVisible(lastVisible: Int, total: Int, scrolledDown: Boolean): Boolean =
+    total > 0 && scrolledDown && lastVisible >= total - 2
