@@ -102,6 +102,8 @@ internal fun VerticalBookSpread(
     var dragRatio by remember { mutableFloatStateOf(Float.NaN) }
     val effectiveRatio = if (dragRatio.isNaN()) verticalSplitRatio else dragRatio
     var paneAreaHeightPx by remember { mutableIntStateOf(0) }
+    // Both panes size pictures by the top (original) pane, so an image row is as tall in each.
+    val illustrationMaxHeight = illustrationMaxHeight((paneAreaHeightPx * effectiveRatio).toInt())
     val palette = LocalReaderPalette.current
 
     val coordinator = remember { ScrollSyncCoordinator() }
@@ -270,7 +272,7 @@ internal fun VerticalBookSpread(
                     book = book,
                     showIllustrations = showIllustrations,
                     masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin) },
-                    image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin) },
+                    image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight) },
                     paragraph = { chapterIndex, idx, original ->
                         val isSelected = wordSelection?.chapterIndex == chapterIndex &&
                             wordSelection.paragraphIndex == idx
@@ -335,7 +337,8 @@ internal fun VerticalBookSpread(
                     masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin) },
                     // Parity item, not a re-decode: the index must exist in this pane or every
                     // later index shifts, but the picture itself is already on screen above.
-                    image = { _, _, _ -> Spacer(Modifier.fillMaxWidth().height(24.dp)) },
+                    // The picture's own space, so the two panes' rows keep pace when scrolled in sync.
+                    image = { _, _, img -> IllustrationSpace(path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight) },
                     paragraph = { chapterIndex, idx, original ->
                         val translated = chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
                         val awaiting = original.isNotBlank() && translated.isEmpty()

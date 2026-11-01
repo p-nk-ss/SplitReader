@@ -10,6 +10,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.presentation.theme.SplitReaderTheme
@@ -35,6 +38,7 @@ class PageMarginsTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     private val margin = 12f
+    private var maxHeight = Dp.Infinity
 
     private fun leftOf(node: androidx.compose.ui.test.SemanticsNodeInteraction): Float {
         val page = composeRule.onNodeWithTag("page").fetchSemanticsNode().boundsInRoot.left
@@ -51,7 +55,7 @@ class PageMarginsTest {
 
         composeRule.setContent {
             SplitReaderTheme {
-                Box(Modifier.width(400.dp).testTag("page")) { Illustration(file.path, horizontalMargin = margin) }
+                Box(Modifier.width(400.dp).testTag("page")) { Illustration(file.path, horizontalMargin = margin, maxHeight = maxHeight) }
             }
         }
         composeRule.waitUntil(5_000) {
@@ -69,7 +73,7 @@ class PageMarginsTest {
     private fun showIllustration(file: File) {
         composeRule.setContent {
             SplitReaderTheme {
-                Box(Modifier.width(400.dp).testTag("page")) { Illustration(file.path, horizontalMargin = margin) }
+                Box(Modifier.width(400.dp).testTag("page")) { Illustration(file.path, horizontalMargin = margin, maxHeight = maxHeight) }
             }
         }
         composeRule.waitUntil(5_000) {
@@ -98,6 +102,59 @@ class PageMarginsTest {
         val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
         assertEquals(dpToPx(400f - 2 * margin), bounds.width, 1f)
         assertEquals(bounds.width / 2, bounds.height, 1f)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h600dp-xhdpi")
+    fun `a very large picture, decoded smaller, is still sized by the file's own pixels`() {
+        // 4000 px is over twice this screen's width, so the bitmap is subsampled to 2000 px.
+        showIllustration(png(4000, 100))
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        assertEquals(dpToPx(400f - 2 * margin), bounds.width, 1f)
+        assertEquals(dpToPx((400f - 2 * margin) / 40f), bounds.height, 1f)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h600dp-xhdpi")
+    fun `a portrait plate taller than the pane fits its height, keeping its shape`() {
+        maxHeight = 300.dp
+        showIllustration(png(300, 600))
+        val bounds = composeRule.onNodeWithTag(ILLUSTRATION_TAG).fetchSemanticsNode().boundsInRoot
+        assertEquals(dpToPx(300f), bounds.height, 1f)
+        assertEquals(dpToPx(150f), bounds.width, 1f)
+    }
+
+    /**
+     * The stacked layout scrolls its two panes in step by row. The translation pane showed a 24 dp
+     * gap for each picture, so a tall plate in the original pane swept by while the other crawled.
+     */
+    @Test
+    @Config(qualifiers = "w800dp-h600dp-xhdpi")
+    fun `the translation pane's space for a picture is as tall as the picture's row`() {
+        val file = png(300, 200)
+        composeRule.setContent {
+            SplitReaderTheme {
+                androidx.compose.foundation.layout.Row {
+                    Box(Modifier.width(400.dp).testTag("original")) { Illustration(file.path, margin, Dp.Infinity) }
+                    Box(Modifier.width(400.dp).testTag("translation")) { IllustrationSpace(file.path, margin, Dp.Infinity) }
+                }
+            }
+        }
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG)).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitForIdle()
+        val original = composeRule.onNodeWithTag("original").fetchSemanticsNode().boundsInRoot.height
+        val translation = composeRule.onNodeWithTag("translation").fetchSemanticsNode().boundsInRoot.height
+        assertEquals(dpToPx(200f + 32f), original, 1f)
+        assertEquals(original, translation, 1f)
+    }
+
+    @Test
+    fun `the size rule - one dp per pixel, within the page and the pane`() {
+        assertEquals(DpSize(100.dp, 50.dp), illustrationSize(IntSize(100, 50), 376.dp, Dp.Infinity))
+        assertEquals(DpSize(376.dp, 188.dp), illustrationSize(IntSize(2000, 1000), 376.dp, Dp.Infinity))
+        assertEquals(DpSize(150.dp, 300.dp), illustrationSize(IntSize(300, 600), 376.dp, 300.dp))
     }
 
     @Test

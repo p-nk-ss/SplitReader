@@ -1,11 +1,9 @@
 package com.example.splitreader.presentation.reader
 
-import android.graphics.BitmapFactory
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,7 +18,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,7 +41,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -55,13 +51,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -80,7 +72,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
@@ -92,8 +83,6 @@ import com.example.splitreader.presentation.theme.MotionTokens
 import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.ShimmerBox
 import com.example.splitreader.presentation.theme.fontFamily
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.text.BreakIterator
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -325,6 +314,8 @@ internal fun BookSpread(
     var dragRatio by remember { mutableFloatStateOf(Float.NaN) }
     val effectiveRatio = if (dragRatio.isNaN()) splitRatio else dragRatio
     var paneWidthPx by remember { mutableIntStateOf(0) }
+    var paneHeightPx by remember { mutableIntStateOf(0) }
+    val illustrationMaxHeight = illustrationMaxHeight(paneHeightPx)
     // The grip sits mid-height (32 dp) over the list; a little room around it.
     val gripHalfPx = with(LocalDensity.current) { 24.dp.roundToPx() }
     val gripCovered by remember(listState, gripHalfPx) {
@@ -335,7 +326,7 @@ internal fun BookSpread(
         }
     }
 
-    Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width }) {
+    Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width; paneHeightPx = it.height }) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(palette.bg)) {
         bookItems(
             book = book,
@@ -343,7 +334,7 @@ internal fun BookSpread(
             masthead = { chapterIndex, chapter ->
                 ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex, horizontalMargin = horizontalMargin)
             },
-            image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin) },
+            image = { _, _, img -> Illustration(path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight) },
             paragraph = { chapterIndex, idx, original ->
                 val translated = if (showTranslation)
                     chapterTranslations[chapterIndex]?.getOrElse(idx) { "" } ?: ""
@@ -598,56 +589,6 @@ private fun DividerHandle(
 }
 
 /**
- * Full-width inline illustration. Loads the bitmap off the main thread (downscaled to ~screen width
- * to avoid OOM on large plates) and spans both panes — images are not translated, so they are not
- * split. Renders nothing if the file is missing or undecodable (e.g. SVG), keeping the reader robust.
- * [horizontalMargin]: the reader's page margin in dp (`ReadingAppearance.horizontalMargin`), the same
- * as the text's, so the picture lines up with the page.
- *
- * Sized as browsers and e-readers size book images: one image pixel is one dp (a CSS px), at most the
- * page width between the margins. Drawn at its bitmap size instead, a plate came out half size on a
- * tablet and a third or less on a phone (found on a device).
- */
-@Composable
-internal fun Illustration(path: String, horizontalMargin: Float) {
-    val screenWidthPx = with(LocalDensity.current) {
-        LocalConfiguration.current.screenWidthDp.dp.toPx()
-    }.toInt().coerceAtLeast(1)
-    // The decoded bitmap may be subsampled; the size on the page comes from the file's own pixels.
-    val decoded by produceState<Pair<ImageBitmap, IntSize>?>(initialValue = null, path) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeFile(path, bounds)
-                var sample = 1
-                while (bounds.outWidth / sample > screenWidthPx * 2) sample *= 2
-                val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-                BitmapFactory.decodeFile(path, opts)?.asImageBitmap()
-                    ?.let { it to IntSize(bounds.outWidth, bounds.outHeight) }
-            }.getOrNull()
-        }
-    }
-    decoded?.let { (bmp, size) ->
-        Box(
-            Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp, vertical = 16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(
-                bitmap = bmp,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .widthIn(max = size.width.dp)
-                    .fillMaxWidth()
-                    .aspectRatio(size.width.toFloat() / size.height.coerceAtLeast(1))
-                    .clip(RoundedCornerShape(4.dp))
-                    .testTag(ILLUSTRATION_TAG),
-            )
-        }
-    }
-}
-
-/**
  * Shimmering skeleton shown in the translation column while a paragraph's
  * translation is still being fetched, so the pane reads as "loading" (rather than
  * blank or missing) and never appears empty on open.
@@ -852,6 +793,3 @@ internal fun ParagraphItem(
         )
     }
 }
-
-/** Test tag on an [Illustration]'s image. */
-internal const val ILLUSTRATION_TAG = "illustration"
