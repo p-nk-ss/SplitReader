@@ -43,6 +43,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Language
@@ -95,6 +96,11 @@ internal fun VerticalBookSpread(
     onDismiss: () -> Unit,
     onToggleBars: () -> Unit,
     onSetVerticalSplitRatio: (Float) -> Unit,
+    /**
+     * The tallest a picture may be ([illustrationMaxHeight]), by the top pane; both panes use it so
+     * an image row is as tall in each. Unbounded by default.
+     */
+    illustrationMaxHeight: Dp = Dp.Infinity,
     barsVisible: Boolean,
     sourceLang: Language,
     targetLang: Language,
@@ -102,8 +108,6 @@ internal fun VerticalBookSpread(
     var dragRatio by remember { mutableFloatStateOf(Float.NaN) }
     val effectiveRatio = if (dragRatio.isNaN()) verticalSplitRatio else dragRatio
     var paneAreaHeightPx by remember { mutableIntStateOf(0) }
-    // Both panes size pictures by the top (original) pane, so an image row is as tall in each.
-    val illustrationMaxHeight = illustrationMaxHeight((paneAreaHeightPx * effectiveRatio).toInt())
     val palette = LocalReaderPalette.current
 
     val coordinator = remember { ScrollSyncCoordinator() }

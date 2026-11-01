@@ -56,7 +56,6 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -71,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.R
@@ -290,6 +290,8 @@ internal fun BookSpread(
     splitRatio: Float,
     /** Outer page margin in dp (`ReadingAppearance.horizontalMargin`); the 12 dp gutter beside the divider is fixed. */
     horizontalMargin: Float,
+    /** The tallest a picture may be ([illustrationMaxHeight]); unbounded by default. */
+    illustrationMaxHeight: Dp = Dp.Infinity,
     style: ReadingStyle,
     wordSelection: WordSelection?,
     wordHighlightEnabled: Boolean,
@@ -314,8 +316,6 @@ internal fun BookSpread(
     var dragRatio by remember { mutableFloatStateOf(Float.NaN) }
     val effectiveRatio = if (dragRatio.isNaN()) splitRatio else dragRatio
     var paneWidthPx by remember { mutableIntStateOf(0) }
-    var paneHeightPx by remember { mutableIntStateOf(0) }
-    val illustrationMaxHeight = illustrationMaxHeight(paneHeightPx)
     // The grip sits mid-height (32 dp) over the list; a little room around it.
     val gripHalfPx = with(LocalDensity.current) { 24.dp.roundToPx() }
     val gripCovered by remember(listState, gripHalfPx) {
@@ -326,7 +326,7 @@ internal fun BookSpread(
         }
     }
 
-    Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width; paneHeightPx = it.height }) {
+    Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width }) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(palette.bg)) {
         bookItems(
             book = book,

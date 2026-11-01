@@ -34,15 +34,20 @@ internal const val ILLUSTRATION_TAG = "illustration"
 private val VerticalPadding = 16.dp
 
 /**
- * The tallest a picture may be in a pane [paneHeightPx] tall: the pane minus the picture's own
- * padding, so a portrait plate fits on one screen. Unbounded until the pane is measured.
+ * The tallest a picture may be: its pane's share ([paneShare]) of the reading height (the reader
+ * area between the system bars), minus the picture's own padding, so a portrait plate fits on one
+ * screen. Never below 120 dp. Callers pass sizes that don't change while reading (see ReaderScreen).
  */
-@Composable
-internal fun illustrationMaxHeight(paneHeightPx: Int): Dp {
-    if (paneHeightPx <= 0) return Dp.Infinity
-    val pane = with(LocalDensity.current) { paneHeightPx.toDp() }
-    return (pane - VerticalPadding * 2).coerceAtLeast(120.dp)
+internal fun illustrationMaxHeight(readingHeight: Dp, paneShare: Float = 1f): Dp {
+    if (readingHeight == Dp.Infinity || readingHeight <= 0.dp) return Dp.Infinity
+    return (readingHeight * paneShare - VerticalPadding * 2).coerceAtLeast(120.dp)
 }
+
+/**
+ * Pixel sizes already read, by path, so a row scrolled back into view has its height at once rather
+ * than 0 for a frame (it was the anchor scrolling up, and the stacked panes briefly disagreed).
+ */
+private val imagePixels = android.util.LruCache<String, IntSize>(512)
 
 /**
  * A book image's size on the page, as browsers and e-readers size it: one image pixel is one dp
@@ -60,14 +65,15 @@ internal fun illustrationSize(pixels: IntSize, maxWidth: Dp, maxHeight: Dp): DpS
 /** The file's own pixel size, read without decoding the picture; null when it can't be read (e.g. SVG). */
 @Composable
 private fun rememberImagePixels(path: String): IntSize? {
-    val pixels by produceState<IntSize?>(initialValue = null, path) {
+    val pixels by produceState(initialValue = imagePixels.get(path), path) {
+        if (value != null) return@produceState
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeFile(path, bounds)
                 IntSize(bounds.outWidth, bounds.outHeight).takeIf { it.width > 0 && it.height > 0 }
             }.getOrNull()
-        }
+        }?.also { imagePixels.put(path, it) }
     }
     return pixels
 }
@@ -100,16 +106,19 @@ private fun IllustrationFrame(
  */
 @Composable
 internal fun Illustration(path: String, horizontalMargin: Float, maxHeight: Dp) {
-    val screenWidthPx = with(LocalDensity.current) {
-        LocalConfiguration.current.screenWidthDp.dp.toPx()
-    }.toInt().coerceAtLeast(1)
+    val configuration = LocalConfiguration.current
+    val (screenWidthPx, screenHeightPx) = with(LocalDensity.current) {
+        configuration.screenWidthDp.dp.toPx().toInt().coerceAtLeast(1) to
+            configuration.screenHeightDp.dp.toPx().toInt().coerceAtLeast(1)
+    }
     val bitmap by produceState<ImageBitmap?>(initialValue = null, path) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeFile(path, bounds)
                 var sample = 1
-                while (bounds.outWidth / sample > screenWidthPx * 2) sample *= 2
+                // By height too: a tall narrow strip decoded at full size overflowed the canvas at draw time.
+                while (bounds.outWidth / sample > screenWidthPx * 2 || bounds.outHeight / sample > screenHeightPx * 2) sample *= 2
                 BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
             }.getOrNull()
         }

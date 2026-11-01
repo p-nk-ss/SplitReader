@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -300,6 +303,12 @@ internal fun ReaderContent(
         // "Vertical mode" is the single predicate the stacked layout, the split slider, and the
         // portrait hint all key off. Computed once here and threaded down so they can't disagree.
         val vertical = isCompactWidth(maxWidth) && appearance.showTranslation
+        // From the whole reader area, not the measured pane: the bars animate in and out of a Column
+        // above and below the list, and a cap that followed them resized every capped picture frame
+        // by frame on each tap. The stacked layout uses the saved split, not a divider drag in flight.
+        val systemBars = WindowInsets.systemBars.asPaddingValues()
+        val readingHeight = maxHeight - systemBars.calculateTopPadding() - systemBars.calculateBottomPadding()
+        val pictureMaxHeight = illustrationMaxHeight(readingHeight, if (vertical) appearance.verticalSplitRatio else 1f)
 
         var hintShownThisEntry by rememberSaveable { mutableStateOf(false) }
 
@@ -333,6 +342,7 @@ internal fun ReaderContent(
                         showIllustrations = appearance.showIllustrations,
                         verticalSplitRatio = appearance.verticalSplitRatio,
                         horizontalMargin = appearance.horizontalMargin,
+                        illustrationMaxHeight = pictureMaxHeight,
                         style = state.readingStyle,
                         wordSelection = state.wordSelection,
                         wordHighlightEnabled = wordHighlightEnabled,
@@ -359,6 +369,7 @@ internal fun ReaderContent(
                         showIllustrations = appearance.showIllustrations,
                         splitRatio = appearance.splitRatio,
                         horizontalMargin = appearance.horizontalMargin,
+                        illustrationMaxHeight = pictureMaxHeight,
                         style = state.readingStyle,
                         wordSelection = state.wordSelection,
                         wordHighlightEnabled = wordHighlightEnabled,
