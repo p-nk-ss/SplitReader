@@ -10,7 +10,16 @@ import androidx.core.app.ActivityOptionsCompat
 import androidx.test.core.app.ApplicationProvider
 import com.example.splitreader.domain.model.UpdateState
 import com.example.splitreader.domain.repository.AppUpdates.Companion.SNOOZE_MILLIS
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.TaskCompletionSource
+import com.google.android.gms.tasks.Tasks
+import com.google.android.play.core.appupdate.AppUpdateInfo
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.appupdate.testing.FakeAppUpdateManager
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,6 +30,30 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
+
+/**
+ * Wraps the fake to hold or fail Play's answer and to record which AppUpdateInfo each flow used.
+ */
+private class CountingManager(private val inner: AppUpdateManager) : AppUpdateManager by inner {
+    var hold: TaskCompletionSource<AppUpdateInfo>? = null
+    var fail = false
+    val startedWith = mutableListOf<AppUpdateInfo>()
+
+    override fun getAppUpdateInfo(): Task<AppUpdateInfo> = when {
+        fail -> Tasks.forException(IllegalStateException("not owned"))
+        hold != null -> hold!!.task.also { hold = null }
+        else -> inner.appUpdateInfo
+    }
+
+    override fun startUpdateFlowForResult(
+        info: AppUpdateInfo,
+        launcher: ActivityResultLauncher<IntentSenderRequest>,
+        options: AppUpdateOptions,
+    ): Boolean {
+        startedWith += info
+        return inner.startUpdateFlowForResult(info, launcher, options)
+    }
+}
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -152,14 +185,102 @@ class PlayAppUpdatesTest {
     }
 
     @Test
-    fun `cancelling the confirmation keeps the offer`() = runTest {
+    fun `after No thanks, Update opens the confirmation again with a fresh answer from Play`() = runTest {
         fake.setUpdateAvailable(10)
-        val u = updates()
+        val gated = CountingManager(fake)
+        val u = PlayAppUpdates(gated, prefs) { clock }
+        u.attach(launcher)
+        u.refresh()
+        assertTrue(u.startUpdate())
+        fake.userRejectsUpdate()
+        assertFalse(fake.isConfirmationDialogVisible)
+
+        assertTrue(u.startUpdate())
+        assertTrue(fake.isConfirmationDialogVisible)
+        // Play accepts each AppUpdateInfo for one flow: both starts used a different one.
+        assertEquals(2, gated.startedWith.distinct().size)
+    }
+
+    @Test
+    fun `a second tap while the confirmation is being opened does nothing`() = runTest {
+        fake.setUpdateAvailable(10)
+        val gated = CountingManager(fake)
+        val u = PlayAppUpdates(gated, prefs) { clock }
+        u.attach(launcher)
+        u.refresh()
+        val gate = TaskCompletionSource<AppUpdateInfo>()
+        gated.hold = gate
+        val first = async { u.startUpdate() }
+        runCurrent()
+        assertFalse(u.startUpdate())
+        gate.setResult(fake.appUpdateInfo.result)
+        idle()
+        assertTrue(first.await())
+        assertEquals(1, gated.startedWith.size)
+    }
+
+    @Test
+    fun `a failed answer from Play keeps what was shown`() = runTest {
+        fake.setUpdateAvailable(10)
+        val gated = CountingManager(fake)
+        val u = PlayAppUpdates(gated, prefs) { clock }
+        u.refresh()
+        gated.fail = true
+        u.refresh()
+        assertEquals(UpdateState.Available(10, snoozed = false), u.state.value)
+    }
+
+    @Test
+    fun `a sideloaded or debug build, which Play refuses, shows nothing`() = runTest {
+        val gated = CountingManager(fake).apply { fail = true }
+        val u = PlayAppUpdates(gated, prefs) { clock }
+        u.refresh()
+        assertEquals(UpdateState.None, u.state.value)
+    }
+
+    @Test
+    fun `a download finishing while a refresh waits for Play keeps Restart`() = runTest {
+        fake.setUpdateAvailable(10)
+        val gated = CountingManager(fake)
+        val u = PlayAppUpdates(gated, prefs) { clock }
         u.attach(launcher)
         u.refresh()
         u.startUpdate()
-        fake.userRejectsUpdate()
-        assertEquals(UpdateState.Available(10, snoozed = false), u.state.value)
+        fake.userAcceptsUpdate()
+        fake.downloadStarts()
+        idle()
+        val staleDownloading = fake.appUpdateInfo.result
+
+        val gate = TaskCompletionSource<AppUpdateInfo>()
+        gated.hold = gate
+        val refresh = launch { u.refresh() }
+        runCurrent()
+        fake.downloadCompletes()
+        idle()
+        assertEquals(UpdateState.Downloaded, u.state.value)
+
+        gate.setResult(staleDownloading) // answered before DOWNLOADED arrived
+        idle()
+        refresh.join()
+        assertEquals(UpdateState.Downloaded, u.state.value)
+    }
+
+    @Test
+    fun `a download that outlived the process offers the update again if it fails`() = runTest {
+        fake.setUpdateAvailable(10)
+        val first = updates()
+        first.attach(launcher)
+        first.refresh()
+        first.startUpdate()
+        fake.userAcceptsUpdate()
+        fake.downloadStarts()
+        idle()
+
+        val relaunched = updates() // never saw the offer itself
+        relaunched.refresh()
+        fake.downloadFails()
+        idle()
+        assertEquals(UpdateState.Available(10, snoozed = false), relaunched.state.value)
     }
 
     @Test

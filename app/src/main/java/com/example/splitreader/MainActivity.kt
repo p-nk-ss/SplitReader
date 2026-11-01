@@ -33,7 +33,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        appUpdates.attach(updateConfirmation)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         requestedOrientation = themeViewModel.orientationLock.value.toActivityInfo()
         lifecycleScope.launch {
@@ -53,12 +52,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        appUpdates.attach(updateConfirmation)
         // Every return, not only a cold start: an update may have finished downloading meanwhile.
         lifecycleScope.launch { appUpdates.refresh() }
     }
 
-    override fun onDestroy() {
+    override fun onPause() {
         appUpdates.detach(updateConfirmation)
+        super.onPause()
+    }
+
+    override fun onDestroy() {
         // Release the shared on-device TTS engine when the app is actually closing,
         // not on configuration-change recreations (the manager is a process-wide singleton).
         if (isFinishing) textToSpeechManager.shutdown()

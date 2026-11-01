@@ -71,10 +71,12 @@ fun UpdateBanner(
                 fontSize = 15.sp,
                 color = palette.ink,
             )
-            Row(
-                modifier = Modifier.align(Alignment.CenterVertically),
+            // weight(1f) + End: when the actions wrap onto their own line (a phone)
+            // they sit at the end, not under the start of the text.
+            if (state is UpdateState.Available || state == UpdateState.Downloaded) Row(
+                modifier = Modifier.align(Alignment.CenterVertically).weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
                 when (state) {
                     is UpdateState.Available -> {

@@ -250,7 +250,8 @@ internal fun HomeScreen(
         horizontalArrangement = Arrangement.spacedBy(sp.lg),
     ) {
         if (topBanner != null) {
-            item(span = { GridItemSpan(maxLineSpan) }) { topBanner() }
+            // Keyed: an unkeyed insert at index 0 would shift every item's index-based identity.
+            item(key = "top-banner", span = { GridItemSpan(maxLineSpan) }) { topBanner() }
         }
 
         // Header — full width

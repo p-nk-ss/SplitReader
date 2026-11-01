@@ -23,5 +23,6 @@ object UpdateModule {
         )
 
     @Provides
+    @Singleton
     fun provideAppUpdates(impl: PlayAppUpdates): AppUpdates = impl
 }

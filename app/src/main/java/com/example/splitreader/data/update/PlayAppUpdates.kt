@@ -23,8 +23,8 @@ import kotlinx.coroutines.tasks.await
  * [AppUpdates] over Google Play's flexible in-app updates. Play answers only for installs from
  * Play; debug and sideloaded builds get an error, which reads as [UpdateState.None].
  *
- * The confirmation dialog needs an Activity: `MainActivity` registers a launcher with [attach] and
- * clears it with [detach]. Its result needs no handling: on "Update" Play reports PENDING to the
+ * The confirmation dialog needs the resumed Activity: `MainActivity` attaches its launcher in
+ * onResume and detaches it in onPause (with two instances, only the resumed one can show it). Its result needs no handling: on "Update" Play reports PENDING to the
  * listener; on "No thanks" nothing changes and the offer stays.
  */
 class PlayAppUpdates(
@@ -39,8 +39,17 @@ class PlayAppUpdates(
     /** The last version Play offered; a failed or cancelled download falls back to offering it. */
     private var lastOfferedVersion: Int? = null
     private var launcher: ActivityResultLauncher<IntentSenderRequest>? = null
+    private var starting = false
+
+    /**
+     * Bumped by every install-state callback. A refresh whose answer was taken before the latest
+     * callback drops it: otherwise a DOWNLOADED arriving mid-refresh was overwritten by the older
+     * DOWNLOADING snapshot, and no later callback ever brought Restart back.
+     */
+    private var installEvents = 0
 
     private val listener = InstallStateUpdatedListener { s ->
+        installEvents++
         when (s.installStatus()) {
             InstallStatus.PENDING, InstallStatus.DOWNLOADING ->
                 _state.value = UpdateState.Downloading(percent(s.bytesDownloaded(), s.totalBytesToDownload()))
@@ -64,20 +73,33 @@ class PlayAppUpdates(
     }
 
     override suspend fun refresh() {
+        val seen = installEvents
         val info = fetch() ?: return
+        if (installEvents != seen) return
         _state.value = when (info.installStatus()) {
             InstallStatus.DOWNLOADED -> UpdateState.Downloaded
-            InstallStatus.PENDING, InstallStatus.DOWNLOADING ->
+            InstallStatus.PENDING, InstallStatus.DOWNLOADING -> {
+                // A download that outlived the process: if it fails, offer this version again.
+                lastOfferedVersion = info.availableVersionCode()
                 UpdateState.Downloading(percent(info.bytesDownloaded(), info.totalBytesToDownload()))
+            }
+            InstallStatus.INSTALLING -> _state.value
             else -> offerOf(info) ?: UpdateState.None
         }
     }
 
+    /** False (and the button does nothing) without a resumed activity, offline, or on a second tap. */
     override suspend fun startUpdate(): Boolean {
         val launcher = launcher ?: return false
-        // Play accepts each AppUpdateInfo for one flow only, so a retry after "Cancel" needs a fresh one.
-        val info = fetch()?.takeIf { offerOf(it) != null } ?: return false
-        return runCatching { manager.startUpdateFlowForResult(info, launcher, FLEXIBLE) }.getOrDefault(false)
+        if (starting || _state.value !is UpdateState.Available) return false
+        starting = true
+        try {
+            // Play accepts each AppUpdateInfo for one flow only, so a retry after "No thanks" needs a fresh one.
+            val info = fetch()?.takeIf { offerOf(it) != null } ?: return false
+            return runCatching { manager.startUpdateFlowForResult(info, launcher, FLEXIBLE) }.getOrDefault(false)
+        } finally {
+            starting = false
+        }
     }
 
     override fun completeUpdate() {

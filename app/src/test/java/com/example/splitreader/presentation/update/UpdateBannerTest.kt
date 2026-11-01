@@ -62,6 +62,12 @@ class UpdateBannerTest {
     }
 
     @Test
+    fun `a download of unknown size says so, without a number`() {
+        show(UpdateState.Downloading(null))
+        composeRule.onNodeWithText("Downloading update…").assertIsDisplayed()
+    }
+
+    @Test
     fun `a finished download offers Restart`() {
         show(UpdateState.Downloaded)
         composeRule.onNodeWithText("Update ready — restart to finish").assertIsDisplayed()
