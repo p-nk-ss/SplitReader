@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -74,7 +75,7 @@ internal fun ReaderTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .heightIn(min = 48.dp)
             .background(palette.bg2)
             .drawBehind {
                 drawLine(edgeColor, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
@@ -150,9 +151,10 @@ private fun LangChip(source: String, target: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(source, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink)
-        Text("→", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)
-        Text(target, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink)
+        // One line each: with a large system font they wrapped and were cut by the bar (found on a phone).
+        Text(source, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink, maxLines = 1, softWrap = false)
+        Text("→", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3, maxLines = 1, softWrap = false)
+        Text(target, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink, maxLines = 1, softWrap = false)
         Spacer(Modifier.width(2.dp))
         Icon(Icons.Outlined.ExpandMore, null, tint = palette.ink3, modifier = Modifier.size(14.dp))
     }
@@ -216,7 +218,8 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success, bookEndVisible: Bo
             // The app draws edge to edge: the background runs under the gesture bar, the text sits
             // above it (on a tablet it was cut almost in half).
             .navigationBarsPadding()
-            .height(36.dp)
+            // Min, not fixed: with a large system font the labels grow taller than 36dp.
+            .heightIn(min = 36.dp)
             .padding(horizontal = 28.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -227,6 +230,8 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success, bookEndVisible: Bo
             fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
+            maxLines = 1,
+            softWrap = false,
         )
         Text("·", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink4)
         Text(
@@ -235,12 +240,24 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success, bookEndVisible: Bo
             fontSize = 11.sp,
             letterSpacing = 0.5.sp,
             color = palette.ink3,
+            maxLines = 1,
+            softWrap = false,
         )
-        Spacer(Modifier.weight(1f))
-        // Progress rule + percentage
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Progress rule + percentage. The rule takes what is left, up to 200dp; the percentage always
+        // fits. A fixed 200dp rule pushed the percentage off a 411dp phone screen (found on a Pixel 7).
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        ) {
             Box(
-                modifier = Modifier.width(200.dp).height(2.dp).clip(RoundedCornerShape(1.dp)).background(palette.bg3),
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .widthIn(max = 200.dp)
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(palette.bg3),
             ) {
                 Box(Modifier.fillMaxHeight().fillMaxWidth(progress).clip(RoundedCornerShape(1.dp)).background(palette.accent))
             }
@@ -250,6 +267,9 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success, bookEndVisible: Bo
                 fontSize = 11.sp,
                 letterSpacing = 0.5.sp,
                 color = palette.ink3,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.testTag(FOOTER_PERCENT_TAG),
             )
         }
     }
@@ -452,3 +472,6 @@ internal fun TranslationFallbackStrip(
         )
     }
 }
+
+/** Test tag on the status footer's percentage. */
+internal const val FOOTER_PERCENT_TAG = "footer_percent"

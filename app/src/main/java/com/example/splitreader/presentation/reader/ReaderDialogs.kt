@@ -1,5 +1,6 @@
 package com.example.splitreader.presentation.reader
 
+import com.example.splitreader.presentation.ui.LibraryTagButton
 import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.foundation.background
@@ -401,6 +402,17 @@ internal fun PortraitHintDialog(
             )
             Spacer(Modifier.width(8.dp))
             Text("Don't show again", fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink)
+        }
+        Spacer(Modifier.height(sp.sm))
+        // An explicit way out: tapping outside the dialog was the only one (found on a phone).
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+            LibraryTagButton(
+                text = "Got it",
+                onClick = { onDismiss(dontShowAgain) },
+                showPlus = false,
+                dense = true,
+                filled = true,
+            )
         }
         Spacer(Modifier.height(sp.sm))
     }
