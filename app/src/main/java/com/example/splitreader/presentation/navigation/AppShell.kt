@@ -163,7 +163,7 @@ fun AppShell(
             isCompactWidth(maxWidth) -> ShellArm.COMPACT
             // Wide but short (e.g. a phone in landscape): a bottom bar would spend the scarce axis,
             // so this posture gets a rail instead — just the icon-only one, which doesn't need the
-            // full rail's 530dp of headroom.
+            // full rail's RAIL_MIN_HEIGHT of headroom.
             isRailTooTall(maxHeight) -> ShellArm.SHORT_RAIL
             else -> ShellArm.FULL_RAIL
         }

@@ -43,11 +43,12 @@ fun isCompactWidth(width: Dp): Boolean = width < COMPACT_WIDTH_THRESHOLD
  *   12L+ tablets show a 48dp taskbar there (added 2026-11-03; before, the avatar sat under it).
  *
  * 450 + 30 + 48 + 48 = 576, rounded up to 580dp. Every tablet in landscape is taller (a 7" one is
- * 600dp); windows between 530 and 580dp now get the icon rail, which scrolls. A phone in landscape (e.g. 891 x 411dp) offers a
- * window height well under that, so width alone is not enough to decide: a wide-but-short window
+ * 600dp); windows between 530 and 580dp now get the icon rail, which scrolls.
+ *
+ * A phone in landscape (e.g. 891 x 411dp) offers a window height well under that, so width alone is not enough to decide: a wide-but-short window
  * must still fall back off the full rail — but not all the way to the bottom bar. At compact
  * height a bottom bar spends the scarce axis while a rail spends the plentiful one, so this case
- * still gets a rail: the icon-only one, which scrolls instead of needing the same 530dp headroom.
+ * still gets a rail: the icon-only one, which scrolls instead of needing the same headroom.
  */
 val RAIL_MIN_HEIGHT: Dp = 580.dp
 

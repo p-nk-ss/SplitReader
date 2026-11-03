@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -66,6 +66,10 @@ class HomeImportLoadingTest {
         override suspend fun bookCount(): Int = 0
         override suspend fun exists(uri: String): Boolean = false
     }
+
+    private fun libraryBook(uri: String) = LibraryBook(
+        uri = uri, title = "T", author = "A", coverPath = null, lastOpenedAt = 0L, chapterCount = 0, synopsis = null,
+    )
 
     private object SignedOutAuth : AuthRepository {
         override val authState: Flow<AuthState> = flowOf(AuthState.SignedOut)
@@ -109,8 +113,9 @@ class HomeImportLoadingTest {
 
         vm.openBook(Uri.fromFile(file))
         awaitReal { library.saveStarted.isCompleted }
-        // uiState is combined on Dispatchers.Default, so it lags the VM's own flags: let it settle
-        // while the save is held, then read what the screen shows for that moment.
+        // uiState is combined on Dispatchers.Default and lags the VM's own flags. Wait for loading to
+        // show, then give a premature reset time to land before reading what the screen shows.
+        awaitReal { vm.uiState.value.isLoading }
         settle()
 
         assertTrue(
@@ -119,7 +124,16 @@ class HomeImportLoadingTest {
             vm.uiState.value.isLoading,
         )
 
+        // Saved, but Room re-queries the library asynchronously: until the book is in the list the
+        // screen would still render an empty library (the reader fades in over it).
         library.saveGate.complete(Unit)
+        settle()
+        assertTrue(
+            "The book is saved but not in the library list yet: the screen must stay in loading.",
+            vm.uiState.value.isLoading,
+        )
+
+        library.books.value = listOf(libraryBook(Uri.fromFile(file).toString()))
         awaitReal { !vm.uiState.value.isLoading }
         assertFalse(vm.uiState.value.isLoading)
         collector.cancel()
@@ -128,16 +142,18 @@ class HomeImportLoadingTest {
     private fun TestScope.settle() {
         val until = System.nanoTime() + 500_000_000L
         while (System.nanoTime() < until) {
-            advanceUntilIdle()
+            runCurrent()
             Thread.sleep(10)
         }
     }
 
+    // runCurrent, not advanceUntilIdle: the VM bounds its wait for the library with a timeout, and
+    // advancing virtual time would fire it at once.
     /** Parsing runs on the real Dispatchers.IO, which virtual time cannot drive. */
     private fun TestScope.awaitReal(condition: () -> Boolean) {
         val deadline = System.nanoTime() + 10_000_000_000L
         while (System.nanoTime() < deadline) {
-            advanceUntilIdle()
+            runCurrent()
             if (condition()) return
             Thread.sleep(10)
         }

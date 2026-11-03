@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -125,6 +126,8 @@ class HomeViewModel @Inject constructor(
         parseJob = viewModelScope.launch {
             // Gate before parsing so we never do the work for a book we can't keep.
             if (!addBookToLibraryUseCase.canAddNew(uri.toString())) {
+                // A cancelled earlier import may have left loading on.
+                _isLoading.value = false
                 _limitReachedEvent.trySend(Unit)
                 return@launch
             }
@@ -142,10 +145,14 @@ class HomeViewModel @Inject constructor(
                         _errorMessage.value = null
                     }
                     is ParseResult.Success -> {
-                        // Loading ends only after the save: until then the library is still empty,
-                        // and dropping the flag first flashed "Your library is empty" mid-import.
+                        // Loading ends only once the book is in the library list. Dropping it on
+                        // parse success, or right after the save (Room re-queries asynchronously),
+                        // showed "Your library is empty" while the reader faded in over Home.
                         when (addBookToLibraryUseCase.add(result.book)) {
-                            AddResult.Added -> _navigationEvent.trySend(result.book.filePath)
+                            AddResult.Added -> {
+                                _navigationEvent.trySend(result.book.filePath)
+                                awaitInLibrary(result.book.filePath)
+                            }
                             AddResult.LimitReached -> _limitReachedEvent.trySend(Unit)
                         }
                         _isLoading.value = false
@@ -158,6 +165,11 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /** Waits (bounded) until the library list shows [uri]; the bound keeps a lost emission from pinning loading on. */
+    private suspend fun awaitInLibrary(uri: String) {
+        withTimeoutOrNull(3_000) { bookLibraryRepository.getAllBooks().first { books -> books.any { it.uri == uri } } }
     }
 
     fun openBookFromLibrary(uri: String) {

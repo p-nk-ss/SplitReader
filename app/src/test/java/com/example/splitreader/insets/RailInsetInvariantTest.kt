@@ -139,9 +139,10 @@ class RailInsetInvariantTest : ShellInsetTest() {
      * **The window was wrong.** At `TABLET` (h800dp) the rail has ~270dp to spare, so no plausible
      * regression clips it. The defect's real shape is a rail whose content outgrows
      * [RAIL_MIN_HEIGHT] without anyone raising the constant — add a sixth `RailTab` and every
-     * window between 530dp and ~584dp silently loses its avatar. That is only visible at the
+     * window just above the constant silently loses its avatar. That is only visible at the
      * boundary, so this test runs at exactly [RAIL_MIN_HEIGHT], the shortest window the app claims
-     * can render the full rail, where the rail's flexible spacer holds just 13px (6.5dp) of slack.
+     * can render the full rail, with the worst insets it budgets for (a 48dp taskbar below), where
+     * the rail's flexible spacer holds only a few dp of slack.
      */
     @Test
     @Config(qualifiers = RAIL_MIN_HEIGHT_WINDOW)
