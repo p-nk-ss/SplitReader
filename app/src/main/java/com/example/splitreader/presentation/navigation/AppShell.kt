@@ -77,13 +77,15 @@ import com.example.splitreader.R
 //   arm            reader  top                     bottom                  start                 end
 //   compact        no      AppStatusStrip          EditorialBottomBar      strip / content / bar (each Horizontal, disjoint bands)
 //   compact        yes     bare Spacer             reader's own            content Box (Horizontal)
-//   short (rail)   no      bare Spacer             not consumed (1)        CompactNavigationRail  content Box (End)
+//   short (rail)   no      bare Spacer             rail + content Box (1)  CompactNavigationRail  content Box (End)
 //   short (rail)   yes     bare Spacer             reader's own            content Box (Horizontal)
-//   full rail      no      AppStatusStrip          not consumed (1)        EditorialNavigationRail content Box (End)
+//   full rail      no      AppStatusStrip          rail + content Box (1)  EditorialNavigationRail content Box (End)
 //   full rail      yes     bare Spacer             reader's own            content Box (Horizontal)
 //
-// (1) Known pre-existing gap: neither rail arm consumes the bottom inset, so the rail's avatar can
-//     sit flush against a gesture bar. Tracked as a follow-up, not introduced here.
+// (1) Side by side, so each pads the bottom for itself. Android 12L+ tablets show a 48dp taskbar
+//     there (Pixel Tablet, Pixel C, Samsung); before this the rail's avatar and "Sign in" and the
+//     end of every screen sat under it (found on tablet emulators, 2026-11-03). Pinned by
+//     RailInsetInvariantTest. RAIL_MIN_HEIGHT budgets the taskbar.
 //
 // The reader arms hand the bottom edge to the reader's own navigationBarsPadding
 // (ReaderPane.kt / ReaderDialogs.kt) rather than consuming it in the shell.
@@ -230,8 +232,11 @@ fun AppShell(
                 // A rail (when present) already consumed the Start inset for itself, so content only
                 // needs the End. With no rail — the compact arm, or any arm while reading — nothing
                 // else consumes it, so the content takes both sides.
+                // Bottom: in the rail arms nothing below the content consumes it (the compact arm's
+                // bottom bar does; the reader pads its own), so the content takes it.
                 val contentInsetSides =
-                    if (arm == ShellArm.COMPACT || isReader) WindowInsetsSides.Horizontal else WindowInsetsSides.End
+                    if (arm == ShellArm.COMPACT || isReader) WindowInsetsSides.Horizontal
+                    else WindowInsetsSides.End + WindowInsetsSides.Bottom
                 Box(
                     Modifier
                         .testTag(ShellTestTags.CONTENT)
@@ -360,7 +365,8 @@ private fun EditorialNavigationRail(
             // inset (rotation-aware: on the other rotation the cutout is on the End side, where
             // this Start inset is zero and the content box takes it instead).
             .background(palette.bg2)
-            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Start))
+            // Start: the cutout. Bottom: the gesture bar or taskbar, so the avatar sits above it.
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Start + WindowInsetsSides.Bottom))
             .width(sp.railWidth)
             .drawBehind {
                 drawLine(
@@ -467,7 +473,7 @@ private fun CompactNavigationRail(
             // Same ordering as EditorialNavigationRail: background reaches the physical edge,
             // then the Start inset clears the cutout, then width measures content only.
             .background(palette.bg2)
-            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Start))
+            .windowInsetsPadding(shellInsets.only(WindowInsetsSides.Start + WindowInsetsSides.Bottom))
             .width(sp.railWidthCompact)
             .drawBehind {
                 drawLine(

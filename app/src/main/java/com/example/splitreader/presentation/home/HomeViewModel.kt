@@ -142,11 +142,13 @@ class HomeViewModel @Inject constructor(
                         _errorMessage.value = null
                     }
                     is ParseResult.Success -> {
-                        _isLoading.value = false
+                        // Loading ends only after the save: until then the library is still empty,
+                        // and dropping the flag first flashed "Your library is empty" mid-import.
                         when (addBookToLibraryUseCase.add(result.book)) {
                             AddResult.Added -> _navigationEvent.trySend(result.book.filePath)
                             AddResult.LimitReached -> _limitReachedEvent.trySend(Unit)
                         }
+                        _isLoading.value = false
                     }
                     is ParseResult.Error -> {
                         _isLoading.value = false

@@ -848,7 +848,7 @@ internal fun EmptyLibrary(onOpenFilePicker: () -> Unit) {
             color = palette.ink,
         )
         Text(
-            text = "Tap “Open book” to add an EPUB or FB2.",
+            text = "Tap “Open book” to add an EPUB, FB2 or MOBI.",
             fontFamily = Newsreader,
             fontWeight = FontWeight.Normal,
             fontStyle = FontStyle.Italic,

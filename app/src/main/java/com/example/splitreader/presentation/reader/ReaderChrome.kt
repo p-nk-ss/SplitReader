@@ -171,10 +171,13 @@ internal fun ChapterMasthead(
     horizontalMargin: Float,
 ) {
     val palette = LocalReaderPalette.current
+    // The translation banner floats over the top of the reader; at the start of the book it covered
+    // the first chapter's number (found on tablet emulators). Only the first masthead makes room.
+    val top = if (chapterIndex == 0) 56.dp else 36.dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 36.dp, start = horizontalMargin.dp, end = horizontalMargin.dp, bottom = 8.dp),
+            .padding(top = top, start = horizontalMargin.dp, end = horizontalMargin.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(

@@ -1,5 +1,10 @@
 package com.example.splitreader.insets
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import com.example.splitreader.presentation.navigation.ShellTestTags
@@ -21,6 +26,7 @@ import org.robolectric.annotation.Config
 class RailInsetInvariantTest : ShellInsetTest() {
 
     private val cutoutPx = 88
+    private val taskbarPx = 96
 
     @Test
     @Config(qualifiers = PHONE_LANDSCAPE)
@@ -72,6 +78,50 @@ class RailInsetInvariantTest : ShellInsetTest() {
     }
 
     /**
+     * The bottom edge. Android 12L+ tablets show a taskbar (Pixel Tablet, Pixel C, Samsung) and the
+     * rails never consumed the bottom inset, so the avatar and "Sign in" sat under it (found on
+     * tablet emulators, 2026-11-03). 96px = a 48dp taskbar at xhdpi.
+     */
+    @Test
+    @Config(qualifiers = TABLET)
+    fun `full rail avatar clears the navigation bar`() {
+        composeShell(insets(statusBars = 63, navigationBars = taskbarPx))
+        val avatar = boundsOf(ShellTestTags.RAIL_AVATAR)
+        val windowBottom = composeRule.onRoot().fetchSemanticsNode().size.height
+        assertTrue(
+            "The rail's avatar ends at ${avatar.bottom}px, under the ${taskbarPx}px navigation bar " +
+                "that starts at ${windowBottom - taskbarPx}px.",
+            avatar.bottom <= windowBottom - taskbarPx + 0.5f,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = TABLET)
+    fun `rail arm content stops above the navigation bar`() {
+        // A screen filling its slot; CONTENT's own bounds include the padding, so measure inside it.
+        composeShell(insets(statusBars = 63, navigationBars = taskbarPx)) { Screen() }
+        val content = boundsOf(SCREEN)
+        val windowBottom = composeRule.onRoot().fetchSemanticsNode().size.height
+        assertTrue(
+            "Content ends at ${content.bottom}px, under the navigation bar that starts at " +
+                "${windowBottom - taskbarPx}px: the end of every screen hides under the taskbar.",
+            content.bottom <= windowBottom - taskbarPx + 0.5f,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = PHONE_LANDSCAPE)
+    fun `icon rail arm content stops above the navigation bar`() {
+        composeShell(insets(statusBars = 63, navigationBars = taskbarPx)) { Screen() }
+        val windowBottom = composeRule.onRoot().fetchSemanticsNode().size.height
+        val content = boundsOf(SCREEN)
+        assertTrue(
+            "Content ends at ${content.bottom}px, under the navigation bar.",
+            content.bottom <= windowBottom - taskbarPx + 0.5f,
+        )
+    }
+
+    /**
      * I3, and the assertion that actually pins Phase 2b defect #2 — the full rail rendered in a
      * window too short for it, clipping its lower items away.
      *
@@ -96,7 +146,8 @@ class RailInsetInvariantTest : ShellInsetTest() {
     @Test
     @Config(qualifiers = RAIL_MIN_HEIGHT_WINDOW)
     fun `full rail fits its avatar at the shortest window it claims to support`() {
-        composeShell(insets(statusBars = 63, navigationBars = 48))
+        // The worst bottom inset it claims to handle: a 48dp taskbar.
+        composeShell(insets(statusBars = 63, navigationBars = taskbarPx))
 
         // The qualifier is a string literal because @Config demands a compile-time constant, so it
         // cannot read RAIL_MIN_HEIGHT directly. Fail loudly rather than silently testing some other
@@ -157,7 +208,7 @@ class RailInsetInvariantTest : ShellInsetTest() {
  * A tablet-width window exactly [RAIL_MIN_HEIGHT] tall: the shortest window `AppShell` will still
  * put the full rail in. Kept in sync with the constant by an assertion, not by hope.
  */
-private const val RAIL_MIN_HEIGHT_WINDOW = "w1280dp-h530dp-xhdpi"
+private const val RAIL_MIN_HEIGHT_WINDOW = "w1280dp-h580dp-xhdpi"
 
 /**
  * What `RailAvatar` occupies before a single glyph is measured: 4dp of padding top and bottom, the
@@ -166,3 +217,8 @@ private const val RAIL_MIN_HEIGHT_WINDOW = "w1280dp-h530dp-xhdpi"
  * measures 69dp here).
  */
 private val AVATAR_FIXED_HEIGHT = (4 + 32 + 3 + 4).dp
+
+private const val SCREEN = "test:screen"
+
+@Composable
+private fun Screen() = Box(Modifier.fillMaxSize().testTag(SCREEN))

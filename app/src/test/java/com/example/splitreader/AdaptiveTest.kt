@@ -49,29 +49,36 @@ class AdaptiveTest {
     }
 
     @Test
-    fun `rail min height is 530dp`() {
-        assertEquals(530.dp, RAIL_MIN_HEIGHT)
+    fun `rail min height is 580dp`() {
+        assertEquals(580.dp, RAIL_MIN_HEIGHT)
     }
 
     @Test
     fun `height just below the rail minimum is too tall for the rail`() {
-        assertTrue(isRailTooTall(529.dp))
+        assertTrue(isRailTooTall(579.dp))
     }
 
     @Test
     fun `height exactly at the rail minimum fits the rail`() {
-        assertFalse(isRailTooTall(530.dp))
+        assertFalse(isRailTooTall(580.dp))
     }
 
     @Test
     fun `height above the rail minimum fits the rail`() {
-        assertFalse(isRailTooTall(531.dp))
+        assertFalse(isRailTooTall(581.dp))
     }
 
     @Test
     fun `tablet landscape gets the rail`() {
         assertFalse(isCompactWidth(1280.dp))
         assertFalse(isRailTooTall(800.dp))
+    }
+
+    @Test
+    fun `a 7-inch tablet in landscape still gets the full rail`() {
+        // Nexus 7 class: 960 x 600dp.
+        assertFalse(isCompactWidth(960.dp))
+        assertFalse(isRailTooTall(600.dp))
     }
 
     @Test
