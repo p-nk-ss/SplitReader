@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
 import com.example.splitreader.domain.model.ReaderThemeKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -14,7 +15,7 @@ import org.robolectric.annotation.Config
 
 /**
  * System bar icons follow the reader palette, not the system's dark mode: a Night palette on a light
- * system needs light icons, and Paper on a dark system needs dark ones. Edge-to-edge stays on.
+ * system needs light icons, and Paper on a dark system needs dark ones.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -25,14 +26,6 @@ class SystemBarsTest {
     private fun ComponentActivity.lightIcons(): Pair<Boolean, Boolean> {
         val c = WindowCompat.getInsetsController(window, window.decorView)
         return c.isAppearanceLightStatusBars to c.isAppearanceLightNavigationBars
-    }
-
-    @Test
-    @Config(qualifiers = "notnight")
-    fun darkPaletteOnLightSystemGetsLightIcons() {
-        val a = activity()
-        a.applySystemBars(isDark = readerPalette(ReaderThemeKey.NIGHT).isDark)
-        assertEquals(false to false, a.lightIcons())
     }
 
     @Test
@@ -47,10 +40,22 @@ class SystemBarsTest {
     @Test
     @Config(qualifiers = "notnight")
     fun switchingPaletteFlipsIcons() {
+        // A Night palette on a light system: light icons. (A fresh activity already has them, so
+        // only a flip from Paper proves the palette drives them.)
         val a = activity()
         a.applySystemBars(isDark = false)
         assertEquals(true to true, a.lightIcons())
-        a.applySystemBars(isDark = true)
+        a.applySystemBars(isDark = readerPalette(ReaderThemeKey.NIGHT).isDark)
         assertEquals(false to false, a.lightIcons())
+    }
+
+    @Test
+    fun navigationBarKeepsContrastProtection() {
+        // Content of the other tone (an illustration) can scroll under three-button navigation.
+        val a = activity()
+        a.applySystemBars(isDark = false)
+        assertTrue(a.window.isNavigationBarContrastEnforced)
+        a.applySystemBars(isDark = true)
+        assertTrue(a.window.isNavigationBarContrastEnforced)
     }
 }

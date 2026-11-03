@@ -3,6 +3,12 @@
     <style name="Base.Theme.SplitReader" parent="android:Theme.Material.Light.NoActionBar">
         <!-- Light window background before Compose draws (matches PaperBg). -->
         <item name="android:windowBackground">@color/window_bg</item>
+        <!-- Bars for the launch window, before MainActivity applies the palette's (applySystemBars):
+             the platform theme would show a grey status bar and a black navigation bar. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
     </style>
 
     <style name="Theme.SplitReader" parent="Base.Theme.SplitReader" />
