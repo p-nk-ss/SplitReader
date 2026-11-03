@@ -138,7 +138,6 @@ tasks.matching { it.name == "bundleRelease" }.configureEach { finalizedBy(copyRe
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
-    implementation(libs.material)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)

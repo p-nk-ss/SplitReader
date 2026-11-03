@@ -5,8 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -17,6 +17,8 @@ import com.example.splitreader.domain.model.toActivityInfo
 import com.example.splitreader.presentation.AppThemeViewModel
 import com.example.splitreader.presentation.navigation.SplitReaderNavHost
 import com.example.splitreader.presentation.theme.SplitReaderTheme
+import com.example.splitreader.presentation.theme.applySystemBars
+import com.example.splitreader.presentation.theme.readerPalette
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -33,7 +35,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Before setContent, so the first frame already has the right bar icons.
+        applySystemBars(isDark = readerPalette(themeViewModel.themeKey.value).isDark)
         requestedOrientation = themeViewModel.orientationLock.value.toActivityInfo()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
@@ -44,6 +47,8 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             val themeKey by themeViewModel.themeKey.collectAsStateWithLifecycle()
+            val isDark = readerPalette(themeKey).isDark
+            LaunchedEffect(isDark) { applySystemBars(isDark) }
             SplitReaderTheme(readerThemeKey = themeKey) {
                 SplitReaderNavHost()
             }
