@@ -1,49 +1,52 @@
-Read any book in two languages at once. Mirrolit shows the original text and a live translation side by side, so you understand every line while you keep reading in the original.
+Read any book in two languages at once. Mirrolit shows the original text and a live translation next to it, so you understand every line while you keep reading the real book.
 
-Open an EPUB, FB2, or classic MOBI file and Mirrolit detects the source language automatically and translates into the language you choose — paragraph by paragraph, right next to the original.
+Open an EPUB, FB2, or classic MOBI file. Mirrolit detects the source language and translates the book paragraph by paragraph into the language you pick, right next to the original.
 
 WHY MIRROLIT
 
-• Side-by-side reading — original on one side, translation on the other. No copy-pasting, no switching apps.
-• Private by default — the built-in Google ML Kit engine translates fully on your device. Once a language pack is downloaded, it works offline and nothing you read is sent anywhere.
-• Auto language detection — just open a book; Mirrolit figures out the source language for you.
-• 12 target languages — English, Russian, German, French, Spanish, Italian, Chinese, Japanese, Portuguese, Arabic, Korean, and Turkish.
+• Two languages, one page — on tablets and in landscape the translation sits beside the original; on a phone held upright it sits below, with a draggable divider and synchronised scrolling.
+• Private by default — the built-in translators run fully on your device. Once a language is downloaded, they work offline and nothing you read leaves your phone.
+• Automatic language detection — just open a book.
+• 18 target languages — English, Ukrainian, German, French, Spanish, Italian, Portuguese, Dutch, Polish, Chinese, Japanese, Korean, Arabic, Hindi, Turkish, Swedish, Czech, and Russian.
 
 TRANSLATION ENGINES, YOUR CHOICE
 
-• ML Kit (offline) — free, on-device, no setup.
+• ML Kit (on-device) — free, no setup, works offline.
+• Offline HQ (on-device) — higher-quality translation with Mozilla's open translation models. Each language pair is a one-time download, then it runs offline.
 • Quick Translate — fast online translation, no account needed.
-• Bring your own key — DeepL, Google Cloud Translation, Microsoft Azure Translator, or LibreTranslate (including self-hosted) for advanced quality. API keys are stored encrypted on your device.
+• Bring your own key — DeepL, Google Cloud Translation, Microsoft Azure Translator, or LibreTranslate (including self-hosted). Keys are stored encrypted on your device.
 
-A LIBRARY THAT FEELS LIKE READING
-
-• Beautiful, editorial typography — 4 themes (Paper, Sepia, Night, AMOLED) and 9 reading typefaces.
-• Fine-tune everything — font size, line height, paragraph and letter spacing, indent, justification, and hyphenation.
-• Inline illustrations in EPUB and FB2 books.
-• Read aloud — built-in text-to-speech with adjustable rate and pitch.
-
-FREE BOOKS BUILT IN
-
-• Browse and download public-domain classics from Project Gutenberg and Standard Ebooks, right inside the app — no account, no cost.
-• Import your own books from device storage or Google Drive.
+Translations are cached on your device, so a paragraph is never translated twice.
 
 TOOLS FOR LANGUAGE LEARNERS
 
-• Tap and save words to your personal vocabulary.
-• Add notes and bookmarks as you read.
-• Track your progress in the Almanac — reading streak, minutes, pages, a 26-week activity heatmap, and time by book and language.
-• Your reading position is remembered for every book.
+• Tap a word or select a sentence for an instant translation, then save it to your vocabulary with its context.
+• Bookmarks and notes as you read.
+• The Almanac tracks your reading streak, minutes, a 26-week activity heatmap, and time by book and language.
+• Your reading position is kept for every book.
+
+A READER THAT FEELS LIKE A BOOK
+
+• Editorial typography — 4 themes (Paper, Sepia, Night, AMOLED) and 12 reading typefaces.
+• Fine-tune font size, line height, paragraph and letter spacing, indent, justification, and hyphenation.
+• Illustrations from EPUB and FB2 books, shown inline.
+• Read aloud with built-in text-to-speech, with adjustable rate and pitch.
+
+FREE BOOKS BUILT IN
+
+• Browse and download public-domain classics from Project Gutenberg and Standard Ebooks inside the app — no account, no cost.
+• Import your own books from device storage or Google Drive.
 
 PRIVACY FIRST
 
-• No account required to read.
-• Default translation runs on-device; your books and reading stats stay on your phone.
-• Optional online engines only send text when you choose to enable them.
+• No account needed to read. Sign-in is optional.
+• Your books, vocabulary, and reading stats stay on your device.
+• Online engines receive text only when you choose one.
 
 FREE & PREMIUM
 
-Mirrolit is free to use with a library of up to 3 books. Unlock an unlimited library with a single one-time Premium purchase — no subscription.
+Mirrolit is free with a library of up to 3 books. A single one-time Premium purchase unlocks an unlimited library — no subscription.
 
-Supported formats: EPUB, FB2, and classic MOBI. (DRM-protected files cannot be opened.)
+Supported formats: EPUB, FB2, and classic MOBI. DRM-protected files and AZW3/KF8 cannot be opened.
 
-Start reading the world's books in your language — and the original — at the same time.
+Read the world's books in the original and in your language, at the same time.
