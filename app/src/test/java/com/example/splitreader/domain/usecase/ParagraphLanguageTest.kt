@@ -54,6 +54,25 @@ class ParagraphLanguageTest {
     }
 
     @Test
+    fun `a paragraph in what the whole book was detected as is the book's, when the reader chose another language`() = runTest {
+        // A Belarusian book the reader reads as Russian: its paragraphs detect as "be", and must
+        // not each show "BE · not translated".
+        val d = ParagraphLanguage(Confident("be")).decide(long, book = Language.RUSSIAN, target = Language.ENGLISH, bookDetectedAs = "be")
+        assertEquals(ParagraphLanguage.Decision.Book, d)
+    }
+
+    @Test
+    fun `the detector is asked once per text, with at most the first thousand characters`() = runTest {
+        val detector = Confident("de")
+        val pl = ParagraphLanguage(detector)
+        val chapter = long.repeat(40)
+        pl.decide(chapter, book = Language.ENGLISH, target = Language.RUSSIAN)
+        pl.decide(chapter, book = Language.ENGLISH, target = Language.RUSSIAN)
+        assertEquals(1, detector.asked.size)
+        assertTrue(detector.asked.single().length <= 1000)
+    }
+
+    @Test
     fun `romanised text of a non-Latin language is kept, not translated as that language`() = runTest {
         assertEquals(ParagraphLanguage.Decision.Keep("hi-latn"), decide("hi-Latn"))
     }

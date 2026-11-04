@@ -93,6 +93,52 @@ class DownloadParagraphLanguageTest {
         h.vm.selectWord("Brief", 0, 1, 8, 13)
         assertTrue(pollUntil(5_000) { repo.sources.isNotEmpty() })
         assertEquals(listOf(Language.GERMAN), repo.sources.distinct())
+
+        assertTrue(pollUntil(5_000) { h.success().wordSelection?.translation is SelectionTranslation.Ready })
+        h.vm.saveWord("Brief", 0, 1)
+        assertTrue(pollUntil(5_000) { h.savedWords.words.value.isNotEmpty() })
+        assertEquals("saved under the paragraph's language", "de", h.savedWords.words.value.single().sourceLang)
+    }
+
+    @Test
+    fun `a new target language forgets downloads made for the old one`() = runTest(main.dispatcher) {
+        val repo = FakeTranslationRepository().apply {
+            notInstalled += Language.GERMAN
+            failPrepare += Language.GERMAN
+        }
+        val h = open(repo)
+        assertTrue(pollUntil(5_000) { h.success().paragraphNotes[0]?.get(1) != null })
+        h.vm.downloadModel(Language.GERMAN, TranslationProvider.BERGAMOT)
+        assertTrue(pollUntil(5_000) { h.success().languageDownloads[Language.GERMAN] == LanguageDownload.Failed })
+
+        h.vm.setTargetLanguage(Language.FRENCH)
+
+        assertTrue(pollUntil(2_000) { h.success().languageDownloads.isEmpty() })
+    }
+
+    @Test
+    fun `the book's language chosen by the reader is not overridden paragraph by paragraph`() = runTest(main.dispatcher) {
+        // Detected (wrongly) as Spanish, every paragraph too; the reader says it is Portuguese.
+        val spanishEverywhere = object : LanguageDetector {
+            override suspend fun identify(text: String): String = "es"
+            override suspend fun identifyConfident(text: String): String = "es"
+        }
+        val repo = FakeTranslationRepository()
+        val h = ReaderViewModelHarness(
+            book, prefs = FakeReadingPreferences(), repo = repo,
+            settings = FakeTranslatorSettings(current = TranslationProvider.BERGAMOT),
+            detector = spanishEverywhere, ioDispatcher = main.dispatcher,
+        )
+        backgroundScope.launch { h.vm.uiState.collect {} }
+        h.vm.loadBook(h.uri)
+        awaitLoaded(h)
+        h.vm.setSourceLanguage(Language.PORTUGUESE)
+        repo.sources.clear()
+        h.vm.onVisibleRange(0, 0, 0, 1)
+
+        assertTrue(pollUntil(5_000) { h.success().chapterTranslations[0]?.all { it.isNotEmpty() } == true })
+        assertEquals(listOf(Language.PORTUGUESE), repo.sources.distinct())
+        assertEquals(emptyMap<Int, ParagraphNote>(), h.success().paragraphNotes[0].orEmpty())
     }
 
     @Test

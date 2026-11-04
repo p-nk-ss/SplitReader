@@ -38,6 +38,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,6 +103,13 @@ class ReaderViewModel @Inject constructor(
         val sourceCode: String get() = when {
             translatable -> sourceLanguage.code
             else -> (sourceDetection as? SourceDetection.Unsupported)?.code ?: "und"
+        }
+
+        /** What the book was detected as, when the reader chose its language (see ParagraphLanguage.decide). */
+        val bookDetectedAs: String? get() = if (chosenSource == null) null else when (val d = sourceDetection) {
+            is SourceDetection.Supported -> d.language.code
+            is SourceDetection.Unsupported -> d.code
+            SourceDetection.Unknown -> null
         }
     }
 
@@ -182,6 +190,7 @@ class ReaderViewModel @Inject constructor(
                 if (changed) {
                     // The popup was translated by the old provider (and a drag would still use it).
                     selectionTranslator.clear()
+                    forgetDownloads()
                     notifyEngineSettings()
                 }
             }
@@ -282,7 +291,7 @@ class ReaderViewModel @Inject constructor(
         if (source != null) {
             engine.open(
                 book, source, targetLang, _state.value.translatorProvider, _state.value.appearance.showTranslation,
-                start = saved,
+                start = saved, bookDetectedAs = _state.value.bookDetectedAs,
             )
         }
         // Begin tracking reading time now that the book is on screen
@@ -360,7 +369,10 @@ class ReaderViewModel @Inject constructor(
         }
         selectionTranslator.clear()
         if (source != null) {
-            engine.open(book, source, target, s.translatorProvider, progressManager.appearance.value.showTranslation, start = s.position)
+            engine.open(
+                book, source, target, s.translatorProvider, progressManager.appearance.value.showTranslation,
+                start = s.position, bookDetectedAs = _state.value.bookDetectedAs,
+            )
         } else {
             engine.close()
         }
@@ -378,7 +390,7 @@ class ReaderViewModel @Inject constructor(
             it.copy(languageDownloads = if (download == null) it.languageDownloads - language else it.languageDownloads + (language to download))
         }
         set(LanguageDownload.Running(null))
-        viewModelScope.launch {
+        downloadJobs[language] = viewModelScope.launch {
             try {
                 translateTextUseCase.download(language, target, provider).collect { set(LanguageDownload.Running(it)) }
             } catch (e: CancellationException) {
@@ -392,6 +404,19 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    private val downloadJobs = mutableMapOf<Language, Job>()
+
+    /**
+     * Downloads were asked for one target and engine: under another, their progress or failure
+     * would show on notes for a pair that was never asked for. A pack half-downloaded resumes
+     * when it is asked for again.
+     */
+    private fun forgetDownloads() {
+        downloadJobs.values.forEach { it.cancel() }
+        downloadJobs.clear()
+        _state.update { it.copy(languageDownloads = emptyMap()) }
+    }
+
     /** [current], unless it is the book's own language: then English, or Russian for an English book. */
     private fun targetFor(source: Language?, current: Language): Language = when {
         source == null || source != current -> current
@@ -402,6 +427,7 @@ class ReaderViewModel @Inject constructor(
     fun setTargetLanguage(lang: Language) {
         progressManager.saveTargetLanguage(lang)
         _state.update { it.copy(targetLanguage = lang) }
+        forgetDownloads()
         // The popup's translation is in the old language; Save would file it under the new one.
         selectionTranslator.clear()
         notifyEngineSettings()
@@ -586,7 +612,9 @@ class ReaderViewModel @Inject constructor(
             val result = saveWordUseCase(
                 word = word,
                 contextSnippet = context,
-                sourceLang = s.sourceLanguage,
+                // A word from a paragraph in another language is filed under that language.
+                sourceLang = (s.paragraphNotes[chapterIndex]?.get(paragraphIndex) as? ParagraphNote.TranslatedFrom)?.language
+                    ?: s.sourceLanguage,
                 targetLang = s.targetLanguage,
                 bookUri = book.filePath,
                 bookTitle = book.title,

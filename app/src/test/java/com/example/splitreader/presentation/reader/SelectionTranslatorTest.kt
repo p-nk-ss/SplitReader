@@ -113,6 +113,28 @@ class SelectionTranslatorTest {
     }
 
     @Test
+    fun `a long selection is translated, never passed off as its own translation by paragraph detection`() = runTest {
+        // A detector that calls everything Russian (the target): the paragraph rules would keep
+        // the text as it is, and the popup would show the original as "the translation".
+        val russian = object : com.example.splitreader.domain.LanguageDetector {
+            override suspend fun identify(text: String): String = "ru"
+            override suspend fun identifyConfident(text: String): String = "ru"
+        }
+        val repo = SelectionFakeRepo()
+        val t = SelectionTranslator(
+            backgroundScope,
+            TranslateTextUseCase(repo, StandardTestDispatcher(testScheduler), com.example.splitreader.domain.usecase.ParagraphLanguage(russian)),
+        )
+        val sentence = "A whole sentence dragged out of the paragraph, well over sixty characters long."
+
+        t.pick(sentence)
+        settle()
+
+        assertEquals(listOf(sentence), repo.calls)
+        assertEquals(SelectionTranslation.Ready("ru:$sentence"), t.state.value?.translation)
+    }
+
+    @Test
     fun `dragging requests nothing until release, then exactly once`() = runTest {
         val repo = SelectionFakeRepo()
         val t = translator(repo)

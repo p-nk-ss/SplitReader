@@ -104,7 +104,7 @@ class SelectionTranslator(
             var notice: TranslationState.FallbackNotice? = null
             var done = false
             try {
-                translateText(listOf(sel.word), src, tgt, prov, 0, 0).collect { s ->
+                translateText(listOf(sel.word), src, tgt, prov, 0, 0, detectParagraphs = false).collect { s ->
                     when (s) {
                         // A finished download (1f) means the translation itself is now running: show
                         // "Translating…", not a "100%" that would sit there until the result arrives.

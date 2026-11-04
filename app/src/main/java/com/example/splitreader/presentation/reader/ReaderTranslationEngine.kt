@@ -61,6 +61,8 @@ class ReaderTranslationEngine(
     /**
      * Opens [book] with a clean slate. [start] seeds the remembered viewport (e.g. the restored
      * reading position), so the first request is that paragraph rather than the book's start.
+     * [bookDetectedAs]: what the book was detected as, when the reader chose another [source]
+     * ([com.example.splitreader.domain.usecase.ParagraphLanguage.decide]).
      */
     fun open(
         book: Book,
@@ -69,7 +71,8 @@ class ReaderTranslationEngine(
         provider: TranslationProvider,
         paneVisible: Boolean,
         start: ReadingPosition = ReadingPosition.START,
-    ) = send(Event.Open(book, source, target, provider, paneVisible, start))
+        bookDetectedAs: String? = null,
+    ) = send(Event.Open(book, source, target, provider, paneVisible, start, bookDetectedAs))
 
     /** Stops all work and drops every translation: the book is open but not translatable (e.g. its language isn't supported). */
     fun close() = send(Event.Close)
@@ -99,6 +102,7 @@ class ReaderTranslationEngine(
         data class Open(
             val book: Book, val source: Language, val target: Language,
             val provider: TranslationProvider, val paneVisible: Boolean, val start: ReadingPosition,
+            val bookDetectedAs: String?,
         ) : Event
         data object Close : Event
         data class Viewport(val start: ReadingPosition, val end: ReadingPosition) : Event
@@ -135,6 +139,9 @@ class ReaderTranslationEngine(
     private val translated = mutableMapOf<Int, MutableSet<Int>>()
     private var snapshot: Map<Int, List<String>> = emptyMap()
     private var notes: Map<Int, Map<Int, ParagraphNote>> = emptyMap()
+    private var bookDetectedAs: String? = null
+    /** Languages whose model arrived ([languageReady]) since the last reset. */
+    private val readyLanguages = mutableSetOf<Language>()
     private var fill: Int? = null
     private var foregroundError: String? = null
     private var foregroundErrorPersistent = false
@@ -167,6 +174,7 @@ class ReaderTranslationEngine(
                 paneVisible = event.paneVisible
                 start = event.start
                 end = event.start
+                bookDetectedAs = event.bookDetectedAs
                 discardTranslations()
             }
             is Event.Close -> {
@@ -217,6 +225,9 @@ class ReaderTranslationEngine(
             }
             is Event.Partial -> {
                 if (event.epoch != epoch) return
+                // Checked for the model just before it arrived: not an answer any more. Left
+                // untranslated, the paragraph is planned again and translated with the model.
+                if (event.note is ParagraphNote.NeedsModel && event.note.language in readyLanguages) return
                 val size = book?.chapters?.getOrNull(event.chapter)?.paragraphs?.size ?: return
                 val list = results.getOrPut(event.chapter) { MutableList(size) { "" } }
                 if (event.index in list.indices) list[event.index] = event.text
@@ -233,6 +244,7 @@ class ReaderTranslationEngine(
                 publish()
             }
             is Event.LanguageReady -> {
+                readyLanguages += event.language
                 // Only the waiting paragraphs become untranslated again: the planner re-issues them
                 // (on screen first). Their original stays in place until the translation replaces it.
                 for ((chapter, chapterNotes) in notes) {
@@ -333,11 +345,14 @@ class ReaderTranslationEngine(
         val src = source
         val tgt = target
         val prov = provider
+        val detectedAs = bookDetectedAs
         running = scope.launch {
             var error: String? = null
             var persistent = false
             try {
-                translateText(paragraphs, src, tgt, prov, segment.start, segment.endInclusive).collect { s ->
+                translateText(
+                    paragraphs, src, tgt, prov, segment.start, segment.endInclusive, bookDetectedAs = detectedAs,
+                ).collect { s ->
                     when (s) {
                         is TranslationState.Partial ->
                             events.send(Event.Partial(myEpoch, segment.chapterIndex, s.index, s.text, s.note))
@@ -379,6 +394,7 @@ class ReaderTranslationEngine(
         translated.clear()
         snapshot = emptyMap()
         notes = emptyMap()
+        readyLanguages.clear()
         fill = null
         foregroundError = null
         foregroundErrorPersistent = false

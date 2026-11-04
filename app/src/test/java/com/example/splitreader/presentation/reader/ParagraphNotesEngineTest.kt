@@ -47,7 +47,13 @@ class ParagraphNotesEngineTest {
             installed += source
             emit(1f)
         }
-        override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider) = source in installed
+        /** When set, isReady answers what it saw on entry only after this completes (a stale answer). */
+        var isReadyGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean {
+            val ready = source in installed
+            isReadyGate?.await()
+            return ready
+        }
         override suspend fun cachedCount() = 0
         override suspend fun clearCache() = Unit
     }
@@ -100,5 +106,25 @@ class ParagraphNotesEngineTest {
         assertEquals("ru:${paragraphs[1]}", e.state.value.translations[0]?.get(1))
         assertEquals(ParagraphNote.TranslatedFrom(Language.GERMAN), e.state.value.notes[0]?.get(1))
         assertEquals(ParagraphNote.Original("la"), e.state.value.notes[0]?.get(2))
+    }
+
+    @Test
+    fun `a stale 'needs model' answer that lands after the download does not bring the button back`() = runTest {
+        val repo = Repo()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { repo.isReadyGate = it }
+        val e = engine(repo)
+        e.open(book, Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT, paneVisible = true)
+        e.viewport(ReadingPosition(0, 0), ReadingPosition(0, 3))
+        runCurrent() // paragraph 1 has checked for the German pack (absent) and is held
+
+        repo.installed += Language.GERMAN
+        e.languageReady(Language.GERMAN)
+        runCurrent()
+        repo.isReadyGate = null
+        gate.complete(Unit)
+        runCurrent()
+
+        assertEquals("ru:${paragraphs[1]}", e.state.value.translations[0]?.get(1))
+        assertEquals(ParagraphNote.TranslatedFrom(Language.GERMAN), e.state.value.notes[0]?.get(1))
     }
 }

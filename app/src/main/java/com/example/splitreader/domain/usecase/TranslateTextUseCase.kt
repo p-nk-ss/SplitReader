@@ -51,6 +51,10 @@ class TranslateTextUseCase @Inject constructor(
     /**
      * Translates paragraphs in the given index range.
      * When endIndex < 0 the full list is translated (startIndex first, then wrapping around).
+     *
+     * [detectParagraphs]: tell each paragraph's own language ([ParagraphLanguage]); off for a
+     * selection in the word popup, whose text is a word or a sentence of an already-decided
+     * paragraph. [bookDetectedAs]: see [ParagraphLanguage.decide].
      */
     operator fun invoke(
         paragraphs: List<String>,
@@ -59,6 +63,8 @@ class TranslateTextUseCase @Inject constructor(
         provider: TranslationProvider,
         startIndex: Int = 0,
         endIndex: Int = -1,
+        detectParagraphs: Boolean = true,
+        bookDetectedAs: String? = null,
     ): Flow<TranslationState> = flow {
         // Resolved once per segment: the engine that serves every paragraph below.
         val served = when (val r = repository.resolve(provider, sourceLanguage, targetLanguage)) {
@@ -111,7 +117,7 @@ class TranslateTextUseCase @Inject constructor(
         for (index in order) {
             val paragraph = paragraphs[index]
             try {
-                emit(translateParagraph(index, paragraph, sourceLanguage, targetLanguage, served))
+                emit(translateParagraph(index, paragraph, sourceLanguage, targetLanguage, served, detectParagraphs, bookDetectedAs))
                 consecutiveFailures = 0
             } catch (e: CancellationException) {
                 throw e
@@ -138,7 +144,11 @@ class TranslateTextUseCase @Inject constructor(
         source: Language,
         target: Language,
         served: TranslationProvider,
-    ): TranslationState.Partial = when (val d = paragraphLanguage.decide(paragraph, source, target)) {
+        detect: Boolean,
+        bookDetectedAs: String?,
+    ): TranslationState.Partial = when (
+        val d = if (detect) paragraphLanguage.decide(paragraph, source, target, bookDetectedAs) else ParagraphLanguage.Decision.Book
+    ) {
         ParagraphLanguage.Decision.Book ->
             TranslationState.Partial(index, translateWithRateLimitRetry(paragraph, source, target, served))
         is ParagraphLanguage.Decision.Keep ->

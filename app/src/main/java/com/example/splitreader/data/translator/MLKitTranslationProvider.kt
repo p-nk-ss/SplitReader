@@ -50,6 +50,9 @@ class MLKitTranslationProvider @Inject constructor() : TranslationProviderApi {
      * changes, and the reader's download runs while paragraphs translate in the book's pair.
      */
     override fun prepare(source: Language, target: Language): Flow<Float> = flow {
+        // Every segment and popup lookup prepares first: with both models here there is nothing
+        // to do, and emitting would flash the banner's "Preparing… 100%".
+        if (isReady(source, target)) return@flow
         val client = Translation.getClient(
             TranslatorOptions.Builder()
                 .setSourceLanguage(source.toTranslateLanguage())

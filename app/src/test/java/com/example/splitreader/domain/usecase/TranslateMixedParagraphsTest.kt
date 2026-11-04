@@ -1,6 +1,7 @@
 package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.domain.LanguageDetector
+import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ParagraphNote
 import com.example.splitreader.domain.model.Resolution
@@ -77,6 +78,31 @@ class TranslateMixedParagraphsTest {
         assertEquals(listOf(ParagraphNote.NeedsModel(Language.GERMAN, TranslationProvider.BERGAMOT)), out.map { it.note })
         assertEquals(listOf(para("de")), out.map { it.text })
         assertEquals("only the book's own pair is prepared", listOf(Language.ENGLISH), repo.prepared)
+    }
+
+    @Test
+    fun `without per-paragraph detection (the word popup) everything is the book's language`() = runTest {
+        val repo = Repo()
+        val out = TranslateTextUseCase(repo, StandardTestDispatcher(testScheduler), ParagraphLanguage(ByPrefix()))(
+            listOf(para("ru"), para("de")), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
+            detectParagraphs = false,
+        ).filterIsInstance<TranslationState.Partial>().toList()
+        assertEquals(listOf("ru" to Language.ENGLISH, "de" to Language.ENGLISH), repo.sources)
+        assertEquals(listOf(null, null), out.map { it.note })
+    }
+
+    @Test
+    fun `a paragraph the chosen engine can't translate from its language is shown as it is, never by another engine`() = runTest {
+        val repo = object : TranslationRepository by Repo() {
+            override fun resolve(provider: TranslationProvider, source: Language, target: Language) =
+                if (source == Language.GERMAN) Resolution.Fallback(provider, TranslationProvider.MLKIT, FallbackReason.UNSUPPORTED_PAIR)
+                else Resolution.Ready(provider)
+        }
+        val out = TranslateTextUseCase(repo, StandardTestDispatcher(testScheduler), ParagraphLanguage(ByPrefix()))(
+            listOf(para("de")), Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT,
+        ).filterIsInstance<TranslationState.Partial>().toList()
+        assertEquals(listOf(ParagraphNote.Original("de")), out.map { it.note })
+        assertEquals(listOf(para("de")), out.map { it.text })
     }
 
     @Test
