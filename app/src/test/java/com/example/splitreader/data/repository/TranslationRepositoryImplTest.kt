@@ -143,4 +143,38 @@ class TranslationRepositoryImplTest {
 
         assertEquals(1L, TranslationUsageTracker(context).usage(TranslationProvider.DEEPL).charactersThisMonth)
     }
+
+    // ── Sentences for the on-device engines (found on a tablet emulator, 2026-11-04) ────────────
+    // Offline HQ split nothing on "。": a Chinese chapter written as one paragraph went in as one
+    // "sentence" and ran for minutes, and Japanese sentences came back glued ("упал.Тот").
+
+    @Test
+    fun `a Japanese paragraph goes to Offline HQ sentence by sentence, joined with spaces`() = runTest {
+        val result = repo.translate("或日の暮方の事である。一人の下人が雨やみを待っていた。", Language.JAPANESE, Language.RUSSIAN, TranslationProvider.BERGAMOT)
+        assertEquals(listOf("或日の暮方の事である。", "一人の下人が雨やみを待っていた。"), bergamot.calls)
+        assertEquals("hq:或日の暮方の事である。 hq:一人の下人が雨やみを待っていた。", result)
+    }
+
+    @Test
+    fun `a long Chinese paragraph never reaches Offline HQ in one piece`() = runTest {
+        val paragraph = "空空道人遂向石頭說道：石兄，你這一段故事，據你自己說有些趣味，故編寫在此，意欲問世傳奇。".repeat(60)
+        repo.translate(paragraph, Language.CHINESE, Language.RUSSIAN, TranslationProvider.BERGAMOT)
+        assertTrue("${bergamot.calls.size} calls", bergamot.calls.size > 1)
+        assertTrue("a piece of ${bergamot.calls.maxOf { it.length }} chars", bergamot.calls.all { it.length <= 400 })
+        assertEquals(paragraph, bergamot.calls.joinToString(""))
+    }
+
+    @Test
+    fun `into Chinese or Japanese the sentences join without spaces`() = runTest {
+        val result = repo.translate("一人の下人。羅生門の下。", Language.JAPANESE, Language.CHINESE, TranslationProvider.MLKIT)
+        assertEquals("ml:一人の下人。ml:羅生門の下。", result)
+    }
+
+    @Test
+    fun `an ordinary paragraph and any online engine get the paragraph whole`() = runTest {
+        repo.translate("One. Two. Three.", Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT)
+        repo.translate("一人の下人。羅生門の下。", Language.JAPANESE, Language.RUSSIAN, TranslationProvider.DEEPL)
+        assertEquals(listOf("One. Two. Three."), bergamot.calls)
+        assertEquals(listOf("一人の下人。羅生門の下。"), deepL.calls)
+    }
 }

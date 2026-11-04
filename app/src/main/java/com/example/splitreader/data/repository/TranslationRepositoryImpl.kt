@@ -6,6 +6,7 @@ import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.Resolution
+import com.example.splitreader.domain.translator.Sentences
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
 import com.example.splitreader.domain.translator.TranslationProviderApi
@@ -41,7 +42,13 @@ class TranslationRepositoryImpl @Inject constructor(
         val api = providers[provider] ?: error("$provider is missing from DI")
         val cacheKey = TranslationCacheKey.compute(provider, text, source, target)
         dao.getCached(cacheKey)?.takeIf { it.originalText == text }?.let { return it.translatedText }
-        val translated = api.translate(text, source, target)
+        // On-device engines take Chinese/Japanese (and overlong paragraphs) a sentence at a time;
+        // online engines handle a paragraph whole. The cache still keys the whole paragraph.
+        val translated = if (!provider.requiresNetwork && Sentences.needsSplitting(text, source)) {
+            Sentences.join(Sentences.split(text, source).map { api.translate(it, source, target) }, target)
+        } else {
+            api.translate(text, source, target)
+        }
         if (provider.tracksUsage) usageTracker.record(provider, text.length)
         dao.insert(TranslationCacheEntity(cacheKey, text, translated, target.code))
         return translated
