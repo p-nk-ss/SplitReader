@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
+import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.MigrateLegacyReadingPositionsUseCase
@@ -46,6 +47,7 @@ internal class ReaderViewModelHarness(
     val crash: FakeCrashReporter = FakeCrashReporter(),
     val sessions: FakeReadingSessionRepository = FakeReadingSessionRepository(),
     val settings: FakeTranslatorSettings = FakeTranslatorSettings(current = TranslationProvider.QUICK_TRANSLATE),
+    val detector: LanguageDetector = FakeLanguageDetector(),
     ioDispatcher: CoroutineDispatcher,
 ) {
     val bookmarks = FakeBookmarkRepository()
@@ -68,7 +70,7 @@ internal class ReaderViewModelHarness(
         migrateLegacyReadingPositions = MigrateLegacyReadingPositionsUseCase(legacy, bookmarks),
         crashReporter = crash,
         progressManager = prefs,
-        languageDetector = FakeLanguageDetector(),
+        languageDetector = detector,
         translatorSettings = settings,
         textToSpeechManager = FakeSpeechSynthesizer(),
         context = context,

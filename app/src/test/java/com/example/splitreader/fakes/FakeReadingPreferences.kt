@@ -38,6 +38,11 @@ internal class FakeReadingPreferences(
     override fun markFinished(bookUri: String) = Unit
     override fun isFinished(bookUri: String) = false
     override fun clearProgress(bookUri: String) = Unit
+    val sourceLanguages = mutableMapOf<String, Language>()
+    override fun getSourceLanguage(bookUri: String): Language? = sourceLanguages[bookUri]
+    override fun saveSourceLanguage(bookUri: String, language: Language?) {
+        if (language == null) sourceLanguages.remove(bookUri) else sourceLanguages[bookUri] = language
+    }
     override fun saveTargetLanguage(language: Language) {
         targetLanguage = language
     }

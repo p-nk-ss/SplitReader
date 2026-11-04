@@ -55,6 +55,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
+import androidx.compose.ui.platform.testTag
+import com.example.splitreader.domain.model.SourceDetection
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.JetBrainsMono
@@ -161,57 +163,53 @@ internal fun EditorialDialog(
 
 // ── Language picker dialog ────────────────────────────────────────────────
 
+/** Which side of "EN → RU" the language picker edits. */
+internal enum class LanguagePickerTab { SOURCE, TARGET }
+
+/**
+ * The reader's languages: the book's own ([LanguagePickerTab.SOURCE], for when detection is wrong
+ * or found a language the translators lack) and the translation's ([LanguagePickerTab.TARGET]).
+ * [onSelectSource] gets null for "Automatic".
+ */
 @Composable
 internal fun LanguagePickerDialog(
     currentTarget: Language,
     onSelect: (Language) -> Unit,
     onDismiss: () -> Unit,
+    sourceDetection: SourceDetection = SourceDetection.Unknown,
+    chosenSource: Language? = null,
+    onSelectSource: (Language?) -> Unit = {},
+    initialTab: LanguagePickerTab = LanguagePickerTab.TARGET,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
     val radii = LocalRadii.current
+    var tab by remember { mutableStateOf(initialTab) }
 
-    EditorialDialog(eyebrow = "Translation", title = "Choose target language", onDismiss = onDismiss) {
-        val langs = Language.entries
-        val cols = 3
-        val rows = (langs.size + cols - 1) / cols
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            repeat(rows) { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    repeat(cols) { col ->
-                        val idx = row * cols + col
-                        if (idx < langs.size) {
-                            val lang = langs[idx]
-                            val selected = lang == currentTarget
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(radii.md))
-                                    .background(animatedSelection(if (selected) palette.ink else palette.bg2, "langPickerBg"))
-                                    .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "langPickerBorder"), RoundedCornerShape(radii.md))
-                                    .clickable { onSelect(lang) }
-                                    .padding(vertical = 14.dp, horizontal = 8.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(3.dp))
-                                            .background(if (selected) palette.bg.copy(alpha = 0.22f) else palette.bg3)
-                                            .padding(horizontal = 7.dp, vertical = 3.dp),
-                                    ) {
-                                        Text(lang.badge, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = if (selected) palette.bg else palette.ink)
-                                    }
-                                    Text(lang.displayName, fontFamily = Newsreader, fontSize = 14.sp, color = if (selected) palette.bg else palette.ink)
-                                    Text(lang.displayName, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 11.sp, color = if (selected) palette.bg.copy(alpha = 0.8f) else palette.ink3)
-                                }
-                            }
-                        } else {
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
-                }
+    EditorialDialog(eyebrow = "Languages", title = if (tab == LanguagePickerTab.SOURCE) "Book's language" else "Translate into", onDismiss = onDismiss) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LanguageTab("From", tab == LanguagePickerTab.SOURCE, Modifier.weight(1f).testTag(LANGUAGE_TAB_SOURCE)) { tab = LanguagePickerTab.SOURCE }
+            LanguageTab("To", tab == LanguagePickerTab.TARGET, Modifier.weight(1f).testTag(LANGUAGE_TAB_TARGET)) { tab = LanguagePickerTab.TARGET }
+        }
+        Spacer(Modifier.height(sp.md))
+
+        if (tab == LanguagePickerTab.SOURCE) {
+            val detected = when (sourceDetection) {
+                is SourceDetection.Supported -> "Detected: ${sourceDetection.language.displayName}"
+                is SourceDetection.Unsupported -> "Detected: ${languageName(sourceDetection.code)} — not supported"
+                SourceDetection.Unknown -> "Not detected"
             }
+            LanguageTile(
+                badge = "AUTO",
+                title = "Automatic",
+                subtitle = detected,
+                selected = chosenSource == null,
+                modifier = Modifier.fillMaxWidth().testTag(LANGUAGE_AUTO_TILE),
+            ) { onSelectSource(null) }
+            Spacer(Modifier.height(10.dp))
+            LanguageGrid(selected = chosenSource) { onSelectSource(it) }
+        } else {
+            LanguageGrid(selected = currentTarget, onSelect = onSelect)
         }
 
         Spacer(Modifier.height(sp.md))
@@ -229,16 +227,103 @@ internal fun LanguagePickerDialog(
         ) {
             Icon(Icons.Outlined.Language, null, tint = palette.ink3, modifier = Modifier.size(16.dp))
             Column {
-                Row {
-                    Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
-                    Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                if (tab == LanguagePickerTab.SOURCE) {
+                    Text(
+                        "Detected from the book's text. Choose a language if it's wrong; it's remembered for this book.",
+                        fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2,
+                    )
+                } else {
+                    Row {
+                        Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
+                        Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                    }
+                    Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
                 }
-                Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
             }
         }
         Spacer(Modifier.height(sp.sm))
     }
 }
+
+@Composable
+private fun LanguageTab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val palette = LocalReaderPalette.current
+    val radii = LocalRadii.current
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(radii.md))
+            .background(animatedSelection(if (selected) palette.ink else palette.bg2, "langTabBg"))
+            .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "langTabBorder"), RoundedCornerShape(radii.md))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label.uppercase(), fontFamily = JetBrainsMono, fontSize = 12.sp, letterSpacing = 0.5.sp, color = if (selected) palette.bg else palette.ink)
+    }
+}
+
+/** The 18 languages, three to a row; [selected] is highlighted (null: none). */
+@Composable
+private fun LanguageGrid(selected: Language?, onSelect: (Language) -> Unit) {
+    val langs = Language.entries
+    val cols = 3
+    val rows = (langs.size + cols - 1) / cols
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        repeat(rows) { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                repeat(cols) { col ->
+                    val idx = row * cols + col
+                    if (idx < langs.size) {
+                        val lang = langs[idx]
+                        LanguageTile(lang.badge, lang.displayName, lang.displayName, lang == selected, Modifier.weight(1f)) { onSelect(lang) }
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageTile(
+    badge: String,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    val palette = LocalReaderPalette.current
+    val radii = LocalRadii.current
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(radii.md))
+            .background(animatedSelection(if (selected) palette.ink else palette.bg2, "langPickerBg"))
+            .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "langPickerBorder"), RoundedCornerShape(radii.md))
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp, horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (selected) palette.bg.copy(alpha = 0.22f) else palette.bg3)
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+            ) {
+                Text(badge, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = if (selected) palette.bg else palette.ink)
+            }
+            Text(title, fontFamily = Newsreader, fontSize = 14.sp, color = if (selected) palette.bg else palette.ink)
+            Text(subtitle, fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 11.sp, color = if (selected) palette.bg.copy(alpha = 0.8f) else palette.ink3)
+        }
+    }
+}
+
+/** Test tags on the language picker. */
+internal const val LANGUAGE_TAB_SOURCE = "language_tab_source"
+internal const val LANGUAGE_TAB_TARGET = "language_tab_target"
+internal const val LANGUAGE_AUTO_TILE = "language_auto"
 
 // ── Display settings dialog ───────────────────────────────────────────────
 

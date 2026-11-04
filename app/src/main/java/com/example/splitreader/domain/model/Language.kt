@@ -30,6 +30,9 @@ enum class Language(val code: String, val displayName: String, val badge: String
 
     companion object {
         fun fromCode(code: String): Language = entries.find { it.code == code } ?: ENGLISH
+
+        /** The language for an ISO 639-1 code, or null when the app doesn't support it. */
+        fun fromCodeOrNull(code: String): Language? = entries.find { it.code == code }
     }
 }
 

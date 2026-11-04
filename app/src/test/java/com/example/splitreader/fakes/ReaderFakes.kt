@@ -44,6 +44,8 @@ internal class FakeTranslationRepository : TranslationRepository {
     /** What [resolve] answers for each provider; Ready by default. */
     var resolution: (TranslationProvider) -> Resolution = { Resolution.Ready(it) }
     val calls: MutableList<Pair<String, Language>> = Collections.synchronizedList(mutableListOf())
+    /** The source language of each [translate] call, in order. */
+    val sources: MutableList<Language> = Collections.synchronizedList(mutableListOf())
     /** The provider each [translate] call was asked to serve with, paired with its text. */
     val served: MutableList<Pair<String, TranslationProvider>> = Collections.synchronizedList(mutableListOf())
     val failOn: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
@@ -55,6 +57,7 @@ internal class FakeTranslationRepository : TranslationRepository {
     override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
         served += text to provider
         calls += text to target
+        sources += source
         // A runaway engine would spin the test thread forever; past the limit, report once and park.
         if (calls.size > RUNAWAY_LIMIT) {
             if (calls.size == RUNAWAY_LIMIT + 1) throw AssertionError("runaway engine: >$RUNAWAY_LIMIT calls, last=$text")
@@ -79,7 +82,7 @@ internal class FakeTranslationRepository : TranslationRepository {
 }
 
 internal class FakeLanguageDetector(var language: Language = Language.ENGLISH) : LanguageDetector {
-    override suspend fun detectLanguage(text: String): Language = language
+    override suspend fun identify(text: String): String = language.code
 }
 
 internal class FakeCrashReporter : CrashReporter {

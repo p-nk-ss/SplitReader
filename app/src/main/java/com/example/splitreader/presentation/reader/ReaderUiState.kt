@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.reader
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Chapter
+import com.example.splitreader.domain.model.SourceDetection
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
@@ -73,7 +74,15 @@ sealed interface ReaderUiState {
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val translatorConfig: TranslatorConfigState =
             TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
+        /** What the book's text was detected to be written in. */
+        val sourceDetection: SourceDetection = SourceDetection.Supported(sourceLanguage),
+        /** The language the reader picked for this book; null = the detected one is used. */
+        val chosenSource: Language? = null,
     ) : ReaderUiState {
+        /** False when the book's language can't be translated from and the reader hasn't picked one: shown untranslated. */
+        val translatable: Boolean
+            get() = chosenSource != null || sourceDetection is SourceDetection.Supported
+
         val currentChapterIndex: Int
             get() = position.chapter
 

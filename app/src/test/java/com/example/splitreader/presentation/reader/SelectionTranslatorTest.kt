@@ -86,6 +86,21 @@ class SelectionTranslatorTest {
     ) = select(word, chapter, paragraph, start, end, Language.ENGLISH, Language.RUSSIAN, provider, SelectionType.WORD)
 
     @Test
+    fun `a book in a language that can't be translated says so and asks no translator`() = runTest {
+        val repo = SelectionFakeRepo()
+        val t = translator(repo)
+
+        t.select("kissa", 0, 1, 0, 5, null, Language.RUSSIAN, SEL_PAID, SelectionType.WORD)
+        settle()
+        t.dragTo("kissa istuu", 0, 11, SelectionType.SENTENCE)
+        t.dragEnd()
+        settle()
+
+        assertEquals(emptyList<String>(), repo.calls)
+        assertTrue(t.state.value?.translation is SelectionTranslation.Failed)
+    }
+
+    @Test
     fun `select translates once and becomes Ready`() = runTest {
         val repo = SelectionFakeRepo()
         val t = translator(repo)

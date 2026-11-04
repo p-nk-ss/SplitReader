@@ -27,7 +27,8 @@ class SelectionTranslator(
 
     private var job: Job? = null
     private var request = 0
-    private var source = Language.ENGLISH
+    /** Null for a book whose language can't be translated: selections then say so instead of asking a translator. */
+    private var source: Language? = Language.ENGLISH
     private var target = Language.ENGLISH
     private var provider = TranslationProvider.MLKIT
 
@@ -43,7 +44,7 @@ class SelectionTranslator(
         paragraph: Int,
         start: Int,
         end: Int,
-        source: Language,
+        source: Language?,
         target: Language,
         provider: TranslationProvider,
         type: SelectionType = SelectionType.WORD,
@@ -93,7 +94,10 @@ class SelectionTranslator(
     private fun launch(sel: WordSelection) {
         job?.cancel()
         val my = ++request
-        val src = source
+        val src = source ?: run {
+            apply(my, sel, SelectionTranslation.Failed(UNTRANSLATABLE))
+            return
+        }
         val tgt = target
         val prov = provider
         job = scope.launch {
@@ -132,5 +136,9 @@ class SelectionTranslator(
             cur.startChar != sel.startChar || cur.endChar != sel.endChar
         ) return
         _state.value = cur.copy(translation = t)
+    }
+
+    private companion object {
+        const val UNTRANSLATABLE = "This book's language can't be translated yet — choose it in the language menu"
     }
 }

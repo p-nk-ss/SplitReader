@@ -16,6 +16,7 @@ import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.ReadingPosition
+import com.example.splitreader.domain.model.SourceDetection
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.model.coercedTo
@@ -24,6 +25,7 @@ import com.example.splitreader.domain.model.progressAt
 import com.example.splitreader.domain.model.paragraphsAdvanced
 import com.example.splitreader.domain.parser.SynopsisExtractor
 import com.example.splitreader.domain.repository.BookmarkRepository
+import com.example.splitreader.domain.usecase.DetectBookLanguageUseCase
 import com.example.splitreader.domain.usecase.EndReadingSessionUseCase
 import com.example.splitreader.domain.usecase.MigrateLegacyReadingPositionsUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
@@ -70,7 +72,11 @@ class ReaderViewModel @Inject constructor(
     private data class InternalState(
         val book: Book? = null,
         val position: ReadingPosition = ReadingPosition.START,
+        /** The language translated from; a placeholder when [translatable] is false. */
         val sourceLanguage: Language = Language.ENGLISH,
+        val sourceDetection: SourceDetection = SourceDetection.Unknown,
+        /** What the reader chose for this book in the picker; null = use the detected language. */
+        val chosenSource: Language? = null,
         val targetLanguage: Language = Language.ENGLISH,
         val translationState: TranslationState = TranslationState.Idle,
         val chapterTranslations: Map<Int, List<String>> = emptyMap(),
@@ -85,7 +91,18 @@ class ReaderViewModel @Inject constructor(
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val translatorConfig: TranslatorConfigState =
             TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
-    )
+    ) {
+        /** False for a book in a language the translators lack (or none detected) until the reader picks one. */
+        val translatable: Boolean get() = chosenSource != null || sourceDetection is SourceDetection.Supported
+
+        /** The book's language code for reading stats: the detected one even when it can't be translated. */
+        val sourceCode: String get() = when {
+            translatable -> sourceLanguage.code
+            else -> (sourceDetection as? SourceDetection.Unsupported)?.code ?: "und"
+        }
+    }
+
+    private val detectBookLanguage = DetectBookLanguageUseCase(languageDetector)
 
     private val _state = MutableStateFlow(
         InternalState(
@@ -110,6 +127,8 @@ class ReaderViewModel @Inject constructor(
                     book = s.book,
                     position = s.position,
                     sourceLanguage = s.sourceLanguage,
+                    sourceDetection = s.sourceDetection,
+                    chosenSource = s.chosenSource,
                     targetLanguage = s.targetLanguage,
                     translationState = s.translationState,
                     chapterTranslations = s.chapterTranslations,
@@ -233,13 +252,11 @@ class ReaderViewModel @Inject constructor(
             crashReporter.recordNonFatal(e, "Legacy reading-position migration failed")
         }
         val saved = progressManager.getReadingPosition(book.filePath).coercedTo(book)
-        val detectedLang = languageDetector.detectLanguage(buildLanguageSample(book))
-        val savedTarget = _state.value.targetLanguage
-        val targetLang = if (detectedLang == savedTarget) {
-            if (detectedLang == Language.ENGLISH) Language.RUSSIAN else Language.ENGLISH
-        } else {
-            savedTarget
-        }
+        // Detected even when the reader chose a language, so the picker can show what was detected.
+        val detection = detectBookLanguage(book)
+        val chosen = progressManager.getSourceLanguage(book.filePath)
+        val source = chosen ?: (detection as? SourceDetection.Supported)?.language
+        val targetLang = targetFor(source, _state.value.targetLanguage)
         progressManager.saveTargetLanguage(targetLang)
 
         _state.update {
@@ -247,16 +264,21 @@ class ReaderViewModel @Inject constructor(
                 book = book,
                 isLoading = false,
                 position = saved,
-                sourceLanguage = detectedLang,
+                sourceLanguage = source ?: Language.ENGLISH,
+                sourceDetection = detection,
+                chosenSource = chosen,
                 targetLanguage = targetLang,
                 pendingJump = saved.takeUnless { p -> book.isAtStart(p) },
             )
         }
         // Seed the restored paragraph so it translates first, before the screen's first visible-range report.
-        engine.open(
-            book, detectedLang, targetLang, _state.value.translatorProvider, _state.value.appearance.showTranslation,
-            start = saved,
-        )
+        // A book in a language the translators lack is shown untranslated rather than "translated" as English.
+        if (source != null) {
+            engine.open(
+                book, source, targetLang, _state.value.translatorProvider, _state.value.appearance.showTranslation,
+                start = saved,
+            )
+        }
         // Begin tracking reading time now that the book is on screen
         resumeSession()
         observeBookmarks(book.filePath)
@@ -285,7 +307,7 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book
         if (startedAt == 0L || book == null) return
         sessionStartedAt = 0L
-        val sourceLang = _state.value.sourceLanguage.code
+        val sourceLang = _state.value.sourceCode
         // How far the reader advanced this session, in paragraphs (never negative: re-reading counts 0).
         val paragraphsRead = book.paragraphsAdvanced(sessionStartPosition, _state.value.position)
         viewModelScope.launch {
@@ -306,6 +328,36 @@ class ReaderViewModel @Inject constructor(
         // A jump lands at the top of the chapter; seed the window there and the reader's visible-range
         // report will widen it once the chapter is laid out.
         engine.viewport(ReadingPosition(index, 0, 0), ReadingPosition(index, 0, 0))
+    }
+
+    /**
+     * The reader says what the book is written in ([lang]), or null to go back to the detected
+     * language. Remembered per book; the translations so far were made from the old language, so they
+     * are dropped and the engine starts again from the current position.
+     */
+    fun setSourceLanguage(lang: Language?) {
+        val s = _state.value
+        val book = s.book ?: return
+        progressManager.saveSourceLanguage(book.filePath, lang)
+        val source = lang ?: (s.sourceDetection as? SourceDetection.Supported)?.language
+        val target = targetFor(source, s.targetLanguage)
+        if (target != s.targetLanguage) progressManager.saveTargetLanguage(target)
+        _state.update {
+            it.copy(chosenSource = lang, sourceLanguage = source ?: Language.ENGLISH, targetLanguage = target)
+        }
+        selectionTranslator.clear()
+        if (source != null) {
+            engine.open(book, source, target, s.translatorProvider, progressManager.appearance.value.showTranslation, start = s.position)
+        } else {
+            engine.close()
+        }
+    }
+
+    /** [current], unless it is the book's own language: then English, or Russian for an English book. */
+    private fun targetFor(source: Language?, current: Language): Language = when {
+        source == null || source != current -> current
+        source == Language.ENGLISH -> Language.RUSSIAN
+        else -> Language.ENGLISH
     }
 
     fun setTargetLanguage(lang: Language) {
@@ -444,7 +496,7 @@ class ReaderViewModel @Inject constructor(
         val s = _state.value
         selectionTranslator.select(
             word, chapterIndex, paragraphIndex, startChar, endChar,
-            s.sourceLanguage, s.targetLanguage, s.translatorProvider,
+            s.sourceLanguage.takeIf { s.translatable }, s.targetLanguage, s.translatorProvider,
             // A tapped selection is a word whatever its text; only dragging can make a sentence.
             type = SelectionType.WORD,
         )
@@ -523,15 +575,4 @@ class ReaderViewModel @Inject constructor(
         engine.fillChapter(_state.value.position.chapter)
     }
 
-    private fun buildLanguageSample(book: Book): String {
-        val chapters = if (book.chapters.size > 1) book.chapters.drop(1) else book.chapters
-        val sample = chapters
-            .take(3)
-            .flatMap { it.paragraphs.filter { p -> p.length > 30 }.take(5) }
-            .joinToString(" ")
-            .take(500)
-        if (sample.isNotBlank()) return sample
-        return book.chapters.flatMap { it.paragraphs }.filter { it.length > 30 }.take(10)
-            .joinToString(" ").take(500)
-    }
 }

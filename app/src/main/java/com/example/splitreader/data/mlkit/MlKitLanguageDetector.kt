@@ -1,21 +1,26 @@
 package com.example.splitreader.data.mlkit
 
 import com.example.splitreader.domain.LanguageDetector
-import com.example.splitreader.domain.model.Language
 import com.google.mlkit.nl.languageid.LanguageIdentification
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MlKitLanguageDetector @Inject constructor() : LanguageDetector {
-    override suspend fun detectLanguage(text: String): Language =
+    private val client by lazy { LanguageIdentification.getClient() }
+
+    override suspend fun identify(text: String): String? =
         try {
-            val langCode = LanguageIdentification.getClient()
-                .identifyLanguage(text.take(500))
-                .await()
-            Language.entries.find { it.code == langCode } ?: Language.ENGLISH
+            client.identifyLanguage(text).await().takeUnless { it == UNDETERMINED }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Language.ENGLISH
+            null
         }
+
+    private companion object {
+        const val UNDETERMINED = "und"
+    }
 }

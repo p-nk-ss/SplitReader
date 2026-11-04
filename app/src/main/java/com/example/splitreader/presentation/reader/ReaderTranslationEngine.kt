@@ -68,6 +68,9 @@ class ReaderTranslationEngine(
         start: ReadingPosition = ReadingPosition.START,
     ) = send(Event.Open(book, source, target, provider, paneVisible, start))
 
+    /** Stops all work and drops every translation: the book is open but not translatable (e.g. its language isn't supported). */
+    fun close() = send(Event.Close)
+
     fun viewport(start: ReadingPosition, end: ReadingPosition) = send(Event.Viewport(start, end))
 
     fun settingsChanged(target: Language, provider: TranslationProvider, paneVisible: Boolean) =
@@ -88,6 +91,7 @@ class ReaderTranslationEngine(
             val book: Book, val source: Language, val target: Language,
             val provider: TranslationProvider, val paneVisible: Boolean, val start: ReadingPosition,
         ) : Event
+        data object Close : Event
         data class Viewport(val start: ReadingPosition, val end: ReadingPosition) : Event
         data class Settings(val target: Language, val provider: TranslationProvider, val paneVisible: Boolean) : Event
         data class Fill(val chapter: Int) : Event
@@ -150,6 +154,11 @@ class ReaderTranslationEngine(
                 paneVisible = event.paneVisible
                 start = event.start
                 end = event.start
+                discardTranslations()
+            }
+            is Event.Close -> {
+                cancelRunning()
+                book = null
                 discardTranslations()
             }
             is Event.Viewport -> {

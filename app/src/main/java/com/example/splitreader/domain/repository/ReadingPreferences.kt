@@ -22,6 +22,9 @@ interface ReadingPreferences {
     fun markFinished(bookUri: String)
     fun isFinished(bookUri: String): Boolean
     fun clearProgress(bookUri: String)
+    /** The language the reader chose for [bookUri]'s text; null = detect it (the default). */
+    fun getSourceLanguage(bookUri: String): Language?
+    fun saveSourceLanguage(bookUri: String, language: Language?)
     fun saveTargetLanguage(language: Language)
     fun getTargetLanguage(): Language
     fun savePortraitHintDismissed(dismissed: Boolean)

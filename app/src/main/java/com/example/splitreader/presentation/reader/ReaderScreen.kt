@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.ReadingPosition
+import com.example.splitreader.domain.model.SourceDetection
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.usecase.SaveWordResult
@@ -122,6 +123,7 @@ internal fun ReaderRoute(
             onNavigateBack = onNavigateBack,
             onSelectChapter = viewModel::selectChapter,
             onSetTargetLanguage = viewModel::setTargetLanguage,
+            onSetSourceLanguage = viewModel::setSourceLanguage,
             onAppearanceChange = viewModel::updateAppearance,
             onReadingPositionChanged = viewModel::onReadingPositionChanged,
             onMarkFinished = viewModel::markFinished,
@@ -203,11 +205,20 @@ internal fun ReaderContent(
     onRetryTranslation: () -> Unit,
     onTranslateWholeChapter: () -> Unit,
     onDismissPortraitHint: (dontShowAgain: Boolean) -> Unit,
+    onSetSourceLanguage: (Language?) -> Unit = {},
 ) {
-    val appearance = state.appearance
+    // A book that can't be translated reads as one column of its own text, like "Show translation" off.
+    val appearance = if (state.translatable) state.appearance else state.appearance.copy(showTranslation = false)
     val palette = readerPalette(appearance.theme)
 
     var showLanguagePicker by remember { mutableStateOf(false) }
+    var languagePickerTab by remember { mutableStateOf(LanguagePickerTab.TARGET) }
+    // The panes speak in the source language's code, a placeholder for a book that can't be
+    // translated: read a Finnish word in a Finnish voice, not an English one.
+    val untranslatedCode = (state.sourceDetection as? SourceDetection.Unsupported)?.code
+    val speak: (String, String) -> Unit = { text, code ->
+        onSpeak(text, if (!state.translatable && untranslatedCode != null) untranslatedCode else code)
+    }
     var showDisplaySettings by remember { mutableStateOf(false) }
     var showChapterPicker by remember { mutableStateOf(false) }
     var showTranslatorPicker by remember { mutableStateOf(false) }
@@ -325,7 +336,11 @@ internal fun ReaderContent(
                 ReaderTopBar(
                     state = state,
                     onBack = onNavigateBack,
-                    onOpenLanguagePicker = { showLanguagePicker = true },
+                    onOpenLanguagePicker = {
+                        // An untranslated book needs its language first; otherwise the usual choice is the target.
+                        languagePickerTab = if (state.translatable) LanguagePickerTab.TARGET else LanguagePickerTab.SOURCE
+                        showLanguagePicker = true
+                    },
                     onOpenDisplaySettings = { showDisplaySettings = true },
                     onOpenChapterPicker = { showChapterPicker = true },
                     onOpenTranslatorPicker = { showTranslatorPicker = true },
@@ -352,7 +367,7 @@ internal fun ReaderContent(
                         onSelectionDragged = onSelectionDragged,
                         onSelectionDragEnd = onSelectionDragEnd,
                         onSaveWord = onSaveWord,
-                        onSpeak = onSpeak,
+                        onSpeak = speak,
                         onDismiss = onClearWordSelection,
                         onToggleBars = { barsVisible = !barsVisible },
                         onSetVerticalSplitRatio = { r -> onAppearanceChange { it.copy(verticalSplitRatio = r) } },
@@ -378,7 +393,7 @@ internal fun ReaderContent(
                         onSelectionDragged = onSelectionDragged,
                         onSelectionDragEnd = onSelectionDragEnd,
                         onSaveWord = onSaveWord,
-                        onSpeak = onSpeak,
+                        onSpeak = speak,
                         onDismiss = onClearWordSelection,
                         onToggleBars = { barsVisible = !barsVisible },
                         onSetSplitRatio = { r -> onAppearanceChange { it.copy(splitRatio = r) } },
@@ -403,6 +418,16 @@ internal fun ReaderContent(
                     modifier = Modifier.align(Alignment.TopCenter),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    // With the bars, so it never permanently covers the text the reader can still read.
+                    if (!state.translatable && barsVisible) {
+                        UntranslatedBanner(
+                            detection = state.sourceDetection,
+                            onChoose = {
+                                languagePickerTab = LanguagePickerTab.SOURCE
+                                showLanguagePicker = true
+                            },
+                        )
+                    }
                     val downloading = state.translationState as? TranslationState.DownloadingModel
                     if (downloading != null) {
                         val pct = downloading.progress?.let { (it * 100).toInt() }
@@ -451,6 +476,13 @@ internal fun ReaderContent(
                     showLanguagePicker = false
                 },
                 onDismiss = { showLanguagePicker = false },
+                sourceDetection = state.sourceDetection,
+                chosenSource = state.chosenSource,
+                onSelectSource = { lang ->
+                    onSetSourceLanguage(lang)
+                    showLanguagePicker = false
+                },
+                initialTab = languagePickerTab,
             )
         }
         if (showDisplaySettings) {

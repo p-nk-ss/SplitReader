@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.SourceDetection
 import com.example.splitreader.domain.model.TranslationState
 import com.example.splitreader.domain.model.progressAt
 import com.example.splitreader.presentation.theme.JetBrainsMono
@@ -110,8 +111,8 @@ internal fun ReaderTopBar(
 
         // Language chip
         LangChip(
-            source = state.sourceLanguage.badge,
-            target = state.targetLanguage.badge,
+            source = state.sourceBadge,
+            target = state.targetBadge,
             onClick = onOpenLanguagePicker,
         )
 
@@ -238,7 +239,7 @@ internal fun ReaderStatusFooter(state: ReaderUiState.Success, bookEndVisible: Bo
         )
         Text("·", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink4)
         Text(
-            text = "${state.sourceLanguage.badge} → ${state.targetLanguage.badge}",
+            text = "${state.sourceBadge} → ${state.targetBadge}",
             fontFamily = JetBrainsMono,
             fontSize = 11.sp,
             letterSpacing = 0.5.sp,
@@ -478,3 +479,57 @@ internal fun TranslationFallbackStrip(
 
 /** Test tag on the status footer's percentage. */
 internal const val FOOTER_PERCENT_TAG = "footer_percent"
+
+/** The book's side of "EN → RU": the detected code for a language that can't be translated, "?" for none. */
+internal val ReaderUiState.Success.sourceBadge: String
+    get() = when {
+        translatable -> sourceLanguage.badge
+        sourceDetection is SourceDetection.Unsupported -> sourceDetection.code.uppercase()
+        else -> "?"
+    }
+
+/** The translation's side of "EN → RU"; a dash while the book isn't translated, so it never claims a translation. */
+internal val ReaderUiState.Success.targetBadge: String
+    get() = if (translatable) targetLanguage.badge else "—"
+
+/** An ISO 639-1 code's English name ("fi" → "Finnish"), or the code itself if the platform doesn't know it. */
+internal fun languageName(code: String): String =
+    java.util.Locale.forLanguageTag(code).getDisplayLanguage(java.util.Locale.ENGLISH)
+        .takeIf { it.isNotBlank() && !it.equals(code, ignoreCase = true) }
+        ?.replaceFirstChar { it.uppercase() } ?: code.uppercase()
+
+/**
+ * Shown, with the bars, while a book can't be translated: its language isn't one the translators
+ * know, or none was detected. The text stays readable, one column; [onChoose] opens the picker on the
+ * book's language, the only way to a translation when detection was wrong.
+ */
+@Composable
+internal fun UntranslatedBanner(detection: SourceDetection, onChoose: () -> Unit, modifier: Modifier = Modifier) {
+    val palette = LocalReaderPalette.current
+    val message = when (detection) {
+        is SourceDetection.Unsupported ->
+            "This book looks like ${languageName(detection.code)}, which can't be translated yet. If that's wrong, choose the book's language."
+        else -> "The book's language couldn't be detected. Choose it to translate the book."
+    }
+    Column(
+        modifier = modifier
+            .padding(top = 8.dp, start = 12.dp, end = 12.dp)
+            .widthIn(max = 520.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(palette.bg2)
+            .border(1.dp, palette.edge, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .testTag(UNTRANSLATED_BANNER_TAG),
+    ) {
+        Text("Not translated".uppercase(), fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.5.sp, color = palette.ink3)
+        Spacer(Modifier.height(2.dp))
+        Text(message, fontFamily = Newsreader, fontSize = 13.sp, color = palette.ink)
+        Spacer(Modifier.height(10.dp))
+        com.example.splitreader.presentation.ui.LibraryTagButton(
+            text = "Choose language", onClick = onChoose, showPlus = false, dense = true, filled = true,
+        )
+    }
+}
+
+/** Test tag on [UntranslatedBanner]. */
+internal const val UNTRANSLATED_BANNER_TAG = "untranslated_banner"

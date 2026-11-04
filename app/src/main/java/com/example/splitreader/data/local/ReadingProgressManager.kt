@@ -153,6 +153,15 @@ class ReadingProgressManager @Inject constructor(
     override fun getExcerpt(bookUri: String): String? =
         prefs.getString("last_excerpt_$bookUri", null)
 
+    override fun getSourceLanguage(bookUri: String): Language? =
+        prefs.getString("source_language_$bookUri", null)?.let { Language.fromCodeOrNull(it) }
+
+    override fun saveSourceLanguage(bookUri: String, language: Language?) {
+        prefs.edit().apply {
+            if (language == null) remove("source_language_$bookUri") else putString("source_language_$bookUri", language.code)
+        }.apply()
+    }
+
     /** Marks a book as finished once the reader has scrolled to the end of its last chapter. */
     override fun markFinished(bookUri: String) =
         prefs.edit().putBoolean("finished_$bookUri", true).apply()
