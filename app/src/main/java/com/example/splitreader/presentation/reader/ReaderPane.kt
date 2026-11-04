@@ -326,7 +326,16 @@ internal fun BookSpread(
         }
     }
 
-    Box(modifier = modifier.onSizeChanged { paneWidthPx = it.width }) {
+    // A tap on what nothing else claims — a chapter title, the margins, the space beside a short
+    // line — brings up the bars too. Paragraphs and pictures consume their own taps, so a tap never
+    // toggles twice. Without it a book read without the translation (every unsupported language)
+    // offered no way to its bars when its first screens were titles and short lines.
+    val pageTap by rememberUpdatedState { if (wordSelection != null) onDismiss() else onToggleBars() }
+    Box(
+        modifier = modifier
+            .onSizeChanged { paneWidthPx = it.width }
+            .pointerInput(Unit) { detectTapGestures(onTap = { pageTap() }) },
+    ) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().background(palette.bg)) {
         bookItems(
             book = book,

@@ -61,8 +61,26 @@ class DetectBookLanguageUseCaseTest {
     fun `samples come from across the book, not its start`() {
         val samples = DetectBookLanguageUseCase.languageSamples(book(List(200) { "para$it " + "y".repeat(60) }))
         assertEquals(DetectBookLanguageUseCase.SAMPLES, samples.size)
-        val firsts = samples.map { it.substringBefore(' ').removePrefix("para").toInt() }
+        val firsts = samples.map { Regex("para(\\d+)").find(it)!!.groupValues[1].toInt() }
         assertTrue("first sample starts in the skipped front matter: $firsts", firsts.first() >= 10)
         assertTrue("samples don't reach the last third: $firsts", firsts.last() >= 140)
+    }
+
+    /**
+     * Rashomon (Gutenberg #1982): two English notes, then the whole story as one long paragraph.
+     * Spread over paragraphs the notes won two of three votes; spread over the text, the story wins.
+     */
+    @Test
+    fun `one long paragraph outweighs a few short ones in another language`() = runTest {
+        val notes = List(2) { "This file is encoded in Japanese and was taken from a 1917 edition, note $it. " + "z".repeat(200) }
+        val story = "或日の暮方の事である。一人の下人が、羅生門の下で雨やみを待っていた。".repeat(150)
+        // On the device ML Kit called a stretch of 271 English + 329 Japanese characters English; model
+        // that: Japanese only when it clearly dominates.
+        val detector = Scripted { s ->
+            val cjk = Regex("[\\u3040-\\u30ff\\u4e00-\\u9fff]").findAll(s).count()
+            val latin = Regex("[A-Za-z]").findAll(s).count()
+            if (cjk > 2 * latin) "ja" else "en"
+        }
+        assertEquals(SourceDetection.Supported(Language.JAPANESE), DetectBookLanguageUseCase(detector)(book(notes + story)))
     }
 }

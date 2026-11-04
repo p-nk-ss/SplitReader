@@ -35,10 +35,13 @@ class DetectBookLanguageUseCase @Inject constructor(
         const val MIN_PARAGRAPH = 40
 
         /**
-         * [SAMPLES] stretches of prose, each about [SAMPLE_CHARS] long, spread evenly across the book.
-         * Paragraphs of at least [MIN_PARAGRAPH] characters, unless there is too little of them (verse,
-         * plays): then every line. The first and last 5% are skipped when the book is long enough:
-         * front matter and licences. Empty only for a book with no text at all.
+         * Up to [SAMPLES] stretches of [SAMPLE_CHARS] characters, spread evenly over the book's text by
+         * length, not by paragraph count: Rashomon is two English notes and then the whole story as
+         * one 6,000-character paragraph, and spread over paragraphs the notes won two votes of three.
+         *
+         * From paragraphs of at least [MIN_PARAGRAPH] characters, unless there is too little of them
+         * (verse, plays): then every line. The first and last 5% of the text are skipped when it is
+         * long enough (front matter, licences). Empty only for a book with no text at all.
          */
         fun languageSamples(book: Book): List<String> {
             val lines = book.chapters.flatMap { it.paragraphs }.map { it.trim() }.filter { it.isNotEmpty() }
@@ -46,18 +49,13 @@ class DetectBookLanguageUseCase @Inject constructor(
             // Verse and plays are short lines; with too little long prose, sample every line instead.
             val prose = if (long.sumOf { it.length } >= SAMPLES * SAMPLE_CHARS / 2) long else lines
             if (prose.isEmpty()) return emptyList()
-            val trim = if (prose.size >= 40) prose.size / 20 else 0
-            val body = prose.subList(trim, prose.size - trim)
-            val count = minOf(SAMPLES, body.size)
+            val text = prose.joinToString("\n")
+            val trim = if (text.length >= 2 * SAMPLES * SAMPLE_CHARS) text.length / 20 else 0
+            val span = text.length - 2 * trim
+            val count = (span / SAMPLE_CHARS).coerceIn(1, SAMPLES)
             return List(count) { k ->
-                val sample = StringBuilder()
-                var i = k * body.size / count
-                while (i < body.size && sample.length < SAMPLE_CHARS) {
-                    if (sample.isNotEmpty()) sample.append(' ')
-                    sample.append(body[i])
-                    i++
-                }
-                sample.take(SAMPLE_CHARS * 2).toString()
+                val start = trim + k * span / count
+                text.substring(start, minOf(start + SAMPLE_CHARS, text.length))
             }
         }
     }
