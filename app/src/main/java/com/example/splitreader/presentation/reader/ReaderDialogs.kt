@@ -6,6 +6,8 @@ import com.example.splitreader.presentation.theme.animatedSelection
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -254,7 +256,7 @@ private fun LanguageTab(label: String, selected: Boolean, modifier: Modifier, on
             .clip(RoundedCornerShape(radii.md))
             .background(animatedSelection(if (selected) palette.ink else palette.bg2, "langTabBg"))
             .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "langTabBorder"), RoundedCornerShape(radii.md))
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -301,7 +303,7 @@ private fun LanguageTile(
             .clip(RoundedCornerShape(radii.md))
             .background(animatedSelection(if (selected) palette.ink else palette.bg2, "langPickerBg"))
             .border(1.dp, animatedSelection(if (selected) palette.ink else palette.edge, "langPickerBorder"), RoundedCornerShape(radii.md))
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 14.dp, horizontal = 8.dp),
         contentAlignment = Alignment.Center,
     ) {

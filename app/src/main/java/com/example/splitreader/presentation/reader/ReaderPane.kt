@@ -549,7 +549,12 @@ private fun DividerHandle(
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             if (!change.pressed) {
-                                if (axis == null) currentOnTap()
+                                if (axis == null) {
+                                    // Consumed: the page under the grip also toggles the bars on a
+                                    // tap nothing else claimed, which would undo this one.
+                                    change.consume()
+                                    currentOnTap()
+                                }
                                 break
                             }
                             val delta = change.positionChange()

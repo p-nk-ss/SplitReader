@@ -340,6 +340,13 @@ class ReaderViewModel @Inject constructor(
         val book = s.book ?: return
         progressManager.saveSourceLanguage(book.filePath, lang)
         val source = lang ?: (s.sourceDetection as? SourceDetection.Supported)?.language
+        // The language in use didn't change ("Deutsch" for a book detected as German, or "Automatic"
+        // again): keep the translations rather than paying a provider for the same text twice.
+        val unchanged = if (source == null) !s.translatable else s.translatable && source == s.sourceLanguage
+        if (unchanged) {
+            _state.update { it.copy(chosenSource = lang) }
+            return
+        }
         val target = targetFor(source, s.targetLanguage)
         if (target != s.targetLanguage) progressManager.saveTargetLanguage(target)
         _state.update {

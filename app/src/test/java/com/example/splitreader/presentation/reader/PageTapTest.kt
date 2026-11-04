@@ -85,6 +85,15 @@ class PageTapTest {
         assertEquals(2, toggles)
     }
 
+    /** The divider grip toggles the bars itself; the page must not toggle them a second time (review, 2026-11-04). */
+    @Test
+    fun `a tap on the divider gutter toggles the bars once`() {
+        show(showTranslation = true)
+        // The gutter sits at the split (50%), level with the first paragraph.
+        composeRule.onNodeWithTag("page").performTouchInput { click(Offset(centerX, centerY)) }
+        assertEquals(1, toggles)
+    }
+
     @Test
     fun `a tap on text still toggles once, not twice`() {
         show(showTranslation = false)

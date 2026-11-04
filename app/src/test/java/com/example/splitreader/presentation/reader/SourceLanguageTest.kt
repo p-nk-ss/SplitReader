@@ -155,6 +155,23 @@ class ChosenSourceLanguageTest {
         assertEquals("translated again after going back to automatic", before, repo.texts().size)
     }
 
+    /** Picking what is already in use must not drop the translations and pay a provider again (review, 2026-11-04). */
+    @Test
+    fun `choosing the language already in use translates nothing again`() = runTest(main.dispatcher) {
+        val repo = FakeTranslationRepository()
+        val h = harness(FakeReadingPreferences(), repo)
+        open(h)
+        h.vm.setSourceLanguage(Language.GERMAN)
+        h.vm.onVisibleRange(0, 0, 0, 5)
+        advanceUntilIdle()
+        val before = repo.texts().size
+
+        h.vm.setSourceLanguage(Language.GERMAN)
+        advanceUntilIdle()
+        assertEquals("the same language translated the screen again", before, repo.texts().size)
+        assertTrue((h.vm.uiState.value as ReaderUiState.Success).chapterTranslations.isNotEmpty())
+    }
+
     @Test
     fun `choosing the book's language as the target's switches the target`() = runTest(main.dispatcher) {
         val prefs = FakeReadingPreferences().apply { targetLanguage = Language.GERMAN }

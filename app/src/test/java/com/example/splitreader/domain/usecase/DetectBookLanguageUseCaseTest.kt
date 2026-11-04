@@ -39,10 +39,17 @@ class DetectBookLanguageUseCaseTest {
         assertTrue(detector.asked.isNotEmpty())
     }
 
+    /** ML Kit tags romanised text ("hi-Latn"); the translators expect Hindi in Devanagari, so it isn't Hindi to them. */
     @Test
-    fun `a script-qualified code counts as its language`() = runTest {
-        val result = DetectBookLanguageUseCase(Scripted { "zh-Latn" })(book(prose("p", 20)))
-        assertEquals(SourceDetection.Supported(Language.CHINESE), result)
+    fun `a romanised non-Latin language is Unsupported`() = runTest {
+        val result = DetectBookLanguageUseCase(Scripted { "hi-Latn" })(book(prose("p", 20)))
+        assertEquals(SourceDetection.Unsupported("hi-latn"), result)
+    }
+
+    @Test
+    fun `a script tag on a Latin-script language still counts as the language`() = runTest {
+        val result = DetectBookLanguageUseCase(Scripted { "de-Latn" })(book(prose("p", 20)))
+        assertEquals(SourceDetection.Supported(Language.GERMAN), result)
     }
 
     @Test

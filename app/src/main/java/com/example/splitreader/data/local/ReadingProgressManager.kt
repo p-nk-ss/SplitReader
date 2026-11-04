@@ -177,6 +177,7 @@ class ReadingProgressManager @Inject constructor(
             .remove("finished_$bookUri")
             .remove("last_excerpt_$bookUri")
             .remove("progress_$bookUri")
+            .remove("source_language_$bookUri")
             .apply()
     }
 

@@ -492,9 +492,12 @@ internal val ReaderUiState.Success.sourceBadge: String
 internal val ReaderUiState.Success.targetBadge: String
     get() = if (translatable) targetLanguage.badge else "—"
 
-/** An ISO 639-1 code's English name ("fi" → "Finnish"), or the code itself if the platform doesn't know it. */
+/**
+ * A language tag's English name ("fi" → "Finnish", "hi-latn" → "Hindi (Latin)"), or the tag itself
+ * if the platform doesn't know it.
+ */
 internal fun languageName(code: String): String =
-    java.util.Locale.forLanguageTag(code).getDisplayLanguage(java.util.Locale.ENGLISH)
+    java.util.Locale.forLanguageTag(code).getDisplayName(java.util.Locale.ENGLISH)
         .takeIf { it.isNotBlank() && !it.equals(code, ignoreCase = true) }
         ?.replaceFirstChar { it.uppercase() } ?: code.uppercase()
 
