@@ -192,7 +192,7 @@ class PageMarginsTest {
     @Test
     fun `a long chapter title wraps at the page margin`() {
         val title = "A chapter title long enough to wrap across the full width of the page several times over"
-        composeRule.setPictureContent {
+        composeRule.setContent {
             SplitReaderTheme {
                 Box(Modifier.width(400.dp).testTag("page")) {
                     ChapterMasthead(Chapter(index = 0, title = title, paragraphs = listOf("p")), 0, horizontalMargin = margin)

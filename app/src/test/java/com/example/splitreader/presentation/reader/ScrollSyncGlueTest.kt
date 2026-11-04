@@ -46,9 +46,10 @@ class ScrollSyncGlueTest {
 
     /**
      * Built in [setUp], not as a `companion object` constant: the two [ChapterImage] paths must
-     * point at real, decodable PNGs on disk. `Illustration` (`ReaderPane.kt`) decodes the file
-     * asynchronously (`produceState` + `Dispatchers.IO`) and renders nothing at all until that
-     * completes — an image item scrolled straight onto by `scrollToItem` (rather than approached by
+     * point at real, decodable PNGs on disk. `Illustration` (`Illustration.kt`) reads the file's size
+     * in a `produceState` effect (here on the main thread, via [setPictureContent]; in the app on
+     * Dispatchers.IO) and renders nothing until it lands. Effects run after the first measure, so an
+     * image item scrolled straight onto by `scrollToItem` (rather than approached by
      * an animated scroll, which composes the items in between) is measured on its first frame
      * before the decode has landed, i.e. at 0px, and a 0px item at the scroll target makes
      * `firstVisibleItemIndex` snap one item past where the test asked it to go. This was observed
