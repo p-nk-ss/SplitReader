@@ -11,6 +11,7 @@ import com.example.splitreader.domain.usecase.MigrateLegacyReadingPositionsUseCa
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import com.example.splitreader.domain.usecase.SaveWordUseCase
 import com.example.splitreader.domain.usecase.ToggleBookmarkUseCase
+import com.example.splitreader.domain.usecase.ParagraphLanguage
 import com.example.splitreader.domain.usecase.TranslateTextUseCase
 import com.example.splitreader.fakes.FakeBookParser
 import com.example.splitreader.fakes.FakeBookmarkRepository
@@ -54,7 +55,7 @@ internal class ReaderViewModelHarness(
     private val context: Application = ApplicationProvider.getApplicationContext()
     val uri: Uri = File(context.cacheDir, "book.epub").apply { writeText("PK") }.toUri()
 
-    private val translate = TranslateTextUseCase(repo, ioDispatcher)
+    private val translate = TranslateTextUseCase(repo, ioDispatcher, ParagraphLanguage(detector))
 
     val parser = FakeBookParser(book)
 

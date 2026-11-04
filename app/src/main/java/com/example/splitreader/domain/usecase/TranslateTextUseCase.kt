@@ -1,6 +1,7 @@
 package com.example.splitreader.domain.usecase
 
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ParagraphNote
 import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -34,7 +35,19 @@ import javax.inject.Inject
 class TranslateTextUseCase @Inject constructor(
     private val repository: TranslationRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val paragraphLanguage: ParagraphLanguage,
 ) {
+    /** Without per-paragraph languages: every paragraph is in the book's language (tests, previews). */
+    constructor(repository: TranslationRepository, ioDispatcher: CoroutineDispatcher) :
+        this(repository, ioDispatcher, ParagraphLanguage.NONE)
+
+    /**
+     * Downloads what [provider] needs for [language]→[target] (the reader asked to translate a
+     * paragraph in another language). Progress 0f..1f; empty when nothing needs downloading.
+     */
+    fun download(language: Language, target: Language, provider: TranslationProvider): Flow<Float> =
+        repository.prepare(language, target, provider).flowOn(ioDispatcher)
+
     /**
      * Translates paragraphs in the given index range.
      * When endIndex < 0 the full list is translated (startIndex first, then wrapping around).
@@ -98,8 +111,7 @@ class TranslateTextUseCase @Inject constructor(
         for (index in order) {
             val paragraph = paragraphs[index]
             try {
-                val translated = translateWithRateLimitRetry(paragraph, sourceLanguage, targetLanguage, served)
-                emit(TranslationState.Partial(index, translated))
+                emit(translateParagraph(index, paragraph, sourceLanguage, targetLanguage, served))
                 consecutiveFailures = 0
             } catch (e: CancellationException) {
                 throw e
@@ -113,6 +125,36 @@ class TranslateTextUseCase @Inject constructor(
             emit(TranslationState.Error(f.message, f.persistent, f.short))
         }
     }.flowOn(ioDispatcher)
+
+    /**
+     * One paragraph, in whatever language it is in: the book's (translated as usual), another
+     * supported one (translated from it — unless that needs an on-device model that isn't here: then
+     * shown as it is and flagged, never downloaded behind the reader's back), or the target's or an
+     * untranslatable one (shown as it is).
+     */
+    private suspend fun translateParagraph(
+        index: Int,
+        paragraph: String,
+        source: Language,
+        target: Language,
+        served: TranslationProvider,
+    ): TranslationState.Partial = when (val d = paragraphLanguage.decide(paragraph, source, target)) {
+        ParagraphLanguage.Decision.Book ->
+            TranslationState.Partial(index, translateWithRateLimitRetry(paragraph, source, target, served))
+        is ParagraphLanguage.Decision.Keep ->
+            TranslationState.Partial(index, paragraph, ParagraphNote.Original(d.code))
+        is ParagraphLanguage.Decision.Other -> when {
+            repository.resolve(served, d.language, target) !is Resolution.Ready ->
+                TranslationState.Partial(index, paragraph, ParagraphNote.Original(d.language.code))
+            !served.requiresNetwork && !repository.isReady(d.language, target, served) ->
+                TranslationState.Partial(index, paragraph, ParagraphNote.NeedsModel(d.language, served))
+            else -> TranslationState.Partial(
+                index,
+                translateWithRateLimitRetry(paragraph, d.language, target, served),
+                ParagraphNote.TranslatedFrom(d.language),
+            )
+        }
+    }
 
     /**
      * A 429 is a *temporary* per-IP rate limit (the unofficial Quick Translate endpoint trips it on

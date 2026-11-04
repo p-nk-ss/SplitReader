@@ -124,6 +124,7 @@ internal fun ReaderRoute(
             onSelectChapter = viewModel::selectChapter,
             onSetTargetLanguage = viewModel::setTargetLanguage,
             onSetSourceLanguage = viewModel::setSourceLanguage,
+            onDownloadModel = viewModel::downloadModel,
             onAppearanceChange = viewModel::updateAppearance,
             onReadingPositionChanged = viewModel::onReadingPositionChanged,
             onMarkFinished = viewModel::markFinished,
@@ -206,6 +207,7 @@ internal fun ReaderContent(
     onTranslateWholeChapter: () -> Unit,
     onDismissPortraitHint: (dontShowAgain: Boolean) -> Unit,
     onSetSourceLanguage: (Language?) -> Unit = {},
+    onDownloadModel: (Language, TranslationProvider) -> Unit = { _, _ -> },
 ) {
     // A book that can't be translated reads as one column of its own text, like "Show translation" off.
     val appearance = if (state.translatable) state.appearance else state.appearance.copy(showTranslation = false)
@@ -348,6 +350,9 @@ internal fun ReaderContent(
                 )
             }
 
+            val paragraphNotes = remember(state.paragraphNotes, state.languageDownloads, onDownloadModel) {
+                ParagraphNotesUi(state.paragraphNotes, state.languageDownloads, onDownloadModel)
+            }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (vertical) {
                     VerticalBookSpread(
@@ -374,6 +379,7 @@ internal fun ReaderContent(
                         barsVisible = barsVisible,
                         sourceLang = state.sourceLanguage,
                         targetLang = state.targetLanguage,
+                        paragraphNotes = paragraphNotes,
                     )
                 } else {
                     BookSpread(
@@ -400,6 +406,7 @@ internal fun ReaderContent(
                         barsVisible = barsVisible,
                         sourceLang = state.sourceLanguage,
                         targetLang = state.targetLanguage,
+                        paragraphNotes = paragraphNotes,
                     )
                 }
 

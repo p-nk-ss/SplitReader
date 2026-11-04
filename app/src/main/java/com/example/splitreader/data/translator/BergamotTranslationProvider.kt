@@ -53,6 +53,9 @@ class BergamotTranslationProvider(
         }
     }
 
+    override suspend fun isReady(source: Language, target: Language): Boolean =
+        routeFor(source, target).all { store.isInstalled(it) }
+
     override suspend fun translate(text: String, source: Language, target: Language): String {
         var current = text
         for (pair in routeFor(source, target)) {

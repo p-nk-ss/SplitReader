@@ -22,6 +22,12 @@ interface TranslationRepository {
      */
     fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float>
 
+    /**
+     * Whether [provider] can translate [source]→[target] right now without downloading anything
+     * (an on-device model or pack is already here). True for online providers.
+     */
+    suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean = true
+
     /** Number of cached translations (for the Settings storage display). */
     suspend fun cachedCount(): Int
 

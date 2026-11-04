@@ -9,4 +9,10 @@ package com.example.splitreader.domain
  */
 interface LanguageDetector {
     suspend fun identify(text: String): String?
+
+    /**
+     * Like [identify], but null unless the detector is sure: for single paragraphs, where a wrong
+     * answer would show a paragraph untranslated or translate it from the wrong language.
+     */
+    suspend fun identifyConfident(text: String): String? = null
 }

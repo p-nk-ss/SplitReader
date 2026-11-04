@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.splitreader.R
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ParagraphNote
 import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalRadii
 import com.example.splitreader.presentation.theme.LocalReaderPalette
@@ -307,6 +308,7 @@ internal fun BookSpread(
     barsVisible: Boolean,
     sourceLang: Language,
     targetLang: Language,
+    paragraphNotes: ParagraphNotesUi = ParagraphNotesUi(),
 ) {
     val palette = LocalReaderPalette.current
     val ruleColor = palette.rule
@@ -410,18 +412,23 @@ internal fun BookSpread(
                                     if (awaiting) {
                                         TranslationPlaceholder(style = style)
                                     } else {
-                                        ParagraphItem(
-                                            text = translated,
-                                            index = idx,
-                                            isFirstOfChapter = idx == 0,
-                                            isOriginal = false,
-                                            isActive = false,
-                                            selectedWordStart = -1,
-                                            selectedWordEnd = -1,
-                                            style = style,
-                                            onWordSelected = { _, _, _ -> },
-                                            onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
-                                        )
+                                        Column {
+                                            paragraphNotes.noteAt(chapterIndex, idx)?.let { note ->
+                                                ParagraphNoteLine(note, targetLang, (note as? ParagraphNote.NeedsModel)?.let { paragraphNotes.downloads[it.language] }, paragraphNotes.onDownload)
+                                            }
+                                            ParagraphItem(
+                                                text = translated,
+                                                index = idx,
+                                                isFirstOfChapter = idx == 0,
+                                                isOriginal = false,
+                                                isActive = false,
+                                                selectedWordStart = -1,
+                                                selectedWordEnd = -1,
+                                                style = style,
+                                                onWordSelected = { _, _, _ -> },
+                                                onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
+                                            )
+                                        }
                                     }
                                 }
                             }

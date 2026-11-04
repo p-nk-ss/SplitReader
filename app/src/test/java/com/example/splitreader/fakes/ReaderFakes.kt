@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -67,7 +68,18 @@ internal class FakeTranslationRepository : TranslationRepository {
         if (text in failOn) throw IOException("down: $text")
         return "${target.code}:$text"
     }
-    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> = emptyFlow()
+    /** Source languages with no on-device model yet; [prepare] installs one (unless it is in [failPrepare]). */
+    val notInstalled: MutableSet<Language> = Collections.synchronizedSet(mutableSetOf())
+    val failPrepare: MutableSet<Language> = Collections.synchronizedSet(mutableSetOf())
+    /** The source language of each [prepare] call. */
+    val prepared: MutableList<Language> = Collections.synchronizedList(mutableListOf())
+
+    override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> = flow {
+        prepared += source
+        if (source in failPrepare) throw IOException("no network")
+        notInstalled -= source
+    }
+    override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider) = source !in notInstalled
     override suspend fun cachedCount() = 0
     override suspend fun clearCache() = Unit
 

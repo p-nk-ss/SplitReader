@@ -5,6 +5,7 @@ import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.SourceDetection
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ParagraphNote
 import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.domain.model.ReadingPosition
@@ -54,6 +55,13 @@ sealed interface SelectionTranslation {
     data class Failed(val message: String) : SelectionTranslation
 }
 
+/** A model the reader asked to download for paragraphs in another language ([ParagraphNote.NeedsModel]). */
+sealed interface LanguageDownload {
+    /** [progress] 0f..1f, or null before the engine reports any. */
+    data class Running(val progress: Float?) : LanguageDownload
+    data object Failed : LanguageDownload
+}
+
 sealed interface ReaderUiState {
     data object Loading : ReaderUiState
     data class Error(val message: String) : ReaderUiState
@@ -78,6 +86,10 @@ sealed interface ReaderUiState {
         val sourceDetection: SourceDetection = SourceDetection.Supported(sourceLanguage),
         /** The language the reader picked for this book; null = the detected one is used. */
         val chosenSource: Language? = null,
+        /** chapter → paragraph → a note on paragraphs in another language than the book's. */
+        val paragraphNotes: Map<Int, Map<Int, ParagraphNote>> = emptyMap(),
+        /** Models the reader asked to download from a paragraph's note. */
+        val languageDownloads: Map<Language, LanguageDownload> = emptyMap(),
     ) : ReaderUiState {
         /** False when the book's language can't be translated from and the reader hasn't picked one: shown untranslated. */
         val translatable: Boolean

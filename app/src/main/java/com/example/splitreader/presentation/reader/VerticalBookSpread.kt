@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ParagraphNote
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.theme.MotionTokens
@@ -104,6 +105,7 @@ internal fun VerticalBookSpread(
     barsVisible: Boolean,
     sourceLang: Language,
     targetLang: Language,
+    paragraphNotes: ParagraphNotesUi = ParagraphNotesUi(),
 ) {
     var dragRatio by remember { mutableFloatStateOf(Float.NaN) }
     val effectiveRatio = if (dragRatio.isNaN()) verticalSplitRatio else dragRatio
@@ -379,18 +381,23 @@ internal fun VerticalBookSpread(
                                 if (isAwaiting) {
                                     TranslationPlaceholder(style = style)
                                 } else {
-                                    ParagraphItem(
-                                        text = translated,
-                                        index = idx,
-                                        isFirstOfChapter = idx == 0,
-                                        isOriginal = false,
-                                        isActive = false,
-                                        selectedWordStart = -1,
-                                        selectedWordEnd = -1,
-                                        style = style,
-                                        onWordSelected = { _, _, _ -> },
-                                        onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
-                                    )
+                                    Column {
+                                        paragraphNotes.noteAt(chapterIndex, idx)?.let { note ->
+                                            ParagraphNoteLine(note, targetLang, (note as? ParagraphNote.NeedsModel)?.let { paragraphNotes.downloads[it.language] }, paragraphNotes.onDownload)
+                                        }
+                                        ParagraphItem(
+                                            text = translated,
+                                            index = idx,
+                                            isFirstOfChapter = idx == 0,
+                                            isOriginal = false,
+                                            isActive = false,
+                                            selectedWordStart = -1,
+                                            selectedWordEnd = -1,
+                                            style = style,
+                                            onWordSelected = { _, _, _ -> },
+                                            onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
+                                        )
+                                    }
                                 }
                             }
                             }

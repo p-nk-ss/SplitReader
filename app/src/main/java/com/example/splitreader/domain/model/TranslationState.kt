@@ -4,7 +4,8 @@ sealed interface TranslationState {
     data object Idle : TranslationState
     data class DownloadingModel(val progress: Float? = null) : TranslationState
     data class Translating(val progress: Int) : TranslationState
-    data class Partial(val index: Int, val text: String) : TranslationState
+    /** Paragraph [index]'s translation; [note] says when it isn't an ordinary one (another language). */
+    data class Partial(val index: Int, val text: String, val note: ParagraphNote? = null) : TranslationState
 
     /**
      * A translation failure.

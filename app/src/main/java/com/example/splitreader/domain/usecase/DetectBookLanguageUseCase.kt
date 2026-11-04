@@ -22,34 +22,15 @@ class DetectBookLanguageUseCase @Inject constructor(
     suspend operator fun invoke(book: Book): SourceDetection {
         // Joins the whole book's text: off the main thread (loadBook runs on viewModelScope).
         val samples = withContext(Dispatchers.Default) { languageSamples(book) }
-        val votes = samples.mapNotNull { sample -> detector.identify(sample)?.let(::voteFor) }
+        val votes = samples.mapNotNull { sample -> detector.identify(sample)?.let(SourceDetection::normalizeTag) }
         if (votes.isEmpty()) return SourceDetection.Unknown
         // A tie goes to the language seen first, i.e. nearer the book's start: eachCount keeps
         // first-seen order and maxBy takes the first maximum. It takes a 3/3/1 split to matter.
         val winner = votes.groupingBy { it }.eachCount().maxBy { it.value }.key
-        return Language.fromCodeOrNull(winner)?.let { SourceDetection.Supported(it) }
-            ?: SourceDetection.Unsupported(winner)
-    }
-
-    /**
-     * A detector code as a vote: its language ("de-Latn" → "de"), except romanised text of a
-     * language written in another script ("hi-Latn", "ja-Latn"), which stays as it is: the
-     * translators expect Hindi in Devanagari, so to them it is a language they don't support.
-     */
-    private fun voteFor(code: String): String {
-        val tag = code.lowercase()
-        val base = tag.substringBefore('-')
-        val romanised = tag.endsWith("-latn") && Language.fromCodeOrNull(base)?.let { it in NON_LATIN_SCRIPT } == true
-        return if (romanised) tag else base
+        return SourceDetection.fromTag(winner)
     }
 
     companion object {
-        /** Supported languages not written in Latin script: their "-Latn" text is romanised. */
-        private val NON_LATIN_SCRIPT = setOf(
-            Language.UKRAINIAN, Language.RUSSIAN, Language.CHINESE, Language.JAPANESE,
-            Language.KOREAN, Language.ARABIC, Language.HINDI,
-        )
-
         const val SAMPLES = 7
         /** Long enough for a confident answer, short enough that one stretch stays in one language. */
         const val SAMPLE_CHARS = 300

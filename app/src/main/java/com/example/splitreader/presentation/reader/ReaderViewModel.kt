@@ -12,6 +12,7 @@ import com.example.splitreader.domain.LanguageDetector
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ParagraphNote
 import com.example.splitreader.domain.model.ParseResult
 import com.example.splitreader.domain.model.ReadingAppearance
 import com.example.splitreader.domain.model.ReadingDefaults
@@ -80,6 +81,8 @@ class ReaderViewModel @Inject constructor(
         val targetLanguage: Language = Language.ENGLISH,
         val translationState: TranslationState = TranslationState.Idle,
         val chapterTranslations: Map<Int, List<String>> = emptyMap(),
+        val paragraphNotes: Map<Int, Map<Int, ParagraphNote>> = emptyMap(),
+        val languageDownloads: Map<Language, LanguageDownload> = emptyMap(),
         val translationNotice: TranslationState.FallbackNotice? = null,
         val pendingJump: ReadingPosition? = null,
         val appearance: ReadingAppearance = ReadingAppearance.defaults(isTablet = false),
@@ -132,6 +135,8 @@ class ReaderViewModel @Inject constructor(
                     targetLanguage = s.targetLanguage,
                     translationState = s.translationState,
                     chapterTranslations = s.chapterTranslations,
+                    paragraphNotes = s.paragraphNotes,
+                    languageDownloads = s.languageDownloads,
                     translationNotice = s.translationNotice,
                     pendingJump = s.pendingJump,
                     appearance = s.appearance,
@@ -187,6 +192,7 @@ class ReaderViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         chapterTranslations = update.translations,
+                        paragraphNotes = update.notes,
                         translationState = update.state,
                         translationNotice = update.notice,
                     )
@@ -360,6 +366,32 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * "Download and translate" on a paragraph in another language ([ParagraphNote.NeedsModel]):
+     * downloads [provider]'s model for [language] into the current target, then has the engine
+     * translate the paragraphs that were waiting for it.
+     */
+    fun downloadModel(language: Language, provider: TranslationProvider) {
+        if (_state.value.languageDownloads[language] is LanguageDownload.Running) return
+        val target = _state.value.targetLanguage
+        fun set(download: LanguageDownload?) = _state.update {
+            it.copy(languageDownloads = if (download == null) it.languageDownloads - language else it.languageDownloads + (language to download))
+        }
+        set(LanguageDownload.Running(null))
+        viewModelScope.launch {
+            try {
+                translateTextUseCase.download(language, target, provider).collect { set(LanguageDownload.Running(it)) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                set(LanguageDownload.Failed)
+                return@launch
+            }
+            set(null)
+            engine.languageReady(language)
+        }
+    }
+
     /** [current], unless it is the book's own language: then English, or Russian for an English book. */
     private fun targetFor(source: Language?, current: Language): Language = when {
         source == null || source != current -> current
@@ -501,9 +533,17 @@ class ReaderViewModel @Inject constructor(
 
     fun selectWord(word: String, chapterIndex: Int, paragraphIndex: Int, startChar: Int, endChar: Int) {
         val s = _state.value
+        // A paragraph in another language is looked up in that language. Shown as it is (target
+        // language, untranslatable, or its model missing): no lookup — a missing model would be
+        // downloaded by the lookup itself, behind the reader's back.
+        val source = when (val note = s.paragraphNotes[chapterIndex]?.get(paragraphIndex)) {
+            is ParagraphNote.TranslatedFrom -> note.language
+            is ParagraphNote.Original, is ParagraphNote.NeedsModel -> null
+            null -> s.sourceLanguage.takeIf { s.translatable }
+        }
         selectionTranslator.select(
             word, chapterIndex, paragraphIndex, startChar, endChar,
-            s.sourceLanguage.takeIf { s.translatable }, s.targetLanguage, s.translatorProvider,
+            source, s.targetLanguage, s.translatorProvider,
             // A tapped selection is a word whatever its text; only dragging can make a sentence.
             type = SelectionType.WORD,
         )

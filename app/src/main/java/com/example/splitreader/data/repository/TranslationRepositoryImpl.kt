@@ -57,6 +57,9 @@ class TranslationRepositoryImpl @Inject constructor(
     override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> =
         (providers[provider] ?: error("$provider is missing from DI")).prepare(source, target)
 
+    override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean =
+        providers[provider]?.isReady(source, target) ?: false
+
     override suspend fun cachedCount(): Int = dao.count()
 
     override suspend fun clearCache() = dao.clearAll()

@@ -16,4 +16,7 @@ interface TranslationProviderApi {
     fun prepare(source: Language, target: Language): Flow<Float> = emptyFlow()
 
     suspend fun translate(text: String, source: Language, target: Language): String
+
+    /** Whether [translate] would run without downloading a model first. Default (online engines): yes. */
+    suspend fun isReady(source: Language, target: Language): Boolean = true
 }

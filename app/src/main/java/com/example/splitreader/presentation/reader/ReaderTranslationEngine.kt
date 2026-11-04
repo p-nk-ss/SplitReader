@@ -2,6 +2,7 @@ package com.example.splitreader.presentation.reader
 
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.model.ParagraphNote
 import com.example.splitreader.domain.model.ReadingPosition
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationState
@@ -26,6 +27,8 @@ data class TranslationUpdate(
     val translations: Map<Int, List<String>>,
     val state: TranslationState,
     val notice: TranslationState.FallbackNotice? = null,
+    /** chapter → paragraph → why its translation isn't an ordinary one (another language); absent for most. */
+    val notes: Map<Int, Map<Int, ParagraphNote>> = emptyMap(),
 )
 
 /**
@@ -81,6 +84,12 @@ class ReaderTranslationEngine(
     fun retry() = send(Event.Retry)
 
     /**
+     * The on-device model for [language] was downloaded at the reader's request: the paragraphs
+     * shown untranslated for want of it ([ParagraphNote.NeedsModel]) are translated now.
+     */
+    fun languageReady(language: Language) = send(Event.LanguageReady(language))
+
+    /**
      * The effective translator changed without the provider choice changing (e.g. an API key was
      * set or cleared): discard all translations and re-plan the remembered viewport.
      */
@@ -97,7 +106,10 @@ class ReaderTranslationEngine(
         data class Fill(val chapter: Int) : Event
         data object Retry : Event
         data object Invalidate : Event
-        data class Partial(val epoch: Int, val chapter: Int, val index: Int, val text: String) : Event
+        data class LanguageReady(val language: Language) : Event
+        data class Partial(
+            val epoch: Int, val chapter: Int, val index: Int, val text: String, val note: ParagraphNote?,
+        ) : Event
         data class Downloading(val seq: Int, val progress: Float?) : Event
         data class Notice(val epoch: Int, val value: TranslationState.FallbackNotice) : Event
         data class SegmentDone(val seq: Int, val error: String?, val persistent: Boolean = false) : Event
@@ -122,6 +134,7 @@ class ReaderTranslationEngine(
     private val results = mutableMapOf<Int, MutableList<String>>()
     private val translated = mutableMapOf<Int, MutableSet<Int>>()
     private var snapshot: Map<Int, List<String>> = emptyMap()
+    private var notes: Map<Int, Map<Int, ParagraphNote>> = emptyMap()
     private var fill: Int? = null
     private var foregroundError: String? = null
     private var foregroundErrorPersistent = false
@@ -209,12 +222,26 @@ class ReaderTranslationEngine(
                 if (event.index in list.indices) list[event.index] = event.text
                 translated.getOrPut(event.chapter) { mutableSetOf() }.add(event.index)
                 snapshot = snapshot + (event.chapter to list.toList())
+                val chapterNotes = notes[event.chapter].orEmpty()
+                val updated = if (event.note != null) chapterNotes + (event.index to event.note) else chapterNotes - event.index
+                if (updated != chapterNotes) notes = notes + (event.chapter to updated)
                 val work = current
                 if (work != null && work.kind != Kind.BACKGROUND) {
                     doneInSegment++
                     banner = TranslationState.Translating(progressOf(work))
                 }
                 publish()
+            }
+            is Event.LanguageReady -> {
+                // Only the waiting paragraphs become untranslated again: the planner re-issues them
+                // (on screen first). Their original stays in place until the translation replaces it.
+                for ((chapter, chapterNotes) in notes) {
+                    val waiting = chapterNotes.filterValues { it is ParagraphNote.NeedsModel && it.language == event.language }.keys
+                    translated[chapter]?.removeAll(waiting)
+                }
+                foregroundError = null
+                foregroundErrorPersistent = false
+                backgroundPaused = false
             }
             is Event.Downloading -> {
                 if (event.seq != seq) return
@@ -313,7 +340,7 @@ class ReaderTranslationEngine(
                 translateText(paragraphs, src, tgt, prov, segment.start, segment.endInclusive).collect { s ->
                     when (s) {
                         is TranslationState.Partial ->
-                            events.send(Event.Partial(myEpoch, segment.chapterIndex, s.index, s.text))
+                            events.send(Event.Partial(myEpoch, segment.chapterIndex, s.index, s.text, s.note))
                         is TranslationState.DownloadingModel -> events.send(Event.Downloading(mySeq, s.progress))
                         is TranslationState.FallbackNotice -> events.send(Event.Notice(myEpoch, s))
                         is TranslationState.Error -> {
@@ -351,6 +378,7 @@ class ReaderTranslationEngine(
         results.clear()
         translated.clear()
         snapshot = emptyMap()
+        notes = emptyMap()
         fill = null
         foregroundError = null
         foregroundErrorPersistent = false
@@ -387,7 +415,7 @@ class ReaderTranslationEngine(
     }
 
     private fun publish() {
-        _state.value = TranslationUpdate(snapshot, banner, notice)
+        _state.value = TranslationUpdate(snapshot, banner, notice, notes)
     }
 
     private companion object {
