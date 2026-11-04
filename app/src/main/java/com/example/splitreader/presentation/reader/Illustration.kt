@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -38,6 +40,15 @@ internal const val ILLUSTRATION_TAG = "illustration"
 internal const val ILLUSTRATION_ROW_TAG = "illustration_row"
 
 private val VerticalPadding = 16.dp
+
+/**
+ * Where pictures are read from disk: Dispatchers.IO in the app. UI tests provide
+ * Dispatchers.Unconfined so the read runs on the test's main thread. With IO, compose-ui-test resumed
+ * the composition on the IO thread that finished the read and ran recomposition and layout there:
+ * CalledFromWrongThreadException, or a picture that never got its height (PageMarginsTest failed
+ * about once in four full-suite runs, 2026-11-03).
+ */
+internal val LocalImageReadDispatcher = staticCompositionLocalOf<CoroutineDispatcher> { Dispatchers.IO }
 
 /**
  * The tallest a picture may be: its pane's share ([paneShare]) of the reading height (the reader
@@ -71,9 +82,10 @@ internal fun illustrationSize(pixels: IntSize, maxWidth: Dp, maxHeight: Dp): DpS
 /** The file's own pixel size, read without decoding the picture; null when it can't be read (e.g. SVG). */
 @Composable
 private fun rememberImagePixels(path: String): IntSize? {
-    val pixels by produceState(initialValue = imagePixels.get(path), path) {
+    val reads = LocalImageReadDispatcher.current
+    val pixels by produceState(initialValue = imagePixels.get(path), path, reads) {
         if (value != null) return@produceState
-        value = withContext(Dispatchers.IO) {
+        value = withContext(reads) {
             runCatching {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeFile(path, bounds)
@@ -126,8 +138,9 @@ internal fun Illustration(path: String, horizontalMargin: Float, maxHeight: Dp, 
         configuration.screenWidthDp.dp.toPx().toInt().coerceAtLeast(1) to
             configuration.screenHeightDp.dp.toPx().toInt().coerceAtLeast(1)
     }
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, path) {
-        value = withContext(Dispatchers.IO) {
+    val reads = LocalImageReadDispatcher.current
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, path, reads) {
+        value = withContext(reads) {
             runCatching {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeFile(path, bounds)

@@ -12,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
@@ -55,7 +54,7 @@ class IllustrationStabilityTest {
             chapters = listOf(Chapter(index = 0, title = "One", paragraphs = listOf("p0", "p1"), images = listOf(ChapterImage(0, plate.path)))),
         )
         var areaHeight by mutableStateOf(800.dp)
-        composeRule.setContent {
+        composeRule.setPictureContent {
             SplitReaderTheme {
                 Box(Modifier.fillMaxWidth().height(areaHeight)) {
                     VerticalBookSpread(
@@ -86,7 +85,6 @@ class IllustrationStabilityTest {
                 }
             }
         }
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         composeRule.waitForIdle()
         // size, not boundsInRoot: the visible part is clipped by the pane, which does shrink.
         val before = composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true).fetchSemanticsNode().size

@@ -276,7 +276,7 @@ class ScrollSyncGlueTest {
      * that has no place in a deterministic scroll test), and every callback a no-op.
      */
     private fun composeVerticalSpread(top: LazyListState, bottom: LazyListState) {
-        composeRule.setContent {
+        composeRule.setPictureContent {
             SplitReaderTheme {
                 VerticalBookSpread(
                     modifier = Modifier.fillMaxSize(),

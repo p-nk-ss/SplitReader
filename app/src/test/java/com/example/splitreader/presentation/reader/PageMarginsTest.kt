@@ -54,13 +54,10 @@ class PageMarginsTest {
         val file = File.createTempFile("plate", ".png").apply { deleteOnExit() }
         file.outputStream().use { Bitmap.createBitmap(2000, 1000, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it) }
 
-        composeRule.setContent {
+        composeRule.setPictureContent {
             SplitReaderTheme {
                 Box(Modifier.width(400.dp).testTag("page")) { Illustration(file.path, horizontalMargin = margin, maxHeight = maxHeight) }
             }
-        }
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
         assertEquals(dpToPx(margin), leftOf(composeRule.onNodeWithTag(ILLUSTRATION_TAG, useUnmergedTree = true)), 1f)
     }
@@ -72,13 +69,10 @@ class PageMarginsTest {
         }
 
     private fun showIllustration(file: File) {
-        composeRule.setContent {
+        composeRule.setPictureContent {
             SplitReaderTheme {
                 Box(Modifier.width(400.dp).testTag("page")) { Illustration(file.path, horizontalMargin = margin, maxHeight = maxHeight) }
             }
-        }
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_TAG), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -133,7 +127,7 @@ class PageMarginsTest {
     @Config(qualifiers = "w800dp-h600dp-xhdpi")
     fun `the translation pane's space for a picture is as tall as the picture's row`() {
         val file = png(300, 200)
-        composeRule.setContent {
+        composeRule.setPictureContent {
             SplitReaderTheme {
                 androidx.compose.foundation.layout.Row {
                     Box(Modifier.width(400.dp).testTag("original")) { Illustration(file.path, margin, Dp.Infinity) }
@@ -141,13 +135,29 @@ class PageMarginsTest {
                 }
             }
         }
-        // Each pane reads the file's size on its own background call; wait for both.
         fun height(tag: String) = composeRule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.height
-        composeRule.waitUntil(5_000) { height("original") > 0f && height("translation") > 0f }
         val original = height("original")
         val translation = height("translation")
         assertEquals(dpToPx(200f + 32f), original, 1f)
         assertEquals(original, translation, 1f)
+    }
+
+    /**
+     * Pictures are read through [LocalImageReadDispatcher], which is what lets these tests read them
+     * on the main thread. A hard-coded Dispatchers.IO brought back the flaky timeouts.
+     */
+    @Test
+    fun `pictures are read through the provided dispatcher`() {
+        val file = png(300, 200)
+        val reads = CountingDispatcher()
+        composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(LocalImageReadDispatcher provides reads) {
+                SplitReaderTheme {
+                    Box(Modifier.width(400.dp)) { Illustration(file.path, margin, Dp.Infinity) }
+                }
+            }
+        }
+        assertEquals("the size read and the bitmap decode", 2, reads.dispatched)
     }
 
     /**
@@ -159,16 +169,13 @@ class PageMarginsTest {
     fun `a tap on a picture, or on its space in the translation pane, toggles the bars`() {
         val file = png(300, 200)
         var taps = 0
-        composeRule.setContent {
+        composeRule.setPictureContent {
             SplitReaderTheme {
                 androidx.compose.foundation.layout.Column {
                     Box(Modifier.width(400.dp)) { Illustration(file.path, margin, Dp.Infinity, onTap = { taps++ }) }
                     Box(Modifier.width(400.dp)) { IllustrationSpace(file.path, margin, Dp.Infinity, onTap = { taps++ }) }
                 }
             }
-        }
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_ROW_TAG)).fetchSemanticsNodes().size == 2
         }
         composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_ROW_TAG))[0].performClick()
         composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(ILLUSTRATION_ROW_TAG))[1].performClick()
@@ -185,7 +192,7 @@ class PageMarginsTest {
     @Test
     fun `a long chapter title wraps at the page margin`() {
         val title = "A chapter title long enough to wrap across the full width of the page several times over"
-        composeRule.setContent {
+        composeRule.setPictureContent {
             SplitReaderTheme {
                 Box(Modifier.width(400.dp).testTag("page")) {
                     ChapterMasthead(Chapter(index = 0, title = title, paragraphs = listOf("p")), 0, horizontalMargin = margin)
