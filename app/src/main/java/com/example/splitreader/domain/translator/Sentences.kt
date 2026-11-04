@@ -49,7 +49,10 @@ object Sentences {
         var rest = sentence
         while (rest.length > maxChars) {
             val window = rest.substring(0, maxChars)
-            val at = window.indexOfLast { it in BREAKS }.takeIf { it >= maxChars / 2 }?.plus(1) ?: maxChars
+            var at = window.indexOfLast { it in BREAKS }.takeIf { it >= maxChars / 2 }?.plus(1) ?: maxChars
+            // Never between the halves of a character outside the BMP (rarer CJK ideographs):
+            // the engine would get, and give back, two broken halves ("�").
+            if (Character.isHighSurrogate(rest[at - 1]) && Character.isLowSurrogate(rest[at])) at--
             pieces += rest.substring(0, at)
             rest = rest.substring(at)
         }
