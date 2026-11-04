@@ -40,11 +40,13 @@ class TranslationRepositoryImpl @Inject constructor(
 
     override suspend fun translate(text: String, source: Language, target: Language, provider: TranslationProvider): String {
         val api = providers[provider] ?: error("$provider is missing from DI")
-        val cacheKey = TranslationCacheKey.compute(provider, text, source, target)
-        dao.getCached(cacheKey)?.takeIf { it.originalText == text }?.let { return it.translatedText }
         // On-device engines take Chinese/Japanese (and overlong paragraphs) a sentence at a time;
-        // online engines handle a paragraph whole. The cache still keys the whole paragraph.
-        val translated = if (!provider.requiresNetwork && Sentences.needsSplitting(text, source)) {
+        // online engines handle a paragraph whole. The cache keys the whole paragraph — under its
+        // own key when split, so a glued translation cached before splitting is never served.
+        val split = !provider.requiresNetwork && Sentences.needsSplitting(text, source)
+        val cacheKey = TranslationCacheKey.compute(provider, text, source, target) + if (split) SPLIT_KEY else ""
+        dao.getCached(cacheKey)?.takeIf { it.originalText == text }?.let { return it.translatedText }
+        val translated = if (split) {
             Sentences.join(Sentences.split(text, source).map { api.translate(it, source, target) }, target)
         } else {
             api.translate(text, source, target)
@@ -63,4 +65,9 @@ class TranslationRepositoryImpl @Inject constructor(
     override suspend fun cachedCount(): Int = dao.count()
 
     override suspend fun clearCache() = dao.clearAll()
+
+    private companion object {
+        /** Suffix of the cache key of a paragraph translated sentence by sentence ([Sentences]). */
+        const val SPLIT_KEY = "_s1"
+    }
 }

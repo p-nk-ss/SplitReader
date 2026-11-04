@@ -165,6 +165,17 @@ class TranslationRepositoryImplTest {
     }
 
     @Test
+    fun `a glued translation cached before sentence splitting is not served again`() = runTest {
+        val text = "或日の暮方の事である。一人の下人が雨やみを待っていた。"
+        val oldKey = TranslationCacheKey.compute(TranslationProvider.BERGAMOT, text, Language.JAPANESE, Language.RUSSIAN)
+        dao.insert(TranslationCacheEntity(oldKey, text, "Это было вечером.Один слуга ждал.", "ru"))
+
+        val result = repo.translate(text, Language.JAPANESE, Language.RUSSIAN, TranslationProvider.BERGAMOT)
+
+        assertEquals("hq:或日の暮方の事である。 hq:一人の下人が雨やみを待っていた。", result)
+    }
+
+    @Test
     fun `into Chinese or Japanese the sentences join without spaces`() = runTest {
         val result = repo.translate("一人の下人。羅生門の下。", Language.JAPANESE, Language.CHINESE, TranslationProvider.MLKIT)
         assertEquals("ml:一人の下人。ml:羅生門の下。", result)
