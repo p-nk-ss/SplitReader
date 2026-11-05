@@ -101,6 +101,20 @@ class SelectionTranslatorTest {
     }
 
     @Test
+    fun `a selection that can't be looked up says the caller's reason, after a drag too`() = runTest {
+        val repo = SelectionFakeRepo()
+        val t = translator(repo)
+
+        t.select("Brief", 0, 1, 0, 5, null, Language.RUSSIAN, SEL_PAID, SelectionType.WORD, untranslatable = "German paragraph")
+        settle()
+        assertEquals(SelectionTranslation.Failed("German paragraph"), t.state.value?.translation)
+        t.dragTo("Brief aus", 0, 9, SelectionType.SENTENCE)
+        t.dragEnd()
+        settle()
+        assertEquals(SelectionTranslation.Failed("German paragraph"), t.state.value?.translation)
+    }
+
+    @Test
     fun `select translates once and becomes Ready`() = runTest {
         val repo = SelectionFakeRepo()
         val t = translator(repo)

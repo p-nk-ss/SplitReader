@@ -424,6 +424,12 @@ private fun TimeByBookCard(books: List<com.example.splitreader.domain.model.stat
     }
 }
 
+/** A reading-stats language as a badge: "und" (nothing detected) is "UNKNOWN"; "hi-latn" is "HI". */
+internal fun languageBadge(code: String): String {
+    val base = code.substringBefore('-').trim()
+    return if (base.isEmpty() || base.equals("und", ignoreCase = true)) "UNKNOWN" else base.uppercase()
+}
+
 @Composable
 private fun LanguagesCard(langs: List<com.example.splitreader.domain.model.stats.LangMinutes>, modifier: Modifier = Modifier) {
     val palette = LocalReaderPalette.current
@@ -435,7 +441,7 @@ private fun LanguagesCard(langs: List<com.example.splitreader.domain.model.stats
                 Box(
                     Modifier.clip(RoundedCornerShape(3.dp)).background(palette.bg3).padding(4.dp, 2.dp),
                 ) {
-                    Text(lang.lang.uppercase(), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = palette.ink)
+                    Text(languageBadge(lang.lang), fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = palette.ink)
                 }
                 Text("${lang.minutes} MIN", fontFamily = JetBrainsMono, fontSize = 11.sp, color = palette.ink3)
             }

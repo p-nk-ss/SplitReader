@@ -183,6 +183,8 @@ internal fun HomeScreen(
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
+    // A book whose file has gone, or one that failed to open: without this a tap did nothing at all.
+    uiState.errorMessage?.let { HomeErrorDialog(message = it, onDismiss = onDismissError) }
     var shelfFilter by remember { mutableIntStateOf(0) } // 0=All,1=Reading,2=Finished,3=Unread
     var searchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }

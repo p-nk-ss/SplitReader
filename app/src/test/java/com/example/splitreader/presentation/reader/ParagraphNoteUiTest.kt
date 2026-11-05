@@ -35,7 +35,9 @@ class ParagraphNoteUiTest {
         chapters = listOf(Chapter(index = 0, title = "C", paragraphs = listOf("English.", "Ein Brief.", "Arma virumque cano.", "Ein Gedicht."))),
     )
 
-    private fun show(notes: ParagraphNotesUi) {
+    private val spoken = mutableListOf<String>()
+
+    private fun show(notes: ParagraphNotesUi, selection: WordSelection? = null) {
         composeRule.setContent {
             SplitReaderTheme {
                 BookSpread(
@@ -47,14 +49,14 @@ class ParagraphNoteUiTest {
                     splitRatio = 0.5f,
                     horizontalMargin = 32f,
                     style = ScreenFixtures.readerContentState.readingStyle,
-                    wordSelection = null,
+                    wordSelection = selection,
                     wordHighlightEnabled = true,
                     listState = rememberLazyListState(),
                     onWordSelected = { _, _, _, _, _ -> },
                     onSelectionDragged = { _, _ -> },
                     onSelectionDragEnd = {},
                     onSaveWord = { _, _, _ -> },
-                    onSpeak = { _, _ -> },
+                    onSpeak = { _, code -> spoken += code },
                     onDismiss = {},
                     onToggleBars = {},
                     onSetSplitRatio = {},
@@ -95,5 +97,13 @@ class ParagraphNoteUiTest {
     fun `a running download shows its progress instead of the button`() {
         show(ParagraphNotesUi(notes, downloads = mapOf(Language.GERMAN to LanguageDownload.Running(0.4f))))
         composeRule.onNodeWithText("Downloading… 40%", ignoreCase = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `Listen on a word from a German paragraph speaks German`() {
+        val brief = WordSelection("Brief", 0, 1, 4, 9, translation = SelectionTranslation.Ready("письмо"))
+        show(ParagraphNotesUi(notes), selection = brief)
+        composeRule.onNodeWithText("Listen").performClick()
+        assertEquals(listOf("de"), spoken)
     }
 }

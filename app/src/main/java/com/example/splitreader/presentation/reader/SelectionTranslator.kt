@@ -29,6 +29,8 @@ class SelectionTranslator(
     private var request = 0
     /** Null for a book whose language can't be translated: selections then say so instead of asking a translator. */
     private var source: Language? = Language.ENGLISH
+    /** What a selection says when [source] is null; null = the book's language can't be translated. */
+    private var untranslatable: String? = null
     private var target = Language.ENGLISH
     private var provider = TranslationProvider.MLKIT
 
@@ -48,8 +50,10 @@ class SelectionTranslator(
         target: Language,
         provider: TranslationProvider,
         type: SelectionType = SelectionType.WORD,
+        untranslatable: String? = null,
     ) {
         this.source = source
+        this.untranslatable = untranslatable
         this.target = target
         this.provider = provider
         val sel = WordSelection(word, chapter, paragraph, start, end, type, SelectionTranslation.Translating())
@@ -95,7 +99,7 @@ class SelectionTranslator(
         job?.cancel()
         val my = ++request
         val src = source ?: run {
-            apply(my, sel, SelectionTranslation.Failed(UNTRANSLATABLE))
+            apply(my, sel, SelectionTranslation.Failed(untranslatable ?: UNTRANSLATABLE))
             return
         }
         val tgt = target

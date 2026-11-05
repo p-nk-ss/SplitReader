@@ -86,6 +86,10 @@ class DownloadParagraphLanguageTest {
         h.vm.selectWord("Brief", 0, 1, 8, 13)
         pollUntil(500) { false }
         assertEquals("no lookup (it would download the pack behind the reader's back)", emptyList<Language>(), repo.sources)
+        // ... and the popup says why, pointing at the paragraph's button — not at the book's language
+        // menu, which would change the whole book's language.
+        val failed = h.success().wordSelection?.translation as? SelectionTranslation.Failed
+        assertTrue("popup: $failed", failed?.message?.contains("Download and translate") == true)
 
         h.vm.downloadModel(Language.GERMAN, TranslationProvider.BERGAMOT)
         assertTrue(pollUntil(5_000) { h.success().paragraphNotes[0]?.get(1) is ParagraphNote.TranslatedFrom })

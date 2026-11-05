@@ -28,6 +28,14 @@ internal data class ParagraphNotesUi(
     val onDownload: (Language, TranslationProvider) -> Unit = { _, _ -> },
 ) {
     fun noteAt(chapter: Int, paragraph: Int): ParagraphNote? = notes[chapter]?.get(paragraph)
+
+    /** The language to read a word of this paragraph aloud in: its own when noted, else [bookCode]. */
+    fun speechCode(chapter: Int, paragraph: Int, bookCode: String): String = when (val n = noteAt(chapter, paragraph)) {
+        is ParagraphNote.TranslatedFrom -> n.language.code
+        is ParagraphNote.NeedsModel -> n.language.code
+        is ParagraphNote.Original -> n.code.substringBefore('-')
+        null -> bookCode
+    }
 }
 
 /**
@@ -72,6 +80,19 @@ internal fun noteLabel(note: ParagraphNote, target: Language): String = when (no
         if (note.code == target.code) "${target.badge} · original"
         else "${note.code.substringBefore('-').uppercase()} · ${languageName(note.code)}, not translated"
     is ParagraphNote.NeedsModel -> "${note.language.badge} · ${languageName(note.language.code)}, not translated"
+}
+
+/**
+ * What the word popup says on a paragraph shown as it is ([note]), where it looks nothing up: why,
+ * and — for a missing model — where to get it. Null for a paragraph that is translated.
+ */
+internal fun popupReason(note: ParagraphNote?, target: Language): String? = when (note) {
+    null, is ParagraphNote.TranslatedFrom -> null
+    is ParagraphNote.NeedsModel ->
+        "${languageName(note.language.code)} paragraph — tap Download and translate above its translation"
+    is ParagraphNote.Original ->
+        if (note.code == target.code) "Already in ${languageName(target.code)}"
+        else "${languageName(note.code)} can't be translated yet"
 }
 
 /** Test tag on [ParagraphNoteLine]. */

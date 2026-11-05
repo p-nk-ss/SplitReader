@@ -414,7 +414,7 @@ internal fun VerticalBookSpread(
                 sourceLang = sourceLang,
                 targetLang = targetLang,
                 onSave = { onSaveWord(wordSelection.word, wordSelection.chapterIndex, wordSelection.paragraphIndex) },
-                onSpeak = { onSpeak(wordSelection.word, sourceLang.code) },
+                onSpeak = { onSpeak(wordSelection.word, paragraphNotes.speechCode(wordSelection.chapterIndex, wordSelection.paragraphIndex, sourceLang.code)) },
                 onDismiss = onDismiss,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

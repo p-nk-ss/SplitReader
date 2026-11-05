@@ -485,10 +485,12 @@ internal fun ContinueReadingHero(book: BookItem, minutesToday: Int, onContinue: 
     val spec = coverSpec(book.title, book.uri)
     val progress = book.progress
 
-    // Hoisted so both branches carry an identical container.
+    // Hoisted so both branches carry an identical container. The whole card opens the book: a tap
+    // on its cover or title did nothing, only the button below worked.
     val container = Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(radii.lg))
+        .clickable(onClickLabel = "Continue reading", onClick = onContinue)
         .background(palette.bg2)
         .border(1.dp, palette.edge, RoundedCornerShape(radii.lg))
         .padding(sp.lg)

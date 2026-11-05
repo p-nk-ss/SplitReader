@@ -562,7 +562,8 @@ class ReaderViewModel @Inject constructor(
         // A paragraph in another language is looked up in that language. Shown as it is (target
         // language, untranslatable, or its model missing): no lookup — a missing model would be
         // downloaded by the lookup itself, behind the reader's back.
-        val source = when (val note = s.paragraphNotes[chapterIndex]?.get(paragraphIndex)) {
+        val note = s.paragraphNotes[chapterIndex]?.get(paragraphIndex)
+        val source = when (note) {
             is ParagraphNote.TranslatedFrom -> note.language
             is ParagraphNote.Original, is ParagraphNote.NeedsModel -> null
             null -> s.sourceLanguage.takeIf { s.translatable }
@@ -572,6 +573,9 @@ class ReaderViewModel @Inject constructor(
             source, s.targetLanguage, s.translatorProvider,
             // A tapped selection is a word whatever its text; only dragging can make a sentence.
             type = SelectionType.WORD,
+            // Says why, for this paragraph: the book-wide message would send the reader to change
+            // the whole book's language.
+            untranslatable = popupReason(note, s.targetLanguage),
         )
     }
 
