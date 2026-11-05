@@ -61,6 +61,11 @@ object HtmlChapterExtractor {
         ).remove()
         val body = doc.body() ?: return Result(null, emptyList(), emptyList(), emptyList())
         val headingEl = body.selectFirst("h1, h2, h3")
+        // Rows join the paragraphs only where the text lives in tables (see readsTables), and only
+        // after a heading: a file with a heading was always one chapter, so the book's chapters stay
+        // as they were. A headless table file, or rows before the heading, would add a chapter and
+        // renumber every chapter after it — and chapter indices are saved too.
+        val rows = if (headingEl != null && readsTables(body)) ", tr" else ""
         val headingTitle = headingEl?.text()?.takeIf { it.isNotBlank() }
 
         if (headingEl == null) {
@@ -102,10 +107,11 @@ object HtmlChapterExtractor {
         val leadingImageRefs = mutableListOf<ImageRef>()
         var foundHeading = false
 
-        for (el in body.select("h1, h2, h3, blockquote, p, img, image")) {
+        for (el in body.select("h1, h2, h3, blockquote, p, img, image$rows")) {
             val tag = el.tagName()
             when {
                 tag in listOf("h1", "h2", "h3") -> foundHeading = true
+                tag == "tr" -> if (foundHeading) rowText(el)?.let(main::add)
                 (tag == "img" || tag == "image") && foundHeading -> {
                     imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size, inLegacyLayout = true)) }
                 }
@@ -129,6 +135,38 @@ object HtmlChapterExtractor {
 
         val finalImageRefs = leadingImageRefs + imageRefs.map { it.copy(anchorParagraph = epigraph.size + it.anchorParagraph) }
         return Result(headingTitle, preHeading, epigraph, main, finalImageRefs)
+    }
+
+    /**
+     * Whether this document's text lives in tables: a play set as speaker | line rows (Gutenberg's
+     * Czech R.U.R.), verse as line | number rows (the Greek Iliad). Their rows become paragraphs only
+     * then — paragraph indices are saved (positions, bookmarks), so a table in an ordinary book
+     * must add nothing; a book whose text is in tables showed (next to) nothing before, so its saved
+     * positions have nothing to lose.
+     */
+    private fun readsTables(body: Element): Boolean {
+        // Leaf cells only (Jsoup's select includes the element itself, hence size == 1): a cell
+        // holding paragraphs or a nested table is counted through those.
+        val inTables = body.select("td, th")
+            .filter { it.select("p").isEmpty() && it.select("td, th").size == 1 }
+            .sumOf { it.text().length }
+        if (inTables == 0) return false
+        val inParagraphs = body.select("p").sumOf { it.text().length }
+        return inTables > inParagraphs
+    }
+
+    /**
+     * A table row as one paragraph: its cells joined by " — " (speaker — line), with empty cells and
+     * line numbers dropped. Null for a row of nothing but punctuation (a stanza break), a row holding
+     * paragraphs of its own (they are read as paragraphs), or one holding a nested table.
+     */
+    private fun rowText(tr: Element): String? {
+        if (tr.selectFirst("p, table") != null) return null
+        val cells = tr.children().filter { it.tagName() == "td" || it.tagName() == "th" }
+            .map { it.text().trim() }
+            .filter { cell -> cell.isNotEmpty() && !cell.all { it.isDigit() } }
+        val text = cells.joinToString(" — ")
+        return text.takeIf { t -> t.any { it.isLetterOrDigit() } }
     }
 
     /** Resolves the source of an <img> (src) or SVG <image> (any *href attribute), or null if absent. */

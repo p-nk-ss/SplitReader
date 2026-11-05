@@ -154,4 +154,79 @@ class HtmlChapterExtractorTest {
         assertEquals("T", r.headingTitle)
         assertEquals(listOf("The only real paragraph."), r.mainParagraphs)
     }
+
+    // ── Text set in tables (2026-11-04: Czech R.U.R. opened empty, the Greek Iliad showed only notes) ──
+
+    @Test
+    fun `a play set in a table reads as one paragraph per line, speaker first`() {
+        val html = """
+            <body><h2>PŘEDEHRA</h2><p>Ústřední kancelář továrny.</p>
+            <table>
+              <tr><td>Domin</td><td>(slavnostně) A tehdy, slečno, starý Rossum napsal mezi své chemické vzorce tohleto.</td></tr>
+              <tr><td>Helena</td><td>Tak dál.</td></tr>
+              <tr><td></td><td></td></tr>
+              <tr><td>Domin</td><td>Dál? Teď šlo o to, dostat život ze zkumavky ven a zrychlit vývoj.</td></tr>
+            </table></body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(
+            listOf(
+                "Ústřední kancelář továrny.",
+                "Domin — (slavnostně) A tehdy, slečno, starý Rossum napsal mezi své chemické vzorce tohleto.",
+                "Helena — Tak dál.",
+                "Domin — Dál? Teď šlo o to, dostat život ze zkumavky ven a zrychlit vývoj.",
+            ),
+            allParagraphs(r),
+        )
+    }
+
+    @Test
+    fun `verse set in a table drops its line numbers and stanza dots`() {
+        val html = """
+            <body><h2>Α</h2>
+            <table>
+              <tr><td>Μούσα, τραγούδα το θυμό του ξακουστού Αχιλέα,</td><td></td></tr>
+              <tr><td>κι' όλα τα όρνια (του Διός έτσι είχε η γνώμη ορίσει),</td><td>5</td></tr>
+              <tr><td>.</td><td></td></tr>
+              <tr><td>Πιος τάχα λες τους έβαλε θεός να λογοφέρουν;</td><td></td></tr>
+            </table></body>
+        """.trimIndent()
+
+        assertEquals(
+            listOf(
+                "Μούσα, τραγούδα το θυμό του ξακουστού Αχιλέα,",
+                "κι' όλα τα όρνια (του Διός έτσι είχε η γνώμη ορίσει),",
+                "Πιος τάχα λες τους έβαλε θεός να λογοφέρουν;",
+            ),
+            allParagraphs(HtmlChapterExtractor.parse(html)),
+        )
+    }
+
+    @Test
+    fun `a small table in a book of paragraphs adds nothing, so saved positions keep their paragraphs`() {
+        val html = """
+            <body><h1>Chapter I</h1>
+            <p>A long first paragraph of the story, written in the ordinary way, with plenty of words in it.</p>
+            <table><tr><td>Table 1</td><td>12</td></tr></table>
+            <p>A second paragraph of the story, also long enough to outweigh the little table above it.</p>
+            </body>
+        """.trimIndent()
+
+        assertEquals(2, HtmlChapterExtractor.parse(html).mainParagraphs.size)
+    }
+
+    @Test
+    fun `a table without a heading, or before it, adds nothing, so no chapter appears or moves`() {
+        // A headless table file (a contents page) was dropped as empty; read, it would become a new
+        // chapter and renumber every chapter after it. Rows before a heading would open one.
+        val headless = """<body><table><tr><td>Domin</td><td>Slečno Gloryová, to byl ohromný okamžik.</td></tr></table></body>"""
+        assertTrue(HtmlChapterExtractor.parse(headless).isEmpty)
+        val before = """<body><table><tr><td>Domin</td><td>Slečno Gloryová, to byl ohromný okamžik.</td></tr></table>
+            <h2>PŘEDEHRA</h2><table><tr><td>Helena</td><td>Tak dál.</td></tr></table></body>"""
+        val r = HtmlChapterExtractor.parse(before)
+        assertEquals(emptyList<String>(), r.preHeadingParagraphs)
+        assertEquals(listOf("Helena — Tak dál."), r.mainParagraphs)
+    }
 }
