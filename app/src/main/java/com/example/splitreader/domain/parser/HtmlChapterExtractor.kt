@@ -111,7 +111,8 @@ object HtmlChapterExtractor {
             val tag = el.tagName()
             when {
                 tag in listOf("h1", "h2", "h3") -> foundHeading = true
-                tag == "tr" -> if (foundHeading) rowText(el)?.let(main::add)
+                // A table in a blockquote is read with the blockquote (as an epigraph), not twice.
+                tag == "tr" -> if (foundHeading && el.closest("blockquote") == null) rowText(el)?.let(main::add)
                 (tag == "img" || tag == "image") && foundHeading -> {
                     imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size, inLegacyLayout = true)) }
                 }
@@ -149,10 +150,13 @@ object HtmlChapterExtractor {
         // holding paragraphs or a nested table is counted through those.
         val inTables = body.select("td, th")
             .filter { it.select("p").isEmpty() && it.select("td, th").size == 1 }
+            .filter { it.closest("blockquote") == null && !isLinkCell(it) }
             .sumOf { it.text().length }
         if (inTables == 0) return false
         val inParagraphs = body.select("p").sumOf { it.text().length }
-        return inTables > inParagraphs
+        // Clearly more: a table that merely outweighs the prose (an appendix, a chronology) would
+        // put its rows between paragraphs that already read, and shift every saved position after.
+        return inTables > TABLE_DOMINANCE * inParagraphs
     }
 
     /**
@@ -162,12 +166,25 @@ object HtmlChapterExtractor {
      */
     private fun rowText(tr: Element): String? {
         if (tr.selectFirst("p, table") != null) return null
-        val cells = tr.children().filter { it.tagName() == "td" || it.tagName() == "th" }
-            .map { it.text().trim() }
-            .filter { cell -> cell.isNotEmpty() && !cell.all { it.isDigit() } }
+        val cellEls = tr.children().filter { it.tagName() == "td" || it.tagName() == "th" }
+        // A header row ("Year | Event"), or a contents row of links, is not text to read.
+        if (cellEls.isEmpty() || cellEls.all { it.tagName() == "th" } || tr.closest("thead") != null) return null
+        if (cellEls.all { it.text().isBlank() || isLinkCell(it) }) return null
+        val cells = cellEls.map { it.text().trim() }.filter { it.isNotEmpty() }.toMutableList()
+        // A number in the last column is a line or page number; elsewhere (a year) it is content.
+        if (cells.size > 1 && cells.last().all { it.isDigit() }) cells.removeAt(cells.lastIndex)
         val text = cells.joinToString(" — ")
         return text.takeIf { t -> t.any { it.isLetterOrDigit() } }
     }
+
+    /** A cell that is nothing but a link: a table of contents. */
+    private fun isLinkCell(cell: Element): Boolean {
+        val text = cell.text().trim()
+        return text.isNotEmpty() && cell.select("a").sumOf { it.text().trim().length } >= text.length
+    }
+
+    /** How many times the prose a table's text must be before its rows are read (see readsTables). */
+    private const val TABLE_DOMINANCE = 4
 
     /** Resolves the source of an <img> (src) or SVG <image> (any *href attribute), or null if absent. */
     private fun imageSrc(el: Element): String? {

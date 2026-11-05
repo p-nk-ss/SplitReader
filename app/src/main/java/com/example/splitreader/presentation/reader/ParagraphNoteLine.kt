@@ -33,7 +33,8 @@ internal data class ParagraphNotesUi(
     fun speechCode(chapter: Int, paragraph: Int, bookCode: String): String = when (val n = noteAt(chapter, paragraph)) {
         is ParagraphNote.TranslatedFrom -> n.language.code
         is ParagraphNote.NeedsModel -> n.language.code
-        is ParagraphNote.Original -> n.code.substringBefore('-')
+        // Romanised text ("hi-latn") read by a Hindi voice is gibberish: the book's voice reads Latin script.
+        is ParagraphNote.Original -> if (n.code.endsWith("-latn")) bookCode else n.code
         null -> bookCode
     }
 }
@@ -89,10 +90,10 @@ internal fun noteLabel(note: ParagraphNote, target: Language): String = when (no
 internal fun popupReason(note: ParagraphNote?, target: Language): String? = when (note) {
     null, is ParagraphNote.TranslatedFrom -> null
     is ParagraphNote.NeedsModel ->
-        "${languageName(note.language.code)} paragraph — tap Download and translate above its translation"
+        "${languageName(note.language.code)} paragraph — tap Download and translate beside it"
     is ParagraphNote.Original ->
         if (note.code == target.code) "Already in ${languageName(target.code)}"
-        else "${languageName(note.code)} can't be translated yet"
+        else "${languageName(note.code)} isn't supported for translation"
 }
 
 /** Test tag on [ParagraphNoteLine]. */

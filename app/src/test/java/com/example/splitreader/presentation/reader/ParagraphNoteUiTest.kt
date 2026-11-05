@@ -100,6 +100,13 @@ class ParagraphNoteUiTest {
     }
 
     @Test
+    fun `romanised text is read with the book's voice, not a voice for another script`() {
+        val ui = ParagraphNotesUi(mapOf(0 to mapOf(2 to ParagraphNote.Original("hi-latn"))))
+        assertEquals("en", ui.speechCode(0, 2, "en"))
+        assertEquals("la", ParagraphNotesUi(mapOf(0 to mapOf(2 to ParagraphNote.Original("la")))).speechCode(0, 2, "en"))
+    }
+
+    @Test
     fun `Listen on a word from a German paragraph speaks German`() {
         val brief = WordSelection("Brief", 0, 1, 4, 9, translation = SelectionTranslation.Ready("письмо"))
         show(ParagraphNotesUi(notes), selection = brief)

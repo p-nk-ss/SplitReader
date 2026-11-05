@@ -229,4 +229,47 @@ class HtmlChapterExtractorTest {
         assertEquals(emptyList<String>(), r.preHeadingParagraphs)
         assertEquals(listOf("Helena — Tak dál."), r.mainParagraphs)
     }
+
+    // ── Review (v22): only books whose text really is in tables change ──
+
+    @Test
+    fun `a contents table bigger than the prose around it adds nothing`() {
+        val rows = (1..30).joinToString("") { "<tr><td><a href=\"#ch$it\">Chapter $it. The adventure of the number $it</a></td><td><a href=\"#ch$it\">$it</a></td></tr>" }
+        val html = """<body><h1>The Book</h1><p>Contents</p><table>$rows</table>
+            <p>Transcriber's note: spelling has been kept as in the original.</p></body>"""
+        assertEquals(2, HtmlChapterExtractor.parse(html).mainParagraphs.size)
+    }
+
+    @Test
+    fun `a table that only outweighs the prose a little adds nothing`() {
+        val rows = (1..6).joinToString("") { "<tr><td>Year $it of the reign</td><td>The harvest failed again and the granaries stood empty</td></tr>" }
+        val prose = "<p>" + "A long paragraph of ordinary prose about the reign and its troubles. ".repeat(3) + "</p>"
+        val html = "<body><h1>Appendix</h1>$prose<table>$rows</table>$prose</body>"
+        assertEquals(2, HtmlChapterExtractor.parse(html).mainParagraphs.size)
+    }
+
+    @Test
+    fun `a table inside a blockquote is not read twice`() {
+        val html = """<body><h2>I</h2><blockquote><table>
+            <tr><td>Arma virumque cano, Troiae qui primus ab oris</td></tr>
+            <tr><td>Italiam fato profugus Laviniaque venit litora</td></tr></table></blockquote></body>"""
+        val all = allParagraphs(HtmlChapterExtractor.parse(html))
+        assertEquals("$all", 1, all.count { "Arma virumque" in it })
+    }
+
+    @Test
+    fun `a year in the first column is kept, a line number in the last is dropped, a header row is skipped`() {
+        val html = """<body><h2>Chronology</h2><table>
+            <tr><th>Year</th><th>Event</th></tr>
+            <tr><td>1066</td><td>Battle of Hastings, and the end of Anglo-Saxon rule in England</td></tr>
+            <tr><td>Domesday Book compiled for the whole of the conquered kingdom</td><td>5</td></tr>
+            </table></body>"""
+        assertEquals(
+            listOf(
+                "1066 — Battle of Hastings, and the end of Anglo-Saxon rule in England",
+                "Domesday Book compiled for the whole of the conquered kingdom",
+            ),
+            allParagraphs(HtmlChapterExtractor.parse(html)),
+        )
+    }
 }
