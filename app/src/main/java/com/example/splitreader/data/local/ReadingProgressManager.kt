@@ -203,8 +203,8 @@ class ReadingProgressManager @Inject constructor(
         prefs.edit().putString("translator_provider", provider.name).apply()
     }
 
-    override fun getTranslatorProvider(): TranslationProvider =
-        TranslationProvider.fromName(prefs.getString("translator_provider", null))
+    override fun getTranslatorProvider(): TranslationProvider? =
+        prefs.getString("translator_provider", null)?.let(TranslationProvider::fromName)
 
     // ── Read-aloud (TTS) ───────────────────────────────────────────────────────
 

@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.update
  * When [log] is given, every provider write appends `"select <PROVIDER>"` to it.
  */
 internal class FakeReadingPreferences(
-    @Volatile var provider: TranslationProvider = TranslationProvider.QUICK_TRANSLATE,
+    @Volatile var provider: TranslationProvider? = TranslationProvider.QUICK_TRANSLATE,
     private val log: MutableList<String>? = null,
 ) : ReadingPreferences {
     @get:JvmName("storedTargetLanguage") var targetLanguage = Language.RUSSIAN

@@ -185,13 +185,13 @@ fun AppShell(
         // to landscape showed the start of the book. Pinned by AppShellStateRestorationTest.
         Column(Modifier.fillMaxSize()) {
             when {
-                // The strip is pure chrome — wordmark and either "ML KIT READY" or the avatar —
+                // The strip is pure chrome — the wordmark, and the avatar on a phone —
                 // and while reading it is only lost page area. But it is also the app's only
                 // consumer of the top inset, so it cannot simply vanish: without this spacer the
                 // first line of text would run under the system clock. Reclaims the strip's
                 // 30/44dp and keeps the inset. The short-rail arm never shows the strip: the
-                // account avatar lives in the rail, so the strip would hold only the wordmark and
-                // "ML KIT READY" — decoration, in the posture with the least room.
+                // account avatar lives in the rail, so the strip would hold only the wordmark —
+                // decoration, in the posture with the least room.
                 isReader || arm == ShellArm.SHORT_RAIL ->
                     Spacer(Modifier.fillMaxWidth().windowInsetsPadding(shellInsets.only(WindowInsetsSides.Top)))
                 arm == ShellArm.COMPACT -> AppStatusStrip(
@@ -321,21 +321,8 @@ private fun AppStatusStrip(
                 color = palette.ink3,
                 modifier = Modifier.weight(1f),
             )
-            if (trailing != null) {
-                // Compact: the avatar takes the right slot. "ML KIT READY" is decorative, not a
-                // state indicator, and at 360dp it would fight the avatar for room.
-                trailing()
-            } else {
-                Text(
-                    text = "ML KIT READY",
-                    fontFamily = JetBrainsMono,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.5.sp,
-                    color = palette.ink3,
-                    textAlign = TextAlign.End,
-                )
-            }
+            // Compact: the avatar takes the right slot. Wider postures keep the account in the rail.
+            trailing?.invoke()
         }
     }
 }

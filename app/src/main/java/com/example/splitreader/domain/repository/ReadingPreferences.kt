@@ -30,7 +30,8 @@ interface ReadingPreferences {
     fun savePortraitHintDismissed(dismissed: Boolean)
     fun getPortraitHintDismissed(): Boolean
     fun setTranslatorProvider(provider: TranslationProvider)
-    fun getTranslatorProvider(): TranslationProvider
+    /** The translator the reader chose; null if they never chose one (the default applies). */
+    fun getTranslatorProvider(): TranslationProvider?
     fun saveTtsRate(rate: Float)
     fun getTtsRate(): Float
     fun saveTtsPitch(pitch: Float)

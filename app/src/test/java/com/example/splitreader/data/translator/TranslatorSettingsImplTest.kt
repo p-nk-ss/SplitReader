@@ -3,6 +3,7 @@ package com.example.splitreader.data.translator
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProvider.AZURE
+import com.example.splitreader.domain.model.TranslationProvider.BERGAMOT
 import com.example.splitreader.domain.model.TranslationProvider.DEEPL
 import com.example.splitreader.domain.model.TranslationProvider.GOOGLE_CLOUD
 import com.example.splitreader.domain.model.TranslationProvider.MLKIT
@@ -81,6 +82,38 @@ class TranslatorSettingsImplTest {
     private fun TestScope.newSettings(current: TranslationProvider): Pair<FakeReadingPreferences, TranslatorSettingsImpl> {
         val prefs = FakeReadingPreferences(provider = current, log = log)
         return prefs to settings(prefs, StandardTestDispatcher(testScheduler))
+    }
+
+    // ── Default translator (2026-11-06): Offline HQ, better than ML Kit, where it runs ──
+
+    @Test
+    fun `a reader who never chose a translator gets Offline HQ`() = runTest {
+        val prefs = FakeReadingPreferences(provider = null, log = log)
+        val settings = settings(prefs, StandardTestDispatcher(testScheduler))
+        assertEquals(BERGAMOT, settings.config.value.current)
+        settings.refresh()
+        assertEquals(BERGAMOT, settings.config.value.current)
+    }
+
+    @Test
+    fun `without the Offline HQ engine (a 32-bit device) the default is ML Kit`() = runTest {
+        val prefs = FakeReadingPreferences(provider = null, log = log)
+        val providers = TranslationProvider.entries.associateWith { p ->
+            if (p == BERGAMOT) object : TranslationProviderApi {
+                override val id = BERGAMOT
+                override fun isConfigured() = false
+                override suspend fun translate(text: String, source: Language, target: Language) = text
+            } else FakeProvider(p, keys)
+        }
+        val settings = TranslatorSettingsImpl(keys, endpoints, usage, prefs, providers, StandardTestDispatcher(testScheduler))
+        assertEquals(MLKIT, settings.config.value.current)
+    }
+
+    @Test
+    fun `a reader's own choice of ML Kit stays`() = runTest {
+        val (_, settings) = newSettings(MLKIT)
+        settings.refresh()
+        assertEquals(MLKIT, settings.config.value.current)
     }
 
     @Test

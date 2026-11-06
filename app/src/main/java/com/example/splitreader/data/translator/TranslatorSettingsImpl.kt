@@ -32,12 +32,12 @@ class TranslatorSettingsImpl @Inject constructor(
 ) : TranslatorSettings {
     private val mutex = Mutex()
     private val _config = MutableStateFlow(
-        TranslatorConfigState(current = prefs.getTranslatorProvider(), configs = emptyMap()),
+        TranslatorConfigState(current = current(), configs = emptyMap()),
     )
     override val config: StateFlow<TranslatorConfigState> = _config.asStateFlow()
 
     override suspend fun select(provider: TranslationProvider) = command {
-        if (prefs.getTranslatorProvider() != provider) prefs.setTranslatorProvider(provider)
+        if (current() != provider) prefs.setTranslatorProvider(provider)
     }
 
     override suspend fun saveKey(provider: TranslationProvider, key: String?, secondary: String?) = command {
@@ -48,18 +48,27 @@ class TranslatorSettingsImpl @Inject constructor(
 
     override suspend fun clear(provider: TranslationProvider) = command {
         keys.setKey(provider, null)
-        if (prefs.getTranslatorProvider() == provider) prefs.setTranslatorProvider(TranslationProvider.MLKIT)
+        if (current() == provider) prefs.setTranslatorProvider(TranslationProvider.MLKIT)
     }
 
     override suspend fun resetUsage(provider: TranslationProvider) = command { usage.reset(provider) }
 
     override suspend fun refresh() = command { }
 
+    /**
+     * The reader's choice, or — never chosen — Offline HQ, the best on-device engine (it covers all
+     * 18 languages). ML Kit only where Offline HQ can't run (its native library is 64-bit only).
+     */
+    private fun current(): TranslationProvider =
+        prefs.getTranslatorProvider()
+            ?: if (providers[TranslationProvider.BERGAMOT]?.isConfigured() == true) TranslationProvider.BERGAMOT
+            else TranslationProvider.MLKIT
+
     /** Every write and the rebuild happen under one lock, off the main thread: a stale config can't be published. */
     private suspend fun command(write: () -> Unit) = withContext(io) {
         mutex.withLock {
             write()
-            _config.value = build(prefs.getTranslatorProvider())
+            _config.value = build(current())
         }
     }
 
