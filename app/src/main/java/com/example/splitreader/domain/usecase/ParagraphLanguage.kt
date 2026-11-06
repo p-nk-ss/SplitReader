@@ -31,7 +31,7 @@ class ParagraphLanguage @Inject constructor(
      * misdetected as Spanish but read as Portuguese would be translated from Spanish after all.
      */
     suspend fun decide(text: String, book: Language, target: Language, bookDetectedAs: String? = null): Decision {
-        if (weightedLength(text.trim()) < MIN_CHARS) return Decision.Book
+        if (weightedLength(text.trim(), cap = MIN_CHARS) < MIN_CHARS) return Decision.Book
         val tag = identify(text) ?: return Decision.Book
         if (bookDetectedAs != null && SourceDetection.normalizeTag(tag) == bookDetectedAs) return Decision.Book
         return when (val detection = SourceDetection.fromTag(tag)) {
@@ -72,11 +72,12 @@ class ParagraphLanguage @Inject constructor(
         /**
          * Length in "letters" for [MIN_CHARS]: 49 Chinese characters are a long sentence, not a short
          * line (found 2026-11-06: in an English book such a paragraph went to EN→RU and came out as garbage).
+         * Counting stops at [cap]: a chapter stored as one paragraph needn't be scanned to the end.
          */
-        internal fun weightedLength(text: String): Int {
+        internal fun weightedLength(text: String, cap: Int = Int.MAX_VALUE): Int {
             var n = 0
             var i = 0
-            while (i < text.length) {
+            while (i < text.length && n < cap) {
                 val cp = text.codePointAt(i)
                 n += if (isCjk(cp)) CJK_WEIGHT else 1
                 i += Character.charCount(cp)

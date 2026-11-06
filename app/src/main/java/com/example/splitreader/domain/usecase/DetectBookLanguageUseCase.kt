@@ -48,9 +48,11 @@ class DetectBookLanguageUseCase @Inject constructor(
          */
         fun languageSamples(book: Book): List<String> {
             val lines = book.chapters.flatMap { it.paragraphs }.map { it.trim() }.filter { it.isNotEmpty() }
-            val long = lines.filter { it.length >= MIN_PARAGRAPH }
+            // Weighted: 30 kana and kanji are a long line (a book of short Japanese poems and a long English
+            // note came out English when only the note counted as prose).
+            val long = lines.filter { ParagraphLanguage.weightedLength(it, cap = MIN_PARAGRAPH) >= MIN_PARAGRAPH }
             // Verse and plays are short lines; with too little long prose, sample every line instead.
-            val prose = if (long.sumOf { it.length } >= SAMPLES * SAMPLE_CHARS / 2) long else lines
+            val prose = if (long.sumOf { ParagraphLanguage.weightedLength(it) } >= SAMPLES * SAMPLE_CHARS / 2) long else lines
             if (prose.isEmpty()) return emptyList()
             val text = prose.joinToString("\n")
             val trim = if (text.length >= 2 * SAMPLES * SAMPLE_CHARS) text.length / 20 else 0

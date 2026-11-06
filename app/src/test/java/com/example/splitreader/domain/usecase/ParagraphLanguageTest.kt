@@ -91,6 +91,22 @@ class ParagraphLanguageTest {
     }
 
     @Test
+    fun `twenty Han characters reach the bar, nineteen don't`() = runTest {
+        val nineteen = Confident("zh")
+        assertEquals(ParagraphLanguage.Decision.Book, ParagraphLanguage(nineteen).decide("天".repeat(19), Language.ENGLISH, Language.RUSSIAN))
+        assertTrue(nineteen.asked.isEmpty())
+        val twenty = Confident("zh")
+        ParagraphLanguage(twenty).decide("天".repeat(20), Language.ENGLISH, Language.RUSSIAN)
+        assertEquals(1, twenty.asked.size)
+    }
+
+    @Test
+    fun `a character outside the BMP counts once, and CJK punctuation as a letter`() {
+        assertEquals(3, ParagraphLanguage.weightedLength("𠀀"))
+        assertEquals(5, ParagraphLanguage.weightedLength("。、「」ー"))
+    }
+
+    @Test
     fun `romanised text of a non-Latin language is kept, not translated as that language`() = runTest {
         assertEquals(ParagraphLanguage.Decision.Keep("hi-latn"), decide("hi-Latn"))
     }

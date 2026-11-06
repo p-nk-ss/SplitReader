@@ -39,6 +39,19 @@ class DetectBookLanguageUseCaseTest {
         assertTrue(detector.asked.isNotEmpty())
     }
 
+    /**
+     * A collection of short Japanese poems with a long English translator's note (review, 2026-11-06): every
+     * poem is under 40 characters, so the note alone counted as "prose" and the book came out English.
+     * 30 kana and kanji are a long line, not a short one.
+     */
+    @Test
+    fun `short Japanese lines are prose, not outvoted by an English note`() = runTest {
+        val poems = List(60) { "古池や蛙飛び込む水の音、静かな夜の庭に月の光が落ちる$it" }
+        val note = List(12) { "This translator's note explains the meter and the seasonal words of each poem in some detail, $it." }
+        val detector = Scripted { text -> if (text.count { it in 'a'..'z' } > text.length / 2) "en" else "ja" }
+        assertEquals(SourceDetection.Supported(Language.JAPANESE), DetectBookLanguageUseCase(detector)(book(note + poems)))
+    }
+
     /** ML Kit tags romanised text ("hi-Latn"); the translators expect Hindi in Devanagari, so it isn't Hindi to them. */
     @Test
     fun `a romanised non-Latin language is Unsupported`() = runTest {
