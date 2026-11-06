@@ -72,6 +72,24 @@ class ParagraphLanguageTest {
         assertTrue(detector.asked.single().length <= 1000)
     }
 
+    // ── CJK (2026-11-06): 49 Chinese characters are a long sentence, not a "short line" ──
+    // In an English book they went to EN→RU as if English and came out as garbage.
+
+    @Test
+    fun `a Chinese sentence of fifty characters is told apart, though under sixty characters`() = runTest {
+        val zh = "此開卷第一回也。作者自云：因曾歷過一番夢幻之後，故將真事隱去，而借通靈之說，撰此《石頭記》一書也。"
+        assertEquals(ParagraphLanguage.Decision.Other(Language.CHINESE), ParagraphLanguage(Confident("zh")).decide(zh, Language.ENGLISH, Language.RUSSIAN))
+    }
+
+    @Test
+    fun `a Japanese sentence is told apart too, but a two-word reply still isn't`() = runTest {
+        val ja = "或日の暮方の事である。一人の下人が、羅生門の下で雨やみを待っていた。"
+        assertEquals(ParagraphLanguage.Decision.Other(Language.JAPANESE), ParagraphLanguage(Confident("ja")).decide(ja, Language.ENGLISH, Language.RUSSIAN))
+        val detector = Confident("ja")
+        assertEquals(ParagraphLanguage.Decision.Book, ParagraphLanguage(detector).decide("はい、そうです。", Language.ENGLISH, Language.RUSSIAN))
+        assertTrue(detector.asked.isEmpty())
+    }
+
     @Test
     fun `romanised text of a non-Latin language is kept, not translated as that language`() = runTest {
         assertEquals(ParagraphLanguage.Decision.Keep("hi-latn"), decide("hi-Latn"))

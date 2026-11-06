@@ -31,7 +31,7 @@ class ParagraphLanguage @Inject constructor(
      * misdetected as Spanish but read as Portuguese would be translated from Spanish after all.
      */
     suspend fun decide(text: String, book: Language, target: Language, bookDetectedAs: String? = null): Decision {
-        if (text.trim().length < MIN_CHARS) return Decision.Book
+        if (weightedLength(text.trim()) < MIN_CHARS) return Decision.Book
         val tag = identify(text) ?: return Decision.Book
         if (bookDetectedAs != null && SourceDetection.normalizeTag(tag) == bookDetectedAs) return Decision.Book
         return when (val detection = SourceDetection.fromTag(tag)) {
@@ -65,6 +65,30 @@ class ParagraphLanguage @Inject constructor(
     companion object {
         /** Shorter lines (replies, names, headings) are too short to tell a language by reliably. */
         const val MIN_CHARS = 60
+
+        /** A Chinese/Japanese/Korean character carries about a word: it counts as this many letters. */
+        private const val CJK_WEIGHT = 3
+
+        /**
+         * Length in "letters" for [MIN_CHARS]: 49 Chinese characters are a long sentence, not a short
+         * line (found 2026-11-06: in an English book such a paragraph went to EN→RU and came out as garbage).
+         */
+        internal fun weightedLength(text: String): Int {
+            var n = 0
+            var i = 0
+            while (i < text.length) {
+                val cp = text.codePointAt(i)
+                n += if (isCjk(cp)) CJK_WEIGHT else 1
+                i += Character.charCount(cp)
+            }
+            return n
+        }
+
+        private fun isCjk(cp: Int): Boolean = when (Character.UnicodeScript.of(cp)) {
+            Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA,
+            Character.UnicodeScript.KATAKANA, Character.UnicodeScript.HANGUL -> true
+            else -> false
+        }
         private const val MAX_SAMPLE = 1000
         private const val CACHE_SIZE = 2000
 
