@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+<description>
+<title-info>
+<book-title>The Complete Letters</book-title>
+<author><first-name>First</first-name><last-name>Last</last-name></author>
+<annotation><p>A short demonstration novella collecting letters, verse and a long aside, built to exercise every FB2 feature the Mirrolit parser understands.</p></annotation>
+<coverpage><image l:href="#cover.png" xmlns:l="http://www.w3.org/1999/xlink"/></coverpage>
+</title-info>
+</description>
+<body>
+<epigraph>
+<p>Every letter is a kind of arrival, however long delayed by weather, distance or doubt.</p>
+<text-author>An old saying</text-author>
+</epigraph>
+<section>
+<title><p>Part One</p></title>
+<section>
+<title><p>The First Letter</p></title>
+<epigraph>
+<p>Even the shortest letter carries the whole weight of the one who wrote it.</p>
+<text-author>Unknown</text-author>
+</epigraph>
+<p>The letter arrived on a grey morning, long after everyone had stopped expecting it, and the professor read it twice before he said a word to anyone in the house.</p>
+<p>He folded it along its old crease and set it on the table, where it stayed for the rest of that long and otherwise unremarkable day.</p>
+<poem>
+<title><p>A Verse Enclosed</p></title>
+<stanza>
+<v>The river does not wait for spring,</v>
+<v>nor spring for any river's leave,</v>
+<v>and still the letters come and cling</v>
+<v>to names that no one dares to grieve.</v>
+</stanza>
+</poem>
+<subtitle>A note in another hand</subtitle>
+<cite>
+<p>This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. This single long quotation runs on for a very great while, repeating its own cadence until it has, by sheer accumulation, passed five thousand characters of enclosed, cited prose that nobody in the house had the patience to read aloud in one sitting, though everyone agreed it was, in its way, rather beautiful and worth keeping for that reason alone. </p>
+</cite>
+</section>
+<section>
+<title><p>The Second Letter</p></title>
+<p>Unlike the first, this letter was short, and its handwriting suggested it had been written standing up, perhaps at a window, perhaps in a hurry.</p>
+<p>Still, it ended the way all the good ones did, with a promise to write again before the month was out.</p>
+</section>
+</section>
+</body>
+<binary id="cover.png" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mOQczgBAAGmASfeGDAJAAAAAElFTkSuQmCC</binary>
+</FictionBook>

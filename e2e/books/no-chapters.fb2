@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+<description>
+<title-info>
+<book-title>No Qualifying Chapters</book-title>
+<author><first-name>Test</first-name><last-name>Author</last-name></author>
+</title-info>
+</description>
+<body>
+<section>
+<title><p>Wrapper</p></title>
+<section>
+<title><p>Empty Section One</p></title>
+</section>
+<section>
+<title><p>Empty Section Two</p></title>
+</section>
+</section>
+</body>
+</FictionBook>

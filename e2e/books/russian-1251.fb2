@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+<description>
+<title-info>
+<book-title>Ветер над рекой</book-title>
+<author><first-name>Иван</first-name><last-name>Иванов</last-name></author>
+</title-info>
+</description>
+<body>
+<section>
+<title><p>Глава первая</p></title>
+<p>В тот вечер над городом долго висел тёплый туман, и фонари на набережной светили мягко, будто сквозь тонкую ткань.</p>
+<p>Катерина стояла у окна долго, словно ждала какого-то знака с другого берега, который так и не подали той ночью.</p>
+</section>
+</body>
+</FictionBook>
