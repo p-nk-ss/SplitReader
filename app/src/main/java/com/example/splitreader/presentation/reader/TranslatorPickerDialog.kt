@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -266,6 +267,7 @@ private fun ProviderRow(
             Spacer(Modifier.size(sp.xs))
             Box(
                 modifier = Modifier
+                    .testTag(translatorEditKeyTag(provider))
                     .size(28.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (selected) palette.bg.copy(alpha = 0.18f) else palette.bg)
@@ -469,6 +471,15 @@ private fun UsageBar(usage: TranslationUsage, onDark: Boolean, onReset: () -> Un
         }
     }
 }
+
+/**
+ * The "edit API key" pencil button's testTag for one [provider] — the only way to open that
+ * provider's key entry (`ApiKeyDialog`) for a *specific* advanced provider: its "TAP TO ADD API
+ * KEY" text is repeated identically on every unconfigured advanced card, so it cannot be targeted
+ * by text alone (task-1 hierarchy notes).
+ */
+internal fun translatorEditKeyTag(provider: TranslationProvider): String =
+    "translator_edit_${provider.name.lowercase()}"
 
 private fun formatChars(value: Long): String = when {
     value >= 1_000_000 -> "%.1fM".format(value / 1_000_000.0)

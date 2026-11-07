@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,6 +62,8 @@ fun SliderRow(
     valueLabel: String,
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
+    /** Addresses this specific slider for Maestro; bare `SeekBar`s carry no text/content-desc. */
+    tag: String? = null,
 ) {
     val palette = LocalReaderPalette.current
     Column {
@@ -72,7 +75,7 @@ fun SliderRow(
             value = value,
             onValueChange = onValueChange,
             valueRange = valueRange,
-            modifier = Modifier.fillMaxWidth().height(22.dp),
+            modifier = Modifier.fillMaxWidth().height(22.dp).let { if (tag != null) it.testTag(tag) else it },
             colors = SliderDefaults.colors(
                 thumbColor = palette.bg,
                 activeTrackColor = palette.accent,
@@ -81,6 +84,18 @@ fun SliderRow(
         )
     }
 }
+
+/**
+ * One testTag per [TypographyControls] slider — shared by the reader's in-session Display dialog
+ * and the global Settings screen, since both render this function. Bare `SeekBar`s carry no
+ * text/content-desc of their own, so Maestro cannot otherwise tell "the font-size slider" from
+ * "the line-height slider" by anything but screen position (task-1 hierarchy notes).
+ */
+const val FONT_SIZE_SLIDER_TAG = "font_size_slider"
+const val LINE_HEIGHT_SLIDER_TAG = "line_height_slider"
+const val PARAGRAPH_SPACING_SLIDER_TAG = "paragraph_spacing_slider"
+const val LETTER_SPACING_SLIDER_TAG = "letter_spacing_slider"
+const val FIRST_LINE_INDENT_SLIDER_TAG = "first_line_indent_slider"
 
 /**
  * The full set of reading-typography controls (typeface, size, spacing, indent, justification,
@@ -120,6 +135,7 @@ fun TypographyControls(
         valueLabel = "${appearance.textSize.toInt()}sp",
         valueRange = ReadingDefaults.TEXT_SIZE_RANGE,
         onValueChange = { v -> onChange { it.copy(textSize = v) } },
+        tag = FONT_SIZE_SLIDER_TAG,
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
@@ -128,6 +144,7 @@ fun TypographyControls(
         valueLabel = "×${"%.2f".format(appearance.lineHeight)}",
         valueRange = ReadingDefaults.LINE_HEIGHT_RANGE,
         onValueChange = { v -> onChange { it.copy(lineHeight = v) } },
+        tag = LINE_HEIGHT_SLIDER_TAG,
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
@@ -136,6 +153,7 @@ fun TypographyControls(
         valueLabel = "${appearance.paragraphSpacing.toInt()}dp",
         valueRange = ReadingDefaults.PARAGRAPH_SPACING_RANGE,
         onValueChange = { v -> onChange { it.copy(paragraphSpacing = v) } },
+        tag = PARAGRAPH_SPACING_SLIDER_TAG,
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
@@ -144,6 +162,7 @@ fun TypographyControls(
         valueLabel = "${"%.2f".format(appearance.letterSpacing)}sp",
         valueRange = ReadingDefaults.LETTER_SPACING_RANGE,
         onValueChange = { v -> onChange { it.copy(letterSpacing = v) } },
+        tag = LETTER_SPACING_SLIDER_TAG,
     )
     Spacer(Modifier.height(sp.sm))
     SliderRow(
@@ -152,6 +171,7 @@ fun TypographyControls(
         valueLabel = "${appearance.textIndent.toInt()}sp",
         valueRange = ReadingDefaults.TEXT_INDENT_RANGE,
         onValueChange = { v -> onChange { it.copy(textIndent = v) } },
+        tag = FIRST_LINE_INDENT_SLIDER_TAG,
     )
 
     Spacer(Modifier.height(sp.sm))

@@ -111,6 +111,7 @@ import com.example.splitreader.presentation.theme.LocalSpacing
 import com.example.splitreader.presentation.theme.Newsreader
 import android.app.Activity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import com.example.splitreader.presentation.premium.PremiumViewModel
 import com.example.splitreader.presentation.premium.PurchaseEventEffect
 import com.example.splitreader.presentation.ui.LibraryLimitDialog
@@ -264,6 +265,7 @@ internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: (alsoR
     val interaction = remember { MutableInteractionSource() }
     Column(
         modifier = Modifier
+            .testTag("book_card_${book.title}")
             .fillMaxWidth()
             .pressScale(interaction)
             .clickable(

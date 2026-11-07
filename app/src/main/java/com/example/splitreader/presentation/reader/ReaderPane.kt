@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -87,6 +88,17 @@ import com.example.splitreader.presentation.theme.fontFamily
 import java.text.BreakIterator
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+/**
+ * TestTags for one paragraph row, shared by [BookSpread] (side-by-side) and [VerticalBookSpread]
+ * (stacked) so a flow can assert a specific paragraph's position after reopening a book or
+ * rotating the device, regardless of which layout rendered it.
+ */
+internal fun originalParagraphTag(chapterIndex: Int, paragraphIndex: Int): String =
+    "original_${chapterIndex}_$paragraphIndex"
+
+internal fun translationParagraphTag(chapterIndex: Int, paragraphIndex: Int): String =
+    "translation_${chapterIndex}_$paragraphIndex"
 
 // ── Page gutter ───────────────────────────────────────────────────────────
 
@@ -386,7 +398,12 @@ internal fun BookSpread(
                             drawLine(ruleColor, Offset(gutterX, 0f), Offset(gutterX, size.height), 1.dp.toPx())
                         },
                     ) {
-                        Box(Modifier.weight(effectiveRatio).padding(start = horizontalMargin.dp, end = 12.dp)) {
+                        Box(
+                            Modifier
+                                .weight(effectiveRatio)
+                                .padding(start = horizontalMargin.dp, end = 12.dp)
+                                .testTag(originalParagraphTag(chapterIndex, idx)),
+                        ) {
                             ParagraphItem(
                                 text = original,
                                 index = idx,
@@ -408,6 +425,7 @@ internal fun BookSpread(
                                 .weight(1f - effectiveRatio)
                                 .padding(start = 12.dp, end = horizontalMargin.dp)
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
+                                .testTag(translationParagraphTag(chapterIndex, idx)),
                         ) {
                             // Translation text always visible (dimmed when bubble is active).
                             // Crossfade so the skeleton placeholder eases into the resolved
@@ -444,7 +462,12 @@ internal fun BookSpread(
                         }
                     }
                 } else {
-                    Box(Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp)) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = horizontalMargin.dp)
+                            .testTag(originalParagraphTag(chapterIndex, idx)),
+                    ) {
                         ParagraphItem(
                             text = original,
                             index = idx,

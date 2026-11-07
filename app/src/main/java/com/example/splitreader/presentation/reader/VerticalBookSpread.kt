@@ -307,7 +307,12 @@ internal fun VerticalBookSpread(
                             ?.takeIf { isSelected }
                             ?.let { it.startChar to it.endChar }
                             ?: (-1 to -1)
-                        Box(Modifier.fillMaxWidth().padding(horizontal = horizontalMargin.dp)) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = horizontalMargin.dp)
+                                .testTag(originalParagraphTag(chapterIndex, idx)),
+                        ) {
                             ParagraphItem(
                                 text = original,
                                 index = idx,
@@ -388,6 +393,7 @@ internal fun VerticalBookSpread(
                                 .fillMaxWidth()
                                 .padding(horizontal = horizontalMargin.dp)
                                 .alpha(if (wordSelection != null && !isSelected) 0.2f else 1f)
+                                .testTag(translationParagraphTag(chapterIndex, idx)),
                         ) {
                             // Two nested alphas, matching the landscape spread exactly: the outer
                             // one dims OTHER paragraphs' translations while a bubble is open, this

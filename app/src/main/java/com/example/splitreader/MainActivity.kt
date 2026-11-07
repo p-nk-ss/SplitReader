@@ -7,6 +7,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -50,7 +54,7 @@ class MainActivity : ComponentActivity() {
             val isDark = readerPalette(themeKey).isDark
             LaunchedEffect(isDark) { applySystemBars(isDark) }
             SplitReaderTheme(readerThemeKey = themeKey) {
-                SplitReaderNavHost()
+                SplitReaderNavHost(modifier = Modifier.e2eRoot())
             }
         }
     }
@@ -74,3 +78,17 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+
+/**
+ * Makes every [androidx.compose.ui.platform.testTag] under this node address a view via
+ * `resource-id` for Maestro/UiAutomator, which otherwise only see Compose test tags through
+ * `maestro hierarchy`'s slower, less reliable text/bounds matching.
+ *
+ * Applied once here on [SplitReaderNavHost]'s root, and again inside any `Dialog`/`Popup` — those
+ * open a separate `AndroidComposeView` (a new semantics root) that does not inherit this property
+ * from its composing ancestor, so a tag inside one is otherwise invisible as a resource-id even
+ * though this modifier runs above it in the call tree (see `EditorialDialog`, the shared wrapper
+ * for the reader's dialogs).
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+internal fun Modifier.e2eRoot(): Modifier = this.semantics { testTagsAsResourceId = true }

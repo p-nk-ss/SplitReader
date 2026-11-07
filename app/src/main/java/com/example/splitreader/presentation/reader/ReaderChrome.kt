@@ -87,7 +87,7 @@ internal fun ReaderTopBar(
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) {
+        IconButton(onClick = onBack, modifier = Modifier.testTag(READER_BACK_BUTTON)) {
             Icon(Icons.AutoMirrored.Outlined.ArrowBack, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
 
@@ -119,7 +119,7 @@ internal fun ReaderTopBar(
             onClick = onOpenLanguagePicker,
         )
 
-        IconButton(onClick = onOpenTranslatorPicker) {
+        IconButton(onClick = onOpenTranslatorPicker, modifier = Modifier.testTag(READER_TRANSLATOR_PICKER_BUTTON)) {
             Icon(Icons.Outlined.Translate, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
         IconButton(
@@ -131,7 +131,7 @@ internal fun ReaderTopBar(
         IconButton(onClick = onOpenChapterPicker, modifier = Modifier.testTag(READER_CHAPTERS_BUTTON)) {
             Icon(Icons.Outlined.FormatListBulleted, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
-        IconButton(onClick = onOpenBookmarks) {
+        IconButton(onClick = onOpenBookmarks, modifier = Modifier.testTag(READER_BOOKMARKS_BUTTON)) {
             Icon(
                 if (state.isCurrentPositionBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
                 contentDescription = "Bookmarks",
@@ -142,11 +142,25 @@ internal fun ReaderTopBar(
     }
 }
 
+/** Test tags on the reader top bar's icon buttons — all previously unaddressable by text/desc. */
+internal const val READER_BACK_BUTTON = "reader:backButton"
+internal const val READER_TRANSLATOR_PICKER_BUTTON = "reader:translatorPickerButton"
+internal const val READER_CHAPTERS_BUTTON = "reader:chaptersButton"
+internal const val READER_BOOKMARKS_BUTTON = "reader:bookmarksButton"
+
+/**
+ * The clickable language chip ("EN → RU") itself, distinct from the footer's read-only text with
+ * the identical substring — `maestro tapOn: "EN → RU"` matched the footer first and silently did
+ * nothing (task-1 hierarchy notes).
+ */
+internal const val READER_LANGUAGE_CHIP = "reader:languageChip"
+
 @Composable
 private fun LangChip(source: String, target: String, onClick: () -> Unit) {
     val palette = LocalReaderPalette.current
     Row(
         modifier = Modifier
+            .testTag(READER_LANGUAGE_CHIP)
             .clip(RoundedCornerShape(8.dp))
             .background(palette.bg)
             .border(1.dp, palette.edge, RoundedCornerShape(8.dp))

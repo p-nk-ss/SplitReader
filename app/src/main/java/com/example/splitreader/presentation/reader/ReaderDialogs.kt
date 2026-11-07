@@ -58,6 +58,7 @@ import com.example.splitreader.R
 import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
 import androidx.compose.ui.platform.testTag
+import com.example.splitreader.e2eRoot
 import com.example.splitreader.domain.model.SourceDetection
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
@@ -95,6 +96,11 @@ internal fun EditorialDialog(
     ) { dismiss ->
         Column(
             modifier = Modifier
+                // A Dialog opens its own AndroidComposeView — a disconnected semantics root — so
+                // MainActivity's e2eRoot() on the NavHost never reaches in here; every dialog built
+                // on this shared shell (translator picker, display settings, chapters, bookmarks,
+                // language picker, API key, reset counter) needs its own, applied at this one spot.
+                .e2eRoot()
                 .widthIn(max = 560.dp)
                 .fillMaxWidth(0.85f)
                 .heightIn(max = maxDialogHeight)
