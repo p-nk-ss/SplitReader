@@ -1,6 +1,6 @@
 # Fixture books — sources, hashes, and journey coverage
 
-Built by `build_fixtures.py` (synthetic, committed — total ≈ 87.5 KB, well under the 200 KB
+Built by `build_fixtures.py` (synthetic, committed — total ≈ 96.4 KB, well under the 200 KB
 budget) and `fetch_fixtures.sh` (real Gutenberg books, downloaded on demand into `fetched/`,
 **gitignored, never committed**). Two large pathological fixtures (`zipbomb.epub`, `oversized.fb2`)
 are also generated locally, never committed — see the `--large` flag and the note under "Large,
@@ -53,6 +53,7 @@ point).
 | `short-header.epub` | 4 | `8dcc7e601606217f3b754766511182a916b17e9a26a94c9d887104eba92e9bb2` | — | n/a (4 bytes, shorter than the header-sniff length) | F-SHORT (library/ERR-008) (J-LIB-03) |
 | `corrupt.epub` | 68 | `7872b98743fa0c180b527523f73538a88121f2e30b122eb4f9f85e46d3b74ea8` | — | n/a (truncated/broken zip) | F-CORRUPT-EPUB (J-LIB-03) |
 | `full-features.fb2` | 9122 | `471cd6bf9da3e4624b4a59d5116a54c3858694f3274d7f68d93962aca9e2bf09` | The Complete Letters | "The letter arrived on a grey morning, long after…" | F-FB2 (J-LIB-01/05, J-RDR-08) |
+| `full-features.xml` | 9122 | `471cd6bf9da3e4624b4a59d5116a54c3858694f3274d7f68d93962aca9e2bf09` | The Complete Letters | "The letter arrived on a grey morning, long after…" | F-FB2-XML (J-LIB-18, PRS-015) |
 | `no-chapters.fb2` | 487 | `c61f3d52e7ffcfc0d3f789bdafab9fd72fa9e4db3752b8c8a89c58123892e688` | No Qualifying Chapters | (sections exist, none has a paragraph) | F-FB2-NOCH (J-LIB-03) |
 | `russian-1251.fb2` | 611 | `f4cc6881583da3f367a9b5a4accb85dc08d95245717e4d7e14418dfce0d5de4b` | Ветер над рекой | "В тот вечер над городом долго висел тёплый туман…" | F-FB2-1251 (J-LIB-05) |
 | `corrupt.fb2` | 120 | `281175d43e0e900b45073774e03b65af01cfceb27c16ae4205898a95e98905a5` | — | n/a (cut off mid-tag, no closing tags) | F-CORRUPT-FB2 (J-LIB-03) |
@@ -71,6 +72,12 @@ Notes on the table above:
 - `empty.epub`/`empty-book.epub` and `empty-first-chapter.epub`/`empty-chapter.epub` are each
   **byte-identical pairs** (same generator call, written under two filenames) because the three
   journey documents use different literal names for the same concept.
+- `full-features.fb2`/`full-features.xml` are also a **byte-identical pair**, but deliberately so:
+  F-FB2-XML (J-LIB-18, PRS-015) exists specifically to exercise `Fb2Parser.canParse`'s
+  content-sniffing branch (an `.xml` extension / generic `text/xml` MIME, detected only by the
+  `<FictionBook` header sniff, not by the `.fb2` extension or `mimeType.contains("fb2")`), so the
+  file must have different bytes on disk from `full-features.fb2` only in its name, never its
+  content.
 - `palmdoc-distance0.mobi`: the crafted distance-0 backreference pair (bytes `0x80 0x00`, which
   `MobiCodec.palmDocDecompress` must decode as distance=0/length=3 and **skip**, per
   `MobiCodecTest.palmDoc_distanceZero_doesNotCorruptOrHang`) sits in the single text record at
@@ -141,7 +148,7 @@ directories, and diffs sha256 per file. Run 2026-11-07:
 $ /opt/homebrew/opt/python@3.12/libexec/bin/python3 e2e/books/build_fixtures.py --verify
 OK  classic-h2.mobi  23d7bb811b828a0c57e4cc0f64b57ae0338091fad728bae88e99be0cbff55001
 OK  corrupt.epub  7872b98743fa0c180b527523f73538a88121f2e30b122eb4f9f85e46d3b74ea8
-... (39 files, all OK)
+... (40 files, all OK)
 VERIFY: PASS — byte-identical across two runs
 ```
 

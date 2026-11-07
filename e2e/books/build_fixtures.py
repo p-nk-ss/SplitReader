@@ -783,12 +783,24 @@ RUSSIAN_1251_FB2 = """<?xml version="1.0" encoding="windows-1251"?>
 """
 
 
-def build_full_features_fb2(out_dir: str) -> str:
+def _full_features_fb2_text() -> str:
     import base64
-    data = FULL_FEATURES_FB2.replace("__COVER_B64__", base64.b64encode(PNG_1X1_BLUE).decode("ascii"))
+    return FULL_FEATURES_FB2.replace("__COVER_B64__", base64.b64encode(PNG_1X1_BLUE).decode("ascii"))
+
+
+def build_full_features_fb2(out_dir: str) -> str:
     with open(os.path.join(out_dir, "full-features.fb2"), "w", encoding="utf-8") as f:
-        f.write(data)
+        f.write(_full_features_fb2_text())
     return "full-features.fb2"
+
+
+def build_full_features_xml(out_dir: str) -> str:
+    """F-FB2-XML: the exact same FB2 content as full-features.fb2 (same bytes), saved as
+    `full-features.xml` — exercises Fb2Parser's content-sniffing path (`.xml` extension / generic
+    `text/xml` MIME, detected by the `<FictionBook` header sniff, not the `.fb2` extension)."""
+    with open(os.path.join(out_dir, "full-features.xml"), "w", encoding="utf-8") as f:
+        f.write(_full_features_fb2_text())
+    return "full-features.xml"
 
 
 def build_no_chapters_fb2(out_dir: str) -> str:
@@ -1038,6 +1050,7 @@ def build_all(out_dir: str) -> list[str]:
     built.append(build_short_header(out_dir))
     built.append(build_corrupt_epub(out_dir))
     built.append(build_full_features_fb2(out_dir))
+    built.append(build_full_features_xml(out_dir))
     built.append(build_no_chapters_fb2(out_dir))
     built.append(build_russian_1251_fb2(out_dir))
     built.append(build_corrupt_fb2(out_dir))
