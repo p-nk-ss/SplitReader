@@ -1,0 +1,11 @@
+# Maestro workspace config for e2e/flows. Maestro only runs the TOP-LEVEL flow files of a
+# directory passed on the command line unless told otherwise (confirmed against Maestro 2.12.1
+# --help: `maestro test <folder>` uses a config.yaml in that folder's root when present). The
+# `flows` glob below makes every flow file anywhere under this directory (including nested
+# subfolders used to group a journey's own flow next to shared pieces) a candidate flow, same as
+# a flat layout would be.
+#
+# Subflows (e2e/subflows/*.yaml) are NOT under this directory and are never picked up as tests —
+# they are only ever reached via `runFlow:` from an actual flow file.
+flows:
+  - "**/*.yaml"
