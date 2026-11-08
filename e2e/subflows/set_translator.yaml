@@ -1,0 +1,40 @@
+appId: ${APP_ID}
+---
+# set_translator (env NAME): opens the reader's translator picker and selects the provider whose
+# card shows ${NAME} (TranslationProvider.displayName, domain/model/TranslationProvider.kt -
+# "ML Kit (offline)", "Offline HQ", "Quick Translate (free, online)", "LibreTranslate",
+# "Google Cloud Translation", "DeepL", "Azure Translator").
+#
+# ProviderRow's whole card is clickable (TranslatorPickerDialog.kt: `.clickable(onClick =
+# onSelect)`), so tapping the displayName text selects it directly for an already-configured
+# free/no-setup provider. An unconfigured ADVANCED provider (own API key) opens the key-entry
+# dialog instead of selecting - that flow is intentionally out of scope here; use this subflow
+# only for providers already usable (ML Kit, Offline HQ, Quick Translate, or an advanced
+# provider whose key was already saved).
+#
+# ${NAME} is matched as a Maestro text pattern, not a literal string: wrap it in ".*...*" if it
+# is only part of the displayName, and escape any regex metacharacters in it yourself (e.g. the
+# parentheses in "ML Kit \\(offline\\)" or "Quick Translate \\(free, online\\)").
+#
+# Same bars-auto-hide hazard as open_bars.yaml/back_to_library.yaml: reveal the chrome first,
+# only if it isn't already showing.
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:translatorPickerButton"
+    commands:
+      - tapOn:
+          point: "50%, 20%"
+- extendedWaitUntil:
+    visible:
+      id: "reader:translatorPickerButton"
+    timeout: 5000
+- tapOn:
+    id: "reader:translatorPickerButton"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 5000
+- tapOn: "${NAME}"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000

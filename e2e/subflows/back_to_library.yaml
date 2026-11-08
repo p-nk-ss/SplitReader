@@ -1,0 +1,29 @@
+appId: ${APP_ID}
+---
+# back_to_library: leaves the reader via its top-bar Back button and asserts Home's library
+# screen is showing again.
+#
+# Same auto-hide hazard as open_bars.yaml: the reader's bars (including Back) disappear
+# READER_BARS_AUTO_HIDE_MS = 3500ms after the reader opens, or after any scroll/tap-toggle, and
+# only a tap brings them back. This subflow does not assume a caller left bars visible - it
+# reveals them first (only if needed, since tapping while they're already visible would hide
+# them instead), waits for Back to really be there, then taps it.
+#
+# "Open book" is asserted because it is present in both the empty- and non-empty-library states
+# (HomeSections.kt), so this works whether or not this was the user's only book.
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:backButton"
+    commands:
+      - tapOn:
+          point: "50%, 20%"
+- extendedWaitUntil:
+    visible:
+      id: "reader:backButton"
+    timeout: 5000
+- tapOn:
+    id: "reader:backButton"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000

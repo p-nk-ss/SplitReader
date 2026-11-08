@@ -1,0 +1,49 @@
+appId: ${APP_ID}
+---
+# pick_file (env FILE): taps "Open book" and selects ${FILE} (a filename, e.g.
+# "mixed-lang.epub") in Android's system file picker. ${FILE} must already be pushed to
+# /sdcard/Download/${FILE} and media-scanned (the picker only lists what the MediaStore/indexer
+# already knows about - see the per-API scan commands in task-5-report.md).
+#
+# Observed on 2026-11-08, two different picker apps across the required/targeted emulators:
+#   - Tab_35_PixelTablet (API 35) and the phone (Pixel_10_Pro): `com.google.android.documentsui`
+#     opens straight onto a "Recent" list that already shows ${FILE} - the direct tap below
+#     finds and taps it immediately, no drawer navigation needed.
+#   - Tab_26_Nexus9 (API 26): AOSP `com.android.documentsui`. On a genuinely fresh picker
+#     (confirmed via `emulator -wipe-data`) "Recent" is empty ("No items") and ${FILE} isn't
+#     there yet, so the direct tap is a no-op; the fallback opens the hamburger drawer
+#     (content-desc "Show roots" - present and tappable on BOTH picker apps, confirmed by
+#     hierarchy dump on both), taps "Downloads", then finds ${FILE} there.
+#   - Tab_30_Nexus7 (API 30, best effort per the task decision): also AOSP `com.android
+#     .documentsui`, same "Recent" list as API 26 with ${FILE} already present (this emulator's
+#     picker had prior navigation history, same as Tab_26's non-fresh runs) - the direct tap
+#     worked here every time this task tried it, with no keyboard workaround needed. The task
+#     brief assumed tapOn is ignored on this API level; that was NOT reproduced in this task's
+#     testing (Maestro 2.12.1, 2026-11-08) - see task-5-report.md for the full chain's PASS
+#     output and the "API 30 status" section before relying on that being fixed for good.
+#
+# The fallback is gated on `visible: "Show roots"`, not on `notVisible: ${FILE}` alone: after a
+# successful direct tap we leave the picker app entirely, so "${FILE}" being no longer visible is
+# true in BOTH the "it worked" and "it's on another screen within the picker" cases. Only
+# "Show roots" (the picker's own drawer button, confirmed present on its every main screen)
+# reliably tells those apart - it disappears once we've left the picker for good.
+- tapOn: "Open book"
+- extendedWaitUntil:
+    visible: "Show roots"
+    timeout: 10000
+- tapOn:
+    text: "${FILE}"
+    optional: true
+- runFlow:
+    when:
+      visible: "Show roots"
+    commands:
+      - tapOn: "Show roots"
+      - extendedWaitUntil:
+          visible: "Downloads"
+          timeout: 5000
+      - tapOn: "Downloads"
+      - extendedWaitUntil:
+          visible: "${FILE}"
+          timeout: 8000
+      - tapOn: "${FILE}"

@@ -1,0 +1,11 @@
+appId: ${APP_ID}
+---
+# launch_clean: starts Mirrolit fresh (cleared app state, all runtime permissions
+# pre-granted) and waits for the empty library's "Open book" action to appear,
+# proving the app is up and Home has rendered.
+- launchApp:
+    clearState: true
+    permissions: { all: allow }
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 30000

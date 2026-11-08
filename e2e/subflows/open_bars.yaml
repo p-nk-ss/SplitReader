@@ -1,0 +1,34 @@
+appId: ${APP_ID}
+---
+# open_bars: makes sure the reader's chrome (top bar + footer) is showing, then asserts the
+# clickable language chip is visible.
+#
+# A tap on the page content TOGGLES the bars (ReaderScreen.kt) - if they're already visible
+# (e.g. right after opening a book, or right after import_book) a blind tap would hide them
+# instead of showing them. So this only taps when the chip is not already there (idempotent:
+# safe to call whether bars are currently shown or hidden).
+#
+# Asserted by id (reader:languageChip), never by the "EN -> RU" text: the reader's bottom-bar
+# footer renders the identical substring "EN -> RU" in a separate, non-clickable TextView, and
+# text-matching finds that one first (see task-1-report.md lines 71-72 / task-3-report.md's
+# READER_LANGUAGE_CHIP tag, added exactly to avoid this collision).
+#
+# The tap point is "50%, 20%" (near the TOP of the page), not dead-center: on a phone's stacked
+# vertical layout (VerticalBookSpread - original pane above, translation pane below, short pages)
+# the screen's vertical center can land in the blank padding after a pane's last paragraph and
+# before the next pane/divider, which isn't a registered tap target - a tap there has no effect
+# at all (confirmed on Pixel_10_Pro/API 37, 2026-11-08: Maestro's own log showed no "UI changed"
+# after that tap, and the chip assertion then timed out for the full 5s, not a near-miss). The
+# first paragraph is always near the top of the page, on every layout (phone stacked or
+# tablet side-by-side), so "20%" reliably lands on real paragraph content instead.
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:languageChip"
+    commands:
+      - tapOn:
+          point: "50%, 20%"
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 5000

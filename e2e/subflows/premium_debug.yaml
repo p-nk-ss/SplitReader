@@ -1,0 +1,46 @@
+appId: ${APP_ID}
+---
+# premium_debug: Settings -> scroll to the debug-only "Premium (debug)" row (R.string
+# .settings_debug_premium, BuildConfig.DEBUG only, SettingsScreen.kt) -> toggle it on -> assert
+# the Premium section's status line flipped to "Premium active ... ".
+#
+# The toggle itself is a bare Compose Switch with no text/content-desc/testTag (ToggleRow in
+# SettingsControls.kt just lays out a label Column next to a Switch - no clickable wraps the
+# whole row), so it can't be tapped by its own text; it's the screen's only `checkable` node
+# (confirmed by uiautomator dump), targeted here by its position relative to visible text.
+#
+# `below: "Debug", rightOf: "Premium (debug)"` alone is NOT enough and FAILED INTERMITTENTLY in
+# this task's own testing (Tab_26_Nexus9, 2026-11-08): on an AVD skin with an on-screen 3-button
+# navigation bar, that bar's own Back button (package com.android.systemui, near the bottom of
+# the WHOLE screen) ALSO satisfies "below Debug" and "rightOf Premium (debug)" - both are
+# legitimate geometric matches, and Maestro doesn't always prefer the nearer one. The symptom was
+# confusing: the flow looked like it navigated itself back to Home for no reason, when what
+# actually happened (confirmed via ~/.maestro/tests/<run>/maestro.log, "Tapping on element") was
+# an accidental tap on the system Back button, which popped Settings off the back stack.
+#
+# Two fixes were tried and rejected before `index: 0` (the simplest one that actually works on
+# every device tried):
+#   - `above: "About"` (the section that always follows Debug): works on a short/landscape
+#     viewport where both fit on screen at once, but FAILED on a phone (Pixel_10_Pro, portrait):
+#     "Premium (debug)" scrolled to 100% visible does not also bring "About" into view there, so
+#     the selector has nothing to bound against and matches nothing at all.
+#   - `checked: false`: does NOT help - Android's accessibility API reports `checked=false` by
+#     default for ANY non-checkable widget too (confirmed in maestro.log: the system Back button
+#     also has `checked=false`), so this excludes nothing.
+# `index: 0` works because the two matches have a stable, deterministic order: the app's own
+# content is traversed before the system nav bar overlay, so index 0 is always our Switch, never
+# the system button, on both this tablet (checked via maestro.log: tapped bounds matched the
+# Switch's) and the phone (where there's only one match anyway, so `index: 0` is a no-op there).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Premium \\(debug\\)"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    below: "Debug"
+    rightOf: "Premium \\(debug\\)"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*Premium active.*"
+    timeout: 10000

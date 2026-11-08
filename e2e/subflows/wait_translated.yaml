@@ -1,0 +1,20 @@
+# wait_translated (env TEXT, env TIMEOUT): waits for a translated paragraph's text to appear
+# somewhere on screen. Used after opening a book, switching provider/language, or downloading an
+# Offline HQ pack, where first-translation latency varies widely (cache miss, on-device model
+# run, Offline HQ pack download, or a network round trip for an online provider).
+#
+# Both TEXT and TIMEOUT must always be passed explicitly by the caller (default: 240000, per the
+# task decision) - an `env:` default in this file's own header for TIMEOUT was tried and dropped:
+# with Maestro 2.12.1 a value this file's header defaulted was not reliably overridden by a
+# caller's `-e TIMEOUT=...`/`runFlow: env:` in every invocation style tried, so relying on it
+# risked silently waiting on the wrong duration. Explicit-always is unambiguous.
+#
+# ${TEXT} is wrapped in ".*...*" because Maestro's text match requires the WHOLE node text to
+# match the given regex - a short/partial excerpt (e.g. a SOURCES.md "first paragraph" snippet)
+# would never match the full paragraph text without the wildcards. Regex metacharacters inside
+# TEXT (e.g. parentheses) must be escaped by the caller, same as for set_translator's NAME.
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: ".*${TEXT}.*"
+    timeout: ${TIMEOUT}
