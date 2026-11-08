@@ -108,10 +108,20 @@ if [ "$BUILD_TYPE" = "release" ]; then
   SRC_JKS="$MAIN_CHECKOUT/$JKS_REL"
   [ -f "$SRC_JKS" ] || die "signing key $SRC_JKS (from storeFile=$JKS_REL) is missing"
 
-  cp "$SRC_PROPS" "$REPO_ROOT/keystore.properties"
-  COPIED_KEYSTORE_PROPS="$REPO_ROOT/keystore.properties"
-  cp "$SRC_JKS" "$REPO_ROOT/$JKS_REL"
-  COPIED_JKS="$REPO_ROOT/$JKS_REL"
+  DEST_PROPS="$REPO_ROOT/keystore.properties"
+  DEST_JKS="$REPO_ROOT/$JKS_REL"
+  # Refuse to overwrite a pre-existing file at either destination: cleanup_signing_copies only
+  # ever rm's a path it finds in COPIED_KEYSTORE_PROPS/COPIED_JKS, and those are only ever set
+  # right after THIS run's own successful `cp` below — so dying here, before either `cp` runs,
+  # guarantees the trap can never delete something this run didn't create itself.
+  [ -e "$DEST_PROPS" ] && die "refusing to overwrite pre-existing $DEST_PROPS — remove/move it yourself first (this run would otherwise copy over it, then its EXIT trap would delete it)"
+  [ -e "$DEST_JKS" ] && die "refusing to overwrite pre-existing $DEST_JKS — remove/move it yourself first (this run would otherwise copy over it, then its EXIT trap would delete it)"
+
+  mkdir -p "$(dirname "$DEST_JKS")"
+  cp "$SRC_PROPS" "$DEST_PROPS"
+  COPIED_KEYSTORE_PROPS="$DEST_PROPS"
+  cp "$SRC_JKS" "$DEST_JKS"
+  COPIED_JKS="$DEST_JKS"
   log "copied signing files into worktree root for the release build (will be removed on exit)"
 
   log "./gradlew :app:assembleRelease"
@@ -141,6 +151,11 @@ if [ -n "$SERIAL" ]; then
   [ "$qemu" = "1" ] || die "--serial $SERIAL is not an emulator (ro.kernel.qemu != 1) — this runner is emulator-only and refuses to touch a real device"
   log "attached to existing emulator $SERIAL"
 else
+  # BEFORE_SERIALS below is only a convenience filter (skip devices we already know about faster
+  # while polling) — it is NOT the safety guarantee. The real guard is the simultaneous
+  # ro.kernel.qemu=1 + sys.boot_completed=1 check a few lines down: even if a real device's
+  # serial were somehow missing from this snapshot, it would still never be mistaken for the AVD
+  # we just started, because it will never report ro.kernel.qemu=1.
   BEFORE_SERIALS="$(emulator_serials)"
   log "restarting adb (adb kill-server && adb start-server) before starting a new AVD"
   "$ADB" kill-server
@@ -206,12 +221,25 @@ log "listing /sdcard/Download before pushing fixtures"
 PUSHED_LIST="$RUN/pushed_files.txt"
 : > "$PUSHED_LIST"
 
+# `adb shell` concatenates ALL of its argv (space-joined) into one command line that the
+# DEVICE's own shell then tokenizes again — a basename containing a space or a shell
+# metacharacter (quote, $, ;, …) would come apart differently there than it did locally, so a
+# raw, unquoted "/sdcard/Download/$bn" is not safe to hand to `adb shell` as one of several argv
+# words. remote_quote wraps a path in single quotes for that REMOTE shell (escaping any embedded
+# single quote as '"'"'), and every call site below passes the whole command as ONE already-quoted
+# string so there is nothing left for either shell to re-split.
+remote_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\"'\"'/g")"
+}
+
 media_scan() {
   local remote="$1"
+  local qpath
+  qpath="$(remote_quote "$remote")"
   if [ "$API" -ge 31 ] 2>/dev/null; then
-    "$ADB" -s "$SERIAL" shell content call --uri content://media/ --method scan_file --arg "$remote" >/dev/null 2>&1
+    "$ADB" -s "$SERIAL" shell "content call --uri content://media/ --method scan_file --arg $qpath" >/dev/null 2>&1
   else
-    "$ADB" -s "$SERIAL" shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://$remote" >/dev/null 2>&1
+    "$ADB" -s "$SERIAL" shell "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d 'file://'$qpath" >/dev/null 2>&1
   fi
 }
 
@@ -219,6 +247,9 @@ push_fixture() {
   local local_path="$1"
   local bn
   bn="$(basename "$local_path")"
+  # adb push's remote argument goes straight to the sync protocol, not through a remote shell,
+  # so (unlike media_scan/rm below) it needs no remote-shell quoting — a space or quote in $bn
+  # survives it literally.
   "$ADB" -s "$SERIAL" push "$local_path" "/sdcard/Download/$bn" >/dev/null || die "push failed: $local_path"
   media_scan "/sdcard/Download/$bn"
   echo "$bn" >> "$PUSHED_LIST"
@@ -295,7 +326,15 @@ fi
 
 TAGS_JSON="[]"
 if [ -n "$TAGS" ]; then
-  TAGS_JSON="[$(printf '"%s",' $(echo "$TAGS" | tr ',' ' ') | sed 's/,$//')]"
+  # Split on commas via IFS into an array, then quote each element explicitly — avoids the
+  # unquoted-word-splitting (and, worse, pathname-expansion/globbing) risk of feeding an
+  # unquoted command substitution straight to printf.
+  IFS=',' read -r -a TAG_ARR <<< "$TAGS"
+  tags_json_parts=""
+  for t in "${TAG_ARR[@]}"; do
+    tags_json_parts="${tags_json_parts}\"${t}\","
+  done
+  TAGS_JSON="[${tags_json_parts%,}]"
 fi
 
 cat > "$RUN/meta.json" <<EOF
@@ -312,9 +351,16 @@ cat > "$RUN/meta.json" <<EOF
 EOF
 
 log "$PYTHON3 $REPO_ROOT/e2e/report.py $RUN"
-"$PYTHON3" "$REPO_ROOT/e2e/report.py" "$RUN" || log "WARNING: report.py failed"
-log "summary: $RUN/summary.md"
-[ -n "$COPY_TO" ] && log "release copy: $COPY_TO"
+REPORT_EXIT=0
+"$PYTHON3" "$REPO_ROOT/e2e/report.py" "$RUN" || REPORT_EXIT=$?
+REPORT_FAILED=0
+if [ "$REPORT_EXIT" -ne 0 ] || [ ! -f "$RUN/summary.md" ]; then
+  log "ERROR: report.py failed (exit $REPORT_EXIT) or did not produce $RUN/summary.md — raw results are still at $RUN/junit.xml"
+  REPORT_FAILED=1
+else
+  log "summary: $RUN/summary.md"
+  [ -n "$COPY_TO" ] && log "release copy: $COPY_TO"
+fi
 
 # ---------------------------------------------------------------------------
 # 6. Cleanup: remove only what we pushed, then (maybe) kill the emulator
@@ -324,9 +370,18 @@ log "removing pushed fixtures from /sdcard/Download"
 # stdin (redirected from $PUSHED_LIST below) and reads the REST of that file as its own input,
 # starving every subsequent `read` — only the first line would ever get removed.
 while IFS= read -r bn; do
-  [ -n "$bn" ] && "$ADB" -s "$SERIAL" shell rm -f "/sdcard/Download/$bn" < /dev/null >/dev/null 2>&1
+  if [ -n "$bn" ]; then
+    qpath="$(remote_quote "/sdcard/Download/$bn")"
+    "$ADB" -s "$SERIAL" shell "rm -f $qpath" < /dev/null >/dev/null 2>&1
+  fi
 done < "$PUSHED_LIST"
 
 kill_emulator
 
-exit "$MAESTRO_EXIT"
+FINAL_EXIT="$MAESTRO_EXIT"
+if [ "$REPORT_FAILED" = "1" ] && [ "$FINAL_EXIT" -eq 0 ]; then
+  # Maestro itself passed, but we have no usable summary.md — still a failed run, not a clean
+  # one; a maestro exit code that was already non-zero takes priority and is kept as-is.
+  FINAL_EXIT=1
+fi
+exit "$FINAL_EXIT"
