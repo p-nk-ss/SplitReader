@@ -59,6 +59,7 @@ import com.example.splitreader.presentation.theme.Newsreader
 import com.example.splitreader.presentation.theme.AnimatedDialog
 import com.example.splitreader.presentation.theme.animatedSelection
 import com.example.splitreader.presentation.ui.SectionEyebrow
+import com.example.splitreader.presentation.ui.SETTINGS_DEBUG_PREMIUM_SWITCH_TAG
 import com.example.splitreader.presentation.ui.SliderRow
 import com.example.splitreader.presentation.ui.ThemeSwatchRow
 import com.example.splitreader.presentation.ui.splitLabel
@@ -374,6 +375,7 @@ fun SettingsScreen(
                     sub = stringResource(R.string.settings_debug_premium_desc),
                     checked = state.isPremium,
                     onToggle = { onSetPremiumDebug(!state.isPremium) },
+                    tag = SETTINGS_DEBUG_PREMIUM_SWITCH_TAG,
                 )
             }
             Spacer(Modifier.height(sp.lg))

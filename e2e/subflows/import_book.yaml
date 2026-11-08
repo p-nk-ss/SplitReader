@@ -4,39 +4,43 @@ appId: ${APP_ID}
 # confirms the RIGHT book opened, so a wrong pick in the system file picker fails this step
 # instead of silently continuing into a journey that reads the wrong book.
 #
-# Design note (observed on Tab_35_PixelTablet, API 35, 2026-11-08): the obvious assertion -
-# wait for ${TITLE} in the reader's top bar (ReaderChrome.kt renders state.book.title there) -
-# is NOT robust. The reader's bars auto-hide READER_BARS_AUTO_HIDE_MS = 3500ms after it opens,
-# with no way back except a tap, and parse+navigate time after picking a file is variable
-# (parser, device, first-run JIT...). A run that is slow past that window times out at 60s with
-# no recovery, even though the right book opened - a false failure, not the "wrong pick" bug
-# this subflow exists to catch.
+# Fix round 1 (2026-11-08, code review): TITLE used to be a best-effort (`optional: true`) check
+# with FIRST_TEXT as the sole blocking assertion. That is NOT safe on its own: several fixtures
+# share an opening line under different titles/files (mixed-lang.epub "Letters in Many Tongues"
+# and letter-prague.epub "A Letter from Prague" both open "It was late in the autumn when the
+# letter finally..."; seven more all open "The old mill still stood at the bend of the river...").
+# A wrong pick that happens to share the right fixture's opening would have passed FIRST_TEXT and
+# only WARNed on TITLE - silently continuing into a journey reading the wrong book. TITLE is now
+# a required, blocking check too.
 #
-# So ${FIRST_TEXT} (the fixture's first-paragraph text, from e2e/books/SOURCES.md - always on
-# screen in the reader body, never bar-gated) is the PRIMARY, reliable assertion when given.
-# ${TITLE} is still required of every caller (keeps the subflow's signature self-documenting and
-# lets a caller without a FIRST_TEXT handy fall back to the bar-gated check), and is additionally
-# asserted best-effort (optional - does not fail the subflow if bars already hid) immediately
-# after the pick, while bars are most likely still visible. A caller that needs a *guaranteed*
-# title check should chain back_to_library.yaml afterwards and assert
-# `id: book_card_${TITLE}` itself (Home's library card has no auto-hide).
+# Design note (observed on Tab_35_PixelTablet, API 35, 2026-11-08): asserting ${TITLE} in the
+# reader's top bar (ReaderChrome.kt renders state.book.title there) right after the pick is NOT
+# robust by itself - the reader's bars auto-hide READER_BARS_AUTO_HIDE_MS = 3500ms after it opens,
+# with no way back except a tap, and parse+navigate time after picking a file is variable (parser,
+# device, first-run JIT...). So this subflow checks ${FIRST_TEXT} FIRST (never bar-gated, so it
+# survives however long the parse+navigate takes), THEN reveals the bars (reusing open_bars.yaml,
+# which is idempotent and only taps if they're not already up) and asserts ${TITLE} immediately
+# afterwards, inside the same short window open_bars.yaml itself relies on - not racing a second,
+# independent 3.5s window of its own.
 - runFlow:
     file: pick_file.yaml
     env:
       FILE: ${FILE}
 # On a phone in portrait, the FIRST book ever opened shows a one-time "Parallel reading fits
 # landscape better" dialog (the portrait hint, ReaderDialogs.kt/EditorialDialog) that covers the
-# whole reader and blocks both the TITLE and FIRST_TEXT checks below. Dismiss it here if present
-# (tablets/landscape/second+ opens never show it, so this is a no-op there).
+# whole reader and blocks every check below. Dismiss it here if present (tablets/landscape/
+# second+ opens never show it, so this is a no-op there).
 - tapOn:
     text: "GOT IT"
     optional: true
-# Best-effort TITLE check: does not fail the subflow if bars already auto-hid.
-- extendedWaitUntil:
-    optional: true
-    visible: ".*${TITLE}.*"
-    timeout: 8000
-# Primary, reliable check: the paragraph body is never bar-gated.
+# Required: the paragraph body is never bar-gated, and survives a slow parse+navigate.
 - extendedWaitUntil:
     visible: ".*${FIRST_TEXT}.*"
     timeout: 60000
+# Required: reveal the bars (no-op if already up) and assert the top-bar title immediately,
+# before READER_BARS_AUTO_HIDE_MS can elapse again.
+- runFlow:
+    file: open_bars.yaml
+- extendedWaitUntil:
+    visible: ".*${TITLE}.*"
+    timeout: 3000

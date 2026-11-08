@@ -213,8 +213,22 @@ private fun FontChip(
     }
 }
 
+/**
+ * testTag for the Settings screen's debug-only "Premium (debug)" [ToggleRow]'s switch - it's a
+ * bare `Switch` with no text/content-desc of its own (task-5 e2e subflows targeted it by screen
+ * position instead, which intermittently matched Android's on-screen nav bar's Back button).
+ */
+const val SETTINGS_DEBUG_PREMIUM_SWITCH_TAG = "settings_debug_premium_switch"
+
 @Composable
-fun ToggleRow(label: String, sub: String, checked: Boolean, onToggle: () -> Unit) {
+fun ToggleRow(
+    label: String,
+    sub: String,
+    checked: Boolean,
+    onToggle: () -> Unit,
+    /** Addresses this specific switch for Maestro; bare `Switch`es carry no text/content-desc. */
+    tag: String? = null,
+) {
     val palette = LocalReaderPalette.current
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -234,6 +248,7 @@ fun ToggleRow(label: String, sub: String, checked: Boolean, onToggle: () -> Unit
                 checkedThumbColor = palette.bg,
                 uncheckedThumbColor = palette.bg,
             ),
+            modifier = Modifier.let { if (tag != null) it.testTag(tag) else it },
         )
     }
 }

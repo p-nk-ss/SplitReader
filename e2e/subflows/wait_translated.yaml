@@ -1,3 +1,5 @@
+appId: ${APP_ID}
+---
 # wait_translated (env TEXT, env TIMEOUT): waits for a translated paragraph's text to appear
 # somewhere on screen. Used after opening a book, switching provider/language, or downloading an
 # Offline HQ pack, where first-translation latency varies widely (cache miss, on-device model
@@ -13,8 +15,6 @@
 # match the given regex - a short/partial excerpt (e.g. a SOURCES.md "first paragraph" snippet)
 # would never match the full paragraph text without the wildcards. Regex metacharacters inside
 # TEXT (e.g. parentheses) must be escaped by the caller, same as for set_translator's NAME.
-appId: ${APP_ID}
----
 - extendedWaitUntil:
     visible: ".*${TEXT}.*"
     timeout: ${TIMEOUT}
