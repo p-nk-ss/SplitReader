@@ -8,15 +8,18 @@ import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
  * stack (context = "am I inside <epigraph>/<coverpage>/<binary>…") plus a section-frame stack (each leaf
  * <section> becomes a chapter). No Android dependencies, so it is unit-testable on the JVM.
  *
- * [maxChars] bounds the total text this builder will ever accumulate — summed across every
+ * [maxBytes] bounds the total text this builder will ever accumulate — summed across every
  * paragraph, title, embedded binary (base64 images) and the annotation, for the whole book, not
- * per element. XmlPullParser hands text to [onText] in small chunks, so a single huge `<p>` arrives
- * as many small [Fb2Event.Text] events; without this running total, the per-element StringBuilder
- * (and its final `toString()`) would grow unbounded and OOM a constrained heap before any one
- * chunk looks large on its own. Throws [BookTooLargeException] the moment the total is crossed,
- * before appending the chunk that crossed it.
+ * per element. It is counted in BYTES of heap, like the rest of the budget
+ * ([effectiveMaxDecompressed] is a fraction of the heap): text is held as UTF-16, so each char
+ * counts 2 bytes. Android's XmlPullParser (KXmlParser) hands over a whole text node as one
+ * [Fb2Event.Text] (it buffers the node itself), so one gigantic `<p>` is one big event and many
+ * medium paragraphs are many events; without this running total the builders and their final
+ * `toString()` copies would add up past a constrained heap. Throws [BookTooLargeException] the
+ * moment the total is crossed, before appending the text that crossed it. (The parser's own buffer
+ * for a single huge text node is outside this bound; the file size bounds that.)
  */
-class Fb2DocumentBuilder(private val maxChars: Long = effectiveMaxDecompressed()) {
+class Fb2DocumentBuilder(private val maxBytes: Long = effectiveMaxDecompressed()) {
 
     private var title = "Unknown Title"
     private var firstName = ""
@@ -38,7 +41,7 @@ class Fb2DocumentBuilder(private val maxChars: Long = effectiveMaxDecompressed()
     private val binaries = mutableMapOf<String, StringBuilder>()
     private var currentBinaryId: String? = null
 
-    private var totalChars = 0L
+    private var totalBytes = 0L
 
     fun accept(event: Fb2Event) {
         when (event) {
@@ -79,8 +82,8 @@ class Fb2DocumentBuilder(private val maxChars: Long = effectiveMaxDecompressed()
     }
 
     private fun onText(t: String) {
-        totalChars += t.length
-        if (totalChars > maxChars) throw BookTooLargeException("Book is too large to open safely.")
+        totalBytes += t.length * 2L // UTF-16 in memory
+        if (totalBytes > maxBytes) throw BookTooLargeException("Book is too large to open safely.")
         when {
             currentBinaryId != null -> binaries[currentBinaryId]?.append(t)
             elementStack.contains("annotation") -> annotation.append(t).append(' ')

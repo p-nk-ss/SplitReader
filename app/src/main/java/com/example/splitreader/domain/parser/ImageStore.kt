@@ -37,4 +37,22 @@ object ImageStore {
     } catch (_: Exception) {
         null
     }
+
+    /** As [save], from a picture already on disk (an EPUB entry streamed out of the zip): copied, never loaded whole. */
+    fun save(context: Context, source: File, baseName: String): String? = try {
+        if (source.length() == 0L) {
+            null
+        } else {
+            val dir = File(context.filesDir, "images").apply { mkdirs() }
+            val safe = baseName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "img" }
+            val file = File(dir, "$safe.${sniffExtension(header(source))}")
+            source.copyTo(file, overwrite = true)
+            file.absolutePath
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    /** The first bytes of [file] — enough for [sniffExtension] and an SVG/XML check. */
+    fun header(file: File): ByteArray = file.inputStream().use { com.example.splitreader.domain.parser.util.readUpTo(it, 12) }
 }

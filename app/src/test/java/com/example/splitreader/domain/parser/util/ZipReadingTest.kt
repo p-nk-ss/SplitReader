@@ -38,6 +38,43 @@ class ZipReadingTest {
         }
     }
 
+    @get:org.junit.Rule val tmp = org.junit.rules.TemporaryFolder()
+
+    @Test fun spilledEntries_manyMediumImagesOverTheMemoryBudget_areStreamedToFiles() {
+        // An illustrated book (Gutenberg's Count of Monte Cristo: 82 MiB of pictures, none over
+        // 0.25 MiB) must not be held in memory whole: the pictures go to files, only text is kept.
+        val images = (1..10).map { i -> "p$i.png" to ByteArray(400) { (it * i).toByte() } }
+        val zip = zipOf("a.xhtml" to "text".toByteArray(), *images.toTypedArray())
+        val out = readZipEntries(
+            ByteArrayInputStream(zip), memoryBudget = 1000, totalBudget = 1_000_000,
+            spillDir = tmp.newFolder("spill"), spill = { it.endsWith(".png") },
+        ) { true }
+        assertEquals(setOf("a.xhtml"), out.inMemory.keys)
+        assertEquals(images.map { it.first }.toSet(), out.onDisk.keys)
+        for ((name, bytes) in images) assertArrayEquals(bytes, out.onDisk.getValue(name).readBytes())
+    }
+
+    @Test fun inMemoryEntry_overTheMemoryBudget_throwsEvenWhenImagesAreSpilled() {
+        val zip = zipOf("a.xhtml" to ByteArray(2000) { 1 })
+        assertThrows(BookTooLargeException::class.java) {
+            readZipEntries(
+                ByteArrayInputStream(zip), memoryBudget = 1000, totalBudget = 1_000_000,
+                spillDir = tmp.newFolder("spill"), spill = { it.endsWith(".png") },
+            ) { true }
+        }
+    }
+
+    @Test fun spilledEntries_overTheBookTotal_throw() {
+        // The zip-bomb bound still covers what is written to disk.
+        val zip = zipOf(*(1..10).map { "p$it.png" to ByteArray(400) }.toTypedArray())
+        assertThrows(BookTooLargeException::class.java) {
+            readZipEntries(
+                ByteArrayInputStream(zip), memoryBudget = 1_000_000, totalBudget = 3000,
+                spillDir = tmp.newFolder("spill"), spill = { it.endsWith(".png") },
+            ) { true }
+        }
+    }
+
     @Test fun throwsWhenManyEntriesTogetherExceedLimit() {
         // Each entry alone is within the limit; combined they are not -- the budget is per book,
         // not per entry, so many medium entries can't add up to an OOM.

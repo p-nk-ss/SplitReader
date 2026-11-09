@@ -5,6 +5,7 @@ import android.net.Uri
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
+import com.example.splitreader.domain.parser.util.MAX_DECOMPRESSED
 import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
 import com.example.splitreader.domain.parser.util.readZipEntries
 import com.example.splitreader.domain.parser.util.stableId
@@ -17,6 +18,9 @@ class EpubParser @Inject constructor() : BookParser {
 
     override val supportedExtensions = listOf("epub")
     override val priority = 10
+
+    /** The process heap limit the memory budget is derived from; a seam so tests can simulate a small heap. */
+    internal var heapLimit: () -> Long = { Runtime.getRuntime().maxMemory() }
 
     override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
         fileName.endsWith(".epub", ignoreCase = true) ||
@@ -35,23 +39,34 @@ class EpubParser @Inject constructor() : BookParser {
     )
 
     override suspend fun parse(uri: Uri, context: Context): Book {
-        val entryMap = mutableMapOf<String, ByteArray>()
-        val imageMap = mutableMapOf<String, ByteArray>()
+        // Pictures are streamed out of the zip into a scratch folder (see readZipEntries) and copied
+        // to their final place from there, so only the book's text is ever held in memory.
+        val spillDir = File(context.cacheDir, "epub-${java.util.UUID.randomUUID()}")
+        try {
+            return parse(uri, context, spillDir)
+        } finally {
+            spillDir.deleteRecursively()
+        }
+    }
+
+    private suspend fun parse(uri: Uri, context: Context, spillDir: File): Book {
         val textExtensions = setOf("xml", "html", "xhtml", "opf", "ncx", "htm")
         val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "webp", "svg")
+        fun ext(name: String) = name.substringAfterLast('.').lowercase()
 
-        val allEntries = context.contentResolver.openInputStream(uri)?.use { input ->
-            readZipEntries(input, effectiveMaxDecompressed()) { name ->
-                val ext = name.substringAfterLast('.').lowercase()
-                ext in textExtensions || ext in imageExtensions
-            }
+        // Text in memory, bounded by a heap fraction; pictures on disk; the whole book by the
+        // zip-bomb bound MAX_DECOMPRESSED.
+        val contents = context.contentResolver.openInputStream(uri)?.use { input ->
+            readZipEntries(
+                input,
+                memoryBudget = effectiveMaxDecompressed(heapLimit()),
+                totalBudget = MAX_DECOMPRESSED,
+                spillDir = spillDir,
+                spill = { ext(it) in imageExtensions },
+            ) { name -> ext(name) in textExtensions || ext(name) in imageExtensions }
         } ?: throw IllegalStateException("Cannot open file")
-        allEntries.forEach { (name, bytes) ->
-            when (name.substringAfterLast('.').lowercase()) {
-                in textExtensions -> entryMap[name] = bytes
-                in imageExtensions -> imageMap[name] = bytes
-            }
-        }
+        val entryMap: Map<String, ByteArray> = contents.inMemory
+        val imageMap: Map<String, File> = contents.onDisk
 
         val containerXml = entryMap["META-INF/container.xml"]
             ?: entryMap.entries.firstOrNull { it.key.equals("META-INF/container.xml", ignoreCase = true) }?.value
@@ -87,11 +102,11 @@ class EpubParser @Inject constructor() : BookParser {
             val contentDir = fullPath.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
             fun key(ref: HtmlChapterExtractor.ImageRef) = normalizePath(contentDir + decodeSrc(ref.src))
             fun save(ref: HtmlChapterExtractor.ImageRef): String? {
-                val bytes = resolveImageBytes(ref.src, contentDir, imageMap) ?: return null
+                val file = resolveImage(ref.src, contentDir, imageMap) ?: return null
                 // The reader can't draw SVG; a newly collected one (title pages) would be an empty
                 // slot. Images the old parser produced stay as they were (legacy layout).
-                if (!ref.inLegacyLayout && (key(ref).endsWith(".svg", true) || bytes.firstOrNull() == '<'.code.toByte())) return null
-                return ImageStore.save(context, bytes, "${bookHash}_${key(ref).substringAfterLast('/')}")
+                if (!ref.inLegacyLayout && (key(ref).endsWith(".svg", true) || ImageStore.header(file).firstOrNull() == '<'.code.toByte())) return null
+                return ImageStore.save(context, file, "${bookHash}_${key(ref).substringAfterLast('/')}")
             }
 
             if (result.isImageOnly) {
@@ -139,9 +154,9 @@ class EpubParser @Inject constructor() : BookParser {
 
         val coverPath = opf.coverHref?.let { href ->
             val fullCoverPath = if (opfDir.isEmpty()) href else "$opfDir$href"
-            val coverBytes = resolveImageBytes(href, opfDir, imageMap)
+            val coverFile = resolveImage(href, opfDir, imageMap)
                 ?: imageMap[fullCoverPath]
-            coverBytes?.let { saveCover(context, it, uri.toString(), fullCoverPath) }
+            coverFile?.let { saveCover(context, it, uri.toString(), fullCoverPath) }
         }
 
         val synopsis = SynopsisExtractor.build(opf.description, chapters.flatMap { it.paragraphs })
@@ -206,12 +221,12 @@ class EpubParser @Inject constructor() : BookParser {
         return out.joinToString("/")
     }
 
-    /** Resolves an image src to bytes in [imageMap], trying exact, case-insensitive, then basename match. */
-    private fun resolveImageBytes(
+    /** Resolves an image src to its streamed-out file in [imageMap], trying exact, case-insensitive, then basename match. */
+    private fun resolveImage(
         src: String,
         contentDir: String,
-        imageMap: Map<String, ByteArray>,
-    ): ByteArray? {
+        imageMap: Map<String, File>,
+    ): File? {
         val key = normalizePath(contentDir + decodeSrc(src))
         imageMap[key]?.let { return it }
         imageMap.entries.firstOrNull { it.key.equals(key, ignoreCase = true) }?.let { return it.value }
@@ -219,14 +234,14 @@ class EpubParser @Inject constructor() : BookParser {
         return imageMap.entries.firstOrNull { it.key.endsWith("/$basename", ignoreCase = true) }?.value
     }
 
-    /** Writes cover [bytes] to filesDir/covers/<stableId>.<ext> and returns its absolute path. */
-    private fun saveCover(context: Context, bytes: ByteArray, uriKey: String, coverEntryPath: String): String? =
+    /** Copies the cover [source] to filesDir/covers/<stableId>.<ext> and returns its absolute path. */
+    private fun saveCover(context: Context, source: File, uriKey: String, coverEntryPath: String): String? =
         try {
             val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
             val ext = coverEntryPath.substringAfterLast('.', "jpg").lowercase()
                 .takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"
             val coverFile = File(coversDir, "${stableId(uriKey)}.$ext")
-            coverFile.writeBytes(bytes)
+            source.copyTo(coverFile, overwrite = true)
             coverFile.absolutePath
         } catch (_: Exception) {
             null

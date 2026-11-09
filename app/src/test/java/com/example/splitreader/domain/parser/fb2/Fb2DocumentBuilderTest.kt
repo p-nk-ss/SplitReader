@@ -194,10 +194,10 @@ class Fb2DocumentBuilderTest {
     // ── Very large books (OOM guard) ──────────────────────────────────────────────────────────
 
     @Test fun singleHugeParagraph_overBudget_throwsWithoutBuildingTheWholeString() {
-        // A real XML parser hands text in small chunks even for one gigantic <p> -- simulate that
-        // with many small Text events so no single chunk looks large on its own; only the running
-        // total across the whole book catches it.
-        val b = Fb2DocumentBuilder(maxChars = 1000)
+        // Whether a parser hands one gigantic <p> over whole (KXmlParser buffers a whole text node)
+        // or in pieces, the running total across the whole book catches it -- shown here with many
+        // small Text events, so no single one looks large on its own.
+        val b = Fb2DocumentBuilder(maxBytes = 1000)
         val events = listOf(start("body"), start("section"), start("title"), start("p"), text("Ch"), end("p"), end("title"), start("p")) +
             List(50) { text("x".repeat(100)) } + listOf(end("p"), end("section"), end("body"))
         assertThrows(BookTooLargeException::class.java) {
@@ -208,7 +208,7 @@ class Fb2DocumentBuilderTest {
     @Test fun manyModestParagraphs_togetherOverBudget_throws() {
         // Each paragraph alone is tiny; summed across the whole book they exceed the budget -- the
         // budget is per book, not per paragraph, so many medium paragraphs can't add up to an OOM.
-        val b = Fb2DocumentBuilder(maxChars = 1000)
+        val b = Fb2DocumentBuilder(maxBytes = 1000)
         val paragraphs = (1..50).flatMap { listOf(start("p"), text("y".repeat(50)), end("p")) }
         val events = listOf(start("body"), start("section"), start("title"), start("p"), text("Ch"), end("p"), end("title")) +
             paragraphs + listOf(end("section"), end("body"))
@@ -217,10 +217,20 @@ class Fb2DocumentBuilderTest {
         }
     }
 
+    @Test fun budgetIsCountedInBytes_aCharIsTwoBytesInMemory() {
+        // The budget is a heap fraction in bytes (effectiveMaxDecompressed); text is held as UTF-16,
+        // two bytes per char, so 600 chars (1200 bytes) exceed a 1000-byte budget.
+        val b = Fb2DocumentBuilder(1000)
+        val events = listOf(start("body"), start("section"), start("p"), text("z".repeat(600)), end("p"), end("section"), end("body"))
+        assertThrows(BookTooLargeException::class.java) {
+            events.forEach { b.accept(it) }
+        }
+    }
+
     @Test fun normalSizedBook_wellUnderBudget_stillParses() {
         // An explicit, generous budget is exercised directly (rather than the default-constructed
         // `build()` helper) to prove normal content is unaffected by the new accounting.
-        val b = Fb2DocumentBuilder(maxChars = 1_000_000)
+        val b = Fb2DocumentBuilder(maxBytes = 1_000_000)
         section("Ch", start("p"), text("Ordinary prose."), end("p")).forEach { b.accept(it) }
         val result = b.finish()
         assertEquals(listOf("Ordinary prose."), result.chapters[0].paragraphs)

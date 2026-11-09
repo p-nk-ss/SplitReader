@@ -74,20 +74,17 @@ class MobiParser @Inject constructor() : BookParser {
         } else emptyMap()
 
         // ── Decompress the text records into one HTML blob ──
-        val textBytes = java.io.ByteArrayOutputStream()
         val lastTextRecord = textRecordCount.coerceAtMost(pdb.recordCount - 1)
-        for (i in 1..lastTextRecord) {
-            coroutineContext.ensureActive()
-            val data = pdb.record(i)
-            var size = data.size - MobiCodec.trailingDataSize(data, data.size, extraDataFlags)
-            if (size < 0) size = 0
-            val chunk = when (compression) {
-                2 -> MobiCodec.palmDocDecompress(data, size)
-                else -> data.copyOf(size) // compression == 1 (none)
-            }
-            textBytes.write(chunk)
-        }
-        val html = String(textBytes.toByteArray(), charset)
+        val job = coroutineContext
+        val textBytes = MobiCodec.decompressText(
+            record = pdb::record,
+            lastRecord = lastTextRecord,
+            compression = compression,
+            extraDataFlags = extraDataFlags,
+            maxBytes = effectiveMaxDecompressed(),
+            beforeRecord = { job.ensureActive() },
+        )
+        val html = String(textBytes, charset)
 
         // ── Metadata ──
         val fullName = if (hasMobiHeader) readFullName(rec0, charset) else null

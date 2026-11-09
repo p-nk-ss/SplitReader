@@ -1,5 +1,8 @@
 package com.example.splitreader.domain.parser
 
+import com.example.splitreader.domain.parser.util.BookTooLargeException
+import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
+
 /**
  * Pure byte-level primitives for classic MOBI / PalmDOC, extracted from MobiParser so they can be
  * unit-tested on the JVM. [u32] returns Long to avoid the sign overflow that a 32-bit header field
@@ -44,6 +47,39 @@ object MobiCodec {
             num += (data[size - num - 1].toInt() and 0x3) + 1
         }
         return num
+    }
+
+    /**
+     * Text records 1..[lastRecord] (trailing entries stripped, PalmDOC-decompressed when
+     * [compression] is 2, else copied) joined into one byte array. PalmDOC expands text ~5x (up to
+     * ~8x) from the file, so the file's own size bound does not bound this: the running total is
+     * checked against [maxBytes] (the heap budget, [effectiveMaxDecompressed]) after every record,
+     * throwing [BookTooLargeException] before anything more is kept.
+     */
+    fun decompressText(
+        record: (Int) -> ByteArray,
+        lastRecord: Int,
+        compression: Int,
+        extraDataFlags: Int,
+        maxBytes: Long,
+        beforeRecord: () -> Unit = {},
+    ): ByteArray {
+        val textBytes = java.io.ByteArrayOutputStream()
+        for (i in 1..lastRecord) {
+            beforeRecord()
+            val data = record(i)
+            var size = data.size - trailingDataSize(data, data.size, extraDataFlags)
+            if (size < 0) size = 0
+            val chunk = when (compression) {
+                2 -> palmDocDecompress(data, size)
+                else -> data.copyOf(size) // compression == 1 (none)
+            }
+            if (textBytes.size().toLong() + chunk.size > maxBytes) {
+                throw BookTooLargeException("Book is too large to open safely.")
+            }
+            textBytes.write(chunk)
+        }
+        return textBytes.toByteArray()
     }
 
     /** PalmDOC (LZ77 variant) decompression. A back-reference with distance 0 is skipped (guard). */
