@@ -1,11 +1,22 @@
 package com.example.splitreader.domain.parser.fb2
 
+import com.example.splitreader.domain.parser.util.BookTooLargeException
+import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
+
 /**
  * Pure FB2 event -> [Fb2Document] builder. Replaces Fb2Parser's ~20 boolean flags with an element-name
  * stack (context = "am I inside <epigraph>/<coverpage>/<binary>…") plus a section-frame stack (each leaf
  * <section> becomes a chapter). No Android dependencies, so it is unit-testable on the JVM.
+ *
+ * [maxChars] bounds the total text this builder will ever accumulate — summed across every
+ * paragraph, title, embedded binary (base64 images) and the annotation, for the whole book, not
+ * per element. XmlPullParser hands text to [onText] in small chunks, so a single huge `<p>` arrives
+ * as many small [Fb2Event.Text] events; without this running total, the per-element StringBuilder
+ * (and its final `toString()`) would grow unbounded and OOM a constrained heap before any one
+ * chunk looks large on its own. Throws [BookTooLargeException] the moment the total is crossed,
+ * before appending the chunk that crossed it.
  */
-class Fb2DocumentBuilder {
+class Fb2DocumentBuilder(private val maxChars: Long = effectiveMaxDecompressed()) {
 
     private var title = "Unknown Title"
     private var firstName = ""
@@ -26,6 +37,8 @@ class Fb2DocumentBuilder {
     private val referencedImageIds = mutableSetOf<String>()
     private val binaries = mutableMapOf<String, StringBuilder>()
     private var currentBinaryId: String? = null
+
+    private var totalChars = 0L
 
     fun accept(event: Fb2Event) {
         when (event) {
@@ -66,6 +79,8 @@ class Fb2DocumentBuilder {
     }
 
     private fun onText(t: String) {
+        totalChars += t.length
+        if (totalChars > maxChars) throw BookTooLargeException("Book is too large to open safely.")
         when {
             currentBinaryId != null -> binaries[currentBinaryId]?.append(t)
             elementStack.contains("annotation") -> annotation.append(t).append(' ')

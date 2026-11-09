@@ -1,6 +1,8 @@
 package com.example.splitreader.domain.parser.fb2
 
+import com.example.splitreader.domain.parser.util.BookTooLargeException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -187,5 +189,40 @@ class Fb2DocumentBuilderTest {
         assertEquals(listOf("Prose"), doc.chapters[0].paragraphs) // no spurious title paragraphs
         assertTrue(doc.chapters[0].title.contains("Book One"))
         assertTrue(doc.chapters[0].title.contains("The Journey"))
+    }
+
+    // ── Very large books (OOM guard) ──────────────────────────────────────────────────────────
+
+    @Test fun singleHugeParagraph_overBudget_throwsWithoutBuildingTheWholeString() {
+        // A real XML parser hands text in small chunks even for one gigantic <p> -- simulate that
+        // with many small Text events so no single chunk looks large on its own; only the running
+        // total across the whole book catches it.
+        val b = Fb2DocumentBuilder(maxChars = 1000)
+        val events = listOf(start("body"), start("section"), start("title"), start("p"), text("Ch"), end("p"), end("title"), start("p")) +
+            List(50) { text("x".repeat(100)) } + listOf(end("p"), end("section"), end("body"))
+        assertThrows(BookTooLargeException::class.java) {
+            events.forEach { b.accept(it) }
+        }
+    }
+
+    @Test fun manyModestParagraphs_togetherOverBudget_throws() {
+        // Each paragraph alone is tiny; summed across the whole book they exceed the budget -- the
+        // budget is per book, not per paragraph, so many medium paragraphs can't add up to an OOM.
+        val b = Fb2DocumentBuilder(maxChars = 1000)
+        val paragraphs = (1..50).flatMap { listOf(start("p"), text("y".repeat(50)), end("p")) }
+        val events = listOf(start("body"), start("section"), start("title"), start("p"), text("Ch"), end("p"), end("title")) +
+            paragraphs + listOf(end("section"), end("body"))
+        assertThrows(BookTooLargeException::class.java) {
+            events.forEach { b.accept(it) }
+        }
+    }
+
+    @Test fun normalSizedBook_wellUnderBudget_stillParses() {
+        // An explicit, generous budget is exercised directly (rather than the default-constructed
+        // `build()` helper) to prove normal content is unaffected by the new accounting.
+        val b = Fb2DocumentBuilder(maxChars = 1_000_000)
+        section("Ch", start("p"), text("Ordinary prose."), end("p")).forEach { b.accept(it) }
+        val result = b.finish()
+        assertEquals(listOf("Ordinary prose."), result.chapters[0].paragraphs)
     }
 }

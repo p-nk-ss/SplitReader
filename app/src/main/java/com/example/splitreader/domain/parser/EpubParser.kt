@@ -5,7 +5,7 @@ import android.net.Uri
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
-import com.example.splitreader.domain.parser.util.MAX_DECOMPRESSED
+import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
 import com.example.splitreader.domain.parser.util.readZipEntries
 import com.example.splitreader.domain.parser.util.stableId
 import org.jsoup.Jsoup
@@ -41,7 +41,7 @@ class EpubParser @Inject constructor() : BookParser {
         val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "webp", "svg")
 
         val allEntries = context.contentResolver.openInputStream(uri)?.use { input ->
-            readZipEntries(input, MAX_DECOMPRESSED) { name ->
+            readZipEntries(input, effectiveMaxDecompressed()) { name ->
                 val ext = name.substringAfterLast('.').lowercase()
                 ext in textExtensions || ext in imageExtensions
             }

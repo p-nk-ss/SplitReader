@@ -5,7 +5,7 @@ import android.net.Uri
 import android.util.Log
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
-import com.example.splitreader.domain.parser.util.MAX_DECOMPRESSED
+import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
 import com.example.splitreader.domain.parser.util.readAllBounded
 import com.example.splitreader.domain.parser.util.stableId
 import java.io.File
@@ -38,7 +38,7 @@ class MobiParser @Inject constructor() : BookParser {
             })
 
     override suspend fun parse(uri: Uri, context: Context): Book {
-        val bytes = context.contentResolver.openInputStream(uri)?.use { readAllBounded(it, MAX_DECOMPRESSED) }
+        val bytes = context.contentResolver.openInputStream(uri)?.use { readAllBounded(it, effectiveMaxDecompressed()) }
             ?: throw IllegalStateException("Cannot open file")
 
         val pdb = MobiFile(bytes)

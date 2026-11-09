@@ -37,4 +37,17 @@ class ZipReadingTest {
             readZipEntries(ByteArrayInputStream(zip), 1024) { true }
         }
     }
+
+    @Test fun throwsWhenManyEntriesTogetherExceedLimit() {
+        // Each entry alone is within the limit; combined they are not -- the budget is per book,
+        // not per entry, so many medium entries can't add up to an OOM.
+        val zip = zipOf(
+            "a.xhtml" to ByteArray(400) { 1 },
+            "b.xhtml" to ByteArray(400) { 2 },
+            "c.xhtml" to ByteArray(400) { 3 },
+        )
+        assertThrows(BookTooLargeException::class.java) {
+            readZipEntries(ByteArrayInputStream(zip), 1000) { true }
+        }
+    }
 }
