@@ -151,6 +151,7 @@ object HtmlChapterExtractor {
         val inTables = body.select("td, th")
             .filter { it.select("p").isEmpty() && it.select("td, th").size == 1 }
             .filter { it.closest("blockquote") == null && !isLinkCell(it) }
+            .filter { cell -> cell.closest("table")?.let { !isContentsTable(it) } ?: true }
             .sumOf { it.text().length }
         if (inTables == 0) return false
         val inParagraphs = body.select("p").sumOf { it.text().length }
@@ -166,6 +167,9 @@ object HtmlChapterExtractor {
      */
     private fun rowText(tr: Element): String? {
         if (tr.selectFirst("p, table") != null) return null
+        // A table of contents or list of plates is never text to read, including its link-less
+        // header row ("PAGE", "To face page") — see isContentsTable.
+        tr.closest("table")?.let { if (isContentsTable(it)) return null }
         val cellEls = tr.children().filter { it.tagName() == "td" || it.tagName() == "th" }
         // A header row ("Year | Event"), or a contents row of links, is not text to read.
         if (cellEls.isEmpty() || cellEls.all { it.tagName() == "th" } || tr.closest("thead") != null) return null
@@ -177,10 +181,35 @@ object HtmlChapterExtractor {
         return text.takeIf { t -> t.any { it.isLetterOrDigit() } }
     }
 
-    /** A cell that is nothing but a link: a table of contents. */
+    /** A cell that is nothing but a link: a table-of-contents or plate-list row. */
     private fun isLinkCell(cell: Element): Boolean {
         val text = cell.text().trim()
         return text.isNotEmpty() && cell.select("a").sumOf { it.text().trim().length } >= text.length
+    }
+
+    /**
+     * A table of contents or a list of plates: nearly every row is a link to a page, so none of it
+     * is prose — not even its one link-less header row ("PAGE", "To face page" in Gutenberg's
+     * illustrated "Alice", ebook 28885). Judged on this table's OWN rows only (`tr.closest("table")`
+     * must be this table): a contents table nested inside an outer layout table — Alice's case — is
+     * judged on its own rows, and an outer table wrapping it is unaffected (its own single row holds
+     * a nested table, which [rowText] already never reads).
+     *
+     * Requires at least 2 rows with any text, and at least 80% of them to contain a link cell
+     * ([isLinkCell]). 80% tolerates exactly one link-less header row as long as 4 or more linked
+     * rows follow it (4 of 5 = 80%); Alice's own contents (12 link rows + 1 header = 12/13 ≈ 92%)
+     * and plates (13/14 ≈ 93%) tables clear it with room to spare. A table where only a minority of
+     * rows carry a link — an ordinary dialogue/verse table with an occasional footnote reference —
+     * stays well under 80% and is read exactly as before.
+     */
+    private fun isContentsTable(table: Element): Boolean {
+        val ownRows = table.select("tr").filter { it.closest("table") == table }
+        val textRows = ownRows.filter { it.text().isNotBlank() }
+        if (textRows.size < 2) return false
+        val linkRows = textRows.count { row ->
+            row.children().any { (it.tagName() == "td" || it.tagName() == "th") && isLinkCell(it) }
+        }
+        return linkRows.toDouble() / textRows.size >= 0.8
     }
 
     /** How many times the prose a table's text must be before its rows are read (see readsTables). */

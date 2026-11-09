@@ -272,4 +272,110 @@ class HtmlChapterExtractorTest {
             allParagraphs(HtmlChapterExtractor.parse(html)),
         )
     }
+
+    // ── Tables of contents / lists of plates are not read as text (v25: Gutenberg's illustrated
+    // "Alice", ebook 28885 — "PAGE", "To face page" and every contents/plates line were translated) ──
+
+    @Test
+    fun `a nested contents table and a list-of-plates table are not read as paragraphs, prose survives`() {
+        // Mirrors Alice's real front matter: an outer layout table is irrelevant here (that nesting
+        // is already handled — a <tr> holding a nested <table> is never itself read); what matters is
+        // the inner contents table (link-less "PAGE" header + 12 link rows) and the plates table
+        // (link-less "To face page" header + 13 link rows).
+        val contentsRows = (1..12).joinToString("") {
+            "<tr><td>$it.</td><td>Chapter $it of the story</td><td><a href=\"#p$it\">$it</a></td></tr>"
+        }
+        val platesRows = (1..13).joinToString("") {
+            "<tr><td>Plate caption number $it describing a picture</td><td><a href=\"#pl$it\">$it</a></td></tr>"
+        }
+        val html = """
+            <body>
+              <h1>The Book</h1>
+              <p>A short preface paragraph with a little real prose in it, which must survive untouched.</p>
+              <h2>CONTENTS</h2>
+              <table><tbody>
+                <tr><td> </td><td> </td><td><small>PAGE</small></td></tr>
+                $contentsRows
+              </tbody></table>
+              <h2>LIST OF THE PLATES</h2>
+              <table><tbody>
+                <tr><td> </td><td><i>To face page</i></td></tr>
+                $platesRows
+              </tbody></table>
+            </body>
+        """.trimIndent()
+
+        val all = allParagraphs(HtmlChapterExtractor.parse(html))
+
+        assertTrue("$all", all.none { it.contains("PAGE") })
+        assertTrue("$all", all.none { it.contains("To face page") })
+        assertTrue("$all", all.none { it.contains("Chapter") && it.contains("of the story") })
+        assertTrue("$all", all.none { it.contains("Plate caption") })
+        assertTrue("$all", all.any { it.contains("preface paragraph") })
+    }
+
+    @Test
+    fun `the same contents and plates tables with no surrounding prose still read nothing from them`() {
+        val contentsRows = (1..12).joinToString("") {
+            "<tr><td>$it.</td><td>Chapter $it of the story</td><td><a href=\"#p$it\">$it</a></td></tr>"
+        }
+        val platesRows = (1..13).joinToString("") {
+            "<tr><td>Plate caption number $it describing a picture</td><td><a href=\"#pl$it\">$it</a></td></tr>"
+        }
+        val html = """
+            <body>
+              <h1>The Book</h1>
+              <h2>CONTENTS</h2>
+              <table><tbody>
+                <tr><td> </td><td> </td><td><small>PAGE</small></td></tr>
+                $contentsRows
+              </tbody></table>
+              <h2>LIST OF THE PLATES</h2>
+              <table><tbody>
+                <tr><td> </td><td><i>To face page</i></td></tr>
+                $platesRows
+              </tbody></table>
+            </body>
+        """.trimIndent()
+
+        val all = allParagraphs(HtmlChapterExtractor.parse(html))
+
+        assertTrue("$all", all.none { it.contains("PAGE") })
+        assertTrue("$all", all.none { it.contains("To face page") })
+        assertTrue("$all", all.none { it.contains("Chapter") && it.contains("of the story") })
+        assertTrue("$all", all.none { it.contains("Plate caption") })
+    }
+
+    @Test
+    fun `a play table with one footnote link in ten rows still reads every row`() {
+        // A minority link (a footnote reference) must not make an ordinary dialogue table look like
+        // a contents list: isLinkCell requires (nearly) the whole cell to be link text, which a cell
+        // of real dialogue plus a small footnote anchor never satisfies.
+        val rows = (1..10).joinToString("") {
+            val footnote = if (it == 5) """<sup><a href="#fn1">1</a></sup>""" else ""
+            "<tr><td>Speaker $it</td><td>Line of dialogue number $it spoken on stage$footnote</td></tr>"
+        }
+        val html = "<body><h2>Act I</h2><table>$rows</table></body>"
+
+        val all = allParagraphs(HtmlChapterExtractor.parse(html))
+
+        assertEquals(10, all.size)
+    }
+
+    @Test
+    fun `uppercase text is never treated as a table header or contents row, nor is an all-caps paragraph dropped`() {
+        val html = """
+            <body><h2>PŘEDEHRA</h2>
+            <p>THE END.</p>
+            <table>
+              <tr><td>Domin</td><td>(slavnostně) A tehdy, slečno, starý Rossum napsal mezi své chemické vzorce tohleto.</td></tr>
+              <tr><td>HELENA</td><td>WHAT DOES THIS MEAN? I DEMAND AN ANSWER AT ONCE.</td></tr>
+            </table></body>
+        """.trimIndent()
+
+        val all = allParagraphs(HtmlChapterExtractor.parse(html))
+
+        assertTrue("$all", all.any { it == "THE END." })
+        assertTrue("$all", all.any { it == "HELENA — WHAT DOES THIS MEAN? I DEMAND AN ANSWER AT ONCE." })
+    }
 }
