@@ -51,6 +51,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.example.splitreader.R
 import com.example.splitreader.presentation.theme.FadeInOnAppear
 import com.example.splitreader.presentation.theme.MotionTokens
@@ -344,9 +346,10 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         )
         Spacer(Modifier.width(sp.sm))
         Box(Modifier.weight(1f)) {
+            val placeholder = "Search by title or author…"
             if (query.isEmpty()) {
                 Text(
-                    text = "Search by title or author…",
+                    text = placeholder,
                     fontFamily = Newsreader,
                     fontSize = 16.sp,
                     color = palette.ink3,
@@ -363,7 +366,13 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
                 ),
                 cursorBrush = SolidColor(palette.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                modifier = Modifier.fillMaxWidth(),
+                // The visible placeholder is a separate Text that disappears once typing starts, so
+                // it alone never gives the field a stable accessible name (CAT a11y gap: TalkBack got
+                // an unlabeled edit field). A semantics contentDescription on the field itself fixes
+                // that without changing anything visual.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = placeholder },
             )
         }
     }
