@@ -61,11 +61,14 @@ object HtmlChapterExtractor {
         ).remove()
         val body = doc.body() ?: return Result(null, emptyList(), emptyList(), emptyList())
         val headingEl = body.selectFirst("h1, h2, h3")
+        // Decided ONCE per document (not per row/cell — see findContentsTables): which tables are
+        // tables of contents or plate lists, so none of their rows is text to read.
+        val contentsTables = if (headingEl != null) findContentsTables(body) else emptySet()
         // Rows join the paragraphs only where the text lives in tables (see readsTables), and only
         // after a heading: a file with a heading was always one chapter, so the book's chapters stay
         // as they were. A headless table file, or rows before the heading, would add a chapter and
         // renumber every chapter after it — and chapter indices are saved too.
-        val rows = if (headingEl != null && readsTables(body)) ", tr" else ""
+        val rows = if (headingEl != null && readsTables(body, contentsTables)) ", tr" else ""
         val headingTitle = headingEl?.text()?.takeIf { it.isNotBlank() }
 
         if (headingEl == null) {
@@ -112,7 +115,7 @@ object HtmlChapterExtractor {
             when {
                 tag in listOf("h1", "h2", "h3") -> foundHeading = true
                 // A table in a blockquote is read with the blockquote (as an epigraph), not twice.
-                tag == "tr" -> if (foundHeading && el.closest("blockquote") == null) rowText(el)?.let(main::add)
+                tag == "tr" -> if (foundHeading && el.closest("blockquote") == null) rowText(el, contentsTables)?.let(main::add)
                 (tag == "img" || tag == "image") && foundHeading -> {
                     imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size, inLegacyLayout = true)) }
                 }
@@ -145,13 +148,13 @@ object HtmlChapterExtractor {
      * must add nothing; a book whose text is in tables showed (next to) nothing before, so its saved
      * positions have nothing to lose.
      */
-    private fun readsTables(body: Element): Boolean {
+    private fun readsTables(body: Element, contentsTables: Set<Element>): Boolean {
         // Leaf cells only (Jsoup's select includes the element itself, hence size == 1): a cell
         // holding paragraphs or a nested table is counted through those.
         val inTables = body.select("td, th")
             .filter { it.select("p").isEmpty() && it.select("td, th").size == 1 }
             .filter { it.closest("blockquote") == null && !isLinkCell(it) }
-            .filter { cell -> cell.closest("table")?.let { !isContentsTable(it) } ?: true }
+            .filter { cell -> cell.closest("table")?.let { it !in contentsTables } ?: true }
             .sumOf { it.text().length }
         if (inTables == 0) return false
         val inParagraphs = body.select("p").sumOf { it.text().length }
@@ -165,11 +168,11 @@ object HtmlChapterExtractor {
      * line numbers dropped. Null for a row of nothing but punctuation (a stanza break), a row holding
      * paragraphs of its own (they are read as paragraphs), or one holding a nested table.
      */
-    private fun rowText(tr: Element): String? {
+    private fun rowText(tr: Element, contentsTables: Set<Element>): String? {
         if (tr.selectFirst("p, table") != null) return null
         // A table of contents or list of plates is never text to read, including its link-less
-        // header row ("PAGE", "To face page") — see isContentsTable.
-        tr.closest("table")?.let { if (isContentsTable(it)) return null }
+        // header row ("PAGE", "To face page") — see isContentsTable/findContentsTables.
+        tr.closest("table")?.let { if (it in contentsTables) return null }
         val cellEls = tr.children().filter { it.tagName() == "td" || it.tagName() == "th" }
         // A header row ("Year | Event"), or a contents row of links, is not text to read.
         if (cellEls.isEmpty() || cellEls.all { it.tagName() == "th" } || tr.closest("thead") != null) return null
@@ -188,6 +191,37 @@ object HtmlChapterExtractor {
     }
 
     /**
+     * A cell that is (almost) nothing but a hyperlink to elsewhere — like [isLinkCell], but counting
+     * only `<a href>` elements, never a link-less `<a id>`/`<a name>` anchor. A verse or play table
+     * that marks every line with such an anchor (for cross-references, not navigation) must not look
+     * like a contents list just because every row "has an `<a>`". Used only by [isContentsTable];
+     * [isLinkCell] itself, and the pre-v25 rules in [rowText]/[readsTables] that use it, are
+     * unchanged.
+     */
+    private fun isLinkTargetCell(cell: Element): Boolean {
+        val text = cell.text().trim()
+        return text.isNotEmpty() && cell.select("a[href]").sumOf { it.text().trim().length } >= text.length
+    }
+
+    /**
+     * Every table in the document that is a table of contents or a list of plates (see
+     * [isContentsTable]), decided ONCE per document — not per row or per cell. [isContentsTable]
+     * itself does an O(rows-in-that-table) scan, so calling it from inside [rowText] (once per row)
+     * or [readsTables] (once per cell) made parsing quadratic in the row count: Gutenberg's Czech
+     * R.U.R. (1,798 `<tr>`) went from 83 ms to 13.2 s, and the Greek Iliad (13,989 `<tr>`) from
+     * 145 ms to just under 11 minutes, for identical output. An identity-based set (not `hashCode`
+     * or `equals`, which Jsoup `Element`s derive from their subtree and attributes and which can
+     * collide or be expensive) is the correct membership test for "is this the same Element".
+     */
+    private fun findContentsTables(body: Element): Set<Element> {
+        val result: MutableSet<Element> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+        for (table in body.select("table")) {
+            if (isContentsTable(table)) result.add(table)
+        }
+        return result
+    }
+
+    /**
      * A table of contents or a list of plates: nearly every row is a link to a page, so none of it
      * is prose — not even its one link-less header row ("PAGE", "To face page" in Gutenberg's
      * illustrated "Alice", ebook 28885). Judged on this table's OWN rows only (`tr.closest("table")`
@@ -195,19 +229,21 @@ object HtmlChapterExtractor {
      * judged on its own rows, and an outer table wrapping it is unaffected (its own single row holds
      * a nested table, which [rowText] already never reads).
      *
-     * Requires at least 2 rows with any text, and at least 80% of them to contain a link cell
-     * ([isLinkCell]). 80% tolerates exactly one link-less header row as long as 4 or more linked
-     * rows follow it (4 of 5 = 80%); Alice's own contents (12 link rows + 1 header = 12/13 ≈ 92%)
-     * and plates (13/14 ≈ 93%) tables clear it with room to spare. A table where only a minority of
-     * rows carry a link — an ordinary dialogue/verse table with an occasional footnote reference —
-     * stays well under 80% and is read exactly as before.
+     * Requires at least 2 rows with any text, and at least 80% of them to contain a real link cell
+     * ([isLinkTargetCell] — `a[href]` only, so a line/page *anchor* without `href` never counts).
+     * 80% tolerates exactly one link-less header row as long as 4 or more linked rows follow it
+     * (4 of 5 = 80%); Alice's own contents (12 link rows + 1 header = 12/13 ≈ 92%) and plates
+     * (13/14 ≈ 93%) tables clear it with room to spare. A table where only a minority of rows carry
+     * a link — an ordinary dialogue/verse table with an occasional footnote reference — stays well
+     * under 80% and is read exactly as before. Called once per table by [findContentsTables], never
+     * from inside a per-row/per-cell loop.
      */
     private fun isContentsTable(table: Element): Boolean {
         val ownRows = table.select("tr").filter { it.closest("table") == table }
         val textRows = ownRows.filter { it.text().isNotBlank() }
         if (textRows.size < 2) return false
         val linkRows = textRows.count { row ->
-            row.children().any { (it.tagName() == "td" || it.tagName() == "th") && isLinkCell(it) }
+            row.children().any { (it.tagName() == "td" || it.tagName() == "th") && isLinkTargetCell(it) }
         }
         return linkRows.toDouble() / textRows.size >= 0.8
     }

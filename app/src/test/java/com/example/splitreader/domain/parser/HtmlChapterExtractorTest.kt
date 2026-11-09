@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.system.measureTimeMillis
 
 /**
  * Guards the reader's "trim the beginning" behaviour: Project Gutenberg source/license boilerplate
@@ -277,11 +278,21 @@ class HtmlChapterExtractorTest {
     // "Alice", ebook 28885 — "PAGE", "To face page" and every contents/plates line were translated) ──
 
     @Test
-    fun `a nested contents table and a list-of-plates table are not read as paragraphs, prose survives`() {
-        // Mirrors Alice's real front matter: an outer layout table is irrelevant here (that nesting
-        // is already handled — a <tr> holding a nested <table> is never itself read); what matters is
-        // the inner contents table (link-less "PAGE" header + 12 link rows) and the plates table
-        // (link-less "To face page" header + 13 link rows).
+    fun `a contents table nested inside an outer layout table, and a list-of-plates table, are not read as paragraphs, prose survives`() {
+        // Mirrors Alice's real front matter exactly: the contents table is nested inside an outer
+        // layout table (one row: a spine image in one cell, the real contents table in the other) —
+        // the structure that makes isContentsTable's "own rows only" rule (tr.closest("table") ==
+        // this table) matter: judging the OUTER table's rows would see only 1 own row (holding the
+        // nested table) and never reach 80%; the INNER table must be judged on its own 13 rows.
+        //
+        // This must fail on main 7f00ed6's logic (pre-v25, no isContentsTable at all) for the same
+        // reason the non-nested case does: rowText there only skips a row when ALL its cells are
+        // blank or "nothing but a link" (isLinkCell); the header row ("PAGE"/"To face page") has one
+        // non-blank, non-link cell, so it reads as a paragraph, and every contents/plates data row
+        // reads as "<numeral> — <title>" once its trailing page-link cell is dropped as a line
+        // number. Nesting the table inside an outer one changes nothing about that: the outer row
+        // holding the nested table is already skipped by the pre-existing `tr.selectFirst("p, table")
+        // != null` check in rowText, so the bug is exactly the inner table's rows, nested or not.
         val contentsRows = (1..12).joinToString("") {
             "<tr><td>$it.</td><td>Chapter $it of the story</td><td><a href=\"#p$it\">$it</a></td></tr>"
         }
@@ -293,10 +304,12 @@ class HtmlChapterExtractorTest {
               <h1>The Book</h1>
               <p>A short preface paragraph with a little real prose in it, which must survive untouched.</p>
               <h2>CONTENTS</h2>
-              <table><tbody>
-                <tr><td> </td><td> </td><td><small>PAGE</small></td></tr>
-                $contentsRows
-              </tbody></table>
+              <table><tbody><tr><td><img src="spine.jpg"/></td><td>
+                <table><tbody>
+                  <tr><td> </td><td> </td><td><small>PAGE</small></td></tr>
+                  $contentsRows
+                </tbody></table>
+              </td></tr></tbody></table>
               <h2>LIST OF THE PLATES</h2>
               <table><tbody>
                 <tr><td> </td><td><i>To face page</i></td></tr>
@@ -377,5 +390,44 @@ class HtmlChapterExtractorTest {
 
         assertTrue("$all", all.any { it == "THE END." })
         assertTrue("$all", all.any { it == "HELENA — WHAT DOES THIS MEAN? I DEMAND AN ANSWER AT ONCE." })
+    }
+
+    // ── Review round 2 (v25): decide contents tables once per document, not once per row/cell ──
+
+    @Test
+    fun `a play table where every row's line number is an anchor without href still reads every row`() {
+        // Some books wrap a line number in <a id="lineN"> purely for cross-referencing — no href, so
+        // it is not a hyperlink to another page. isContentsTable must use isLinkTargetCell (a[href]
+        // only), not isLinkCell (any <a>): isLinkCell would see the whole last cell's text as "link"
+        // text (the anchor has visible text "N") in every one of these 10 rows, score 100%, and wrongly
+        // classify this ordinary dialogue table as a table of contents — dropping all 10 rows.
+        val rows = (1..10).joinToString("") {
+            "<tr><td>Speaker $it</td><td>Line of dialogue number $it spoken on stage</td><td><a id=\"line$it\">$it</a></td></tr>"
+        }
+        val html = "<body><h2>Act I</h2><table>$rows</table></body>"
+
+        val all = allParagraphs(HtmlChapterExtractor.parse(html))
+
+        assertEquals("$all", 10, all.size)
+    }
+
+    @Test
+    fun `a table of several thousand rows parses well within a time budget`() {
+        // isContentsTable does an O(rows-in-that-table) scan; calling it from inside rowText (once
+        // per row) or readsTables (once per cell) — as the first v25 commit did — made parsing
+        // quadratic in the row count. Measured on the real fixtures: Gutenberg's Czech R.U.R. (1,798
+        // <tr>) went from 83 ms to 13.2 s, and the Greek Iliad (13,989 <tr>) from 145 ms to ~11
+        // minutes, for identical output. Contents tables must be decided ONCE per document
+        // (findContentsTables) so this stays linear: 4,000 rows well under a generous 3 s budget.
+        val rows = (1..4000).joinToString("") {
+            "<tr><td>Speaker $it</td><td>Line of dialogue number $it spoken on stage during the performance</td></tr>"
+        }
+        val html = "<body><h2>Act I</h2><table>$rows</table></body>"
+
+        var size = -1
+        val elapsedMs = measureTimeMillis { size = HtmlChapterExtractor.parse(html).mainParagraphs.size }
+
+        assertEquals(4000, size)
+        assertTrue("parsing 4000 table rows took ${elapsedMs}ms, expected well under 3000ms", elapsedMs < 3000)
     }
 }
