@@ -51,6 +51,26 @@ appId: ${APP_ID}
     element: ".*${FIRST_TEXT}.*"
     direction: DOWN
     timeout: 120000
+# Fix round 4 (2026-11-09, Task 7a "Take 2"): tap directly on ${FIRST_TEXT} (known on-screen -
+# scrollUntilVisible just confirmed it) to reveal the bars, before falling back to
+# open_bars.yaml's generic point-based taps below. Confirmed on-device (Pixel_10_Pro/API 37,
+# phone stacked layout): after scrollUntilVisible lands on a chapter-heading-heavy stop (large
+# illustrated front-matter editions like F-ALICE put a lot of blank padding around "— N —" /
+# chapter-title rules), open_bars.yaml's fixed percentage points (20%/50%/80%) can ALL land in
+# such blank gaps - confirmed by a failure screenshot showing the 20% point sitting in exactly
+# such a gap, and the fix still failing even after adding 50%/80% retries with settle waits
+# (same scroll stop, same gap pattern recurring at roughly even intervals). A single tap on
+# PARAGRAPH TEXT is safe and toggles bars exactly like a tap on blank space - confirmed by
+# reading ReaderPane.kt: `detectTapGestures(onTap = { currentOnTap() }, onLongPress = { ...word
+# selection... })` - only a LONG press starts word selection; a plain tap always calls onTap
+# (-> onToggleBars), never selects a word. Gated on notVisible so it's a no-op once the chip is
+# already showing (e.g. non-F-ALICE books that don't hit this chapter-heading gap pattern).
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:languageChip"
+    commands:
+      - tapOn: ".*${FIRST_TEXT}.*"
 # Required: reveal the bars (no-op if already up) and assert the top-bar title immediately,
 # before READER_BARS_AUTO_HIDE_MS can elapse again.
 #

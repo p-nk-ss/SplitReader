@@ -60,6 +60,19 @@ appId: ${APP_ID}
 # behaviour change: the drawer-dismiss fix above and scrollUntilVisible itself are kept exactly
 # as they were (neither was data-volume-dependent), only the generous worst-case timeout needed
 # for a ~50-item grid is no longer needed for an at-most-13-item one.
+#
+# Fix round 5 (2026-11-09, Task 7a "Take 2"): scroll Home back to the top FIRST. Callers of this
+# subflow are always on Home, but not always scrolled to the top of it - e.g. after a caller
+# scrolled down to check the "Your shelf · N VOLUME(S)" header (which can sit below the fold on
+# a phone in portrait - the Continue Reading hero takes enough vertical space), "Open book" (in
+# Home's top header) is left above the fold. Confirmed on-device (Pixel_10_Pro/API 37): a bare
+# `tapOn: "Open book"` right after such a scroll failed with "Element not found". scrollUntilVisible
+# is a no-op when already at/near the top (tablet, or any caller that didn't scroll down), so this
+# is safe for every caller, not just the phone/scrolled-down case.
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
 - tapOn: "Open book"
 - extendedWaitUntil:
     visible: "Show roots"

@@ -18,12 +18,35 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           point: "50%, 20%"
+# Fix round 2 (2026-11-09, phone pass): dropped the "Fix round 1" `when: visible: "WORD"`
+# recovery block that used to sit right here, for the same reason documented in open_bars.yaml's
+# own "Fix round 4" comment: a `when:` block whose condition evaluates to false still costs
+# several real seconds of wall-clock before Maestro concludes there's nothing to run (confirmed
+# on-device this session: an unrelated skipped `when` block in the same run logged "duration":
+# 7080/7072 with nothing inside it executed) - against READER_BARS_AUTO_HIDE_MS = 3500ms, that
+# alone reliably lets the bars the tap above just revealed auto-hide again before the terminal
+# extendedWaitUntil below ever samples them, turning a real success into a reported failure. The
+# edge case this used to defend (the reveal tap lands on a word and opens the translation popup
+# instead of toggling the bars - confirmed once on-device for this exact gesture) is now
+# undefended; if it recurs, the terminal extendedWaitUntil below will fail the test with a
+# "WORD" popup in the failure screenshot rather than silently covering for it, which is an
+# acceptable trade for not systematically breaking the common case.
 - extendedWaitUntil:
     visible:
       id: "reader:backButton"
     timeout: 5000
 - tapOn:
     id: "reader:backButton"
-- extendedWaitUntil:
-    visible: "Open book"
+# scrollUntilVisible (not a plain extendedWaitUntil), fix round 3 (2026-11-09, phone pass):
+# Home's own scroll position survives the round trip through the reader (it's a separate
+# back-stack screen, state preserved) - a caller that scrolled Home down before opening the book
+# (e.g. the "tap the Alice card" step, which scrolls DOWN to reach the card) returns here with
+# Home still scrolled into the grid, leaving the header's "Open book" button above the fold.
+# Confirmed on-device (Pixel_10_Pro/API 37): a plain extendedWaitUntil for "Open book" timed out
+# at 10s with a screenshot showing exactly this - "Your shelf" and the cards on screen, the
+# header scrolled away. scrollUntilVisible is a strict superset (a no-op once already at/near the
+# top, e.g. right after launch or Catalog/Library tab switches), so this is safe for every caller.
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
     timeout: 10000
