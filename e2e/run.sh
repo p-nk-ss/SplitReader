@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# e2e/run.sh — builds the app, boots (or attaches to) an emulator, installs it, pushes the
-# fixture books, runs a Maestro tag set against e2e/flows/, and writes a report.
+# e2e/run.sh — builds the app, boots (or attaches to) an emulator, installs it, then runs the
+# selected Maestro flows under e2e/flows ONE AT A TIME — pushing only each flow's own `# books:`
+# fixtures before it runs and removing them before the next flow — and writes one merged report.
 #
 # Usage:
 #   e2e/run.sh (--avd NAME | --serial SERIAL) [--build debug|release] [--tags TAGLIST] [--keep-emulator]
@@ -18,21 +19,36 @@
 #                      signing files (keystore.properties + the .jks it references) are copied in
 #                      from the main checkout only for the build and ALWAYS removed afterwards
 #                      (trap on EXIT), never staged into git.
-#   --tags TAGLIST      Passed straight through to `maestro test --include-tags TAGLIST`. Omit to
-#                      run every flow under e2e/flows regardless of tag. Comma-separated, e.g.
-#                      "smoke" or "full,tablet".
+#   --tags TAGLIST      Selects which flow FILES run, by matching each flow's own `tags: [...]`
+#                      header (OR semantics — a flow runs if it has ANY tag in TAGLIST; same
+#                      semantics as `maestro test --include-tags`, but applied by this script
+#                      itself, since flows now run one file at a time rather than as one
+#                      `maestro test` invocation over the whole flows/ directory). Omit to run
+#                      every flow under e2e/flows. Comma-separated, e.g. "smoke" or
+#                      "full,tablet", or a single flow's own id tag, e.g. "J-LIB-01".
 #   --keep-emulator    Don't kill the emulator this run started (--avd only; ignored with
 #                      --serial, since that emulator wasn't started by this script).
 #
-# Every run writes e2e/reports/<timestamp>/{junit.xml,summary.md,meta.json,...} (gitignored).
+# Per-journey fixtures (Task 7a "Take 2"): each flow file declares the books it needs in a
+# `# books: a.epub, b.fb2` comment header (see e2e/README.md for the exact syntax). Before each
+# selected flow runs, every fixture pushed for the PREVIOUS flow is deleted from
+# /sdcard/Download, then only this flow's own books are pushed + media-scanned; a flow with no
+# `# books:` header gets nothing pushed. This keeps the device's Downloads folder small
+# (one journey's few books, not the whole ~50-fixture suite at once), which is what let
+# e2e/subflows/pick_file.yaml's picker-scrolling logic be simplified back down — see the "Take 2"
+# section of task-7a-report.md for why "Take 1" (push everything, run the whole directory in one
+# `maestro test`) needed multi-minute scroll timeouts and hit DocumentsUI picker-state problems.
+#
+# Every run writes e2e/reports/<timestamp>/<flow-stem>/{junit.xml,...} (one subdirectory per
+# flow that ran) plus a single top-level summary.md/meta.json merging every flow (gitignored).
 # For `--build release` or a --tags value that contains "smoke", summary.md is additionally
 # copied to <releases dir>/e2e-<versionName>-<versionCode>-<device>.md, where <releases dir> is
 # resolved exactly like app/build.gradle.kts resolves `releaseDir` for copyReleaseBundle:
 # `mirrolit.releaseDir` in local.properties if set, else `<repo root>/releases`.
 #
-# Exit code is Maestro's own exit code (0 = all included flows passed), so this script is
-# CI-usable as a gate. Report generation and cleanup (pushed fixtures removed, emulator killed)
-# still run even when Maestro reports failures.
+# Exit code is non-zero if ANY selected flow failed (0 = every selected flow passed), so this
+# script is CI-usable as a gate. Report generation and cleanup (pushed fixtures removed, emulator
+# killed) still run even when one or more flows fail.
 set -u -o pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -198,7 +214,7 @@ kill_emulator() {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Install, fixtures, media scan
+# 3. Install
 # ---------------------------------------------------------------------------
 log "adb install -r $APK"
 "$ADB" -s "$SERIAL" install -r "$APK" || { kill_emulator; die "install failed"; }
@@ -215,11 +231,30 @@ if ! "$REPO_ROOT/e2e/books/fetch_fixtures.sh"; then
       "whatever fixtures are already present under e2e/books/fetched/"
 fi
 
-log "listing /sdcard/Download before pushing fixtures"
+log "listing /sdcard/Download before pushing any fixtures"
 "$ADB" -s "$SERIAL" shell ls -la /sdcard/Download > "$RUN/sdcard_download_before.txt" 2>&1 || true
 
-PUSHED_LIST="$RUN/pushed_files.txt"
-: > "$PUSHED_LIST"
+# ---------------------------------------------------------------------------
+# 4. Per-journey fixtures + per-flow maestro runs (Task 7a "Take 2")
+#
+# Each flow file under e2e/flows declares the fixtures it needs in a `# books: a.epub, b.fb2`
+# comment line (see e2e/README.md for the exact syntax). Flows now run ONE AT A TIME: before
+# each selected flow, every fixture pushed for the PREVIOUS flow is deleted from
+# /sdcard/Download, then only THIS flow's own books are pushed (+ media-scanned) and
+# `maestro test` runs against that single flow file alone; a flow with no `# books:` header
+# gets nothing pushed. This replaces "Take 1" (push all ~50 fixtures up front, then one
+# `maestro test` over the whole flows/ directory), which made DocumentsUI's Downloads grid
+# large enough to need multi-minute scroll timeouts and occasional picker-state corruption —
+# see task-7a-report.md. Each flow's own junit.xml/test-output lands under its own $RUN/<stem>/
+# subdirectory so report.py (find_junit_paths()/collect_cases()) can build one merged
+# summary.md across every flow afterwards.
+#
+# Flow selection by --tags still works: it is now run.sh's OWN filter (flow_matches_tags, OR
+# semantics against each flow's `tags: [...]` header — the same semantics maestro's own
+# --include-tags has), since flows run one file at a time rather than as one `maestro test`
+# invocation over a whole directory. A skipped flow is logged explicitly below, which is this
+# script's proof that a non-matching flow was actually skipped, not silently run anyway.
+# ---------------------------------------------------------------------------
 
 # `adb shell` concatenates ALL of its argv (space-joined) into one command line that the
 # DEVICE's own shell then tokenizes again — a basename containing a space or a shell
@@ -243,6 +278,9 @@ media_scan() {
   fi
 }
 
+PUSHED_LIST="$RUN/pushed_files.txt"
+: > "$PUSHED_LIST"
+
 push_fixture() {
   local local_path="$1"
   local bn
@@ -255,45 +293,135 @@ push_fixture() {
   echo "$bn" >> "$PUSHED_LIST"
 }
 
-log "pushing e2e/books/* fixtures (excluding .py/.sh/.md and fetched/, pushed separately)"
-for f in "$REPO_ROOT"/e2e/books/*; do
-  bn="$(basename "$f")"
-  case "$bn" in
-    *.py|*.sh|*.md|fetched) continue ;;
-  esac
-  [ -f "$f" ] && push_fixture "$f"
+# Resolves a fixture basename named in a flow's `# books:` header to its source file, in this
+# order: e2e/books/<name> (committed synthetic fixtures), e2e/books/fetched/<name> (real
+# Gutenberg books downloaded above), then app/src/androidTest/assets/qa-pd/<name> (the one
+# pre-existing fixture that lives outside e2e/books/). Echoes the resolved path and returns
+# non-zero if none of the three exist.
+resolve_fixture() {
+  local name="$1"
+  if [ -f "$REPO_ROOT/e2e/books/$name" ]; then
+    printf '%s\n' "$REPO_ROOT/e2e/books/$name"
+  elif [ -f "$REPO_ROOT/e2e/books/fetched/$name" ]; then
+    printf '%s\n' "$REPO_ROOT/e2e/books/fetched/$name"
+  elif [ -f "$REPO_ROOT/app/src/androidTest/assets/qa-pd/$name" ]; then
+    printf '%s\n' "$REPO_ROOT/app/src/androidTest/assets/qa-pd/$name"
+  else
+    return 1
+  fi
+}
+
+# Parses a flow file's `# books: a.epub, b.fb2` comment line, if any, into one basename per
+# output line. No output at all (not even an empty line) when the header is absent — the
+# caller's `while read` loop then simply never iterates, which is how "no header = no books
+# pushed" is implemented.
+flow_books() {
+  local flow_file="$1"
+  local line
+  line="$(grep -m1 '^# books:' "$flow_file" || true)"
+  [ -z "$line" ] && return 0
+  printf '%s\n' "$line" | sed -e 's/^# books:[[:space:]]*//' -e 's/[[:space:]]*$//' \
+    | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
+}
+
+# Parses a flow file's `tags: [a, b, c]` YAML header line into one tag per output line.
+flow_tags() {
+  local flow_file="$1"
+  local line
+  line="$(grep -m1 '^tags:' "$flow_file" || true)"
+  [ -z "$line" ] && return 0
+  printf '%s\n' "$line" | sed -n 's/^tags:[[:space:]]*\[\(.*\)\][[:space:]]*$/\1/p' \
+    | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
+}
+
+# True (exit 0) iff TAGS is empty (no filter — every flow runs) or this flow declares at least
+# one tag in common with the (comma-separated) requested TAGS — OR semantics, the same as
+# maestro's own --include-tags. Needed because flows now run one file at a time rather than as
+# one `maestro test` invocation over the whole flows/ directory, where --include-tags would
+# otherwise do this filtering for us.
+flow_matches_tags() {
+  local flow_file="$1"
+  [ -z "$TAGS" ] && return 0
+  local ft wt
+  local want_tags=()
+  IFS=',' read -r -a want_tags <<< "$TAGS"
+  while IFS= read -r ft; do
+    [ -z "$ft" ] && continue
+    for wt in "${want_tags[@]}"; do
+      [ "$ft" = "$wt" ] && return 0
+    done
+  done < <(flow_tags "$flow_file")
+  return 1
+}
+
+# Removes every fixture pushed for the flow that just ran (no-op the first time: PUSHED_LIST
+# starts empty). `< /dev/null` matters: without it, `adb shell` would inherit this function's
+# own stdin (redirected from $PUSHED_LIST) and read the REST of that file as ITS stdin,
+# starving every subsequent `read` in the loop — only the first line would ever get removed.
+remove_pushed_fixtures() {
+  local bn qpath
+  while IFS= read -r bn; do
+    if [ -n "$bn" ]; then
+      qpath="$(remote_quote "/sdcard/Download/$bn")"
+      "$ADB" -s "$SERIAL" shell "rm -f $qpath" < /dev/null >/dev/null 2>&1
+    fi
+  done < "$PUSHED_LIST"
+  : > "$PUSHED_LIST"
+}
+
+FLOW_FILES=()
+while IFS= read -r f; do
+  FLOW_FILES+=("$f")
+done < <(find "$REPO_ROOT/e2e/flows" -name '*.yaml' ! -name 'config.yaml' ! -name '_*' | sort)
+
+SELECTED_FLOWS=()
+for f in "${FLOW_FILES[@]}"; do
+  if flow_matches_tags "$f"; then
+    SELECTED_FLOWS+=("$f")
+  else
+    log "skipping $(basename "$f") (tags don't include any of: $TAGS)"
+  fi
+done
+[ "${#SELECTED_FLOWS[@]}" -gt 0 ] || log "WARNING: no flow under e2e/flows matched --tags $TAGS"
+
+OVERALL_EXIT=0
+for flow in "${SELECTED_FLOWS[@]}"; do
+  stem="$(basename "$flow" .yaml)"
+  log "=== flow $stem ==="
+
+  remove_pushed_fixtures
+
+  books=()
+  while IFS= read -r b; do
+    books+=("$b")
+  done < <(flow_books "$flow")
+
+  if [ "${#books[@]}" -eq 0 ]; then
+    log "$stem declares no \`# books:\` header — pushing nothing"
+  else
+    for name in "${books[@]}"; do
+      src="$(resolve_fixture "$name")" \
+        || die "$stem needs fixture '$name' but it was not found under e2e/books/, e2e/books/fetched/, or app/src/androidTest/assets/qa-pd/"
+      push_fixture "$src"
+    done
+    log "pushed ${#books[@]} fixture(s) for $stem: ${books[*]}"
+  fi
+
+  FLOW_RUN="$RUN/$stem"
+  mkdir -p "$FLOW_RUN"
+  MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" "$flow" \
+    --format junit --output "$FLOW_RUN/junit.xml" --test-output-dir "$FLOW_RUN")
+
+  log "maestro ${MAESTRO_ARGS[*]}"
+  "$MAESTRO" "${MAESTRO_ARGS[@]}"
+  flow_exit=$?
+  log "$stem maestro exit code: $flow_exit"
+  [ "$flow_exit" -eq 0 ] || OVERALL_EXIT=1
 done
 
-if [ -d "$REPO_ROOT/e2e/books/fetched" ]; then
-  log "pushing e2e/books/fetched/*"
-  for f in "$REPO_ROOT"/e2e/books/fetched/*; do
-    [ -f "$f" ] && push_fixture "$f"
-  done
-fi
-
-QA_PD_BOOK="$REPO_ROOT/app/src/androidTest/assets/qa-pd/gutenberg-11.epub"
-if [ -f "$QA_PD_BOOK" ]; then
-  log "pushing $QA_PD_BOOK"
-  push_fixture "$QA_PD_BOOK"
-else
-  log "WARNING: $QA_PD_BOOK not found, skipping"
-fi
-
-log "pushed $(wc -l < "$PUSHED_LIST" | tr -d ' ') fixture file(s) to /sdcard/Download"
-
-# ---------------------------------------------------------------------------
-# 4. Maestro
-# ---------------------------------------------------------------------------
-MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" "$REPO_ROOT/e2e/flows" \
-  --format junit --output "$RUN/junit.xml" --test-output-dir "$RUN")
-if [ -n "$TAGS" ]; then
-  MAESTRO_ARGS+=(--include-tags "$TAGS")
-fi
-
-log "maestro ${MAESTRO_ARGS[*]}"
-"$MAESTRO" "${MAESTRO_ARGS[@]}"
-MAESTRO_EXIT=$?
-log "maestro exit code: $MAESTRO_EXIT"
+remove_pushed_fixtures
+MAESTRO_EXIT="$OVERALL_EXIT"
+log "overall maestro exit code: $MAESTRO_EXIT"
 
 # ---------------------------------------------------------------------------
 # 5. Report
@@ -363,18 +491,10 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Cleanup: remove only what we pushed, then (maybe) kill the emulator
+# 6. Cleanup: kill the emulator (fixtures were already removed after each flow in step 4, and
+# once more just after the loop — PUSHED_LIST is already empty here, so this is belt-and-braces)
 # ---------------------------------------------------------------------------
-log "removing pushed fixtures from /sdcard/Download"
-# `< /dev/null` on the adb call matters: without it, `adb shell` inherits this loop's own
-# stdin (redirected from $PUSHED_LIST below) and reads the REST of that file as its own input,
-# starving every subsequent `read` — only the first line would ever get removed.
-while IFS= read -r bn; do
-  if [ -n "$bn" ]; then
-    qpath="$(remote_quote "/sdcard/Download/$bn")"
-    "$ADB" -s "$SERIAL" shell "rm -f $qpath" < /dev/null >/dev/null 2>&1
-  fi
-done < "$PUSHED_LIST"
+remove_pushed_fixtures
 
 kill_emulator
 

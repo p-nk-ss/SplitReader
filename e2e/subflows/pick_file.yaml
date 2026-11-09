@@ -27,6 +27,39 @@ appId: ${APP_ID}
 # true in BOTH the "it worked" and "it's on another screen within the picker" cases. Only
 # "Show roots" (the picker's own drawer button, confirmed present on its every main screen)
 # reliably tells those apart - it disappears once we've left the picker for good.
+#
+# Fix round 2 (2026-11-08, Task 7a): DocumentsUI remembers which root was last open ACROSS picker
+# invocations (its own state, independent of the calling app's clearState), so "Open book" does
+# not always land on "Recent" - with many fixtures pushed it was observed opening straight onto
+# "Downloads". When that happens, tapping "Downloads" inside the "Show roots" drawer is a tap on
+# the ALREADY-selected root: a no-op that leaves the modal drawer open, its scrim still darkening
+# and its panel still covering the first grid column(s) - including ${FILE} when it sorts first
+# alphabetically - so the immediately-following visibility wait times out even though the file is
+# right there, just hidden under the open drawer. Confirmed by a direct on-device repro
+# (two-screenshot probe: identical before/after tapping the already-selected "Downloads" row) and
+# the fix: "Recent" is a drawer-only row (never part of the main content screen's own filter
+# chips), so its continued visibility after tapping "Downloads" means the drawer never closed;
+# `back` is standard Android drawer-dismiss behaviour (confirmed on-device: it closes the drawer
+# without leaving the picker or losing the Downloads selection) and is safe here precisely because
+# it is gated - never fired when the drawer legitimately auto-closed.
+#
+# Fix round 3 (2026-11-08, Task 7a "Take 1"): with all ~50 fixtures pushed at once (the old
+# e2e/run.sh behaviour at the time), the Downloads grid did NOT show ${FILE} in its
+# initially-rendered page even when ${FILE} sorted alphabetically first - confirmed on-device:
+# MediaStore had it indexed correctly (`content query` returned the right row, right mime/size)
+# and a bare `extendedWaitUntil: visible` timed out at 8s, but `scrollUntilVisible` found it a
+# few rows down. scrollUntilVisible both waits and scrolls, so it is a strict superset of a
+# plain visibility wait (a no-op scroll when the file is already on screen) - kept as the
+# general-case primitive here even though round 4's 90s timeout (below) was simplified back
+# down in Task 7a "Take 2".
+#
+# Simplified in Task 7a "Take 2" (2026-11-09): run.sh now pushes only the ONE flow's own `#
+# books:` fixtures at a time (at most 13, for J-LIB-03; most flows push far fewer) instead of
+# the whole ~50-fixture suite at once, so ${FILE} is reliably within the grid's first screen or
+# two - timeout 90000 -> 20000. This is a real reduction in picker-navigation work, not a hidden
+# behaviour change: the drawer-dismiss fix above and scrollUntilVisible itself are kept exactly
+# as they were (neither was data-volume-dependent), only the generous worst-case timeout needed
+# for a ~50-item grid is no longer needed for an at-most-13-item one.
 - tapOn: "Open book"
 - extendedWaitUntil:
     visible: "Show roots"
@@ -43,7 +76,23 @@ appId: ${APP_ID}
           visible: "Downloads"
           timeout: 5000
       - tapOn: "Downloads"
-      - extendedWaitUntil:
-          visible: "${FILE}"
-          timeout: 8000
+      - runFlow:
+          when:
+            visible: "Recent"
+          commands:
+            - back
+      # Fix round 4 (2026-11-08, Task 7a): timeout raised 15000 -> 90000. With the full ~50-file
+      # fixture set pushed (the real e2e/run.sh scenario), DocumentsUI does not show one globally
+      # re-sorted grid: the files pushed in run.sh's main e2e/books/* loop list first (already
+      # alphabetical, since the shell glob itself is alphabetical), then the e2e/books/fetched/*
+      # batch lists as its own alphabetical run appended after ALL of the first batch - confirmed
+      # on-device by scrolling through it. So a fixture from the fetched/ batch (e.g.
+      # alice-illustrated.epub) can sit roughly 40+ items deep even though its name sorts first
+      # overall. 35s still was not always enough on a freshly-booted (not yet warmed up) emulator
+      # - observed stopping only a third of the way through the grid at that timeout - so this is
+      # raised again, generously, rather than iterated a third time.
+      - scrollUntilVisible:
+          element: "${FILE}"
+          direction: DOWN
+          timeout: 20000
       - tapOn: "${FILE}"

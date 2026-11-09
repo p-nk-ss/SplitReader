@@ -5,7 +5,13 @@ Usage:
     report.py RUN_DIR
 
 RUN_DIR must contain:
-  - junit.xml   — written by `maestro test ... --format junit --output RUN_DIR/junit.xml`
+  - EITHER a top-level junit.xml (legacy single-run layout: one `maestro test` over every
+    flow, written by `maestro test ... --format junit --output RUN_DIR/junit.xml`)
+  - OR one junit.xml per immediate subdirectory (Task 7a "Take 2" layout: run.sh now runs
+    each selected flow file ONE AT A TIME — per-journey fixtures — writing each flow's own
+    `RUN_DIR/<flow-stem>/junit.xml`). See find_junit_paths()/collect_cases(): a top-level
+    junit.xml always wins outright; otherwise every subdirectory's junit.xml is parsed and
+    merged into one table, in sorted (deterministic) subdirectory order.
   - meta.json   — run metadata written by run.sh before/after the maestro invocation:
                   {
                     "device": "<human label, e.g. 'Tab_35_PixelTablet (emulator-5554)'>",
@@ -126,6 +132,34 @@ def find_screenshot(run_dir, case):
     return None
 
 
+def find_junit_paths(run_dir):
+    """Finds the junit.xml file(s) to read for this run.
+
+    run.sh (Task 7a "Take 2") runs each selected flow file ONE AT A TIME — per-journey
+    fixtures — and writes each flow's own junit.xml under RUN_DIR/<flow-stem>/junit.xml,
+    rather than one `maestro test` over the whole flows directory with a single top-level
+    RUN_DIR/junit.xml. A top-level RUN_DIR/junit.xml, when present, wins outright (the legacy
+    single-run layout, e.g. a manual single-flow `maestro test ... --output RUN_DIR/junit.xml`
+    invocation) — it is never merged with per-flow files, since that single file already is
+    the whole run. Otherwise every immediate subdirectory's own junit.xml is collected, sorted
+    for a deterministic row order.
+    """
+    run_dir = Path(run_dir)
+    top = run_dir / "junit.xml"
+    if top.exists():
+        return [top]
+    return sorted(run_dir.glob("*/junit.xml"))
+
+
+def collect_cases(run_dir):
+    """Parses every junit.xml file found by find_junit_paths and returns one merged list of
+    testcase dicts, in file order (each file's own testcase order preserved)."""
+    cases = []
+    for junit_path in find_junit_paths(run_dir):
+        cases.extend(parse_junit(junit_path))
+    return cases
+
+
 def load_meta(run_dir):
     meta_path = Path(run_dir) / "meta.json"
     if not meta_path.exists():
@@ -193,7 +227,7 @@ def render_summary(run_dir, meta, cases):
 
 def write_summary(run_dir, meta):
     run_dir = Path(run_dir)
-    cases = parse_junit(run_dir / "junit.xml")
+    cases = collect_cases(run_dir)
     text = render_summary(run_dir, meta, cases)
     out_path = run_dir / "summary.md"
     out_path.write_text(text, encoding="utf-8")
