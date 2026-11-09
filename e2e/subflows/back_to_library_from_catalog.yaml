@@ -1,0 +1,28 @@
+appId: ${APP_ID}
+---
+# back_to_library_from_catalog: like back_to_library.yaml, but for a reader opened straight from
+# the Catalog (CatalogViewModel.downloadAndOpen navigates Catalog -> reader directly, never
+# through Home) - confirmed on-device (Tab_35_PixelTablet, 2026-11-09): the reader's Back button
+# returns to whichever screen opened it (standard back-stack behaviour), which is Catalog here,
+# not Home/Library. back_to_library.yaml's own final check (`scrollUntilVisible: "Open book"`)
+# then fails outright, because that button only exists on Home. Not a fix to the shared subflow
+# (J-LIB-01's picker-opened books really do return to Home via Back, and must keep working
+# unchanged) - a separate subflow for this journey's different entry point instead.
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:backButton"
+    commands:
+      - tapOn:
+          point: "50%, 20%"
+- extendedWaitUntil:
+    visible:
+      id: "reader:backButton"
+    timeout: 5000
+- tapOn:
+    id: "reader:backButton"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000

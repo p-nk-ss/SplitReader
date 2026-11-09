@@ -1,0 +1,14 @@
+appId: ${APP_ID}
+---
+# dismiss_stylus_popup: Tab_35_PixelTablet (and presumably other Pixel Tablet AVDs with a
+# simulated stylus) can show Android's own "Try out your stylus" handwriting-tutorial sheet after
+# a text field is used - confirmed on-device, 2026-11-09, appearing asynchronously sometime after
+# the Catalog search field's `inputText`, covering part of the results list (including the first
+# result's "Read" button) by the time the flow tries to tap it. This is OS chrome, not app UI -
+# unrelated to Mirrolit, not reproducible on demand, and not seen on every run. Idempotent: a
+# no-op when the sheet isn't showing.
+- runFlow:
+    when:
+      visible: "Try out your stylus"
+    commands:
+      - tapOn: "Cancel"

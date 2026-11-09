@@ -1,0 +1,37 @@
+appId: ${APP_ID}
+---
+# tap_catalog_search: focuses the Catalog screen's search field and clears any text already in
+# it. The clear matters for any journey with more than one search in a session: uiState.query is
+# ViewModel state, so it survives navigating away to the reader and back - confirmed on-device
+# (Tab_35_PixelTablet, 2026-11-09) that a second `inputText` without clearing first APPENDS to the
+# previous query (e.g. "Pride and PrejudiceWalden"), silently turning the next search into one
+# that matches nothing ("No books found") instead of the intended query. `eraseText` is a no-op
+# on an already-empty field, so this is safe for a journey's first search too.
+#
+# REAL APP FINDING (confirmed on-device, Tab_35_PixelTablet, 2026-11-09, not fixed per the
+# rules): CatalogScreen.kt's SearchField renders its "Search by title or author…" placeholder as
+# a plain Text composable that sits beside (not inside) the BasicTextField, and neither the
+# placeholder's own semantics nor any hintText ever reach the accessibility tree - confirmed via
+# `maestro hierarchy`: no node anywhere on the Catalog screen has text/accessibilityText/hintText
+# containing "Search" at all; the EditText node Compose does emit for the BasicTextField has
+# text="" and hintText="" (bounds [340,420][2456,516] on this device). A plain
+# `tapOn: "Search by title or author…"` therefore always fails with "Element not found", even
+# while the placeholder is plainly visible on screen (see task-7a-report.md's J-LIB-02 section for
+# the full hierarchy dump and a side-by-side screenshot). This is a real accessibility gap (the
+# field is also unreachable this way for TalkBack), not a journey-text mistake.
+#
+# Worked around with a position-based selector instead of a testTag (never change the app):
+# `below: "Google Drive"` alone is not enough - it matches purely by nearest vertical distance,
+# with no horizontal constraint, and on the tablet rail layout the left nav's "Catalog" icon
+# (directly below "Google Drive" in y, just far to the left in x) is closer than the real search
+# field and gets tapped instead (confirmed: `maestro hierarchy`-based debug tap landed on the nav
+# rail's Catalog icon, bounds [32,390][144,502], not the EditText). Adding `rightOf: "Open
+# Library"` (the leftmost source pill, always rendered immediately above the search field
+# regardless of which pill is selected or which device chrome - rail vs bottom bar - hosts the
+# screen) constrains the match horizontally too; confirmed hitting the EditText exactly (bounds
+# [340,420][2456,516], focused: true after the tap, text entry landed inside it) on three separate
+# probe runs.
+- tapOn:
+    below: "Google Drive"
+    rightOf: "Open Library"
+- eraseText

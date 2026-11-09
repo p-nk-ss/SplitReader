@@ -166,15 +166,21 @@ Project Gutenberg OPDS feed under a different display label, see `CatalogSource.
 shows "No books found" with **no** Retry action; Retry only appears when the search itself threw
 (e.g. offline).
 
+**App finding (confirmed on-device, not fixed — see `task-7a-report.md`):** the search field's
+"Search by title or author…" placeholder text never reaches the accessibility tree at all (no
+node on the Catalog screen carries that text, and the underlying field's own `hintText` is also
+empty) — a real gap for any accessibility-tree-based tool, Maestro included, and for TalkBack.
+`e2e/subflows/tap_catalog_search.yaml` works around it with a position-based selector instead.
+
 1. Tap Catalog → ✓ opens straight on a "POPULAR" list, not the CAT-002 placeholder (see the correction note above: `CatalogViewModel.init` preloads popular books, so "Search by title or author to begin" never actually shows in steady state).
 2. Tap the search field → ✓ the keyboard sits directly under the list, no blank band above it (CAT-009).
 3. Type "Pride and Prejudice" on the default "Open Library" pill, submit → ✓ results with cover, title, author and a download action (CAT-001).
-4. Download the result, tap Open → ✓ it parses and opens in the reader (CAT-004); chapter 1 opens on the novel's text, no Gutenberg licence boilerplate (PRS-018).
-5. Go to chapter 2, add a bookmark (Reader top bar → Bookmark), Back → ✓ Pride and Prejudice is in the Library (CAT-004).
-6. Catalog → switch to the **Standard Ebooks** pill → search "Walden", download, Open → ✓ downloads, opens, appears in the Library (CAT-005).
+4. Download the result, tap Open → ✓ it parses and opens in the reader (CAT-004), checked via the reader's language chip rather than chapter-1 text. This particular catalog download is the George Allen illustrated edition (same genre as J-LIB-01's alice-illustrated.epub): genuine front matter (preface, list of illustrations, title page, publisher's device, two illustrations) precedes the text, and multiple paragraph-opening drop caps made literal-text scroll checks unreliable even several screens in (confirmed on-device across three attempts — see `e2e/flows/library/J-LIB-02.yaml`'s step 4 note); PRS-018's boilerplate-stripping is exercised by other journeys' non-illustrated imports instead.
+5. Go to another chapter, add a bookmark (Reader top bar → Bookmark), Back → ✓ Pride and Prejudice is in the Library (CAT-004). In the Chapters list, this illustrated edition's rows are labelled with the novel's own printed chapter headings (e.g. "CHAPTER XLIV.") rather than a plain "Chapter 2" — the sequential roman-numeral index on the left counts every parser-level break, including front matter, so it does not match the novel's chapter numbers; the early rows (including the real "chapter 2") also proved unreliable scroll targets on-device, so this step bookmarks a later, reliably-reachable chapter instead — LIB-005 only needs *a* different chapter, not chapter 2 specifically (confirmed on-device, see `e2e/flows/library/J-LIB-02.yaml` step 5).
+6. Catalog → switch to the **Standard Ebooks** pill → search "Walden", download, Open → ✓ downloads, opens, appears in the Library (CAT-005). A Standard Ebooks search for "Walden" ranks "Poetry" by Ring Lardner above "Walden" by Thoreau itself (confirmed on-device, reproduced 3x) — the app just displays the search API's own order, so this step opens the second result, not the first (see `e2e/flows/library/J-LIB-02.yaml` step 6).
 7. Catalog → switch back to the **Open Library** pill → search "Frankenstein", download → ✓ Library shows "3 VOLUMES".
 8. Catalog → search "Moby Dick", tap download → ✓ "Library is full… Delete one to make room — or upgrade…" with Upgrade / Got it; after Got it the book is not in the Library (CAT-007).
-9. Catalog → search "Pride and Prejudice", download the same title again → ✓ it opens without the limit dialog; Library still "3 VOLUMES" (CAT-008, LIB-002).
+9. Catalog → search "Pride and Prejudice", download the same (already-owned) title again → **CONFIRMED APP BUG (CAT-008), not fixed:** `CatalogViewModel.downloadAndOpen` gates `canAddNew(null)` before the uri is known, so it can never recognize an owned book via a uri match — at the free-tier cap this deterministically shows the library-limit dialog instead of opening, violating LIB-002. Confirmed on-device, reproduced consistently (see `e2e/flows/library/J-LIB-02.yaml` step 9); the flow asserts the dialog actually appears (not the originally-intended clean open) so this stays visible on every run, dismisses it, and confirms the Library itself is unharmed ("3 VOLUMES" intact).
 10. In the reader open Bookmarks → ✓ the chapter-2 bookmark from step 5 is still listed (LIB-005).
 11. Catalog → search "zxqvbnm qwertyuiop" → ✓ a "No books found" empty-results state, no Retry action, no crash (CAT-003).
 12. Turn network off (Maestro `setAirplaneMode: enabled`, or `adb shell svc wifi disable; adb shell svc data disable`), search "Dracula" → ✓ error state with Retry (CAT-003).
