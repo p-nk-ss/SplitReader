@@ -7,7 +7,8 @@ data class Fb2Document(
     val annotation: String,
     val chapters: List<Fb2ChapterData>,
     val coverBinaryId: String?,
-    val binaries: Map<String, String>,   // binary id -> saved image path/key (written during parsing)
+    val coverPath: String?,              // the cover binary's saved file path (independent of binaries below)
+    val binaries: Map<String, String>,   // inline-image binary id -> saved image path (written during parsing)
 )
 
 data class Fb2ChapterData(

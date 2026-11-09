@@ -21,13 +21,19 @@ import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
  *
  * `<binary>` images (base64) do NOT count against [maxBytes]: an illustrated FB2 can carry many
  * megabytes of embedded images, and counting them against the text total refused books v25 opened.
- * Each binary has its own cap, [maxBinaryBytes] (also a heap fraction, like [maxBytes]'s default) --
- * the guard for the same KXmlParser-hands-the-whole-node-over behaviour, now per image instead of
- * per book. As soon as a `</binary>` end tag is seen, its accumulated base64 text is decoded and
- * handed to [writeBinary] (id, decoded bytes, whether this is the cover image) so the Android side
- * can write it straight to a file; only [writeBinary]'s returned key (a saved path, or null on
- * failure) is kept here, in [Fb2Document.binaries] -- never the base64 or decoded bytes for the
- * whole book at once.
+ * This applies to EVERY `<binary>`, wanted or not (unreferenced, or referenced from outside any
+ * section -- body-level, annotation, src-title-info coverpage): a `<binary>` end tag always clears
+ * [insideBinary] of the per-binary cap, never adding its text to [totalBytes], even when its id is
+ * never looked up. Each binary has its own cap, [maxBinaryBytes] (also a heap fraction, like
+ * [maxBytes]'s default, but tighter -- see [com.example.splitreader.domain.parser.util.effectiveMaxBinaryBytes])
+ * -- the guard for the same KXmlParser-hands-the-whole-node-over behaviour, now per image instead of
+ * per book. Only a WANTED binary (the cover and/or referenced by an `<image>`) accumulates its
+ * base64 at all; as soon as its `</binary>` end tag is seen, that text is decoded and handed to
+ * [writeBinary] (id, decoded bytes, whether this call is for the cover role) so the Android side can
+ * write it straight to a file. When one id is both the cover and an inline reference, [writeBinary]
+ * is called once per role, so the cover and the inline image land in two different files; only
+ * [writeBinary]'s returned key (a saved path, or null on failure) is kept here, in [coverPath] /
+ * [Fb2Document.binaries] -- never the base64 or decoded bytes for the whole book at once.
  */
 class Fb2DocumentBuilder(
     private val maxBytes: Long = effectiveMaxDecompressed(),
@@ -51,10 +57,12 @@ class Fb2DocumentBuilder(
     private var preambleFlushed = false
 
     private var coverBinaryId: String? = null
+    private var coverPath: String? = null
     private val referencedImageIds = mutableSetOf<String>()
     private val binaryText = mutableMapOf<String, StringBuilder>()  // accumulates one binary's base64 at a time
-    private val savedBinaries = mutableMapOf<String, String>()       // id -> writeBinary's returned key
-    private var currentBinaryId: String? = null
+    private val savedBinaries = mutableMapOf<String, String>()       // inline-image id -> writeBinary's returned key
+    private var insideBinary = false   // true for EVERY <binary>, wanted or not -- its per-binary cap always applies
+    private var currentBinaryId: String? = null  // non-null only for a WANTED binary (cover and/or referenced)
     private var currentBinaryBytes = 0L
 
     private var totalBytes = 0L
@@ -86,11 +94,14 @@ class Fb2DocumentBuilder(
                 }
             }
             "binary" -> {
+                insideBinary = true
+                currentBinaryBytes = 0L
                 val id = e.id
-                if (id != null && (id == coverBinaryId || id in referencedImageIds)) {
-                    currentBinaryId = id
-                    currentBinaryBytes = 0L
+                currentBinaryId = if (id != null && (id == coverBinaryId || id in referencedImageIds)) {
                     binaryText.getOrPut(id) { StringBuilder() }
+                    id
+                } else {
+                    null
                 }
             }
             "section" -> if (elementStack.contains("body")) sectionStack.addLast(SectionFrame(chapterIndex))
@@ -99,14 +110,15 @@ class Fb2DocumentBuilder(
     }
 
     private fun onText(t: String) {
-        val binId = currentBinaryId
-        if (binId != null) {
+        if (insideBinary) {
             // Binary (base64 image) text has its own, separate cap -- it never counts against the
-            // book's text budget. This is also the guard for KXmlParser handing a whole <binary>
-            // text node over as one event: the check runs right after it lands in memory.
+            // book's text budget, whether this binary is wanted (cover/referenced) or not: an
+            // unreferenced binary's base64 must still bypass totalBytes, or a large unused image
+            // refuses the whole book. This is also the guard for KXmlParser handing a whole
+            // <binary> text node over as one event: the check runs right after it lands in memory.
             currentBinaryBytes += t.length * 2L // UTF-16 in memory
             if (currentBinaryBytes > maxBinaryBytes) throw BookTooLargeException("Book is too large to open safely.")
-            binaryText[binId]?.append(t)
+            currentBinaryId?.let { binaryText[it]?.append(t) } // only a wanted binary accumulates its base64
             return
         }
         totalBytes += t.length * 2L // UTF-16 in memory
@@ -150,14 +162,19 @@ class Fb2DocumentBuilder(
     /**
      * Decodes the just-finished `<binary>`'s accumulated base64 and hands the bytes to
      * [writeBinary] immediately -- so only one binary's bytes are ever in memory at a time, not
-     * every referenced image for the whole book.
+     * every referenced image for the whole book. When the same id is both the cover AND referenced
+     * inline, [writeBinary] is called twice (once per role): the cover gets its own file
+     * ([coverPath]), the inline image its own ([savedBinaries]), so a chapter's image never ends up
+     * pointing at the cover file (or vice versa) -- restores the pre-refactor behaviour.
      */
     private fun finishBinary() {
+        insideBinary = false
         val id = currentBinaryId ?: return
         currentBinaryId = null
         val base64 = binaryText.remove(id)?.toString().orEmpty()
         val bytes = decodeBase64(base64) ?: return
-        writeBinary(id, bytes, id == coverBinaryId)?.let { savedBinaries[id] = it }
+        if (id == coverBinaryId) writeBinary(id, bytes, true)?.let { coverPath = it }
+        if (id in referencedImageIds) writeBinary(id, bytes, false)?.let { savedBinaries[id] = it }
     }
 
     private fun decodeBase64(raw: String): ByteArray? {
@@ -214,6 +231,7 @@ class Fb2DocumentBuilder(
             annotation = annotation.toString(),
             chapters = chapters.toList(),
             coverBinaryId = coverBinaryId,
+            coverPath = coverPath,
             binaries = savedBinaries.toMap(),
         )
     }

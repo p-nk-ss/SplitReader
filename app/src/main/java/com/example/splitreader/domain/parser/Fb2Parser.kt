@@ -91,7 +91,7 @@ class Fb2Parser @Inject constructor() : BookParser {
                 images = images,
             )
         }
-        val coverPath = doc.coverBinaryId?.let { doc.binaries[it] }
+        val coverPath = doc.coverPath
         val synopsis = SynopsisExtractor.build(doc.annotation, chapters.flatMap { it.paragraphs })
         Log.d("FB2", "Parsed: title=${doc.title}, author=${doc.author}, chapters=${chapters.size}")
         return Book(

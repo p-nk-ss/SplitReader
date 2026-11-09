@@ -137,10 +137,58 @@ class Fb2DocumentBuilderTest {
         ).forEach(b::accept)
         val doc = b.finish()
         assertEquals("cover.jpg", doc.coverBinaryId)
-        assertEquals("cover:cover.jpg", doc.binaries["cover.jpg"])
+        assertEquals("cover:cover.jpg", doc.coverPath)
+        assertTrue("not referenced inline, so it never lands in the image map", doc.binaries.isEmpty())
         assertEquals(1, written.size)
         assertTrue(written[0].third) // is the cover
         assertArrayEquals("cover".toByteArray(), written[0].second)
+    }
+
+    @Test fun coverAlsoReferencedInline_bothWritersCalled_chapterImagePointsAtTheInlinePath() {
+        // Item 2: when the cover's binary id is ALSO referenced by an <image> inside a section, the
+        // old (pre-refactor) code wrote both the cover file and the inline image file, and the
+        // chapter's image pointed at the inline file, not the cover. A single writeBinary call keyed
+        // only by id can't produce two different saved paths for one id, so both writers must run.
+        val written = mutableListOf<Triple<String, ByteArray, Boolean>>()
+        val b = Fb2DocumentBuilder(writeBinary = { id, bytes, isCover ->
+            written.add(Triple(id, bytes, isCover))
+            if (isCover) "cover:$id" else "image:$id"
+        })
+        listOf(
+            start("coverpage"), start("image", href = "shared.jpg"), end("image"), end("coverpage"),
+            start("body"),
+            start("section"), start("title"), text("Ch"), end("title"),
+            start("p"), text("Before"), end("p"),
+            start("image", href = "shared.jpg"), end("image"),
+            start("p"), text("After"), end("p"),
+            end("section"), end("body"),
+            start("binary", id = "shared.jpg"), text("Y292ZXI="), end("binary"),
+        ).forEach(b::accept)
+        val doc = b.finish()
+        assertEquals(2, written.size)
+        assertTrue(written.any { it.third })
+        assertTrue(written.any { !it.third })
+        assertEquals("cover:shared.jpg", doc.coverPath)
+        assertEquals("image:shared.jpg", doc.binaries["shared.jpg"])
+        assertEquals(listOf(1 to "shared.jpg"), doc.chapters[0].imageRefs)
+    }
+
+    @Test fun unreferencedBinaryLargerThanTheTextBudget_stillOpens() {
+        // Item 1 regression: a <binary> that is neither the cover nor referenced by any <image>
+        // left currentBinaryId null, so its base64 fell through onText's default path -- dropped,
+        // but still counted into totalBytes, refusing books whose unused/unreferenced binaries (or
+        // images referenced outside any section: body-level, annotation, src-title-info coverpage)
+        // were larger than the text budget.
+        val b = Fb2DocumentBuilder(maxBytes = 10, maxBinaryBytes = 1_000_000)
+        val events = listOf(
+            start("body"), start("section"), start("title"), text("Ch"), end("title"),
+            start("p"), text("Hi"), end("p"),
+            end("section"), end("body"),
+            start("binary", id = "unused.jpg"), text("x".repeat(1000)), end("binary"),
+        )
+        events.forEach(b::accept)
+        val doc = b.finish()
+        assertEquals(1, doc.chapters.size)
     }
 
     @Test fun metadata_titleAuthorAnnotation() {
