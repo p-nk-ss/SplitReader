@@ -209,9 +209,10 @@ object HtmlChapterExtractor {
      * itself does an O(rows-in-that-table) scan, so calling it from inside [rowText] (once per row)
      * or [readsTables] (once per cell) made parsing quadratic in the row count: Gutenberg's Czech
      * R.U.R. (1,798 `<tr>`) went from 83 ms to 13.2 s, and the Greek Iliad (13,989 `<tr>`) from
-     * 145 ms to just under 11 minutes, for identical output. An identity-based set (not `hashCode`
-     * or `equals`, which Jsoup `Element`s derive from their subtree and attributes and which can
-     * collide or be expensive) is the correct membership test for "is this the same Element".
+     * 145 ms to just under 11 minutes, for identical output. Jsoup's `Node.equals`/`hashCode` are
+     * already identity (not structural), so a plain `HashSet` would work too — an explicit
+     * identity-based set is used anyway so membership here never depends on Jsoup's `equals`
+     * contract at all, matching [isContentsTable]'s own `closest("table") == table` check.
      */
     private fun findContentsTables(body: Element): Set<Element> {
         val result: MutableSet<Element> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
