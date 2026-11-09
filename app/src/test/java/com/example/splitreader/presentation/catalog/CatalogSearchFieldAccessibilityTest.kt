@@ -2,9 +2,13 @@ package com.example.splitreader.presentation.catalog
 
 import android.app.Application
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import com.example.splitreader.presentation.theme.SplitReaderTheme
 import com.example.splitreader.screenshot.ScreenFixtures
 import org.junit.Rule
@@ -15,10 +19,11 @@ import org.robolectric.annotation.Config
 
 /**
  * E2E found the Catalog search field absent from the accessibility tree: its placeholder
- * ("Search by title or author…") is only a sibling [androidx.compose.material3.Text] that
- * disappears once the user types, so TalkBack never gets a stable label for the actual editable
- * field — Maestro had to tap it by screen position instead of by label. The field now carries that
- * text as a `semantics { contentDescription = … }`, so it is findable regardless of its contents.
+ * ("Search by title or author…") was only a sibling Text outside the editable field, so TalkBack
+ * got an unlabeled edit box. A contentDescription on the field would label it, but TalkBack may
+ * then announce that description instead of what the user typed. So the placeholder is real text
+ * INSIDE the field (its decoration box) while the query is empty — the field is labelled by it —
+ * and once the user types, the field exposes the typed text and nothing else.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -26,44 +31,36 @@ class CatalogSearchFieldAccessibilityTest {
 
     @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-    @Test
-    fun `the search field has an accessible label`() {
-        composeRule.setContent {
-            SplitReaderTheme {
-                CatalogScreen(
-                    uiState = ScreenFixtures.catalogRich,
-                    driveState = DriveUiState(),
-                    onQueryChange = {},
-                    onSourceSelected = {},
-                    onDownload = {},
-                    onRetry = {},
-                    onPickFromDrive = {},
-                    onSignInWithGoogle = {},
-                )
-            }
-        }
+    private val placeholder = "Search by title or author…"
 
-        composeRule.onNodeWithContentDescription("Search by title or author…").assertIsDisplayed()
+    private fun show(query: String) = composeRule.setContent {
+        SplitReaderTheme {
+            CatalogScreen(
+                uiState = ScreenFixtures.catalogRich.copy(query = query),
+                driveState = DriveUiState(),
+                onQueryChange = {},
+                onSourceSelected = {},
+                onDownload = {},
+                onRetry = {},
+                onPickFromDrive = {},
+                onSignInWithGoogle = {},
+            )
+        }
     }
 
     @Test
-    fun `the label survives after the user has typed a query`() {
-        composeRule.setContent {
-            SplitReaderTheme {
-                CatalogScreen(
-                    uiState = ScreenFixtures.catalogRich.copy(query = "holmes"),
-                    driveState = DriveUiState(),
-                    onQueryChange = {},
-                    onSourceSelected = {},
-                    onDownload = {},
-                    onRetry = {},
-                    onPickFromDrive = {},
-                    onSignInWithGoogle = {},
-                )
-            }
-        }
+    fun `the empty search field is labelled by its placeholder`() {
+        show("")
 
-        // With text present, the placeholder Text is gone — only the semantics label is left.
-        composeRule.onNodeWithContentDescription("Search by title or author…").assertIsDisplayed()
+        composeRule.onNode(hasSetTextAction() and hasText(placeholder)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `once the user has typed, the field exposes the typed text, not a description`() {
+        show("holmes")
+
+        composeRule.onNode(hasSetTextAction() and hasText("holmes"))
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
     }
 }

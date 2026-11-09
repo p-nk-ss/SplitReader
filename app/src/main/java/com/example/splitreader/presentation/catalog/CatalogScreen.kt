@@ -51,8 +51,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import com.example.splitreader.R
 import com.example.splitreader.presentation.theme.FadeInOnAppear
 import com.example.splitreader.presentation.theme.MotionTokens
@@ -345,36 +343,37 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(sp.sm))
-        Box(Modifier.weight(1f)) {
-            val placeholder = "Search by title or author…"
-            if (query.isEmpty()) {
-                Text(
-                    text = placeholder,
-                    fontFamily = Newsreader,
-                    fontSize = 16.sp,
-                    color = palette.ink3,
-                )
-            }
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                textStyle = TextStyle(
-                    fontFamily = Newsreader,
-                    fontSize = 16.sp,
-                    color = palette.ink,
-                ),
-                cursorBrush = SolidColor(palette.accent),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                // The visible placeholder is a separate Text that disappears once typing starts, so
-                // it alone never gives the field a stable accessible name (CAT a11y gap: TalkBack got
-                // an unlabeled edit field). A semantics contentDescription on the field itself fixes
-                // that without changing anything visual.
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = placeholder },
-            )
-        }
+        val placeholder = "Search by title or author…"
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = TextStyle(
+                fontFamily = Newsreader,
+                fontSize = 16.sp,
+                color = palette.ink,
+            ),
+            cursorBrush = SolidColor(palette.accent),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            modifier = Modifier.weight(1f),
+            // The placeholder is real text INSIDE the field (its decoration box), so it labels the
+            // field for TalkBack while the query is empty; once the user types, the field exposes
+            // the typed text only. A contentDescription instead could be announced in place of
+            // what was typed.
+            decorationBox = { innerTextField ->
+                Box(Modifier.fillMaxWidth()) {
+                    if (query.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            fontFamily = Newsreader,
+                            fontSize = 16.sp,
+                            color = palette.ink3,
+                        )
+                    }
+                    innerTextField()
+                }
+            },
+        )
     }
 }
 
