@@ -1,7 +1,9 @@
 package com.example.splitreader.domain.parser.fb2
 
 import com.example.splitreader.domain.parser.util.BookTooLargeException
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -98,7 +100,11 @@ class Fb2DocumentBuilderTest {
     }
 
     @Test fun inlineImage_anchorAndBinaryCaptured() {
-        val doc = build(
+        // The builder decodes and hands off each <binary>'s bytes as soon as it is parsed (so the
+        // raw base64 is never retained for the whole book); "aGVsbG8=" decodes to "hello".
+        val written = mutableListOf<Triple<String, ByteArray, Boolean>>()
+        val b = Fb2DocumentBuilder(writeBinary = { id, bytes, isCover -> written.add(Triple(id, bytes, isCover)); "saved:$id" })
+        listOf(
             start("body"),
             start("section"), start("title"), text("Ch"), end("title"),
             start("p"), text("Before"), end("p"),
@@ -106,23 +112,35 @@ class Fb2DocumentBuilderTest {
             start("p"), text("After"), end("p"),
             end("section"),
             end("body"),
-            start("binary", id = "img1"), text("BASE64DATA"), end("binary"),
-        )
+            start("binary", id = "img1"), text("aGVsbG8="), end("binary"),
+        ).forEach(b::accept)
+        val doc = b.finish()
         val ch = doc.chapters[0]
         // anchor is after the first body paragraph (index 1), no epigraph/preamble shift
         assertEquals(listOf(1 to "img1"), ch.imageRefs)
-        assertEquals("BASE64DATA", doc.binaries["img1"])
+        assertEquals("saved:img1", doc.binaries["img1"])
+        assertEquals(1, written.size)
+        assertEquals("img1", written[0].first)
+        assertArrayEquals("hello".toByteArray(), written[0].second)
+        assertFalse(written[0].third) // not the cover
     }
 
     @Test fun cover_binaryIdCapturedAndStored() {
-        val doc = build(
+        // "Y292ZXI=" decodes to "cover".
+        val written = mutableListOf<Triple<String, ByteArray, Boolean>>()
+        val b = Fb2DocumentBuilder(writeBinary = { id, bytes, isCover -> written.add(Triple(id, bytes, isCover)); "cover:$id" })
+        listOf(
             start("coverpage"), start("image", href = "cover.jpg"), end("image"), end("coverpage"),
             start("body"), start("section"), start("title"), text("Ch"), end("title"),
             start("p"), text("Prose"), end("p"), end("section"), end("body"),
-            start("binary", id = "cover.jpg"), text("COVER64"), end("binary"),
-        )
+            start("binary", id = "cover.jpg"), text("Y292ZXI="), end("binary"),
+        ).forEach(b::accept)
+        val doc = b.finish()
         assertEquals("cover.jpg", doc.coverBinaryId)
-        assertEquals("COVER64", doc.binaries["cover.jpg"])
+        assertEquals("cover:cover.jpg", doc.binaries["cover.jpg"])
+        assertEquals(1, written.size)
+        assertTrue(written[0].third) // is the cover
+        assertArrayEquals("cover".toByteArray(), written[0].second)
     }
 
     @Test fun metadata_titleAuthorAnnotation() {
@@ -234,5 +252,57 @@ class Fb2DocumentBuilderTest {
         section("Ch", start("p"), text("Ordinary prose."), end("p")).forEach { b.accept(it) }
         val result = b.finish()
         assertEquals(listOf("Ordinary prose."), result.chapters[0].paragraphs)
+    }
+
+    // ── <binary> images bounded separately from the text budget ──────────────────────────────
+
+    @Test fun imagesTotalingMoreThanTheTextBudget_eachUnderThePerBinaryLimit_open() {
+        // Two images, each comfortably under the per-binary cap. Their base64 text (8 bytes *2 =
+        // 16 bytes each, 32 total) would bust a 10-byte text budget if it counted there -- it must
+        // not: binaries have their own, separate cap.
+        val b = Fb2DocumentBuilder(maxBytes = 10, maxBinaryBytes = 1_000_000, writeBinary = { id, _, _ -> "saved:$id" })
+        listOf(
+            start("body"),
+            start("section"), start("title"), text("Ch"), end("title"),
+            start("p"), text("Hi"), end("p"),
+            start("image", href = "img1"), end("image"),
+            start("image", href = "img2"), end("image"),
+            end("section"), end("body"),
+            start("binary", id = "img1"), text("aGVsbG8="), end("binary"),
+            start("binary", id = "img2"), text("aGVsbG8="), end("binary"),
+        ).forEach(b::accept)
+        val doc = b.finish()
+        assertEquals(1, doc.chapters.size)
+        assertEquals(mapOf("img1" to "saved:img1", "img2" to "saved:img2"), doc.binaries)
+    }
+
+    @Test fun aSingleBinaryOverThePerBinaryLimit_throws() {
+        // "aGVsbG8=" is 8 chars = 16 bytes in memory, over a 10-byte per-binary cap -- this is the
+        // guard for KXmlParser handing the whole binary text node over as one in-memory event.
+        val b = Fb2DocumentBuilder(maxBytes = 1_000_000, maxBinaryBytes = 10)
+        val events = listOf(
+            start("body"), start("section"), start("title"), text("Ch"), end("title"),
+            start("image", href = "img1"), end("image"),
+            end("section"), end("body"),
+            start("binary", id = "img1"), text("aGVsbG8="), end("binary"),
+        )
+        assertThrows(BookTooLargeException::class.java) {
+            events.forEach { b.accept(it) }
+        }
+    }
+
+    @Test fun textOverItsOwnBudget_stillThrows_evenWithAnImagePresent() {
+        // A generous per-binary cap does not loosen the text budget -- they are independent.
+        val b = Fb2DocumentBuilder(maxBytes = 10, maxBinaryBytes = 1_000_000)
+        val events = listOf(
+            start("body"), start("section"), start("title"), text("Ch"), end("title"),
+            start("p"), text("This paragraph text is definitely longer than ten bytes"), end("p"),
+            start("image", href = "img1"), end("image"),
+            end("section"), end("body"),
+            start("binary", id = "img1"), text("aGVsbG8="), end("binary"),
+        )
+        assertThrows(BookTooLargeException::class.java) {
+            events.forEach { b.accept(it) }
+        }
     }
 }

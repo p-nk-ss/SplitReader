@@ -2,7 +2,6 @@ package com.example.splitreader.domain.parser
 
 import android.content.Context
 import android.net.Uri
-import android.util.Base64
 import android.util.Log
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
@@ -33,18 +32,28 @@ class Fb2Parser @Inject constructor() : BookParser {
             String(header, Charsets.ISO_8859_1).contains("<FictionBook", ignoreCase = true)
 
     override suspend fun parse(uri: Uri, context: Context): Book {
+        val filePath = uri.toString()
+        val bookHash = stableId(filePath)
         val inputStream = context.contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("Cannot open file stream")
-        val doc = inputStream.use { readDocument(it) }
+        val doc = inputStream.use { readDocument(it, context, filePath, bookHash) }
         if (doc.chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
-        return assembleBook(doc, uri.toString(), context)
+        return assembleBook(doc, filePath)
     }
 
-    /** Drives XmlPullParser, translating each event into an [Fb2Event] for the pure builder. */
-    private suspend fun readDocument(input: InputStream): Fb2Document {
+    /**
+     * Drives XmlPullParser, translating each event into an [Fb2Event] for the pure builder. Each
+     * `<binary>` is decoded and written to its final file (image or cover) as soon as it is parsed
+     * -- see [Fb2DocumentBuilder]'s `writeBinary` -- so only one image's bytes are ever held at once.
+     */
+    private suspend fun readDocument(input: InputStream, context: Context, filePath: String, bookHash: String): Fb2Document {
         val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = false }
             .newPullParser().apply { setInput(input, null) }
-        val builder = Fb2DocumentBuilder()
+        val builder = Fb2DocumentBuilder(
+            writeBinary = { id, bytes, isCover ->
+                if (isCover) saveCoverBytes(bytes, filePath, context) else ImageStore.save(context, bytes, "${bookHash}_$id")
+            },
+        )
         var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
             coroutineContext.ensureActive()
@@ -67,13 +76,12 @@ class Fb2Parser @Inject constructor() : BookParser {
             ?.let { parser.getAttributeValue(it) }
             ?.removePrefix("#")?.trim()
 
-    private fun assembleBook(doc: Fb2Document, filePath: String, context: Context): Book {
-        val bookHash = stableId(filePath)
+    /** Binaries are already decoded and written to their final file by [readDocument]'s `writeBinary`;
+     *  [Fb2Document.binaries] holds the saved path for each id, so no decoding happens here. */
+    private fun assembleBook(doc: Fb2Document, filePath: String): Book {
         val chapters = doc.chapters.map { ch ->
             val images = ch.imageRefs.mapNotNull { (anchor, id) ->
-                val bytes = decodeBinary(doc.binaries[id]) ?: return@mapNotNull null
-                ImageStore.save(context, bytes, "${bookHash}_$id")
-                    ?.let { ChapterImage(anchor.coerceIn(0, ch.paragraphs.size), it) }
+                doc.binaries[id]?.let { path -> ChapterImage(anchor.coerceIn(0, ch.paragraphs.size), path) }
             }
             Chapter(
                 index = ch.index,
@@ -84,7 +92,6 @@ class Fb2Parser @Inject constructor() : BookParser {
             )
         }
         val coverPath = doc.coverBinaryId?.let { doc.binaries[it] }
-            ?.let { saveCover(it, filePath, context) }
         val synopsis = SynopsisExtractor.build(doc.annotation, chapters.flatMap { it.paragraphs })
         Log.d("FB2", "Parsed: title=${doc.title}, author=${doc.author}, chapters=${chapters.size}")
         return Book(
@@ -97,15 +104,9 @@ class Fb2Parser @Inject constructor() : BookParser {
         )
     }
 
-    private fun decodeBinary(raw: String?): ByteArray? {
-        val cleaned = raw?.replace("\\s".toRegex(), "")
-        if (cleaned.isNullOrEmpty()) return null
-        return try { Base64.decode(cleaned, Base64.DEFAULT) } catch (_: Exception) { null }
-    }
-
-    private fun saveCover(rawBase64: String, filePath: String, context: Context): String? {
-        val bytes = decodeBinary(rawBase64) ?: return null
-        return try {
+    /** Writes the cover's already-decoded [bytes] to `filesDir/covers/<stableId>.jpg`, as before. */
+    private fun saveCoverBytes(bytes: ByteArray, filePath: String, context: Context): String? =
+        try {
             val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
             val coverFile = File(coversDir, "${stableId(filePath)}.jpg")
             coverFile.writeBytes(bytes)
@@ -113,5 +114,4 @@ class Fb2Parser @Inject constructor() : BookParser {
         } catch (_: Exception) {
             null
         }
-    }
 }
