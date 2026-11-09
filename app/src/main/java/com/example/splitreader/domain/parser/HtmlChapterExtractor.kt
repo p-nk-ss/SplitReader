@@ -21,7 +21,7 @@ object HtmlChapterExtractor {
     )
 
     /** h1–h6: the FIRST h1–h3 in a file is the chapter heading (unchanged); every other heading
-     * tag — later h1–h3, or h4–h6 anywhere — is read as an ordinary paragraph (see [addReadableText]). */
+     * tag — later h1–h3, or h4–h6 anywhere — is read as an ordinary paragraph (see [blockText]). */
     private val HEADING_TAGS = setOf("h1", "h2", "h3", "h4", "h5", "h6")
 
     /** An inline image reference. [src] is the raw HTML src/href; [anchorParagraph] indexes into the
@@ -75,69 +75,128 @@ object HtmlChapterExtractor {
         // after a heading: a file with a heading was always one chapter, so the book's chapters stay
         // as they were. A headless table file, or rows before the heading, would add a chapter and
         // renumber every chapter after it — and chapter indices are saved too.
-        val rows = if (headingEl != null && readsTables(body, contentsTables)) ", tr" else ""
-        val headingTitle = headingEl?.text()?.takeIf { it.isNotBlank() }
+        val readRows = headingEl != null && readsTables(body, contentsTables)
 
         // A small image inside a paragraph of text is a glyph (a Gutenberg drop cap "C"), not an
         // illustration: keep its letter in the text instead of a full-width image after it. Applies
         // everywhere (heading or heading-less file) since it only ever touches text already inside a
-        // <p> with other content.
+        // <p> with other content — it never turns an empty <p> into text.
         for (glyph in body.select("p img")) {
             val p = glyph.closest("p") ?: continue
             if (p.text().isBlank()) continue
             if (looksLikeGlyph(glyph)) glyph.replaceWith(org.jsoup.nodes.TextNode(glyph.attr("alt").trim()))
         }
 
-        // Candidates in document order: every block-level text type read across BOTH a file with a
-        // heading and a heading-less one — headings, <p>, <li>, <pre>, <dd>/<dt>, and leaf div/section
-        // text blocks (some Gutenberg editions set a chapter's text in divs, not <p> — Gutenberg's
-        // illustrated "Alice", ebook 28885 — and the SAME thing happens inside a file that DOES have a
-        // heading, e.g. Alice's own chapters 12–13: div.unindent after a drop cap, div.poem). A wrapper
-        // div/section around one of these never matches isLeafTextBlock itself (it has a block-level
-        // descendant), so nothing is read twice; an element inside a <li> is read once, through that
-        // <li>'s own text (see [blockText]), never separately too.
-        val candidates = body.select("h1, h2, h3, h4, h5, h6, p, li, pre, dd, dt, div, section, img, image")
-
-        // A drop cap standing alone in its own container (Alice's <div class="figleft"><img
-        // alt="A"/></div>, no sibling text or element — an in-<p> glyph is handled above instead),
-        // immediately followed by the next real text block whose own text starts with a letter: merge
-        // the alt into that block instead of emitting an image ("A" + "LICE was…" = "ALICE was…"),
-        // mirroring the in-<p> glyph rule. This runs over the SAME shared candidate list used by both
-        // paths below, so the merge applies whether or not the file has a heading. Whether a space
-        // belongs between the alt and the block's text depends on the source: Chapter I's drop cap is
-        // mid-word ("A" + "LICE" = "ALICE", no space in the source), but Chapter VIII's is the whole
-        // word "A" followed by "   LARGE rose-tree…" (3 literal spaces before the next word) —
-        // Element.text() normalizes that leading whitespace away entirely, so [startsWithRawWhitespace]
-        // reads the first real TextNode's unnormalized wholeText instead. mergedAlt accumulates in
-        // document order in case more than one such glyph precedes the same next block.
-        val mergedAlt = mutableMapOf<Element, String>()
-        val skipImages = mutableSetOf<Element>()
-        for ((idx, el) in candidates.withIndex()) {
-            if (!isImageTag(el) || !isStandaloneGlyphContainer(el) || !looksLikeGlyph(el)) continue
-            val next = candidates.subList(idx + 1, candidates.size).firstOrNull { c -> blockText(c, tocLists) != null }
-                ?: continue
-            val nextText = next.text().trim()
-            if (nextText.isEmpty() || !nextText[0].isLetter()) continue
-            val sep = if (startsWithRawWhitespace(next)) " " else ""
-            mergedAlt[next] = (mergedAlt[next] ?: "") + el.attr("alt").trim() + sep
-            skipImages.add(el)
+        return if (headingEl == null) {
+            parseHeadingless(body, tocLists)
+        } else {
+            parseWithHeading(body, headingEl, contentsTables, tocLists, readRows)
         }
+    }
 
-        if (headingEl == null) {
-            val paras = mutableListOf<String>()
-            val refs = mutableListOf<ImageRef>()
-            for (el in candidates) {
-                when {
-                    el in skipImages -> Unit
-                    isImageTag(el) -> imageSrc(el)?.let { refs.add(ImageRef(it, paras.size)) }
-                    else -> blockText(el, tocLists)?.let { paras.add((mergedAlt[el] ?: "") + it) }
+    /*
+     * CHAPTER STRUCTURE IS v25's (12e9c6f), ALWAYS. Chapter indices are saved (positions, bookmarks,
+     * excerpts), so whether a file yields a chapter, an image-only page (whose pictures open the next
+     * chapter), or an untitled lead-in chapter before its heading must never change. v26 reads more
+     * kinds of block (later headings, lists, pre, dd/dt, text divs), so each of those three decisions
+     * is gated on "did v25 find text here", computed by v25's own rule ([legacyHeadingless],
+     * [legacyWithHeading]) — never on the block type:
+     *  - v25 found no text → v25's result stands (empty, or image-only with every image);
+     *  - v25 found text but v26 finds none (a contents list of `<li><p><a>` that v26 skips) → v25's
+     *    paragraphs stand;
+     *  - otherwise v26's richer paragraphs (only paragraph indices inside the chapter shift).
+     */
+
+    /** A file without an h1–h3: one chapter of paragraphs, or nothing / an image page (see above). */
+    private fun parseHeadingless(body: Element, tocLists: Set<Element>): Result {
+        val legacy = legacyHeadingless(body)
+        if (legacy.mainParagraphs.isEmpty()) return legacy
+
+        // Candidates in document order: headings, <p>, <li>, <pre>, <dd>/<dt> and leaf div/section text
+        // blocks (some Gutenberg editions set a chapter's text in divs, not <p> — the illustrated
+        // "Alice", ebook 28885).
+        val elements = body.select("h1, h2, h3, h4, h5, h6, p, li, pre, dd, dt, div, section, img, image")
+        val noRows: Set<Element> = emptySet()
+        val texts = Array(elements.size) { i -> elements[i].takeUnless(::isImageTag)?.let { blockText(it, tocLists, noRows) } }
+        val merge = mergeDropCaps(elements, texts) { false }
+
+        val paras = mutableListOf<String>()
+        val refs = mutableListOf<ImageRef>()
+        for ((i, el) in elements.withIndex()) {
+            when {
+                merge.skipImage[i] -> Unit
+                isImageTag(el) -> imageSrc(el)?.let { refs.add(ImageRef(it, paras.size)) }
+                else -> texts[i]?.let { paras.add((merge.prefix[i] ?: "") + it) }
+            }
+        }
+        if (paras.isEmpty()) return legacy
+        return Result(null, emptyList(), emptyList(), paras, refs.map { it.copy(anchorParagraph = minOf(it.anchorParagraph, paras.size)) })
+    }
+
+    /** v25's heading-less rule, verbatim: `<p>` text (else div/section/blockquote own text > 20 chars). */
+    private fun legacyHeadingless(body: Element): Result {
+        val paras = mutableListOf<String>()
+        val refs = mutableListOf<ImageRef>()
+        for (el in body.select("p, img, image")) {
+            if (el.tagName() == "p") {
+                el.text().trim().takeIf { it.isNotBlank() }?.let(paras::add)
+            } else {
+                imageSrc(el)?.let { refs.add(ImageRef(it, paras.size)) }
+            }
+        }
+        if (paras.isEmpty()) {
+            paras += body.select("div, section, blockquote")
+                .map { it.ownText().trim() }.filter { it.length > 20 }
+        }
+        return Result(null, emptyList(), emptyList(), paras, refs.map { it.copy(anchorParagraph = minOf(it.anchorParagraph, paras.size)) })
+    }
+
+    /** A file with a chapter heading: an optional lead-in chapter, then the chapter (see above). */
+    private fun parseWithHeading(
+        body: Element,
+        headingEl: Element,
+        contentsTables: Set<Element>,
+        tocLists: Set<Element>,
+        readRows: Boolean,
+    ): Result {
+        val headingTitle = headingEl.text().takeIf { it.isNotBlank() }
+        val elements = body.select(
+            "h1, h2, h3, h4, h5, h6, blockquote, p, li, pre, dd, dt, div, section, img, image" + if (readRows) ", tr" else "",
+        )
+        val legacy = legacyWithHeading(elements, headingTitle, contentsTables)
+        val headingIdx = elements.indexOfFirst { it === headingEl }
+        // The lead-in (before the heading) is read with the new block types only where v25 already
+        // made it a chapter: Gutenberg's own "other editions of this ebook" notice is an h4 outside
+        // the boilerplate containers right before the title heading (alice-illustrated, ebook
+        // 28885) — reading it would add a chapter and renumber every chapter after it.
+        val leadInIsChapter = legacy.preHeadingParagraphs.isNotEmpty()
+
+        // What each element contributes, decided once (also used by the drop-cap lookahead, so a
+        // drop cap only ever merges into text that is actually read).
+        val rowsRead: MutableSet<Element> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+        val texts = arrayOfNulls<String>(elements.size)
+        val quotes = arrayOfNulls<List<String>>(elements.size)
+        for ((i, el) in elements.withIndex()) {
+            val tag = el.tagName()
+            val after = i > headingIdx
+            when {
+                i == headingIdx || isImageTag(el) -> Unit
+                // A table in a blockquote is read with the blockquote (as an epigraph), and one in a
+                // list item with that item — never twice. Rows come before their cells' blocks in
+                // document order, so rowsRead is complete for a cell's blocks by the time they come.
+                tag == "tr" -> if (after && !hasAncestor(el, BLOCKQUOTE) && !hasAncestor(el, ITEM_TAGS)) {
+                    texts[i] = rowText(el, contentsTables)?.also { rowsRead.add(el) }
                 }
+                // Blockquotes are read as before v26 (as epigraph, after the heading only); anything
+                // inside one is read through it, or (before the heading) not at all.
+                tag == "blockquote" -> if (after) quotes[i] = blockquoteTexts(el)
+                hasAncestor(el, BLOCKQUOTE) -> Unit
+                !after && !leadInIsChapter -> Unit
+                else -> texts[i] = blockText(el, tocLists, rowsRead)
             }
-            if (paras.isEmpty()) {
-                paras += body.select("div, section, blockquote")
-                    .map { it.ownText().trim() }.filter { it.length > 20 }
-            }
-            return Result(null, emptyList(), emptyList(), paras, refs.map { it.copy(anchorParagraph = minOf(it.anchorParagraph, paras.size)) })
+        }
+        val merge = mergeDropCaps(elements, texts) { j ->
+            j == headingIdx || quotes[j] != null || (texts[j] != null && elements[j].tagName() == "tr")
         }
 
         val preHeading = mutableListOf<String>()
@@ -148,90 +207,153 @@ object HtmlChapterExtractor {
         // open the chapter (final anchor 0, ahead of any epigraph).
         val imageRefs = mutableListOf<ImageRef>()
         val leadingImageRefs = mutableListOf<ImageRef>()
-        var foundHeading = false
-
-        // Routes one block's text into preHeading (before the chapter heading, same as today — never
-        // checked for epigraph-ness, matching the pre-existing <p> rule) or epigraph/main (after it).
-        fun addReadableText(el: Element, text: String) {
-            if (text.isBlank()) return
-            if (!foundHeading) preHeading.add(text) else if (looksLikeEpigraph(el)) epigraph.add(text) else main.add(text)
-        }
-
-        // Whether the lead-in (before the chapter heading) already has at least one real <p> —
-        // i.e. whether EpubParser was ALREADY going to turn this file's lead-in into its own
-        // standalone chapter before v26. Only then is it safe to read the NEW block types (li, pre,
-        // dd/dt, later headings, leaf div/section) in that zone too: they only add MORE paragraphs
-        // to a chapter that was going to exist anyway (allowed — paragraph indices inside a chapter
-        // may shift). When the lead-in has no <p> at all, none of the new types may be read there
-        // either, because EpubParser turns ANY non-empty preHeadingParagraphs into a BRAND-NEW
-        // chapter: Gutenberg leaves some front-matter (its own "other editions of this ebook"
-        // notice) as an h4 OUTSIDE any of the known boilerplate containers, right before a book's
-        // real title heading (alice-illustrated.epub, ebook 28885) — reading that h4 would silently
-        // add a chapter and renumber every chapter after it.
-        val preHeadingHasP = run {
-            for (el in body.select("p, h1, h2, h3")) {
-                if (el === headingEl) break
-                if (el.closest("blockquote") == null && el.text().trim().isNotBlank()) return@run true
-            }
-            false
-        }
-
-        for (el in body.select("h1, h2, h3, h4, h5, h6, blockquote, p, li, pre, dd, dt, div, section, img, image$rows")) {
-            val tag = el.tagName()
-            val canReadNewTypes = foundHeading || preHeadingHasP
+        for ((i, el) in elements.withIndex()) {
+            val after = i > headingIdx
             when {
-                el === headingEl -> foundHeading = true
-                el in skipImages -> Unit
-                // A table in a blockquote is read with the blockquote (as an epigraph), not twice.
+                i == headingIdx || merge.skipImage[i] -> Unit
+                isImageTag(el) -> imageSrc(el)?.let {
+                    if (after) imageRefs.add(ImageRef(it, main.size, inLegacyLayout = true)) else leadingImageRefs.add(ImageRef(it, 0))
+                }
+                quotes[i] != null -> epigraph.addAll(quotes[i]!!)
+                else -> texts[i]?.let { t ->
+                    val text = (merge.prefix[i] ?: "") + t
+                    when {
+                        !after -> preHeading.add(text)
+                        // Only a <p> is ever an epigraph, as before v26: verse set in divs (Gutenberg's
+                        // div.poem > div.stanza, Dracula's "Denn die Todten reiten schnell") and every
+                        // other new block type stays where it is in the chapter.
+                        el.tagName() == "p" && looksLikeEpigraph(el) -> epigraph.add(text)
+                        else -> main.add(text)
+                    }
+                }
+            }
+        }
+
+        val pre = if (preHeading.isEmpty() != legacy.preHeadingParagraphs.isEmpty()) legacy.preHeadingParagraphs else preHeading
+        // A heading without text (an image in an <h1>) makes the chapter exist only through its
+        // paragraphs — so whether it has any is v25's call too.
+        val hasBody = epigraph.isNotEmpty() || main.isNotEmpty()
+        val legacyHasBody = legacy.epigraphParagraphs.isNotEmpty() || legacy.mainParagraphs.isNotEmpty()
+        if (headingTitle == null && hasBody != legacyHasBody) return legacy.copy(preHeadingParagraphs = pre)
+
+        val finalImageRefs = leadingImageRefs + imageRefs.map { it.copy(anchorParagraph = epigraph.size + it.anchorParagraph) }
+        return Result(headingTitle, pre, epigraph, main, finalImageRefs)
+    }
+
+    /** v25's rule for a file with a heading, verbatim, over the same element list (extra tags ignored). */
+    private fun legacyWithHeading(elements: List<Element>, headingTitle: String?, contentsTables: Set<Element>): Result {
+        val preHeading = mutableListOf<String>()
+        val epigraph = mutableListOf<String>()
+        val main = mutableListOf<String>()
+        val imageRefs = mutableListOf<ImageRef>()
+        val leadingImageRefs = mutableListOf<ImageRef>()
+        var foundHeading = false
+        for (el in elements) {
+            val tag = el.tagName()
+            when {
+                tag == "h1" || tag == "h2" || tag == "h3" -> foundHeading = true
                 tag == "tr" -> if (foundHeading && el.closest("blockquote") == null) rowText(el, contentsTables)?.let(main::add)
                 (tag == "img" || tag == "image") && foundHeading -> {
                     imageSrc(el)?.let { imageRefs.add(ImageRef(it, main.size, inLegacyLayout = true)) }
                 }
                 tag == "img" || tag == "image" -> imageSrc(el)?.let { leadingImageRefs.add(ImageRef(it, 0)) }
-                tag == "blockquote" && foundHeading -> {
-                    val texts = el.select("p").map { it.text().trim() }.filter { it.isNotBlank() }
-                        .ifEmpty { listOf(el.text().trim()).filter { it.isNotBlank() } }
-                    epigraph.addAll(texts)
+                !foundHeading && tag == "p" && el.closest("blockquote") == null -> {
+                    val text = el.text().trim()
+                    if (text.isNotBlank()) preHeading.add(text)
                 }
-                // Blockquote/epigraph handling stays exactly as today: anything else living inside a
-                // blockquote (before OR after the heading) is read through the blockquote above, not
-                // separately — including a blockquote before the heading, which (as today) reads
-                // nothing at all.
-                el.closest("blockquote") != null -> Unit
-                // A list item is read once, here; anything living INSIDE that item (a nested list's own
-                // items, or a <p>/div/pre nested in it) is read separately or not at all — never twice
-                // (see blockText's own li-nesting guard, used below for everything but <li> itself).
-                tag == "li" && canReadNewTypes -> liText(el, tocLists)?.let { addReadableText(el, (mergedAlt[el] ?: "") + it) }
-                el.closest("li") != null -> Unit
-                tag == "p" -> addReadableText(el, (mergedAlt[el] ?: "") + el.text().trim())
-                (tag == "dd" || tag == "dt" || tag in HEADING_TAGS) && canReadNewTypes ->
-                    addReadableText(el, (mergedAlt[el] ?: "") + el.text().trim())
-                tag == "pre" && canReadNewTypes -> preText(el).takeIf { it.isNotBlank() }?.let { addReadableText(el, (mergedAlt[el] ?: "") + it) }
-                (tag == "div" || tag == "section") && canReadNewTypes ->
-                    if (isLeafTextBlock(el)) addReadableText(el, (mergedAlt[el] ?: "") + el.text().trim())
+                tag == "blockquote" && foundHeading -> epigraph.addAll(blockquoteTexts(el))
+                tag == "p" && foundHeading && el.closest("blockquote") == null -> {
+                    val text = el.text().trim()
+                    if (text.isNotBlank()) {
+                        if (looksLikeEpigraph(el)) epigraph.add(text) else main.add(text)
+                    }
+                }
             }
         }
-
         val finalImageRefs = leadingImageRefs + imageRefs.map { it.copy(anchorParagraph = epigraph.size + it.anchorParagraph) }
         return Result(headingTitle, preHeading, epigraph, main, finalImageRefs)
     }
 
+    /** A blockquote's paragraphs (or its whole text when it has none), as read since before v26. */
+    private fun blockquoteTexts(el: Element): List<String> =
+        el.select("p").map { it.text().trim() }.filter { it.isNotBlank() }
+            .ifEmpty { listOf(el.text().trim()).filter { it.isNotBlank() } }
+
+    /** Per element: the drop-cap letters to put in front of its text, and the drop-cap images dropped. */
+    private class DropCaps(val prefix: Array<String?>, val skipImage: BooleanArray)
+
     /**
-     * One block's own readable text, or null if it contributes nothing — shared by the heading-less
-     * path's main loop and the drop-cap "next block" lookahead (used by both paths). A block nested
-     * inside a `<li>` (other than the `<li>` itself) is never read here: that `<li>`'s own text already
-     * covers it (see [liText]), so reading it again here would duplicate it.
+     * A drop cap standing alone in its own container (Alice's `<div class="figleft"><img
+     * alt="A"/></div>`, no sibling text or element — an in-<p> glyph is handled in [parse] instead),
+     * followed by the next block that is ACTUALLY READ ([texts] non-null), whose text starts with a
+     * letter: merge the alt into that block instead of emitting an image ("A" + "LICE was…" =
+     * "ALICE was…"). The search stops at a [boundary] — the chapter heading, a blockquote or a table
+     * row — and then the image stays a picture, as before: an ornament initial before the heading
+     * must not lose both its picture and its letter. A drop cap inside a block that is read whole (a
+     * list item, pre, blockquote) also stays a picture. Whether a space belongs between the alt and
+     * the block's text depends on the source (Chapter VIII's whole-word "A" is followed by spaces,
+     * which Element.text() normalizes away), hence [startsWithRawWhitespace].
      */
-    private fun blockText(el: Element, tocLists: Set<Element>): String? {
-        val tag = el.tagName()
-        if (tag != "li" && el.closest("li") != null) return null
-        return when {
-            tag == "p" || tag == "dd" || tag == "dt" || tag in HEADING_TAGS -> el.text().trim().takeIf { it.isNotBlank() }
-            tag == "div" || tag == "section" -> if (isLeafTextBlock(el)) el.text().trim().takeIf { it.isNotBlank() } else null
-            tag == "li" -> liText(el, tocLists)
-            tag == "pre" -> preText(el).takeIf { it.isNotBlank() }
-            else -> null
+    private fun mergeDropCaps(elements: List<Element>, texts: Array<String?>, boundary: (Int) -> Boolean): DropCaps {
+        val prefix = arrayOfNulls<String>(elements.size)
+        val skip = BooleanArray(elements.size)
+        for ((i, el) in elements.withIndex()) {
+            if (!isImageTag(el) || !isStandaloneGlyphContainer(el) || !looksLikeGlyph(el)) continue
+            if (hasAncestor(el, READ_WHOLE_TAGS)) continue
+            var j = i + 1
+            while (j < elements.size && !boundary(j) && texts[j] == null) j++
+            if (j >= elements.size || boundary(j)) continue
+            val nextText = texts[j]!!.trimStart()
+            if (nextText.isEmpty() || !nextText[0].isLetter()) continue
+            val sep = if (startsWithRawWhitespace(elements[j])) " " else ""
+            prefix[j] = (prefix[j] ?: "") + el.attr("alt").trim() + sep
+            skip[i] = true
         }
+        return DropCaps(prefix, skip)
+    }
+
+    /**
+     * One block's own readable text, or null if it contributes nothing. Each text is read once: an
+     * element inside a `<pre>` is read through that pre; one inside a list/definition item (`li`,
+     * `dd`, `dt`) through that item's own text — except a nested item, which is read by itself (see
+     * [itemOwnText]); one inside a table row that is read as a row ([rowsRead]) through that row.
+     */
+    private fun blockText(el: Element, tocLists: Set<Element>, rowsRead: Set<Element>): String? {
+        val tag = el.tagName()
+        if (hasAncestor(el, PRE)) return null
+        if (tag !in ITEM_TAGS && hasAncestor(el, ITEM_TAGS)) return null
+        if (rowsRead.isNotEmpty() && nearestAncestor(el, "tr")?.let { it in rowsRead } == true) return null
+        val text = when (tag) {
+            "li" -> liText(el, tocLists)
+            "dd", "dt" -> itemOwnText(el)
+            "pre" -> preText(el)
+            "div", "section" -> if (isLeafTextBlock(el)) el.text().trim() else null
+            else -> el.text().trim() // p, h1–h6
+        }
+        return text?.takeIf { it.isNotBlank() }
+    }
+
+    private val PRE = setOf("pre")
+    private val BLOCKQUOTE = setOf("blockquote")
+    private val ITEM_TAGS = setOf("li", "dd", "dt")
+    private val READ_WHOLE_TAGS = setOf("li", "dd", "dt", "pre", "blockquote")
+
+    private fun hasAncestor(el: Element, tags: Set<String>): Boolean {
+        var p = el.parent()
+        while (p != null) {
+            if (p.tagName() in tags) return true
+            p = p.parent()
+        }
+        return false
+    }
+
+    private fun nearestAncestor(el: Element, tag: String): Element? {
+        var p = el.parent()
+        while (p != null) {
+            if (p.tagName() == tag) return p
+            p = p.parent()
+        }
+        return null
     }
 
     /**
@@ -365,7 +487,7 @@ object HtmlChapterExtractor {
      * A list where (nearly) every item is a link to elsewhere: a table of contents or list of plates
      * (Don Quixote's `<ol class="toc">`), judged on this list's OWN `<li>` children only — a nested
      * sub-list's items don't count toward (or against) its parent's score, and are stripped out of
-     * each item's own text first (see [liOwnText]) so a "Chapter 3" entry that merely happens to have a
+     * each item's own text first (see [itemOwnText]) so a "Chapter 3" entry that merely happens to have a
      * sub-list of sub-chapters is still judged purely on its own link text. Same 80%/≥2-items threshold
      * as [isContentsTable], for consistency.
      */
@@ -384,18 +506,20 @@ object HtmlChapterExtractor {
         return linkCount.toDouble() / textCount >= 0.8
     }
 
-    /** [li] with any nested `<ul>`/`<ol>` removed — its own text/links, excluding any nested list's. */
-    private fun liOwnClone(li: Element): Element = li.clone().apply { select("ul, ol").remove() }
+    /** A list/definition item with any nested `<ul>`/`<ol>`/`<dl>` removed — its own text/links,
+     * excluding any nested list's (whose items are read by themselves, see [blockText]). */
+    private fun liOwnClone(li: Element): Element = li.clone().apply { select("ul, ol, dl").remove() }
 
-    /** [li]'s own text, excluding any nested list — the nested list's own items are read separately
-     * (see the candidate loops above), never through their parent item too. */
-    private fun liOwnText(li: Element): String = liOwnClone(li).text().trim()
+    /** A `<li>`/`<dd>`/`<dt>`'s own text, excluding any nested list — the nested list's own items are
+     * read separately (see [blockText]), never through their parent item too. Block children (a
+     * `<p>` in a `<dd>`) are part of this text and are not read again. */
+    private fun itemOwnText(item: Element): String = liOwnClone(item).text().trim()
 
     /** [li]'s own readable text, or null if it belongs to a table-of-contents/plate-list [tocLists]. */
     private fun liText(li: Element, tocLists: Set<Element>): String? {
         val list = li.closest("ul, ol") ?: return null
         if (list in tocLists) return null
-        return liOwnText(li).takeIf { it.isNotBlank() }
+        return itemOwnText(li).takeIf { it.isNotBlank() }
     }
 
     /**
@@ -433,7 +557,7 @@ object HtmlChapterExtractor {
      * unlike `Element.text()`, which normalizes (and here, entirely discards) leading whitespace, so
      * a block-level element whose first child is a text node starting with spaces always reports
      * none when asked via `.text()`. Used only to decide whether a merged drop cap needs a separating
-     * space before the next block's text (see the drop-cap candidate loop): [TextNode.getWholeText]
+     * space before the next block's text (see [mergeDropCaps]): [TextNode.getWholeText]
      * returns that node's content exactly as parsed, spaces and all.
      */
     private fun startsWithRawWhitespace(el: Element): Boolean {

@@ -753,4 +753,142 @@ class HtmlChapterExtractorTest {
         assertEquals(1, r.mainParagraphs.count { it.contains("A paragraph living inside a list item.") })
         assertEquals(1, r.mainParagraphs.count { it.contains("A div living inside a list item.") })
     }
+
+    // ── v26 fix round: the chapter structure is exactly v25's (12e9c6f) for every file. Whether a
+    // file yields a chapter (heading-less), an image-only page, or a lead-in chapter is decided by
+    // whether v25 found text there -- never by the new block types. ──
+
+    private fun assertNoChapter(html: String) {
+        val r = HtmlChapterExtractor.parse(html)
+        assertTrue("v25 read nothing here, so no chapter may appear: $r", r.isEmpty)
+    }
+
+    private fun assertImageOnly(html: String, images: List<String>) {
+        val r = HtmlChapterExtractor.parse(html)
+        assertTrue("v25 saw an image page here, not a chapter: $r", r.isImageOnly)
+        assertEquals(images, r.imageRefs.map { it.src })
+    }
+
+    @Test
+    fun `a heading-less file whose only text is a short div, h4, list, pre or span-wrapped div gains no chapter`() {
+        assertNoChapter("<body><div class='part'>Part One</div></body>")
+        assertNoChapter("<body><h4>Part One</h4></body>")
+        assertNoChapter("<body><ul><li>To my mother</li><li>To my father</li></ul></body>")
+        assertNoChapter("<body><pre>  *  *  *</pre></body>")
+        assertNoChapter("<body><div><span>This is a long dedication set inside a span in a div</span></div></body>")
+    }
+
+    @Test
+    fun `a MOBI title-page fragment set in font tags inside a div gains no chapter`() {
+        assertNoChapter("<body><div align='center'><font size='+2'>The Title Of The Book</font></div></body>")
+    }
+
+    @Test
+    fun `a heading-less picture page with a caption div stays an image page`() {
+        assertImageOnly("<body><div><img src='a.jpg' alt='Frontispiece'/></div><div class='caption'>She went on.</div></body>", listOf("a.jpg"))
+        assertImageOnly("<body><img src='a.jpg'/><div><span>This is a long caption of a picture page here</span></div></body>", listOf("a.jpg"))
+    }
+
+    @Test
+    fun `a drop cap followed by a short div in a heading-less file stays an image page with its image`() {
+        assertImageOnly("<body><div class='figleft'><img src='a.png' alt='A'/></div><div>LICE was beginning</div></body>", listOf("a.png"))
+    }
+
+    @Test
+    fun `a file whose heading has no text, followed by only a short div, stays an image page`() {
+        assertImageOnly("<body><h1><img src='t.png'/></h1><div>Part One</div></body>", listOf("t.png"))
+    }
+
+    @Test
+    fun `a heading-less contents list of paragraphs in list items still yields its chapter`() {
+        val r = HtmlChapterExtractor.parse(
+            "<body><ol><li><p><a href='c1.html'>Chapter 1</a></p></li><li><p><a href='c2.html'>Chapter 2</a></p></li></ol></body>",
+        )
+        assertEquals(listOf("Chapter 1", "Chapter 2"), r.mainParagraphs)
+    }
+
+    @Test
+    fun `a contents list of paragraphs before the heading still yields the lead-in chapter`() {
+        val r = HtmlChapterExtractor.parse(
+            "<body><ol><li><p><a href='c1.html'>One</a></p></li><li><p><a href='c2.html'>Two</a></p></li></ol><h2>Chapter</h2><p>Text.</p></body>",
+        )
+        assertEquals(listOf("One", "Two"), r.preHeadingParagraphs)
+        assertEquals("Chapter", r.headingTitle)
+        assertEquals(listOf("Text."), r.mainParagraphs)
+    }
+
+    // ── Verse in divs stays where it is (Dracula's "Denn die Todten reiten schnell") ──
+
+    @Test
+    fun `verse set in poem and stanza divs stays in document order, not moved to the chapter start`() {
+        val html = """
+            <body><h2>CHAPTER I</h2>
+            <p class="epigraph">An epigraph paragraph keeps going first.</p>
+            <p>First paragraph of the chapter.</p>
+            <div class="poem"><div class="stanza"><span class="i0">Denn die Todten reiten schnell.<br/></span></div></div>
+            <p>The paragraph after the verse.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(listOf("An epigraph paragraph keeps going first."), r.epigraphParagraphs)
+        assertEquals(
+            listOf("First paragraph of the chapter.", "Denn die Todten reiten schnell.", "The paragraph after the verse."),
+            r.mainParagraphs,
+        )
+    }
+
+    // ── Each text is read once ──
+
+    private fun assertReadOnce(html: String, vararg texts: String) {
+        val all = allParagraphs(HtmlChapterExtractor.parse(html))
+        for (t in texts) assertEquals("'$t' in $all", 1, all.count { it.contains(t) })
+    }
+
+    @Test
+    fun `a paragraph inside a dd is read once`() {
+        assertReadOnce("<body><h2>H</h2><dl><dt>Term</dt><dd><p>Definition text that is long enough</p></dd></dl></body>", "Term", "Definition text")
+    }
+
+    @Test
+    fun `nested dl verse reads each line once`() {
+        assertReadOnce(
+            "<body><h2>H</h2><dl><dd>Outer line of verse here<dl><dd>Inner indented line of verse</dd></dl></dd></dl></body>",
+            "Outer line of verse here", "Inner indented line of verse",
+        )
+    }
+
+    @Test
+    fun `a div inside a table cell of a play read as rows is read once`() {
+        assertReadOnce(
+            "<body><h2>H</h2><table><tr><td><div>Speaker</div></td><td>A long line spoken by the speaker in the play</td></tr></table></body>",
+            "Speaker", "A long line spoken",
+        )
+    }
+
+    @Test
+    fun `a table inside a list item is read once`() {
+        assertReadOnce(
+            "<body><h2>H</h2><ul><li><table><tr><td>Alpha cell text long enough</td><td>Beta</td></tr></table></li></ul></body>",
+            "Alpha cell text",
+        )
+    }
+
+    @Test
+    fun `a paragraph inside a pre is read once`() {
+        assertReadOnce("<body><h2>H</h2><pre><p>Para inside pre</p></pre></body>", "Para inside pre")
+    }
+
+    // ── A drop cap merges only into text that is actually read ──
+
+    @Test
+    fun `an ornament initial before the chapter heading keeps its image and is not merged across the heading`() {
+        val r = HtmlChapterExtractor.parse("<body><div><img src='orn.png' alt='I'/></div><h2>Chapter I</h2><p>Text.</p></body>")
+
+        assertEquals("Chapter I", r.headingTitle)
+        assertEquals(emptyList<String>(), r.preHeadingParagraphs)
+        assertEquals(listOf("Text."), r.mainParagraphs)
+        assertEquals(listOf("orn.png"), r.imageRefs.map { it.src })
+    }
 }
