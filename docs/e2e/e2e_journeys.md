@@ -3,7 +3,7 @@
 Real user journeys for release testing. Each journey is a whole session a reader goes through (10–25 steps);
 every verifying step carries a checkpoint "✓ … (IDs)" pointing at the atomic cases in `e2e_test_cases.md`.
 Built 2026-11-06. 54 journeys (28 automated with Maestro, 26 manual) cover all
-445 catalog cases.
+448 catalog cases.
 
 Gate: every `smoke` journey passes on tablet API 35 + phone before each Play upload; all automated journeys
 before larger releases (+ tablet API 26); manual journeys on a real device before larger releases.
@@ -32,7 +32,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-LIB-18 | Odd files that need a human eye | P1 | manual, tablet | 4 | 4 |
 | J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 14 | 17 |
 | J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 11 | 14 |
-| J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone | 10 | 7 |
+| J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone | 11 | 8 |
 | J-RDR-04 | Reading to the end: 0% to 100% and back | P0 | smoke, full | 9 | 6 |
 | J-RDR-05 | Appearance smoke: margins and one shared theme | P0 | smoke, full | 9 | 3 |
 | J-RDR-06 | Tablet: tuning typography, layout combos and persistence | P1 | full, tablet | 13 | 10 |
@@ -57,10 +57,10 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-TRN-05 | Chinese and Japanese: books, sentences, both on-device engines | P0 | smoke, full, network, tablet, phone | 12 | 6 |
 | J-TRN-06 | Book language detection and the "From" override | P0 | smoke, full, network, phone, tablet | 11 | 6 |
 | J-TRN-07 | Online-engine keys without spending money: errors, Switch translator, clearing | P0 | smoke, full, network, phone, tablet | 16 | 13 |
-| J-TRN-08 | LibreTranslate, Azure and Quick Translate fields and gating | P0 | smoke, full, network, phone, tablet | 12 | 12 |
+| J-TRN-08 | LibreTranslate, Azure and Quick Translate fields and gating | P0 | smoke, full, network, phone, tablet | 14 | 14 |
 | J-TRN-09 | From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book into German | P1 | full, network, tablet | 19 | 11 |
 | J-TRN-10 | Jumping around: bookmarks, huge chapters, other books, odd books | P1 | full, network, phone, tablet | 10 | 4 |
-| J-TRN-11 | A DeepL reader: real key, usage, popup save, hidden pane | P0 | manual, network, phone, tablet | 13 | 16 |
+| J-TRN-11 | A DeepL reader: real key, usage, popup save, hidden pane | P0 | manual, network, phone, tablet | 15 | 18 |
 | J-TRN-12 | Paid chapter fill and switching between paid engines | P1 | manual, network, rotation, tablet | 10 | 7 |
 | J-TRN-13 | Reading on a bad connection | P1 | manual, network, phone, tablet | 13 | 12 |
 | J-TRN-14 | Broken packs, full storage, stalled server, broken native library | P1 | manual, network | 11 | 5 |
@@ -607,12 +607,13 @@ translation works without network keys.
 4. On Home, tap "Continue reading" for F-LONG → ✓ opens at the saved chapter/paragraph/offset, same as reopening from the Library (POS-016).
 5. Note the top paragraph; rotate to landscape → ✓ the same paragraph is on top (NAV-001).
 6. Rotate back to portrait; repeat landscape↔portrait three times → ✓ the same paragraph stays on top every time, never back to the start (NAV-001).
+6a. Aa → **Show translation** off; rotate to landscape and back to portrait → ✓ one original-only column in both orientations, the same paragraph on top; Aa still shows "Show translation" off (LAY-028). Turn it back on.
 7. Back to Library; reopen F-LONG → ✓ it reopens on that same paragraph (NAV-002).
 8. Scroll so the first visible row is a chapter masthead; Back; reopen → ✓ the position resolves to the first paragraph below the masthead, offset 0 (POS-013).
 9. Scroll partway into a normal paragraph (top line half off-screen); Back; reopen → ✓ same paragraph and pixel offset (POS-013).
 10. Scroll partway into another paragraph; kill the app; relaunch; open F-LONG → ✓ same chapter/paragraph/offset after a full restart (POS-013).
 
-**Covers:** APP-024, APP-022, APP-023, POS-016, NAV-001, NAV-002, POS-013
+**Covers:** APP-024, APP-022, APP-023, POS-016, NAV-001, NAV-002, POS-013, LAY-028
 
 ### J-RDR-04 — Reading to the end: 0% to 100% and back
 **Priority** P0 · **Tags** smoke, full · **Devices** tablet API 35 and phone emulator · **Fixtures** F-SHORT, F-LONG · **Preconditions** F-SHORT never opened; F-LONG saved in its last chapter; one bookmark on F-LONG's final screen.
@@ -877,7 +878,7 @@ Expected to fail until fixed; report, never block. Run as one probing session.
 |---|---|---|---|
 | J-RDR-01 | smoke · tablet | P0 | 17 |
 | J-RDR-02 | smoke · phone | P0 | 14 |
-| J-RDR-03 | smoke · rotation | P0 | 7 |
+| J-RDR-03 | smoke · rotation | P0 | 8 |
 | J-RDR-04 | smoke | P0 | 6 |
 | J-RDR-05 | smoke | P0 | 3 |
 | J-RDR-06 | full · tablet | P1 | 10 |
@@ -1127,7 +1128,7 @@ that checkpoint is observed manually (one Translating → Ready transition, no i
 ### J-TRN-08 — LibreTranslate, Azure and Quick Translate fields and gating
 
 **Priority:** P0 · **Tags:** smoke, full, network, phone, tablet · **Devices:** tablet API 35, phone emulator
-**Fixtures:** `en-novel.epub`
+**Fixtures:** `en-novel.epub`, `plain-prose.epub`
 **Preconditions:** Offline HQ current; no online keys saved; online.
 
 **Steps**
@@ -1142,9 +1143,11 @@ that checkpoint is observed manually (one Translating → Ready transition, no i
 9. Switch to Offline HQ via "Switch translator". Open the Translator picker and find Quick Translate. → ✓ a note such as "unofficial endpoint — may be throttled or break" is shown next to it (ONL-020).
 10. Select Quick Translate. → ✓ the visible screen translates via Quick Translate; long-press a word → the popup returns a translation (ONL-021).
 11. Turn Aa → **Show translation** off, scroll forward three screens, turn it back on. → ✓ the screens scrolled while hidden had no translations made in the meantime (they fill in only now, with shimmers) — Quick Translate needs the network, so it is gated like a paid engine (ONL-014).
-12. Select Offline HQ again.
+12. With Quick Translate still current and the screen translated, rotate there and back. → ✓ the translated paragraphs reappear at once, with no translating placeholder — they come from the cache, not a new request (ONL-023).
+13. Turn **Show translation** off, go back to the Library and open `plain-prose.epub` (never opened); scroll three screens. Turn **Show translation** on, then immediately scroll two screens further. → ✓ the visible screen translates; the paragraphs further down show the translating placeholder first — nothing was translated in the background while hidden (TRN-027).
+14. Select Offline HQ again.
 
-**Covers:** ONL-001, ONL-009, ONL-010, ONL-011, ONL-013, ONL-014, ONL-020, ONL-021, POP-012, SET-003 (also WRD-006; ONL-012 field check only — full Azure translation in J-TRN-12)
+**Covers:** ONL-001, ONL-009, ONL-010, ONL-011, ONL-013, ONL-014, ONL-020, ONL-021, ONL-023, POP-012, SET-003, TRN-027 (also WRD-006; ONL-012 field check only — full Azure translation in J-TRN-12)
 
 ### J-TRN-09 — From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book into German
 
@@ -1214,13 +1217,15 @@ that checkpoint is observed manually (one Translating → Ready transition, no i
 6. Long-press a word, drag the end handle off the paragraph into the margin, release. → ✓ the counter grows by one request (POP-006).
 7. Note the counter. Turn **Show translation** off, long-press a word. → ✓ the popup still translates (POP-002). Scroll through five pages. → ✓ the counter does not grow except for that one popup (TRN-010).
 8. Turn **Show translation** on. → ✓ the current screen translates and the counter grows again (TRN-010).
+8a. Note the counter; rotate the device there and back twice. → ✓ the shown paragraphs reappear at once and the counter is unchanged (ONL-023).
+8b. Turn **Show translation** off; open a second, never-opened book; read three screens; note the counter. Turn **Show translation** on. → ✓ the counter did not grow while hidden; after turning on it grows only by the visible screen, not by the screens read while hidden (TRN-027). Return to the first book.
 9. Open Translator picker → tap the reset (circular arrow) icon next to DeepL's usage. → ✓ dialog "Reset counter" saying DeepL's real quota is not affected; tap Cancel → the counter is unchanged (ONL-017).
 10. Reset again and confirm. → ✓ the usage line reads 0; nothing claims the remote quota changed (ONL-018).
 11. Force-stop, relaunch, and open Reader, then Settings, then Home. → ✓ each screen appears immediately (placeholder state at most) with no visible freeze while the key is decrypted (SET-012); DeepL still shows configured and translates (SET-010).
 12. Go to the Library and reopen the book (saved deep in chapter 4). Check the counter right away. → ✓ only the visible page's paragraphs were requested; no request for chapter 0 / paragraph 0 (TRN-020).
 13. Select Offline HQ again before handing the device on.
 
-**Covers:** ONL-003, ONL-005, ONL-006, ONL-015, ONL-017, ONL-018, SET-004, SET-010, SET-012, SET-013, POP-002, POP-006, POP-009, TRN-010, TRN-020 (also WRD-007)
+**Covers:** ONL-003, ONL-005, ONL-006, ONL-015, ONL-017, ONL-018, SET-004, SET-010, SET-012, SET-013, POP-002, POP-006, POP-009, TRN-010, TRN-020, ONL-023, TRN-027 (also WRD-007)
 
 ### J-TRN-12 — Paid chapter fill and switching between paid engines
 

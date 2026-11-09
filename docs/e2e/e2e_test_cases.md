@@ -23,17 +23,17 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 
 | Prefix | Area | Cases |
 |---|---|---|
-| LAY | Reader layout | 27 |
+| LAY | Reader layout | 28 |
 | APP | Appearance | 30 |
 | POS | Reading position | 25 |
 | NAV | Reader navigation | 17 |
 | BMK | Bookmarks | 14 |
 | ILL | Illustrations | 18 |
 | SYS | System UI (insets, bars) | 13 |
-| TRN | Translation | 26 |
+| TRN | Translation | 27 |
 | OHQ | Offline HQ | 26 |
 | POP | Word popup | 26 |
-| ONL | Online engines | 22 |
+| ONL | Online engines | 23 |
 | MLK | ML Kit | 11 |
 | LNG | Language detection | 9 |
 | SET | Settings | 17 |
@@ -48,7 +48,7 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | UPD | Updates | 6 |
 | ALM | Almanac | 9 |
 | DAT | Data / upgrade | 6 |
-| | **Total** | **445** |
+| | **Total** | **448** |
 
 ## Reader-layout
 
@@ -81,6 +81,7 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | LAY-025 | Landscape reader goldens (8 combos) remain pixel-identical after the stacked-reader refactor | P1 | manual | n/a (build-time regression check informing a manual smoke pass) | 1. Open the reader in landscape, both themes, both scales (1x/1.3x), an RTL book, split ratio 0.35. | Visual layout is pixel-identical to before the portrait-reader refactor; no behavior change from a tester's perspective. | C1 §3.2 Acceptance 4 |
 | LAY-026 | Rotating rapidly during active sync-scroll does not crash | P2 | manual,rotation | Phone portrait, stacked reader, actively mid-scroll-sync | 1. While top/bottom panels are mid-sync, rotate the device twice in quick succession. | No crash; sync-scroll re-establishes cleanly after each recreation. | C1 §3.4 (Errors) |
 | LAY-027 | Split-ratio drag math does not divide by zero at a zero-width pane | P2 | manual | n/a — defensive edge case | 1. If reachable (e.g. an extremely narrow split-screen window), attempt to drag the divider when a pane's width is at/near zero. | No crash/NaN ratio; the drag math clamps safely instead of dividing by zero. | C1 §6 (Errors) |
+| LAY-028 | Rotating with the translation hidden keeps one column and does not turn the translation on | P1 | full, rotation | Translation hidden (Aa → Show translation off), a book open mid-chapter | 1. Rotate portrait → landscape → portrait (on a tablet: landscape → portrait → landscape). 2. Look at the layout after each rotation. 3. Open Aa. | One original-only column in every orientation (never stacked or side-by-side panes); the top paragraph stays the same; "Show translation" is still off. | user request 2026-11-09 (E2E coverage review) |
 
 ## Appearance
 
@@ -258,6 +259,7 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | TRN-024 | Translation banner settles to Idle for pathological books | P2 | full | A book with an empty first chapter, a fully empty book, or a picture-only book, translation enabled | 1. Open each such book. | No crash; the translation banner ends in an idle state (no stuck spinner/error). | reader-translation-engine-followups §4.8; reader-translation-engine-design.md §3.2 |
 | TRN-025 | Listen (TTS) speaks a foreign-language passage's word using that passage's own language voice | P2 | manual | A book with an embedded foreign-language passage; TTS available | 1. Inside the embedded passage, select a word and tap Listen. | The word is spoken using that passage's language voice, not the book's main language voice. | release-notes-1.0-22.md (v22) |
 | TRN-026 | "Download and translate" appears for a paragraph needing an uninstalled model; nothing downloads until tapped | P1 | full, network | A paragraph is detected in a different, uninstalled-model language (Offline HQ or ML Kit) | 1. Scroll to that paragraph. 2. Do not tap the button for a while. 3. Then tap "Download and translate". | The button is shown; no model download starts until it is tapped; tapping starts the download and then translates. | release-notes-1.0-21.md (v21); reader-translation-engine-followups §4.5 |
+| TRN-027 | A book read with the translation off from the start: turning it on translates the visible screen, not the chapter behind it | P1 | full, network | Translation off before the book is first opened; a network engine (Quick Translate) or a metered engine (DeepL, manual) current | 1. Open a never-opened book; read (scroll) a few screens. 2. Turn Show translation on. 3. Immediately scroll further down. | Step 1: no translations are requested while hidden (metered: usage counter unchanged). Step 2: the visible screen translates. Step 3: paragraphs further down show the translating placeholder first — nothing was translated in the background for the screens read while hidden (metered: the counter grows only by what is shown). | user request 2026-11-09 (E2E coverage review); TRN-010 |
 
 ## Offline HQ
 
@@ -347,6 +349,7 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | ONL-020 | Quick Translate shows an unofficial/unstable-endpoint warning in the picker | P2 | full | Translator picker open | 1. Open the Translator picker. 2. Locate Quick Translate. | A visible note (e.g. "unofficial endpoint — may be throttled or break") is shown next to Quick Translate, distinguishing it from the official providers. | data-security design P18 |
 | ONL-021 | Quick Translate still returns a translation when its unofficial endpoint is reachable | P2 | full, network | Quick Translate selected; device online | 1. Open a book. 2. Select a paragraph and request a translation. | A translated paragraph is returned and displayed (best-effort smoke check, not an SLA on the unofficial endpoint). | data-security design P18 (context) |
 | ONL-022 | Release build ships no hardcoded translator API keys and all default endpoints are HTTPS | P1 | manual | Source tree / decompiled release build | 1. Search shipped code/resources for hardcoded API keys/tokens or http:// base URLs (especially LibreTranslate's default). 2. Confirm the OkHttp logging interceptor is debug-only. | No secrets found in VCS or the built artifact; all translator base URLs are HTTPS; the logging interceptor is gated to debug builds. | google-play-release-audit.md Domain 3 (SECURITY) |
+| ONL-023 | Rotating while a network engine translates does not request the shown paragraphs again | P1 | full, network, rotation | A network engine current (Quick Translate automated; DeepL with its usage counter, manual); the visible screen translated | 1. Note the counter (metered). 2. Rotate twice (there and back). 3. Look at the paragraphs on screen. | The translated paragraphs reappear at once from the cache (no translating placeholder); metered: the usage counter is unchanged by the rotations. | user request 2026-11-09 (E2E coverage review) |
 
 ## ML Kit
 

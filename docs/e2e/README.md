@@ -1,6 +1,6 @@
 # Mirrolit E2E release gate
 
-Maestro-driven black-box journeys against the real app, traceable to the 445-case catalog
+Maestro-driven black-box journeys against the real app, traceable to the 448-case catalog
 (`docs/e2e/e2e_test_cases.md`) via `docs/e2e/e2e_journeys.md` (54 journeys, 28 automated). Flows live in
 `e2e/flows/`, shared steps in `e2e/subflows/`, fixtures in `e2e/books/`.
 
@@ -60,17 +60,17 @@ failures, visual judgement) live in `docs/e2e/manual_checklist.md` (Task 12).
 
 | Prefix | Area | Cases |
 |---|---|---|
-| LAY | Reader layout | 27 |
+| LAY | Reader layout | 28 |
 | APP | Appearance | 30 |
 | POS | Reading position | 25 |
 | NAV | Reader navigation | 17 |
 | BMK | Bookmarks | 14 |
 | ILL | Illustrations | 18 |
 | SYS | System UI (insets, bars) | 13 |
-| TRN | Translation | 26 |
+| TRN | Translation | 27 |
 | OHQ | Offline HQ | 26 |
 | POP | Word popup | 26 |
-| ONL | Online engines | 22 |
+| ONL | Online engines | 23 |
 | MLK | ML Kit | 11 |
 | LNG | Language detection | 9 |
 | SET | Settings | 17 |
@@ -85,6 +85,6 @@ failures, visual judgement) live in `docs/e2e/manual_checklist.md` (Task 12).
 | UPD | Updates | 6 |
 | ALM | Almanac | 9 |
 | DAT | Data / upgrade | 6 |
-| | **Total** | **445** |
+| | **Total** | **448** |
 
 Full case detail: `docs/e2e/e2e_test_cases.md`. Step-by-step journeys: `docs/e2e/e2e_journeys.md`.
