@@ -79,18 +79,53 @@ object HtmlChapterExtractor {
             for (glyph in body.select("p img")) {
                 val p = glyph.closest("p") ?: continue
                 if (p.text().isBlank()) continue
-                val alt = glyph.attr("alt").trim()
-                val looksLikeGlyph = alt.length in 1..3 ||
-                    glyph.classNames().any { c -> listOf("drop", "initial", "cap").any { it in c.lowercase() } }
-                if (looksLikeGlyph) glyph.replaceWith(org.jsoup.nodes.TextNode(alt))
+                if (looksLikeGlyph(glyph)) glyph.replaceWith(org.jsoup.nodes.TextNode(glyph.attr("alt").trim()))
             }
+
+            // Candidates in document order: <p>, img/image (illustrations and drop caps), and leaf
+            // div/section text blocks — some Gutenberg editions set a heading-less chapter's text in
+            // divs, not <p> ("CHAPTER I" / "Down the Rabbit-Hole" / the body text in Alice's file
+            // without an h1–h3). A wrapper div around one of those never matches isLeafTextBlock
+            // itself (it has a block-level descendant), so nothing is read twice.
+            val candidates = body.select("p, div, section, img, image")
+
+            // A drop cap standing alone in its own container (Alice's <div class="figleft"><img
+            // alt="A"/></div>, no sibling text or element — an in-<p> glyph is handled above instead),
+            // immediately followed by the next real text block whose own text starts with a letter:
+            // merge the alt into that block instead of emitting an image ("A" + "LICE was…" =
+            // "ALICE was…"), mirroring the in-<p> glyph rule for a drop cap Gutenberg's markup put in
+            // its own container. Whether a space belongs between the alt and the block's text depends
+            // on the source: Chapter I's drop cap is mid-word ("A" + "LICE" = "ALICE", no space in the
+            // source), but Chapter VIII's is the whole word "A" followed by "   LARGE rose-tree…" (3
+            // literal spaces before the next word) — Element.text() normalizes that leading whitespace
+            // away entirely, so [startsWithRawWhitespace] reads the first real TextNode's unnormalized
+            // wholeText instead. mergedAlt accumulates in document order in case more than one such
+            // glyph precedes the same next block.
+            val mergedAlt = mutableMapOf<Element, String>()
+            val skipImages = mutableSetOf<Element>()
+            for ((idx, el) in candidates.withIndex()) {
+                if (!isImageTag(el) || !isStandaloneGlyphContainer(el) || !looksLikeGlyph(el)) continue
+                val next = candidates.subList(idx + 1, candidates.size).firstOrNull { c ->
+                    (c.tagName() == "p" && c.text().trim().isNotBlank()) ||
+                        ((c.tagName() == "div" || c.tagName() == "section") && isLeafTextBlock(c))
+                } ?: continue
+                val nextText = next.text().trim()
+                if (nextText.isEmpty() || !nextText[0].isLetter()) continue
+                val sep = if (startsWithRawWhitespace(next)) " " else ""
+                mergedAlt[next] = (mergedAlt[next] ?: "") + el.attr("alt").trim() + sep
+                skipImages.add(el)
+            }
+
             val paras = mutableListOf<String>()
             val refs = mutableListOf<ImageRef>()
-            for (el in body.select("p, img, image")) {
-                if (el.tagName() == "p") {
-                    el.text().trim().takeIf { it.isNotBlank() }?.let(paras::add)
-                } else {
-                    imageSrc(el)?.let { refs.add(ImageRef(it, paras.size)) }
+            for (el in candidates) {
+                when {
+                    el.tagName() == "p" ->
+                        el.text().trim().takeIf { it.isNotBlank() }?.let { paras.add((mergedAlt[el] ?: "") + it) }
+                    el.tagName() == "div" || el.tagName() == "section" ->
+                        if (isLeafTextBlock(el)) paras.add((mergedAlt[el] ?: "") + el.text().trim())
+                    el in skipImages -> Unit
+                    else -> imageSrc(el)?.let { refs.add(ImageRef(it, paras.size)) }
                 }
             }
             if (paras.isEmpty()) {
@@ -259,6 +294,74 @@ object HtmlChapterExtractor {
         }
         return raw.trim().takeIf { it.isNotBlank() }
     }
+
+    private fun isImageTag(el: Element): Boolean = el.tagName() == "img" || el.tagName() == "image"
+
+    /**
+     * Whether [el]'s first real text, in document order, begins with whitespace in the SOURCE —
+     * unlike `Element.text()`, which normalizes (and here, entirely discards) leading whitespace, so
+     * a block-level element whose first child is a text node starting with spaces always reports
+     * none when asked via `.text()`. Used only to decide whether a merged drop cap needs a separating
+     * space before the next block's text (see the heading-less-chapter candidate loop): [TextNode.
+     * getWholeText] returns that node's content exactly as parsed, spaces and all.
+     */
+    private fun startsWithRawWhitespace(el: Element): Boolean {
+        fun firstTextNode(node: org.jsoup.nodes.Node): org.jsoup.nodes.TextNode? {
+            for (child in node.childNodes()) {
+                if (child is org.jsoup.nodes.TextNode) return child
+                firstTextNode(child)?.let { return it }
+            }
+            return null
+        }
+        return firstTextNode(el)?.wholeText?.firstOrNull()?.isWhitespace() ?: false
+    }
+
+    /** A small image that is a letter, not an illustration: a Gutenberg drop cap ("C"), identified by
+     * a short alt text or a drop-cap-ish class. Shared by the in-<p> glyph rule and
+     * [isStandaloneGlyphContainer] (a drop cap in its own container, heading-less chapters only). */
+    private fun looksLikeGlyph(img: Element): Boolean {
+        val alt = img.attr("alt").trim()
+        return alt.length in 1..3 ||
+            img.classNames().any { c -> listOf("drop", "initial", "cap").any { it in c.lowercase() } }
+    }
+
+    /**
+     * An image whose own container holds nothing else — no other text, no other element — and which
+     * is not inside a `<p>` (that case is the pre-existing in-<p> glyph rule, handled separately
+     * before heading-less candidates are even gathered). Alice's `<div class="figleft"><img
+     * alt="A"/></div>` is exactly this: the drop cap is the div's only child, with no sibling text.
+     */
+    private fun isStandaloneGlyphContainer(img: Element): Boolean {
+        if (img.closest("p") != null) return false
+        val container = img.parent() ?: return false
+        return container.children().size == 1 && container.text().trim().isBlank()
+    }
+
+    /** Block-level tags that disqualify a div/section from being read as one stand-alone paragraph —
+     * its text is read through that descendant instead (see [isLeafTextBlock]), never twice. */
+    private const val BLOCK_DESCENDANT_SELECTOR =
+        "p, div, section, table, blockquote, ul, ol, h1, h2, h3, h4, h5, h6, figure"
+
+    /**
+     * A div/section that is itself one paragraph of real prose in a heading-less chapter file: some
+     * Gutenberg editions set a chapter's text ("CHAPTER I", a subtitle, the body) in divs rather than
+     * `<p>` when the file has no h1–h3 (Gutenberg's illustrated "Alice", ebook 28885). Leaf only:
+     * Jsoup's `Element.select` includes the element itself when it matches the selector (as elsewhere
+     * in this file), so `el.select(BLOCK_DESCENDANT_SELECTOR).size == 1` means "only itself matched" —
+     * no nested p/div/section/table/blockquote/ul/ol/heading/figure, so a wrapper div around one of
+     * these is skipped in favour of reading through that descendant. Inline markup (`<i>`, `<b>`,
+     * `<span>`) inside doesn't disqualify it, hence `.text()`, not `.ownText()`.
+     *
+     * Never a div holding an image, caption or not: `EpubParserImagesTest`'s `<div
+     * class="figright"><img/><span class="caption">…</span></div>` must stay exactly as ignored as
+     * before — reading its caption as a paragraph would turn a plates-only spine file into a new
+     * chapter and renumber every chapter after it.
+     */
+    private fun isLeafTextBlock(el: Element): Boolean =
+        el.closest("p") == null &&
+            el.select(BLOCK_DESCENDANT_SELECTOR).size == 1 &&
+            el.select("img, image").isEmpty() &&
+            el.text().trim().isNotBlank()
 
     private fun looksLikeEpigraph(el: Element): Boolean {
         fun Element.hasEpigraphClass() =

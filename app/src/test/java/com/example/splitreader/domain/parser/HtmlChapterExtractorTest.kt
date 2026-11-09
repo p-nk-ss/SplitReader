@@ -430,4 +430,110 @@ class HtmlChapterExtractorTest {
         assertEquals(4000, size)
         assertTrue("parsing 4000 table rows took ${elapsedMs}ms, expected well under 3000ms", elapsedMs < 3000)
     }
+
+    // ── v26: heading-less chapters that set text in divs, not <p> (Gutenberg's illustrated "Alice",
+    // ebook 28885, file …-h-1.htm.xhtml — the opening paragraph and "CHAPTER I" / "Down the
+    // Rabbit-Hole" were dropped entirely, and the drop-cap "A" showed as a stray picture) ──
+
+    @Test
+    fun `a heading-less chapter files its text divs as paragraphs, and merges a standalone drop cap into the next block`() {
+        // Mirrors the real file's opening exactly: a title div, a subtitle div (text wrapped in
+        // <i>), a div holding ONLY the drop-cap image (no other content), then the div that
+        // continues the sentence the drop cap started, then an ordinary <p>.
+        val html = """
+            <body><div class="chapter">CHAPTER I</div>
+            <div class="sidenote"><i>Down the Rabbit-Hole</i></div>
+            <div class="figleft" style="width: 71px;"><img alt="A" src="images/a.png"/></div><div class="unindent">LICE was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, "and what is the use of a book," thought Alice, "without pictures or conversations?"</div>
+            <p>So she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(
+            listOf(
+                "CHAPTER I",
+                "Down the Rabbit-Hole",
+                "ALICE was beginning to get very tired of sitting by her sister on the bank, and of having " +
+                    "nothing to do: once or twice she had peeped into the book her sister was reading, but it " +
+                    "had no pictures or conversations in it, \"and what is the use of a book,\" thought Alice, " +
+                    "\"without pictures or conversations?\"",
+                "So she was considering in her own mind (as well as she could, for the hot day made her feel " +
+                    "very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the " +
+                    "trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes " +
+                    "ran close by her.",
+            ),
+            r.mainParagraphs,
+        )
+        // The drop cap was merged into the text, not emitted as a picture.
+        assertTrue("${r.imageRefs}", r.imageRefs.isEmpty())
+    }
+
+    @Test
+    fun `a div holding only an image, plus a caption, is never read as a paragraph`() {
+        // isLeafTextBlock must exclude any div with an image descendant, caption or not — otherwise
+        // a plates-only spine file (EpubParserImagesTest's figright/figleft divs: image + a <span
+        // class="caption">) would gain a "paragraph" it never had and become a new chapter, which
+        // would renumber every chapter after it.
+        val html = """
+            <body><p>Real paragraph one, long enough to be unambiguous prose.</p>
+            <div class="figright"><img src="a.png"/><span class="caption">Caption text here</span></div>
+            <p>Real paragraph two, also long enough to be unambiguous prose.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(
+            listOf("Real paragraph one, long enough to be unambiguous prose.", "Real paragraph two, also long enough to be unambiguous prose."),
+            r.mainParagraphs,
+        )
+        assertEquals(listOf(1), r.imageRefs.map { it.anchorParagraph })
+    }
+
+    @Test
+    fun `an image-only heading-less file is still image-only, not a new chapter`() {
+        val html = """<body><div class="figright"><img src="a.png"/><span class="caption">Caption</span></div></body>"""
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertTrue("$r", r.isImageOnly)
+    }
+
+    @Test
+    fun `a heading-less chapter of only paragraphs is unchanged`() {
+        val html = """
+            <body><p>First paragraph of a heading-less chapter.</p>
+            <p>Second paragraph continues the text.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(
+            listOf("First paragraph of a heading-less chapter.", "Second paragraph continues the text."),
+            r.mainParagraphs,
+        )
+    }
+
+    @Test
+    fun `a drop cap that is itself a whole word keeps the space before the next word`() {
+        // Alice's real Chapter VIII: the drop cap "A" is the complete word "A" (not the start of a
+        // longer word like "ALICE"), and the source has three literal spaces before "LARGE" —
+        // Element.text() normalizes (discards) that leading whitespace entirely, so naively
+        // concatenating alt + next.text() would wrongly produce "ALARGE".
+        val html = """
+            <body><div class="chapter">CHAPTER VIII</div>
+            <div class="figleft" style="width: 71px;"><img alt="A" src="images/a.png"/></div><div class="unindent">   LARGE rose-tree stood near the entrance of the garden.</div>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(
+            listOf("CHAPTER VIII", "A LARGE rose-tree stood near the entrance of the garden."),
+            r.mainParagraphs,
+        )
+        assertTrue("$r", r.imageRefs.isEmpty())
+    }
 }
