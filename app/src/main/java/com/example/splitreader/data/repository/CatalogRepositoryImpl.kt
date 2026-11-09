@@ -22,6 +22,9 @@ class CatalogRepositoryImpl @Inject constructor(
     override suspend fun downloadEpub(book: CatalogBook): Uri =
         client(book.source).downloadEpub(book)
 
+    override fun localUriFor(book: CatalogBook): Uri =
+        client(book.source).localUriFor(book)
+
     private fun client(source: CatalogSource): CatalogSourceClient =
         clients[source] ?: error("No catalog client registered for $source")
 }

@@ -29,10 +29,8 @@ class EpubDownloader @Inject constructor(
         source: CatalogSource,
         fileId: String,
     ): Uri = withContext(Dispatchers.IO) {
-        val dir = File(File(context.filesDir, "catalog"), source.name.lowercase()).apply { mkdirs() }
-        // Ids may contain '/' (Standard Ebooks slugs) — flatten to a safe file name.
-        val safeName = fileId.replace(Regex("""[^A-Za-z0-9._-]"""), "_")
-        val target = File(dir, "$safeName.epub")
+        val target = targetFile(source, fileId)
+        target.parentFile?.mkdirs()
         // Reuse only a genuine zip; a stale HTML/partial file (e.g. an interstitial saved as .epub)
         // is re-downloaded instead of being handed to the parser again.
         if (target.exists() && target.length() > 0 && looksLikeZip(target)) {
@@ -45,7 +43,7 @@ class EpubDownloader @Inject constructor(
                 throw IOException("Download failed: HTTP ${response.code}")
             }
             val body = response.body ?: throw IOException("Empty response body")
-            val tmp = File(dir, "$safeName.epub.part")
+            val tmp = File(target.parentFile, "${target.nameWithoutExtension}.epub.part")
             body.byteStream().use { input ->
                 tmp.outputStream().use { output -> input.copyTo(output) }
             }
@@ -55,6 +53,20 @@ class EpubDownloader @Inject constructor(
             }
         }
         Uri.fromFile(target)
+    }
+
+    /**
+     * The deterministic on-disk location for [source]/[fileId] — pure path computation, no I/O, so
+     * callers can learn a catalog book's identity (e.g. to check if it's already in the library)
+     * without downloading it.
+     */
+    fun localUri(source: CatalogSource, fileId: String): Uri = Uri.fromFile(targetFile(source, fileId))
+
+    private fun targetFile(source: CatalogSource, fileId: String): File {
+        val dir = File(File(context.filesDir, "catalog"), source.name.lowercase())
+        // Ids may contain '/' (Standard Ebooks slugs) — flatten to a safe file name.
+        val safeName = fileId.replace(Regex("""[^A-Za-z0-9._-]"""), "_")
+        return File(dir, "$safeName.epub")
     }
 
     /** True if [file] starts with the ZIP local-file-header magic "PK" — i.e. looks like an EPUB. */

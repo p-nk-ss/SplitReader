@@ -21,4 +21,12 @@ interface CatalogSourceClient {
      * parser. Idempotent: returns the existing file if already downloaded.
      */
     suspend fun downloadEpub(book: CatalogBook): Uri
+
+    /**
+     * The `file://` [Uri] [downloadEpub] will use for [book] — computed from its deterministic id,
+     * without touching the network or the filesystem. Lets a caller learn a catalog book's library
+     * identity (e.g. to check [com.example.splitreader.domain.usecase.AddBookToLibraryUseCase.canAddNew])
+     * before downloading it.
+     */
+    fun localUriFor(book: CatalogBook): Uri
 }

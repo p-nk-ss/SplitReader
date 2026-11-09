@@ -60,4 +60,6 @@ class GutenbergCatalogClient @Inject constructor(
 
     override suspend fun downloadEpub(book: CatalogBook): Uri =
         downloader.download(book.epubUrl, httpClient, source, book.id)
+
+    override fun localUriFor(book: CatalogBook): Uri = downloader.localUri(source, book.id)
 }

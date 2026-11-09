@@ -100,8 +100,12 @@ class CatalogViewModel @Inject constructor(
         if (_uiState.value.downloadingId != null) return
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch {
+            // The catalog book's uri is deterministic from its source+id, so we know it before
+            // downloading — letting a free-tier user at the limit re-open a book they already own
+            // (an upsert, never "new") instead of hitting the limit dialog for it.
+            val uri = catalogRepository.localUriFor(book)
             // Gate before downloading so a free-tier user at the limit never pulls the file.
-            if (!addBookToLibraryUseCase.canAddNew(null)) {
+            if (!addBookToLibraryUseCase.canAddNew(uri.toString())) {
                 _uiState.update { it.copy(showLimitDialog = true) }
                 return@launch
             }

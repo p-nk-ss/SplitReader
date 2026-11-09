@@ -16,4 +16,10 @@ interface CatalogRepository {
      * hand to the parser. Idempotent: returns the existing file if already downloaded.
      */
     suspend fun downloadEpub(book: CatalogBook): Uri
+
+    /**
+     * The `file://` [Uri] [downloadEpub] will use for [book] — computed from its deterministic id,
+     * without touching the network or the filesystem.
+     */
+    fun localUriFor(book: CatalogBook): Uri
 }
