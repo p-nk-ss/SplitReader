@@ -536,4 +536,221 @@ class HtmlChapterExtractorTest {
         )
         assertTrue("$r", r.imageRefs.isEmpty())
     }
+
+    // ── v26: every visible text block is read — later headings, lists, pre, divs with a heading
+    // (audit of 67 real books: 450 visible text blocks silently dropped in 21 books) ──
+
+    @Test
+    fun `every h1 to h6 after the first heading becomes an ordinary paragraph, in order`() {
+        val html = """
+            <body><h1>Don Quixote</h1>
+            <p>An introductory paragraph.</p>
+            <h2>Capítulo I</h2>
+            <p>En un lugar de la Mancha.</p>
+            <h4>A deep aeolus headline</h4>
+            <p>Text after the headline.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals("Don Quixote", r.headingTitle)
+        assertEquals(
+            listOf(
+                "An introductory paragraph.",
+                "Capítulo I",
+                "En un lugar de la Mancha.",
+                "A deep aeolus headline",
+                "Text after the headline.",
+            ),
+            r.mainParagraphs,
+        )
+    }
+
+    @Test
+    fun `an h4 to h6 anywhere in a heading-less file is read as a paragraph too`() {
+        val html = """
+            <body><h5>A subheading</h5>
+            <p>Body text.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(listOf("A subheading", "Body text."), r.mainParagraphs)
+    }
+
+    @Test
+    fun `an h4 to h6 before the chapter heading is NOT read when the lead-in has no p at all`() {
+        // EpubParser turns any non-empty preHeadingParagraphs into a brand-new chapter, so when the
+        // lead-in (content before the chapter heading) has no <p> at all -- meaning EpubParser was
+        // NOT already going to create a chapter for it -- the new block types must not create one
+        // either. Gutenberg's own "other editions of this ebook" notice is an h4 OUTSIDE any of the
+        // known boilerplate containers, right before a real book's title heading
+        // (alice-illustrated.epub, ebook 28885) -- reading it here would silently add a chapter and
+        // renumber every chapter after it.
+        val html = """
+            <body><h5>Not a real chapter heading, must not create one</h5>
+            <h1>Chapter I</h1>
+            <p>Body text.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(emptyList<String>(), r.preHeadingParagraphs)
+        assertEquals("Chapter I", r.headingTitle)
+        assertEquals(listOf("Body text."), r.mainParagraphs)
+    }
+
+    @Test
+    fun `an h4 to h6 before the chapter heading IS read once the lead-in already has a p`() {
+        // When the lead-in already has a real <p> (anywhere in it, even AFTER this h5), EpubParser
+        // was already going to turn it into its own chapter -- so reading the h5 too only adds
+        // another paragraph to a chapter that exists either way (allowed: paragraph indices inside
+        // a chapter may shift). Mirrors a real case: Gutenberg's illustrated "Alice" repeats a
+        // chapter's closing lines (set in divs) before the NEXT chapter's own heading in the same
+        // file, alongside <p>-based lead-in text.
+        val html = """
+            <body><h5>A real subheading in the lead-in</h5>
+            <p>Lead-in text.</p>
+            <h1>Chapter I</h1>
+            <p>Body text.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(listOf("A real subheading in the lead-in", "Lead-in text."), r.preHeadingParagraphs)
+        assertEquals("Chapter I", r.headingTitle)
+        assertEquals(listOf("Body text."), r.mainParagraphs)
+    }
+
+    @Test
+    fun `ordinary list items are read as paragraphs, in document order`() {
+        val html = """
+            <body><h1>Ulysses</h1>
+            <ul>
+              <li>First plain list item with real prose in it.</li>
+              <li>Second plain list item, also real prose.</li>
+            </ul>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(
+            listOf("First plain list item with real prose in it.", "Second plain list item, also real prose."),
+            r.mainParagraphs,
+        )
+    }
+
+    @Test
+    fun `a list where nearly every item is a link to elsewhere is a table of contents and is skipped whole`() {
+        val rows = (1..12).joinToString("") { "<li><a href=\"#ch$it\">Chapter $it</a></li>" }
+        val html = """<body><h1>The Book</h1><p>Preface prose that must survive.</p><ol class="toc">$rows</ol></body>"""
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(listOf("Preface prose that must survive."), r.mainParagraphs)
+    }
+
+    @Test
+    fun `a nested list reads the parent item's own text once, and its nested items separately`() {
+        val html = """
+            <body><h1>Chapter</h1>
+            <ul>
+              <li>Outer item own text.
+                <ul><li>Inner item one.</li><li>Inner item two.</li></ul>
+              </li>
+            </ul>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(listOf("Outer item own text.", "Inner item one.", "Inner item two."), r.mainParagraphs)
+    }
+
+    @Test
+    fun `a div or section after the chapter heading is read as a paragraph too`() {
+        val html = """
+            <body><h1>Alice</h1>
+            <div class="unindent">A paragraph set in a div after the heading, not a p tag.</div>
+            <p>An ordinary paragraph that follows it.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(
+            listOf("A paragraph set in a div after the heading, not a p tag.", "An ordinary paragraph that follows it."),
+            r.mainParagraphs,
+        )
+    }
+
+    @Test
+    fun `a pre block is read as one paragraph, keeping its line breaks`() {
+        // Not a triple-quoted/trimIndent literal: trimIndent would strip the ASCII-art-style leading
+        // spaces on the <pre> content's second line along with the markup's own indentation.
+        val html = "<body><h1>Moby-Dick</h1><pre>   Call me Ishmael.\n   Some years ago--never mind how long precisely--</pre></body>"
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(1, r.mainParagraphs.size)
+        assertTrue(r.mainParagraphs[0].contains("\n"))
+        assertEquals(
+            "   Call me Ishmael.\n   Some years ago--never mind how long precisely--",
+            r.mainParagraphs[0],
+        )
+    }
+
+    @Test
+    fun `a standalone drop cap is merged into the next block even in a file that has a heading`() {
+        val html = """
+            <body><h1>Chapter VIII</h1>
+            <div class="figleft" style="width: 71px;"><img alt="A" src="images/a.png"/></div><p>LICE wondered what would happen next.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(listOf("ALICE wondered what would happen next."), r.mainParagraphs)
+        assertTrue("${r.imageRefs}", r.imageRefs.isEmpty())
+    }
+
+    @Test
+    fun `a list item, pre, or div before the chapter heading is not read either, same as h4-h6`() {
+        val html = """
+            <body><ul><li>A list item before any heading, must not become a chapter.</li></ul>
+            <pre>A pre block before any heading, must not become a chapter.</pre>
+            <div>A leaf div before any heading, must not become a chapter.</div>
+            <h1>Chapter I</h1>
+            <p>Body text.</p>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(emptyList<String>(), r.preHeadingParagraphs)
+        assertEquals("Chapter I", r.headingTitle)
+        assertEquals(listOf("Body text."), r.mainParagraphs)
+    }
+
+    @Test
+    fun `nothing is read twice -- a paragraph inside a list item, and a div inside a list item`() {
+        val html = """
+            <body><h1>Chapter</h1>
+            <ul>
+              <li><p>A paragraph living inside a list item.</p></li>
+              <li><div>A div living inside a list item.</div></li>
+            </ul>
+            </body>
+        """.trimIndent()
+
+        val r = HtmlChapterExtractor.parse(html)
+
+        assertEquals(1, r.mainParagraphs.count { it.contains("A paragraph living inside a list item.") })
+        assertEquals(1, r.mainParagraphs.count { it.contains("A div living inside a list item.") })
+    }
 }
