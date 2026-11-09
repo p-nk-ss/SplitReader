@@ -22,6 +22,16 @@ appId: ${APP_ID}
 # which is idempotent and only taps if they're not already up) and asserts ${TITLE} immediately
 # afterwards, inside the same short window open_bars.yaml itself relies on - not racing a second,
 # independent 3.5s window of its own.
+#
+# Fix round 2 (2026-11-08, Task 7a): a plain (non-scrolling) visibility wait is not enough for a
+# book whose chapter 1 opens on a cover-only/plate leading page (e.g. F-ALICE's OPF cover +
+# frontispiece, or an FB2 with a <coverpage> image) - confirmed on-device: the reader opens
+# straight to those images, the first paragraph's row is composed below the fold, and a plain
+# `extendedWaitUntil: visible` timed out even though the book opened correctly. scrollUntilVisible
+# both waits AND scrolls as needed, so it is a strict superset of the old check: a no-op scroll
+# when the text is already on screen, and a few scrolls down when it isn't. A scroll gesture does
+# not toggle the reader bars (only a tap on page content does, per ReaderScreen.kt), so this is
+# safe with the bars-auto-hide timing this subflow otherwise relies on.
 - runFlow:
     file: pick_file.yaml
     env:
@@ -33,14 +43,29 @@ appId: ${APP_ID}
 - tapOn:
     text: "GOT IT"
     optional: true
-# Required: the paragraph body is never bar-gated, and survives a slow parse+navigate.
-- extendedWaitUntil:
-    visible: ".*${FIRST_TEXT}.*"
-    timeout: 60000
+# Required: the paragraph body is never bar-gated, and survives a slow parse+navigate. Timeout
+# 60000 -> 120000: a cover/plate-heavy book (F-ALICE) needs real scroll-and-settle time per step
+# to get through several full-page illustrations before any text appears, worse on a
+# freshly-booted (not yet warmed-up) emulator; 60s was not always enough on-device.
+- scrollUntilVisible:
+    element: ".*${FIRST_TEXT}.*"
+    direction: DOWN
+    timeout: 120000
 # Required: reveal the bars (no-op if already up) and assert the top-bar title immediately,
 # before READER_BARS_AUTO_HIDE_MS can elapse again.
+#
+# Fix round 3 (2026-11-08, Task 7a): open_bars.yaml is called a second time right before the
+# title check itself. Observed on-device: under load (a busy emulator, or scrollUntilVisible
+# above having just done real work) enough wall-clock time can pass between open_bars.yaml's own
+# internal wait succeeding and this subflow's follow-up title check starting that the 3.5s
+# auto-hide timer fires in between, hiding the bars again before the title is ever read - the
+# title check then times out even though the right book is open. open_bars.yaml is idempotent (a
+# no-op if the chip is already showing), so calling it again immediately before the title check
+# re-reveals the bars if they slipped, giving the title check a fresh window.
+- runFlow:
+    file: open_bars.yaml
 - runFlow:
     file: open_bars.yaml
 - extendedWaitUntil:
     visible: ".*${TITLE}.*"
-    timeout: 3000
+    timeout: 5000

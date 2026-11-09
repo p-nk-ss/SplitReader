@@ -21,6 +21,12 @@ appId: ${APP_ID}
 # after that tap, and the chip assertion then timed out for the full 5s, not a near-miss). The
 # first paragraph is always near the top of the page, on every layout (phone stacked or
 # tablet side-by-side), so "20%" reliably lands on real paragraph content instead.
+# Fix round 1 (2026-11-08, Task 7a): timeout raised 5000 -> 15000. A freshly-opened book with the
+# default Offline HQ translator can still show a "Preparing translation… N%" banner in place of
+# the normal top bar for a few seconds after the first paragraph's text is already on screen
+# (confirmed on-device: the languageChip genuinely isn't composed yet while that banner is up,
+# not a tap that silently failed) - 5s was occasionally too tight for that banner to clear under
+# load.
 - runFlow:
     when:
       notVisible:
@@ -31,4 +37,4 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
-    timeout: 5000
+    timeout: 15000

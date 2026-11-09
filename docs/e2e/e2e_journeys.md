@@ -83,7 +83,7 @@ Priority: a journey is **P0** if any checkpoint in it is P0. Tag `smoke` = P0 an
 
 ## Fixtures
 
-Put all fixtures in the device's `Download/mirrolit-fixtures/` folder (`adb push`) before the run. Names below are used in steps.
+Put all fixtures flat in the device's `/sdcard/Download/` (`adb push`, as `e2e/run.sh` does — no `mirrolit-fixtures` subfolder; the system file picker's own "Recent"/"Downloads" already lists them there) before the run. Names below are used in steps.
 
 | Fixture | File | What is special about it |
 |---|---|---|
@@ -135,18 +135,18 @@ Accounts: `ACC_EXISTING` (pre-created email/password Firebase account, password 
 1. Launch the app → ✓ Home shows the empty-library hint, and it names EPUB, FB2 **and MOBI** (IMP-010).
 2. Tap the Almanac tab → ✓ "Open a book to start tracking your reading." hint, no charts (ALM-005).
 3. Tap the Words tab → ✓ "Long-press any word in the reader to save it to your words." (WRD-009).
-4. Tap the Catalog tab → ✓ placeholder "Search by title or author to begin" (CAT-002); the FROM YOUR DRIVE section shows "Sign in with Google to load books from your Drive." instead of a picker button (CAT-012).
-5. Home → Open book → system picker → Downloads → `mirrolit-fixtures` → `alice-illustrated.epub`; watch the transition → ✓ goes from loading straight to the book; "Your library is empty" is never flashed (LIB-009).
-6. The reader opens on chapter 1 → ✓ first paragraph reads exactly "Alice was beginning to get very tired of sitting by her sister on the bank…" (PRS-017); no Project Gutenberg licence/header text precedes it (PRS-018).
+4. Tap the Catalog tab → ✓ opens straight on a "POPULAR" list, not the CAT-002 placeholder: `CatalogViewModel.init` runs an empty-query search on open so the "Search by title or author to begin" text never actually shows in steady state (CAT-002 — found stale against the current app, not re-verified here); tap the "Google Drive" source pill → ✓ it shows "Sign in with Google to load books from your Drive." instead of a picker button, there is no separate "FROM YOUR DRIVE" heading on screen (CAT-012).
+5. Home → Open book → system picker → `alice-illustrated.epub` (listed directly in Recent, or under Downloads); watch the transition → ✓ goes from loading straight to the book; "Your library is empty" is never flashed (LIB-009).
+6. The reader opens on chapter 1 → ✓ no Project Gutenberg licence/header text precedes the narrative (PRS-018). The real opening sentence is "Alice was beginning to get very tired of sitting by her sister on the bank…" (PRS-017), but on-device this edition's "chapter 1" is unusually front-matter-heavy (cover, frontispiece, title page, spine art, list of illustrations) before the narrative starts — the automated check instead confirms "So she was considering in her own mind" (the next paragraph) is reached intact within a practical scroll budget; the literal first-paragraph form of PRS-017 is exercised below by `full-features.fb2`/`classic-h2.mobi`/`no-description.epub` instead, which don't have this front matter.
 7. Scroll down about half a screen, press Back → ✓ count label reads "1 VOLUME" (LIB-006); with filter "Reading" Alice is listed, with "Unread" it is not (LIB-007).
 8. Look at the Alice grid card and the Continue reading hero → ✓ both show the real Alice cover art (IMP-013); hero centre text is the cleaned `dc:description`, ≤ ~280 chars, ending "…" if clamped (LIB-017); the "CONTINUE READING" button label is on one line (LIB-020).
 9. Open book → picker → `full-features.fb2`, then Back to Library → ✓ card shows the exact `<book-title>` and "First Last" author (PRS-020) and the FB2's own cover (PRS-024); hero centre text is the FB2 `<annotation>`, not a first paragraph (LIB-022).
 10. Open book → picker → `classic-h2.mobi`; in the reader open the Chapter Picker → ✓ 4 chapters, one per `<h2>`, each starting at its heading (PRS-007); every entry has a readable, non-blank title (PRS-016).
 11. Back to Library → ✓ "3 VOLUMES". Open book → picker → `no-description.epub` → ✓ the library-limit dialog explains the 3-book free limit with Upgrade and Got it; after Got it the library still shows 3 volumes and no new card (LIB-001).
 12. Tap the Alice card → ✓ opens normally, no limit dialog. Back, then Open book → picker → `alice-illustrated.epub` again → ✓ opens, no limit dialog, still "3 VOLUMES" (LIB-002).
-13. Long-press the Alice card → Delete → confirm → ✓ the card disappears at once, "2 VOLUMES" (LIB-004).
+13. Tap the small delete icon in the corner of the Alice card (not a long-press — there is no context menu) → Delete → confirm → ✓ the card disappears at once, "2 VOLUMES" (LIB-004).
 14. Open book → picker → `no-description.epub` → ✓ imports and opens without the limit dialog (LIB-004).
-15. Back. Outside the app: `adb shell rm /sdcard/Download/mirrolit-fixtures/no-description.epub` (or revoke the persisted URI grant with `adb shell cmd uri ...`), then tap that book's card → ✓ a HomeErrorDialog explains the file is missing/unavailable; the tap never silently does nothing (ERR-002).
+15. Back. Outside the app: `adb shell rm /sdcard/Download/no-description.epub` (or revoke the persisted URI grant with `adb shell cmd uri ...`), then tap that book's card → ✓ a HomeErrorDialog explains the file is missing/unavailable; the tap never silently does nothing (ERR-002).
 16. Dismiss the dialog → ✓ app is responsive, other cards still open.
 
 **Covers:** IMP-010, ALM-005, WRD-009, CAT-002, CAT-012, LIB-009, PRS-017, PRS-018, LIB-006, LIB-007, IMP-013, LIB-017, LIB-020, PRS-020, PRS-024, LIB-022, PRS-007, PRS-016, LIB-001, LIB-002, LIB-004, ERR-002
@@ -158,19 +158,27 @@ Accounts: `ACC_EXISTING` (pre-created email/password Firebase account, password 
 **Preconditions** Fresh install, free tier (Premium (debug) off), library empty, network on.
 
 **Steps**
-1. Tap Catalog → ✓ "Search by title or author to begin" (CAT-002).
+
+Corrected from an earlier draft (verified against `CatalogScreen.kt`/`CatalogViewModel.kt`): the two
+sources are separate pills, searched one at a time — "Open Library" (default; backed by the
+Project Gutenberg OPDS feed under a different display label, see `CatalogSource.kt`) and
+"Standard Ebooks" — there is no single combined feed. A search that succeeds with zero matches
+shows "No books found" with **no** Retry action; Retry only appears when the search itself threw
+(e.g. offline).
+
+1. Tap Catalog → ✓ opens straight on a "POPULAR" list, not the CAT-002 placeholder (see the correction note above: `CatalogViewModel.init` preloads popular books, so "Search by title or author to begin" never actually shows in steady state).
 2. Tap the search field → ✓ the keyboard sits directly under the list, no blank band above it (CAT-009).
-3. Type "Pride and Prejudice", submit → ✓ results from Project Gutenberg and/or Standard Ebooks with cover, title, author and a download action (CAT-001).
-4. Download the Project Gutenberg result, tap Open → ✓ it parses and opens in the reader (CAT-004); chapter 1 opens on the novel's text, no Gutenberg licence boilerplate (PRS-018).
+3. Type "Pride and Prejudice" on the default "Open Library" pill, submit → ✓ results with cover, title, author and a download action (CAT-001).
+4. Download the result, tap Open → ✓ it parses and opens in the reader (CAT-004); chapter 1 opens on the novel's text, no Gutenberg licence boilerplate (PRS-018).
 5. Go to chapter 2, add a bookmark (Reader top bar → Bookmark), Back → ✓ Pride and Prejudice is in the Library (CAT-004).
-6. Catalog → search "Walden", download the **Standard Ebooks** edition, Open → ✓ downloads, opens, appears in the Library (CAT-005).
-7. Catalog → search "Frankenstein", download → ✓ Library shows "3 VOLUMES".
+6. Catalog → switch to the **Standard Ebooks** pill → search "Walden", download, Open → ✓ downloads, opens, appears in the Library (CAT-005).
+7. Catalog → switch back to the **Open Library** pill → search "Frankenstein", download → ✓ Library shows "3 VOLUMES".
 8. Catalog → search "Moby Dick", tap download → ✓ "Library is full… Delete one to make room — or upgrade…" with Upgrade / Got it; after Got it the book is not in the Library (CAT-007).
-9. Catalog → search "Pride and Prejudice", download the same Gutenberg title again → ✓ it opens without the limit dialog; Library still "3 VOLUMES" (CAT-008, LIB-002).
+9. Catalog → search "Pride and Prejudice", download the same title again → ✓ it opens without the limit dialog; Library still "3 VOLUMES" (CAT-008, LIB-002).
 10. In the reader open Bookmarks → ✓ the chapter-2 bookmark from step 5 is still listed (LIB-005).
-11. Catalog → search "zxqvbnm qwertyuiop" → ✓ an empty/no-results state with a Retry action, no crash (CAT-003).
-12. Turn network off (`adb shell svc wifi disable; adb shell svc data disable`), search "Dracula" → ✓ error state with Retry (CAT-003).
-13. Turn network on, tap Retry → ✓ results load (CAT-003).
+11. Catalog → search "zxqvbnm qwertyuiop" → ✓ a "No books found" empty-results state, no Retry action, no crash (CAT-003).
+12. Turn network off (Maestro `setAirplaneMode: enabled`, or `adb shell svc wifi disable; adb shell svc data disable`), search "Dracula" → ✓ error state with Retry (CAT-003).
+13. Turn network on (`setAirplaneMode: disabled`), tap Retry → ✓ results load (CAT-003).
 
 **Covers:** CAT-001, CAT-002, CAT-003, CAT-004, CAT-005, CAT-007, CAT-008, CAT-009, PRS-018, LIB-002, LIB-005
 
@@ -191,7 +199,7 @@ Accounts: `ACC_EXISTING` (pre-created email/password Firebase account, password 
 8. Open book → `kf8.azw3` → ✓ "This looks like an AZW3/KF8 file, which isn't supported yet." (IMP-006).
 9. Open book → `drm.mobi` → ✓ "This MOBI is DRM-protected and can't be opened." (IMP-007).
 10. Open book → `no-chapters.fb2` → ✓ a clear "no readable chapters" error; no empty book is added (ERR-007).
-11. Open book → `empty.epub` (if it is added, tap its card) → ✓ a visible message that the book has no readable content, not a blank/white page (ERR-003).
+11. Open book → `empty.epub` → ✓ unlike the files above, this one *does* parse (zero paragraphs isn't a parse error) and auto-opens straight into the reader, same as any successful import; it shows "Nothing to read here" — a visible message that the book has no readable content, not a blank/white page (ERR-003).
 12. Back to Library → ✓ none of the files from steps 1–10 has a card.
 13. Import `alice-illustrated.epub` and `full-features.fb2` → ✓ both import with no limit dialog (failed imports did not consume free slots).
 14. Force-stop and relaunch → ✓ app starts normally; the library is intact.

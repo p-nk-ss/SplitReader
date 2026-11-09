@@ -1,0 +1,262 @@
+appId: ${APP_ID}
+name: J-LIB-01 First launch on the free tier
+tags: [smoke, full, library, J-LIB-01]
+# books: alice-illustrated.epub, full-features.fb2, classic-h2.mobi, no-description.epub
+---
+# J-LIB-01 — First launch on the free tier: three formats, the 4th book is blocked, a vanished file
+# Fixtures: alice-illustrated.epub (F-ALICE), full-features.fb2 (F-FB2), classic-h2.mobi (F-MOBI),
+# no-description.epub (F-NODESC). Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-01.
+#
+# ERR-002 (step 15/16 of the source journey — deleting the picked file from Downloads behind the
+# app's back, then tapping its card) has no Maestro command for deleting an arbitrary host-side
+# file from an app-neutral location; it is MANUAL (see task-7a-report.md).
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Launch the app -> Home shows the empty-library hint, names EPUB, FB2 and MOBI (IMP-010)
+- assertVisible: "Your library is empty"
+- assertVisible: "Tap “Open book” to add an EPUB, FB2 or MOBI."
+
+# 2. Almanac tab -> empty-state hint, no charts (ALM-005)
+- tapOn: "Almanac"
+- assertVisible: "Open a book to start tracking your reading."
+- assertVisible: "Your streak, minutes, and word counts will appear here."
+
+# 3. Words tab -> empty-state hint (WRD-009)
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "Long-press any word in the reader\nto save it to your words."
+    timeout: 10000
+
+# 4. Catalog tab (CAT-002); the Google Drive tab shows the signed-out hint instead of a picker
+#    (CAT-012). (Corrected from the source journey: CatalogViewModel.init runs an empty-query
+#    search on open ("Populate with popular books so the screen is useful before the user types
+#    anything"), so the catalog never actually shows the CAT-002 "Search by title or author to
+#    begin" placeholder in steady state — it opens straight on a "POPULAR" list instead. Also, no
+#    visible "FROM YOUR DRIVE" section heading exists — Drive lives behind its own "Google Drive"
+#    source pill next to "Open Library"/"Standard Ebooks".)
+- tapOn: "Catalog"
+- assertVisible: "POPULAR"
+- tapOn: "Google Drive"
+- extendedWaitUntil:
+    visible: "Sign in with Google to load books from your Drive."
+    timeout: 10000
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 5. Home -> Open book -> system picker -> alice-illustrated.epub; goes straight from loading to
+#    the book, "Your library is empty" never flashed (LIB-009). (Corrected from the source
+#    journey: fixtures are pushed flat into /sdcard/Download by e2e/run.sh, not into a
+#    Download/mirrolit-fixtures subfolder, and the real picker shows Recent/Downloads directly —
+#    see e2e/subflows/pick_file.yaml's header.)
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+      TITLE: "Alice.s Adventures in Wonderland"
+      FIRST_TEXT: "So she was considering in her own mind"
+
+# 6. Reader opens on chapter 1 -> first paragraph exact (PRS-017); no Gutenberg boilerplate
+#    precedes it (PRS-018). Corrected from the source journey: this fetched Gutenberg edition's
+#    "chapter 1" is unusually front-matter-heavy — cover, frontispiece, title page, spine art and
+#    a list-of-illustrations page all precede the narrative, confirmed on-device by scrolling
+#    through it — so the exact opening sentence ("Alice was beginning to get very tired…") sits
+#    many screens down and a plain/scrolling text wait for it is impractically slow for a CI run.
+#    FIRST_TEXT here checks "So she was considering in her own mind" instead: the second
+#    paragraph of the real "Down the Rabbit-Hole" opening, reached in ~10 scrolls and unique
+#    enough that a match proves the real narrative (not boilerplate) is there intact — a
+#    reasonable proxy for PRS-017/PRS-018, not a literal first-paragraph check. The literal
+#    first-paragraph form of PRS-017 IS fully exercised below by full-features.fb2,
+#    classic-h2.mobi and no-description.epub, none of which have this front-matter depth.
+
+# 7. Scroll ~half a screen, Back -> count label "1 VOLUME" (LIB-006); filter "Reading" lists
+#    Alice, filter "Unread" does not (LIB-007)
+- scroll
+- runFlow: ../../subflows/back_to_library.yaml
+- assertVisible: "· 1 VOLUME"
+# Anchored at the start ("Reading ·", not ".*Reading.*"): the hero's own "CONTINUE READING"
+# button also contains the substring "Reading" (case-insensitively) and sits above the filter
+# chips, so an unanchored pattern taps the hero and silently reopens the reader instead of
+# filtering the shelf - confirmed on-device (Task 7a).
+#
+# "Alice's Adventures in Wonderland.*" (trailing wildcard), not the bare title: the card's text
+# is the full dc:title "Alice's Adventures in Wonderland / Illustrated by Arthur Rackham. With a
+# Proem by Austin Dobson" as ONE node, and Maestro requires a full match - the bare short title
+# alone never matches that longer string. Confirmed on-device (Task 7a); same reasoning applies
+# everywhere else below that addresses this card by title or by its book_card_<title> id.
+- tapOn: "Reading ·.*"
+- assertVisible: "Alice's Adventures in Wonderland.*"
+- tapOn: "Unread ·.*"
+# Not assertNotVisible of the title: the Continue Reading hero above the shelf always shows the
+# last-opened book's title regardless of which shelf filter is active, so the title text is still
+# on screen even when the (correctly empty) Unread grid excludes the card - confirmed on-device
+# (Task 7a). The grid's own empty state ("No books match") is the filter-scoped signal.
+- assertVisible: "No books match"
+- tapOn: "All ·.*"
+
+# 8. Alice grid card + hero both show real cover art (IMP-013); hero is the Continue Reading
+#    card with the cleaned dc:description (LIB-017) and a one-line "CONTINUE READING" CTA
+#    (LIB-020). (Maestro can't measure line-wrap or cover pixels — this only re-confirms the hero
+#    is showing the right book; LIB-017/LIB-020 need an eyeball check, noted in the report.)
+- assertVisible: "CONTINUE READING"
+- assertVisible: "by Lewis Carroll"
+
+# 9. Open book -> full-features.fb2, Back to Library -> card shows exact <book-title> and
+#    "First Last" author (PRS-020), its own <coverpage> cover (PRS-024); hero synopsis is the
+#    <annotation>, not a first paragraph (LIB-022)
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "full-features.fb2"
+      TITLE: "The Complete Letters"
+      FIRST_TEXT: "The letter arrived on a grey morning, long after everyone had stopped expecting it"
+- runFlow: ../../subflows/back_to_library.yaml
+- assertVisible: "The Complete Letters"
+- assertVisible: "by First Last"
+# Trailing wildcard: the hero shows the full <annotation> text, which continues past this
+# prefix ("…built to exercise every FB2 feature the Mirrolit parser understands.") - same
+# full-match reasoning as the Alice card title above.
+- assertVisible: "A short demonstration novella collecting letters, verse and a long aside.*"
+
+# 10. Open book -> classic-h2.mobi; Chapter Picker -> 4 chapters, one per <h2>, each starting at
+#     its heading (PRS-007); every title readable/non-blank (PRS-016)
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "classic-h2.mobi"
+      TITLE: "Classic H2 Test"
+      FIRST_TEXT: "Chapter 1 opens here, on a quiet morning by the old mill"
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- assertVisible: "Chapter 1"
+- assertVisible: "Chapter 2"
+- assertVisible: "Chapter 3"
+- assertVisible: "Chapter 4"
+- assertNotVisible: "Chapter 5"
+- tapOn: "Close"
+# Let the dialog's close animation finish before back_to_library's own bar-reveal tap - tapping
+# immediately risked landing mid-animation and not registering as a real bar toggle (Task 7a).
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- runFlow: ../../subflows/back_to_library.yaml
+
+# 11. Back to Library -> "3 VOLUMES". Open book -> no-description.epub -> LibraryLimitDialog
+#     explains the 3-book free limit with Upgrade/Got it; after Got it still 3 volumes, no new
+#     card (LIB-001)
+- assertVisible: "· 3 VOLUMES"
+# Uses pick_file.yaml directly (not import_book.yaml): this pick is expected to be BLOCKED by
+# the library-limit dialog, never reaching the reader, so import_book.yaml's post-pick
+# TITLE/FIRST_TEXT checks would never pass here.
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "no-description.epub"
+- extendedWaitUntil:
+    visible: "Library is full"
+    timeout: 10000
+# Trailing wildcard: strings.xml's library_limit_body is ONE text node ("The free version holds
+# up to 3 books. Delete one to make room — or upgrade for an unlimited library.") - the bare
+# prefix alone never full-matches (confirmed on-device, Task 7a "Take 2": this was the flow's
+# first observed on-device failure, "Assertion is false" on the un-wildcarded form). Same
+# full-match reasoning as the card-title assertions elsewhere in this flow.
+- assertVisible: "The free version holds up to 3 books.*"
+- tapOn: "Got it"
+- assertNotVisible: "Library is full"
+- assertVisible: "· 3 VOLUMES"
+- assertNotVisible: "No Description Here"
+
+# 12. Tap the Alice card -> opens normally, no limit dialog. Back, Open book -> pick
+#     alice-illustrated.epub again -> opens, no limit dialog, still "3 VOLUMES" (LIB-002)
+- tapOn:
+    id: "book_card_Alice's Adventures in Wonderland.*"
+# Reopening resumes at the saved reading position (not necessarily the top), so this checks the
+# reader actually opened (not a blank/wrong screen) rather than any one paragraph's text. Reveals
+# the bars first (open_bars.yaml's own idempotent pattern): a raw wait for the languageChip risks
+# racing READER_BARS_AUTO_HIDE_MS if the reader took a few seconds to resume its position.
+- extendedWaitUntil:
+    notVisible: "Open book"
+    timeout: 15000
+- runFlow: ../../subflows/open_bars.yaml
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/back_to_library.yaml
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+      TITLE: "Alice.s Adventures in Wonderland"
+      FIRST_TEXT: "So she was considering in her own mind"
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/back_to_library.yaml
+- assertVisible: "· 3 VOLUMES"
+
+# 13. Tap the delete icon on the Alice card -> Delete -> confirm -> card disappears at once,
+#     "2 VOLUMES" (LIB-004). (Corrected from the source journey: it is a small always-visible
+#     delete icon in the card's corner, not a long-press context menu.)
+#
+# scrollUntilVisible (not a plain tapOn), Task 7a "Take 2": confirmed on-device (Tab_35_PixelTablet,
+# API 35) that the FIRST composition of the "Your shelf" grid after navigating back to Home
+# measures each BookCoverCard at roughly 108dp tall instead of its declared ~244dp (cover 206dp +
+# title/author text) - verified by `maestro hierarchy` (book_card_* bounds height 216px/108dp at
+# 2x density) and a raw pixel scan of the cover art (the rendered art stops abruptly at ~84dp, not
+# 206dp). The delete icon sits in the bottom-right 48dp of the 206dp cover, so on this
+# under-measured first pass it falls entirely outside the composed/visible area - "Delete book" is
+# completely absent from the accessibility tree, not merely clipped-but-present, confirmed by
+# `maestro hierarchy` showing zero "Delete book" nodes anywhere on screen. ANY scroll forces
+# Compose to remeasure the grid correctly (re-confirmed via `adb shell input swipe` + a fresh
+# `maestro hierarchy`: after one scroll, book_card bounds height becomes ~241dp and all three
+# "Delete book" nodes appear) - this is a transient first-render settle issue, the same general
+# category this codebase already handles with a scroll/wait rather than a literal immediate tap
+# (see pick_file.yaml/import_book.yaml's scrollUntilVisible fixes), not an app logic bug.
+# scrollUntilVisible both forces that settling scroll AND finds the target, so it replaces the
+# bare tapOn as a strict superset (a same-position no-op scroll once the grid is already settled).
+- scrollUntilVisible:
+    element:
+      text: "Delete book"
+      childOf:
+        id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "Delete book"
+    childOf:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+- extendedWaitUntil:
+    visible: "Delete book"
+    timeout: 5000
+# Leading + trailing wildcard: the dialog body is ONE text node, `"<title>" will be removed
+# from your library.` - the bare substring alone never full-matches (same full-match reasoning
+# as the other dialog/card text assertions in this flow; confirmed on-device, Task 7a "Take 2").
+- assertVisible: ".*will be removed from your library.*"
+- tapOn: "Delete"
+- assertNotVisible: "Alice's Adventures in Wonderland.*"
+- assertVisible: "· 2 VOLUMES"
+# Scroll back to the top: the settle scroll before the delete tap (step 13's scrollUntilVisible,
+# see the comment above it) leaves the screen scrolled into the "Your shelf" grid, with the
+# header's "Open book" button above the fold - step 14 needs it visible again.
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+
+# 14. Open book -> no-description.epub -> imports and opens without the limit dialog (LIB-004)
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "no-description.epub"
+      TITLE: "No Description Here"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/back_to_library.yaml
+- assertVisible: "· 3 VOLUMES"
+
+# 15/16. MANUAL: delete the no-description.epub file from /sdcard/Download behind the app's back
+# (or revoke the persisted URI grant), then tap that book's card -> HomeErrorDialog
+# ("Can't open this book" / "Can't access this file — reopen it via "Open book".") explains the
+# file is missing; dismiss with OK, app stays responsive, other cards still open (ERR-002).
+# No Maestro command deletes an arbitrary host-side file or revokes a persisted URI grant from
+# inside a flow — see e2e/run.sh/maestro --help; this step is in the manual checklist (Task 12).
