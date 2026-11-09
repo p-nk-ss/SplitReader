@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import java.io.IOException
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -53,9 +54,22 @@ class ParseBookUseCase @Inject constructor(
         } catch (e: Exception) {
             Log.e("PARSER", "Parse error: ${e.message}", e)
             crashReporter.recordNonFatal(e, "Book parse failed")
-            emit(ParseResult.Error(e.message ?: "Failed to open book"))
+            emit(ParseResult.Error(friendlyMessage(e)))
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Disk-full while streaming a book's pictures to a temp file surfaces as a raw
+     * `IOException("No space left on device")` (the OS's ENOSPC message) -- too technical to show
+     * as-is. Every other parser exception already carries its own user-facing [Exception.message]
+     * (see [com.example.splitreader.domain.parser.util.BookTooLargeException] and friends), so this
+     * is the one case needing translation here.
+     */
+    private fun friendlyMessage(e: Exception): String = when {
+        e is IOException && e.message?.contains("No space left on device", ignoreCase = true) == true ->
+            "Not enough free space to open this book."
+        else -> e.message ?: "Failed to open book"
+    }
 
     private fun getFileName(uri: Uri): String? {
         var name: String? = null
