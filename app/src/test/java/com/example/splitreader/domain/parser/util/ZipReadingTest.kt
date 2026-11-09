@@ -7,6 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -18,6 +19,51 @@ private fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray {
         }
     }
     return bos.toByteArray()
+}
+
+/**
+ * A minimal raw (STORED-method) zip writer that, unlike [ZipOutputStream], allows two entries with
+ * the same name -- real-world malformed/duplicate-name zips exist even though Java's own writer
+ * refuses to produce one. [ZipReading] reads entries sequentially off local file headers (as
+ * [java.util.zip.ZipInputStream] does), so only those headers + data need to be well-formed; the
+ * central directory is included too, for a fully valid archive.
+ */
+private fun rawZipOf(vararg entries: Pair<String, ByteArray>): ByteArray {
+    fun ByteArrayOutputStream.short(v: Int) { write(v and 0xFF); write((v shr 8) and 0xFF) }
+    fun ByteArrayOutputStream.int(v: Int) {
+        write(v and 0xFF); write((v shr 8) and 0xFF); write((v shr 16) and 0xFF); write((v shr 24) and 0xFF)
+    }
+    fun crc32(data: ByteArray): Int = CRC32().apply { update(data) }.value.toInt()
+    val out = ByteArrayOutputStream()
+    val offsets = mutableListOf<Int>()
+    for ((name, data) in entries) {
+        val nameBytes = name.toByteArray(Charsets.UTF_8)
+        offsets.add(out.size())
+        out.int(0x04034b50)           // local file header signature
+        out.short(20); out.short(0); out.short(0); out.short(0); out.short(0) // version, flags, method(stored), time, date
+        out.int(crc32(data))
+        out.int(data.size); out.int(data.size)
+        out.short(nameBytes.size); out.short(0)
+        out.write(nameBytes)
+        out.write(data)
+    }
+    val cdStart = out.size()
+    entries.forEachIndexed { i, (name, data) ->
+        val nameBytes = name.toByteArray(Charsets.UTF_8)
+        out.int(0x02014b50)           // central directory header signature
+        out.short(20); out.short(20); out.short(0); out.short(0); out.short(0); out.short(0)
+        out.int(crc32(data))
+        out.int(data.size); out.int(data.size)
+        out.short(nameBytes.size); out.short(0); out.short(0); out.short(0); out.short(0)
+        out.int(0)
+        out.int(offsets[i])
+        out.write(nameBytes)
+    }
+    val cdEnd = out.size()
+    out.int(0x06054b50)               // end of central directory signature
+    out.short(0); out.short(0); out.short(entries.size); out.short(entries.size)
+    out.int(cdEnd - cdStart); out.int(cdStart); out.short(0)
+    return out.toByteArray()
 }
 
 class ZipReadingTest {
@@ -73,6 +119,22 @@ class ZipReadingTest {
                 spillDir = tmp.newFolder("spill"), spill = { it.endsWith(".png") },
             ) { true }
         }
+    }
+
+    @Test fun spilledEntries_duplicateNames_doNotCollideOnDisk() {
+        // Two entries share a name (the later one wins, as the in-memory map already does for
+        // text); a third, genuinely new entry must still get its own temp file -- not reuse one
+        // whose path is still the value a duplicate-named entry points to in the map.
+        val first = ByteArray(10) { 1 }
+        val second = ByteArray(10) { 2 }  // "dup.png" second occurrence -- this is what should remain
+        val third = ByteArray(10) { 3 }
+        val zip = rawZipOf("dup.png" to first, "dup.png" to second, "third.png" to third)
+        val out = readZipEntries(
+            ByteArrayInputStream(zip), memoryBudget = 1_000_000, totalBudget = 1_000_000,
+            spillDir = tmp.newFolder("spill"), spill = { it.endsWith(".png") },
+        ) { true }
+        assertArrayEquals(second, out.onDisk.getValue("dup.png").readBytes())
+        assertArrayEquals(third, out.onDisk.getValue("third.png").readBytes())
     }
 
     @Test fun throwsWhenManyEntriesTogetherExceedLimit() {

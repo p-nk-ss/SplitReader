@@ -43,6 +43,12 @@ fun readZipEntries(
     val onDisk = LinkedHashMap<String, File>()
     var inMemoryTotal = 0L
     var total = 0L
+    // A running count of entries spilled so far -- NOT onDisk.size, which is the number of
+    // distinct *names* and can stall when a later entry repeats an earlier one's name (two
+    // entries can legally share a name in a zip; the later one wins, as the in-memory map
+    // already does). Naming files by onDisk.size would then reuse a path a still-live map
+    // entry points to, and a third, differently-named entry would overwrite it on disk.
+    var spilledCount = 0
     val chunk = ByteArray(8 * 1024)
     fun tooLarge(): Nothing = throw BookTooLargeException("Book is too large to open safely.")
     spillDir?.mkdirs()
@@ -74,8 +80,9 @@ fun readZipEntries(
                     }
                 }
                 if (toDisk) {
-                    // Named by position, never by the entry name: a zip name may hold "../".
-                    val file = File(spillDir, "e${onDisk.size}")
+                    // Named by a running counter, never by the entry name (a zip name may hold
+                    // "../") nor by onDisk.size (see spilledCount above).
+                    val file = File(spillDir, "e${spilledCount++}")
                     file.outputStream().buffered().use { copy(it) }
                     onDisk[entry.name] = file
                 } else {
