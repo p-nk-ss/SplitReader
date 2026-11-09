@@ -9,6 +9,7 @@ import com.example.splitreader.domain.parser.util.MAX_DECOMPRESSED
 import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
 import com.example.splitreader.domain.parser.util.readZipEntries
 import com.example.splitreader.domain.parser.util.stableId
+import com.example.splitreader.domain.parser.util.sweepStaleSpillDirs
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.io.File
@@ -19,8 +20,16 @@ class EpubParser @Inject constructor() : BookParser {
     override val supportedExtensions = listOf("epub")
     override val priority = 10
 
+    companion object {
+        private const val SPILL_PREFIX = "epub-"
+        private const val STALE_SPILL_AGE_MILLIS = 60 * 60 * 1000L // 1 hour
+    }
+
     /** The process heap limit the memory budget is derived from; a seam so tests can simulate a small heap. */
     internal var heapLimit: () -> Long = { Runtime.getRuntime().maxMemory() }
+
+    /** A seam so tests can control "now" for the stale-spill-dir sweep without real file-system timing. */
+    internal var nowMillis: () -> Long = System::currentTimeMillis
 
     override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
         fileName.endsWith(".epub", ignoreCase = true) ||
@@ -41,7 +50,11 @@ class EpubParser @Inject constructor() : BookParser {
     override suspend fun parse(uri: Uri, context: Context): Book {
         // Pictures are streamed out of the zip into a scratch folder (see readZipEntries) and copied
         // to their final place from there, so only the book's text is ever held in memory.
-        val spillDir = File(context.cacheDir, "epub-${java.util.UUID.randomUUID()}")
+        val spillDir = File(context.cacheDir, "$SPILL_PREFIX${java.util.UUID.randomUUID()}")
+        // A parse that died mid-import (process death) never reaches the `finally` below and leaves
+        // its folder behind forever; sweep ones old enough that no parse could still be using them.
+        // This parse's own folder is excluded so a sweep never races a concurrent parse.
+        sweepStaleSpillDirs(context.cacheDir, SPILL_PREFIX, STALE_SPILL_AGE_MILLIS, keep = spillDir, now = nowMillis())
         try {
             return parse(uri, context, spillDir)
         } finally {
