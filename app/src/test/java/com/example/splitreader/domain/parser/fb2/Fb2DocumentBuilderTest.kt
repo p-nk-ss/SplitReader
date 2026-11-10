@@ -186,8 +186,12 @@ class Fb2DocumentBuilderTest {
             end("section"), end("body"),
             start("binary", id = "unused.jpg"), text("x".repeat(1000)), end("binary"),
         )
-        events.forEach(b::accept)
-        val doc = b.finish()
+        val doc = try {
+            events.forEach(b::accept)
+            b.finish()
+        } catch (e: BookTooLargeException) {
+            throw AssertionError("an unreferenced binary must not count against the text budget", e)
+        }
         assertEquals(1, doc.chapters.size)
     }
 
@@ -333,6 +337,22 @@ class Fb2DocumentBuilderTest {
             start("image", href = "img1"), end("image"),
             end("section"), end("body"),
             start("binary", id = "img1"), text("aGVsbG8="), end("binary"),
+        )
+        assertThrows(BookTooLargeException::class.java) {
+            events.forEach { b.accept(it) }
+        }
+    }
+
+    @Test fun anUnwantedBinaryOverThePerBinaryLimit_throws() {
+        // The per-binary cap applies to EVERY <binary>, wanted or not: an unreferenced binary's
+        // base64 text node still lands in memory (KXmlParser hands it over whole) before it is
+        // dropped, so it must be bounded too -- even when it is far under the text budget.
+        val b = Fb2DocumentBuilder(maxBytes = 1_000_000, maxBinaryBytes = 10)
+        val events = listOf(
+            start("body"), start("section"), start("title"), text("Ch"), end("title"),
+            start("p"), text("Hi"), end("p"),
+            end("section"), end("body"),
+            start("binary", id = "unused.jpg"), text("aGVsbG8="), end("binary"),
         )
         assertThrows(BookTooLargeException::class.java) {
             events.forEach { b.accept(it) }

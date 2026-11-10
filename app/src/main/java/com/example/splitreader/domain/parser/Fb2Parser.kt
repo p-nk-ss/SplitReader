@@ -14,6 +14,10 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.File
 import java.io.InputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.UUID
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.ensureActive
@@ -34,43 +38,70 @@ class Fb2Parser @Inject constructor() : BookParser {
     override suspend fun parse(uri: Uri, context: Context): Book {
         val filePath = uri.toString()
         val bookHash = stableId(filePath)
-        val writtenFiles = mutableListOf<String>()
+        val staged = mutableListOf<StagedFile>()
         val inputStream = context.contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("Cannot open file stream")
         try {
-            val doc = inputStream.use { readDocument(it, context, filePath, bookHash, writtenFiles) }
+            val doc = inputStream.use { readDocument(it, context, filePath, bookHash, staged) }
             if (doc.chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
-            return assembleBook(doc, filePath)
-        } catch (e: Exception) {
-            // Cover/images this parse already wrote (readDocument's writeBinary) are orphans the
-            // moment the parse fails -- the book never reaches the library, so nothing else will
-            // ever clean them up. Delete them before letting the failure surface.
-            deleteWrittenFiles(writtenFiles)
+            val book = assembleBook(doc, filePath)
+            commit(staged)
+            return book
+        } catch (e: Throwable) {
+            // The final paths are deterministic per book URI: an owned book's cover and pictures
+            // ARE those files, and FB2s are re-parsed on every open. A failed or cancelled parse
+            // (CancellationException included -- rethrown below) therefore only removes its own
+            // temp files; a first import that fails leaves nothing behind either.
+            deleteTemps(staged)
             throw e
+        }
+    }
+
+    /** One binary written by this parse to [temp], to be moved to [target] only if the parse succeeds. */
+    private class StagedFile(val temp: File, val target: File)
+
+    /** Moves every staged file over its final path (atomic rename, replacing the old file). */
+    private fun commit(staged: List<StagedFile>) {
+        for (s in staged) {
+            try {
+                Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
         }
     }
 
     /**
      * Drives XmlPullParser, translating each event into an [Fb2Event] for the pure builder. Each
-     * `<binary>` is decoded and written to its final file (image or cover) as soon as it is parsed
-     * -- see [Fb2DocumentBuilder]'s `writeBinary` -- so only one image's bytes are ever held at once.
-     * Every path successfully written is appended to [writtenFiles] so a later failure in this same
-     * parse can delete them (see [parse]).
+     * `<binary>` is decoded and written as soon as it is parsed -- see [Fb2DocumentBuilder]'s
+     * `writeBinary` -- so only one image's bytes are ever held at once. It goes to a unique temp file
+     * next to its final path (recorded in [staged]); the builder gets the FINAL path, which [parse]
+     * fills by moving the temp file there once the whole parse has succeeded.
      */
     private suspend fun readDocument(
         input: InputStream,
         context: Context,
         filePath: String,
         bookHash: String,
-        writtenFiles: MutableList<String>,
+        staged: MutableList<StagedFile>,
     ): Fb2Document {
         val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = false }
             .newPullParser().apply { setInput(input, null) }
         val builder = Fb2DocumentBuilder(
             writeBinary = { id, bytes, isCover ->
-                val saved = if (isCover) saveCoverBytes(bytes, filePath, context) else ImageStore.save(context, bytes, "${bookHash}_$id")
-                saved?.let { writtenFiles.add(it) }
-                saved
+                if (bytes.isEmpty()) {
+                    null
+                } else {
+                    try {
+                        val target = if (isCover) coverFile(filePath, context) else ImageStore.targetFile(context, bytes, "${bookHash}_$id")
+                        val temp = File(target.parentFile, "${target.name}.part-${UUID.randomUUID()}")
+                        staged.add(StagedFile(temp, target)) // before writing: a partial write is cleaned up too
+                        temp.writeBytes(bytes)
+                        target.absolutePath
+                    } catch (_: Exception) {
+                        null // a picture that cannot be written never breaks the parse
+                    }
+                }
             },
         )
         var eventType = parser.eventType
@@ -123,21 +154,14 @@ class Fb2Parser @Inject constructor() : BookParser {
         )
     }
 
-    /** Best-effort delete of every file this (failed) parse wrote, so it leaves no orphans behind. */
-    private fun deleteWrittenFiles(paths: List<String>) {
-        for (path in paths) {
-            try { File(path).delete() } catch (_: Exception) { /* best-effort */ }
+    /** Best-effort delete of this parse's temp files (never a final path) -- see [parse]. */
+    private fun deleteTemps(staged: List<StagedFile>) {
+        for (s in staged) {
+            try { s.temp.delete() } catch (_: Exception) { /* best-effort */ }
         }
     }
 
-    /** Writes the cover's already-decoded [bytes] to `filesDir/covers/<stableId>.jpg`, as before. */
-    private fun saveCoverBytes(bytes: ByteArray, filePath: String, context: Context): String? =
-        try {
-            val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
-            val coverFile = File(coversDir, "${stableId(filePath)}.jpg")
-            coverFile.writeBytes(bytes)
-            coverFile.absolutePath
-        } catch (_: Exception) {
-            null
-        }
+    /** The cover's final file, `filesDir/covers/<stableId>.jpg`, as before; creates the directory. */
+    private fun coverFile(filePath: String, context: Context): File =
+        File(File(context.filesDir, "covers").apply { mkdirs() }, "${stableId(filePath)}.jpg")
 }

@@ -28,14 +28,22 @@ object ImageStore {
         if (bytes.isEmpty()) {
             null
         } else {
-            val dir = File(context.filesDir, "images").apply { mkdirs() }
-            val safe = baseName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "img" }
-            val file = File(dir, "$safe.${sniffExtension(bytes)}")
+            val file = targetFile(context, bytes, baseName)
             file.writeBytes(bytes)
             file.absolutePath
         }
     } catch (_: Exception) {
         null
+    }
+
+    /**
+     * The file [save] would write [bytes] to (`filesDir/images/<sanitized baseName>.<sniffed ext>`),
+     * without writing it; creates the directory. For callers that stage the bytes elsewhere first.
+     */
+    fun targetFile(context: Context, bytes: ByteArray, baseName: String): File {
+        val dir = File(context.filesDir, "images").apply { mkdirs() }
+        val safe = baseName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "img" }
+        return File(dir, "$safe.${sniffExtension(bytes)}")
     }
 
     /** As [save], from a picture already on disk (an EPUB entry streamed out of the zip): copied, never loaded whole. */
