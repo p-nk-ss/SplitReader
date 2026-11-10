@@ -23,20 +23,24 @@ tags: [smoke, full, library, network, J-LIB-02]
 #    the screen is useful before the user types anything"), so the CAT-002 "Search by title or
 #    author to begin" placeholder never actually shows in steady state — the catalog opens
 #    straight on a "POPULAR" list. Step 1 below asserts that instead.
-#  - REAL APP FINDING (confirmed on-device, not fixed): the search field's own placeholder text
-#    ("Search by title or author…") never reaches the accessibility tree (confirmed via `maestro
-#    hierarchy`: no node anywhere on this screen carries that text, and the EditText's own
-#    hintText is empty too) — a plain `tapOn` for it always fails. Every tap of the search field
-#    below goes through `../../subflows/tap_catalog_search.yaml`, which works around this with a
-#    position-based selector; see that file's header for the full evidence.
+#  - FIXED in v26 (commit d39b6ec, "the search field is labelled by its placeholder, not a
+#    description"): the search field's own placeholder text ("Search by title or author…") is
+#    now real text inside the field's decoration box, so it reaches the accessibility tree and a
+#    plain `tapOn` for it works directly — but only while the field is empty; a later search in
+#    the same session (query state persists across navigation) has to fall back to the old
+#    position-based selector instead, since the placeholder is gone once there's leftover text.
+#    Every tap of the search field below still goes through `../../subflows/tap_catalog_search.yaml`,
+#    which now tries the placeholder first and falls back automatically — see that file's header
+#    for the full fix and the on-device evidence for both cases.
 #
-# CONFIRMED APP BUG (not fixed — see task-7a-report.md Take 4 and step 9 below):
-# CatalogViewModel.downloadAndOpen gates on `addBookToLibraryUseCase.canAddNew(null)` — uri is
-# unknown before the download runs, so at the free-tier cap this always shows the limit dialog,
-# even for a book already owned (CAT-008), because the uri-based "already mine" exemption in
-# canAddNew only helps once uri is non-null. Confirmed on-device, reproduced deterministically.
-# Step 9 below asserts the dialog actually appears (the real, broken behaviour), not the
-# originally-intended clean re-open, so this stays visible on every run.
+# CAT-008 FIXED in v26 (commit d0df6c2, "re-reading an owned book never hits the free-tier
+# limit"): CatalogViewModel.downloadAndOpen now asks CatalogRepository.localUriFor(book) — a
+# pure, no-network computation of the deterministic uri EpubDownloader will use — BEFORE gating
+# canAddNew, so an already-owned book's uri matches and it opens straight away even at the
+# free-tier cap. Step 9 below now asserts the correct (fixed) behaviour: re-reading an
+# already-owned title opens it, with no limit dialog. The genuinely-new-4th-book case (step 8,
+# "Moby Dick" — a title this library does not own) is unaffected by this fix and still correctly
+# shows the limit dialog, since its uri can never match an owned book's.
 - runFlow: ../../subflows/launch_clean.yaml
 
 # 1. Catalog -> opens on a "POPULAR" list (CAT-002 — see the correction note above: the
@@ -56,7 +60,7 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Pride and Prejudice"
-    timeout: 30000
+    timeout: 60000
 
 # 4. Tap Read on the top result -> downloads, parses and opens in the reader (CAT-004)
 # Checked by the reader's languageChip (same pattern as steps 6/7/9 below), not literal chapter-1
@@ -73,6 +77,22 @@ tags: [smoke, full, library, network, J-LIB-02]
 # paragraph, several screens in) ALSO rendered with its leading "M" split off as "R. BENNET" -
 # this edition's side-by-side bilingual layout appears to let at least some paragraph-opening
 # drop caps step past scrollUntilVisible's visibility check entirely between scroll increments.
+#
+# languageChip timeout 60000 -> 90000 -> 150000 (every catalog-download wait in this flow, same
+# bump): confirmed on-device (Tab_35_PixelTablet, 2026-11-10) this exact step timed out three
+# times running (60s, then 90s) under sustained heavy host load (`top`, repeated samples across
+# this session: load average 6-14, climbing over time, not a one-off spike) with every other step
+# in the same runs also 3-10x slower than a previous clean run of this flow (e.g. a tapOnElement
+# that took 2.2s elsewhere took 12-24s here) - a host-resource symptom, not a download- or
+# app-specific one, so the fix is headroom here rather than anywhere else. 150s is generous
+# relative to this flow's historical clean-host runtime (the whole flow passed in well under 5
+# minutes pre-v26) but costs nothing when the step finishes early, same reasoning as other
+# generous timeouts already in this suite (e.g. pick_file.yaml's 35s).
+#
+# Every search-RESULTS wait in this flow (e.g. `visible: "Walden"`/"Frankenstein"/"Moby Dick"
+# right after a search) is also bumped 30000 -> 60000, same session, same host-load evidence:
+# confirmed on-device that even a search-results wait (no download/parse involved, just the
+# catalog API round-trip + list render) timed out at 30s under this load.
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - tapOn:
     text: "Read"
@@ -80,7 +100,7 @@ tags: [smoke, full, library, network, J-LIB-02]
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
-    timeout: 60000
+    timeout: 150000
 
 # 5. Chapter 2, add a bookmark, Back -> Pride and Prejudice is in the Library (CAT-004)
 # Retried up to 3x (open_bars.yaml -> tap chaptersButton -> poll), not a single open_bars.yaml +
@@ -92,6 +112,12 @@ tags: [smoke, full, library, network, J-LIB-02]
 # this particular page inconsistent at toggling the bars at all (open_bars.yaml's own fallback
 # taps already cover that per-attempt). Each attempt's "Chapters" check is a short, optional poll
 # except the last, which is the real (non-optional) assertion with a generous timeout.
+#
+# 4th attempt + final timeout 15000 -> 30000 added 2026-11-10: confirmed on-device
+# (Tab_35_PixelTablet, under the same sustained heavy host load documented at this flow's step 4)
+# that even 3 attempts could exhaust themselves (a single open_bars.yaml call alone took 56s,
+# more than its own nominal ~20s budget) before "Chapters" ever appeared - headroom here, not a
+# new app/logic issue, same reasoning as the step-4 languageChip timeout bump above.
 - runFlow: ../../subflows/open_bars.yaml
 - tapOn:
     id: "reader:chaptersButton"
@@ -117,9 +143,20 @@ tags: [smoke, full, library, network, J-LIB-02]
       - runFlow: ../../subflows/open_bars.yaml
       - tapOn:
           id: "reader:chaptersButton"
+      - extendedWaitUntil:
+          visible: "Chapters"
+          timeout: 3000
+          optional: true
+- runFlow:
+    when:
+      notVisible: "Chapters"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+      - tapOn:
+          id: "reader:chaptersButton"
 - extendedWaitUntil:
     visible: "Chapters"
-    timeout: 15000
+    timeout: 60000
 # "CHAPTER XLIV.", not "Chapter 2" (the journey's literal guess, which never appears anywhere in
 # this dialog): confirmed on-device (Tab_35_PixelTablet, 2026-11-09) that this illustrated
 # edition's Chapters list labels each row with the book's OWN printed chapter heading (as it
@@ -138,12 +175,46 @@ tags: [smoke, full, library, network, J-LIB-02]
     direction: DOWN
     timeout: 15000
 - tapOn: "CHAPTER XLIV."
+# "Bookmark this page", not "Bookmarks", for the open-check below: confirmed in source
+# (ReaderChrome.kt:134) that the bookmarksButton ICON ITSELF carries contentDescription =
+# "Bookmarks" - the exact same text the BookmarksDialog's own title also uses
+# (ReaderDialogs.kt:597) - so waiting on "Bookmarks" is satisfied the instant the bars (and their
+# bookmarksButton) are visible, whether or not the tap actually opened the dialog. Confirmed
+# on-device (Tab_35_PixelTablet, 2026-11-10, under heavy host load) that this let the flow sail
+# past a bookmarksButton tap that landed too late (bars had auto-hidden again) straight into a
+# "Bookmark this page" tap with no dialog ever open, failing with "Element not found". Retried up
+# to 3x (open_bars.yaml -> tap bookmarksButton -> poll for "Bookmark this page", the dialog's own
+# action text, present only once it's actually open), same pattern as the "Chapters" sequence
+# above - chaptersButton has no such ambiguity (no contentDescription on that icon; only "Chapters"
+# the dialog's own title matches it), so it is unchanged.
 - runFlow: ../../subflows/open_bars.yaml
 - tapOn:
     id: "reader:bookmarksButton"
 - extendedWaitUntil:
-    visible: "Bookmarks"
-    timeout: 15000
+    visible: "Bookmark this page"
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      notVisible: "Bookmark this page"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+      - tapOn:
+          id: "reader:bookmarksButton"
+      - extendedWaitUntil:
+          visible: "Bookmark this page"
+          timeout: 3000
+          optional: true
+- runFlow:
+    when:
+      notVisible: "Bookmark this page"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+      - tapOn:
+          id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 20000
 - tapOn: "Bookmark this page"
 - tapOn: "Close"
 - runFlow: ../../subflows/back_to_library_from_catalog.yaml
@@ -168,18 +239,36 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "Walden"
 - pressKey: Enter
+# NOT `hideKeyboard` (tried and reverted, 2026-11-10): confirmed by decompiling Maestro's own
+# AndroidDriver.hideKeyboard - it is literally `adb shell input keyevent 4` (KEYCODE_BACK), relying
+# on Android's own "back dismisses an open IME first" behaviour. That only helps when the keyboard
+# is STILL showing; confirmed on-device that it is not always still showing at this point (Enter's
+# own imeAction=Search can already have dropped focus) - when it isn't, the same keyevent instead
+# navigates the APP back a screen (Catalog -> Home), losing the search entirely (observed on-device:
+# the next "Walden" wait then failed with the Home screen in the failure screenshot, not Catalog).
+# Fixed instead with `scrollUntilVisible` on the actual target (`Read`, index 1) below, which
+# handles the keyboard-occlusion case (confirmed on-device, 2026-11-10, under heavy host load: the
+# keyboard can still be showing at this point even after Enter/imeAction=Search, covering roughly
+# the bottom half of the screen and composing the SECOND result row out of the viewport) without
+# any navigation risk - a no-op scroll once the keyboard is already down and the row is visible.
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Walden"
-    timeout: 30000
+    timeout: 60000
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
+- scrollUntilVisible:
+    element:
+      text: "Read"
+      index: 1
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     text: "Read"
     index: 1
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
-    timeout: 60000
+    timeout: 150000
 - runFlow: ../../subflows/back_to_library_from_catalog.yaml
 - assertVisible: "Walden"
 
@@ -193,7 +282,7 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Frankenstein"
-    timeout: 30000
+    timeout: 60000
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - tapOn:
     text: "Read"
@@ -201,7 +290,7 @@ tags: [smoke, full, library, network, J-LIB-02]
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
-    timeout: 60000
+    timeout: 150000
 - runFlow: ../../subflows/back_to_library_from_catalog.yaml
 - assertVisible: "· 3 VOLUMES"
 
@@ -222,7 +311,7 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Moby Dick; Or, The Whale"
-    timeout: 30000
+    timeout: 60000
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - tapOn:
     text: "Read"
@@ -236,18 +325,13 @@ tags: [smoke, full, library, network, J-LIB-02]
 - assertVisible: "· 3 VOLUMES"
 
 # 9. Catalog -> search "Pride and Prejudice" again, Read the same (already-owned) title.
-# CONFIRMED REAL APP BUG (CAT-008), not fixed per the rules: the possible-bug note above the
-# preconditions predicted this from reading CatalogViewModel.downloadAndOpen - canAddNew(null) is
-# gated BEFORE the uri is known (the download/parse hasn't run yet), so it can never recognize
-# "this is a book I already own" via a uri match; at the free-tier cap it ALWAYS shows the
-# library-limit dialog, even for re-reading an already-owned title. This is now confirmed
-# on-device (Tab_35_PixelTablet, 2026-11-09, reproduced deterministically, not a one-off race -
-# consistent with the code reading, since uri=null can never uri-match anything): the "Library is
-# full" dialog appears here instead of the reader opening. LIB-002 says this must NOT happen for
-# an owned book; this flow asserts the broken behaviour explicitly (not the originally-intended
-# "opens cleanly") so the finding stays visible on every run rather than silently passing. The
-# dialog is dismissed and the Library checked intact (no phantom 4th volume, no lost volume)
-# before continuing - the bug blocks re-reading from the catalog, it does not corrupt data.
+# CAT-008 FIXED in v26 (see the header note above, commit d0df6c2): re-reading an already-owned
+# book at the free-tier cap should now open it directly, with NO limit dialog, against this exact
+# repro (the one that deterministically showed "Library is full" pre-fix). Checked via the
+# reader's languageChip (same pattern as step 4's open-check, for the same reason: this
+# illustrated edition's drop-cap chapter openings make a literal-text wait unreliable), then back
+# to the Library, still "3 VOLUMES" (no phantom 4th volume from a redundant download/add -
+# EpubDownloader.download is idempotent).
 - tapOn: "Catalog"
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "Pride and Prejudice"
@@ -255,16 +339,41 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Pride and Prejudice"
-    timeout: 30000
+    timeout: 60000
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - tapOn:
     text: "Read"
     index: 0
+# No `extendedWaitUntil: notVisible: "Library is full"` beforehand - an immediate check can pass
+# trivially before the app has had any time to show the dialog. The real proof the fix works is
+# that the reader's languageChip appears at all: pre-fix, the dialog interrupted here and the
+# flow never left Catalog, so this wait would time out instead.
+#
+# Soft wait + reveal-tap fallback, not one flat 150000ms wait: confirmed on-device
+# (Tab_35_PixelTablet, 2026-11-10) that RE-opening an already-read book (unlike steps 4/6/7's
+# fresh downloads) can resume at its last saved position (chapter XLIV, from step 5's bookmark)
+# with a position-restoring scroll/jump that, under heavy host load, can still be settling past
+# READER_BARS_AUTO_HIDE_MS (3500ms) - so the bars that were visible right after open can hide
+# again before this wait ever samples them, even though the book opened correctly (no stuck
+# loading spinner, no dialog). The fallback reveal tap recovers that case without weakening the
+# real proof-of-fix (languageChip still has to actually appear for either wait to pass).
 - extendedWaitUntil:
-    visible: "Library is full"
-    timeout: 15000
-- tapOn: "Got it"
-- tapOn: "Library"
+    visible:
+      id: "reader:languageChip"
+    timeout: 60000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:languageChip"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 90000
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/back_to_library_from_catalog.yaml
 - assertVisible: "· 3 VOLUMES"
 
 # 10. In the reader, Bookmarks -> the chapter-2 bookmark from step 5 is still listed (LIB-005)
@@ -293,7 +402,7 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "No books found"
-    timeout: 30000
+    timeout: 60000
 
 # 12. Turn network off, search "Dracula" -> error state with Retry (CAT-003)
 # NETWORK-FLAKY: airplane mode on the emulator is occasionally slow to take effect, and the error
@@ -306,7 +415,7 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Retry"
-    timeout: 30000
+    timeout: 60000
 
 # 13. Turn network on, tap Retry -> results load (CAT-003)
 # The flow restores network itself before finishing, whatever the outcome of this step (global
@@ -315,4 +424,4 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn: "Retry"
 - extendedWaitUntil:
     visible: "Dracula"
-    timeout: 30000
+    timeout: 60000

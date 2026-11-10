@@ -8,30 +8,29 @@ appId: ${APP_ID}
 # that matches nothing ("No books found") instead of the intended query. `eraseText` is a no-op
 # on an already-empty field, so this is safe for a journey's first search too.
 #
-# REAL APP FINDING (confirmed on-device, Tab_35_PixelTablet, 2026-11-09, not fixed per the
-# rules): CatalogScreen.kt's SearchField renders its "Search by title or author…" placeholder as
-# a plain Text composable that sits beside (not inside) the BasicTextField, and neither the
-# placeholder's own semantics nor any hintText ever reach the accessibility tree - confirmed via
-# `maestro hierarchy`: no node anywhere on the Catalog screen has text/accessibilityText/hintText
-# containing "Search" at all; the EditText node Compose does emit for the BasicTextField has
-# text="" and hintText="" (bounds [340,420][2456,516] on this device). A plain
-# `tapOn: "Search by title or author…"` therefore always fails with "Element not found", even
-# while the placeholder is plainly visible on screen (see task-7a-report.md's J-LIB-02 section for
-# the full hierarchy dump and a side-by-side screenshot). This is a real accessibility gap (the
-# field is also unreachable this way for TalkBack), not a journey-text mistake.
-#
-# Worked around with a position-based selector instead of a testTag (never change the app):
-# `below: "Google Drive"` alone is not enough - it matches purely by nearest vertical distance,
-# with no horizontal constraint, and on the tablet rail layout the left nav's "Catalog" icon
-# (directly below "Google Drive" in y, just far to the left in x) is closer than the real search
-# field and gets tapped instead (confirmed: `maestro hierarchy`-based debug tap landed on the nav
-# rail's Catalog icon, bounds [32,390][144,502], not the EditText). Adding `rightOf: "Open
-# Library"` (the leftmost source pill, always rendered immediately above the search field
-# regardless of which pill is selected or which device chrome - rail vs bottom bar - hosts the
-# screen) constrains the match horizontally too; confirmed hitting the EditText exactly (bounds
-# [340,420][2456,516], focused: true after the tap, text entry landed inside it) on three separate
-# probe runs.
-- tapOn:
-    below: "Google Drive"
-    rightOf: "Open Library"
+# v26 fix (CatalogScreen.kt, commit d39b6ec): the "Search by title or author…" placeholder is
+# now real text INSIDE the field's own decoration box - but ONLY while the query is empty; once
+# text has been typed, the placeholder is gone and nothing marks the field by stable text.
+# Confirmed on-device (Tab_35_PixelTablet, 2026-11-10): a plain `tapOn` by the placeholder works
+# for a session's FIRST search (field starts empty) but failed with "Element not found" on a
+# LATER search in the same flow, because CatalogViewModel's query state persists across
+# navigation (see this flow's own note on `eraseText`) and nothing re-empties the field between
+# one search and the next UNTIL this subflow's own `eraseText` below runs - which happens only
+# after the tap that focuses the field, too late to help the tap itself. Fix: try the placeholder
+# text first (the common/fast case), fall back to the pre-v26 position-based selector (below the
+# "Google Drive" pill, right of "Open Library") when the placeholder isn't showing - that
+# selector targets layout position, not text, so it still works regardless of the field's
+# current content.
+- runFlow:
+    when:
+      visible: "Search by title or author…"
+    commands:
+      - tapOn: "Search by title or author…"
+- runFlow:
+    when:
+      notVisible: "Search by title or author…"
+    commands:
+      - tapOn:
+          below: "Google Drive"
+          rightOf: "Open Library"
 - eraseText
