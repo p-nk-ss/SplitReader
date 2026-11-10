@@ -24,6 +24,7 @@ import org.robolectric.annotation.Config
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
+import java.util.UUID
 
 /**
  * FB2 books are re-parsed on every open, and a parse writes its cover/pictures to paths that are
@@ -178,11 +179,11 @@ class Fb2ParserOwnedFilesTest {
         val images = File(context.filesDir, "images").apply { mkdirs() }
         val covers = File(context.filesDir, "covers").apply { mkdirs() }
         val hourAgo = System.currentTimeMillis() - 2 * 60 * 60 * 1000L
-        val staleImage = File(images, "s${System.nanoTime()}_a.jpg.part-1").apply { writeText("x"); setLastModified(hourAgo) }
-        val staleCover = File(covers, "s${System.nanoTime()}.jpg.part-2").apply { writeText("x"); setLastModified(hourAgo) }
-        val fresh = File(images, "f${System.nanoTime()}_a.jpg.part-3").apply { writeText("x") }
+        val staleImage = File(images, "s${System.nanoTime()}_a.jpg.part-${UUID.randomUUID()}").apply { writeText("x"); setLastModified(hourAgo) }
+        val staleCover = File(covers, "s${System.nanoTime()}.jpg.part-${UUID.randomUUID()}").apply { writeText("x"); setLastModified(hourAgo) }
+        val fresh = File(images, "f${System.nanoTime()}_a.jpg.part-${UUID.randomUUID()}").apply { writeText("x") }
         val outside = File(tmp.root, "outside.jpg").apply { writeText("x"); setLastModified(hourAgo) }
-        val link = File(images, "l${System.nanoTime()}_a.jpg.part-4")
+        val link = File(images, "l${System.nanoTime()}_a.jpg.part-${UUID.randomUUID()}")
         java.nio.file.Files.createSymbolicLink(link.toPath(), outside.toPath())
 
         Fb2Parser().parse(bookFile(fb2("\n</FictionBook>\n")), context)
@@ -192,6 +193,24 @@ class Fb2ParserOwnedFilesTest {
         assertTrue("fresh temp (a running parse's) kept", fresh.exists())
         assertTrue("symlink left alone", java.nio.file.Files.isSymbolicLink(link.toPath()))
         assertTrue("symlink target untouched", outside.exists())
+    }
+
+    @Test
+    fun `sweep matches only real temp names, not a picture whose binary id contains part-`() = runTest {
+        val images = File(context.filesDir, "images").apply { mkdirs() }
+        val hourAgo = System.currentTimeMillis() - 2 * 60 * 60 * 1000L
+        // A final picture file whose fb2 binary id happened to contain ".part-1" (e.g. an id like
+        // "pic.part-1"), not a temp file: it must survive the sweep even though it is old and its
+        // name contains the literal substring ".part-".
+        val ownedPicture = File(images, "${System.nanoTime()}_pic.part-1.jpg").apply { writeText("owned"); setLastModified(hourAgo) }
+        // A real stale temp file (the shape tempNameFor actually produces) in the same directory,
+        // to confirm the sweep still removes genuine leftovers.
+        val realStaleTemp = File(images, "${System.nanoTime()}_other.jpg.part-${UUID.randomUUID()}").apply { writeText("x"); setLastModified(hourAgo) }
+
+        Fb2Parser().parse(bookFile(fb2("\n</FictionBook>\n")), context)
+
+        assertTrue("a final picture named like a temp file must survive the sweep", ownedPicture.exists())
+        assertFalse("a real stale temp file must still be swept", realStaleTemp.exists())
     }
 
     @Test

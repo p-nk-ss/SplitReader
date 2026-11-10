@@ -184,7 +184,7 @@ class Fb2Parser internal constructor(
         for (dirName in listOf("covers", "images")) {
             val children = try { File(context.filesDir, dirName).listFiles() } catch (_: Exception) { null } ?: continue
             for (f in children) {
-                if (!f.name.contains(TEMP_MARKER)) continue
+                if (!TEMP_NAME_PATTERN.containsMatchIn(f.name)) continue
                 try {
                     if (Files.isSymbolicLink(f.toPath()) || !f.isFile) continue
                     if (now - f.lastModified() > STALE_TEMP_MILLIS) f.delete()
@@ -197,5 +197,13 @@ class Fb2Parser internal constructor(
         /** Marks a staged binary's temp file: `<final name>.part-<unique>`. */
         const val TEMP_MARKER = ".part-"
         const val STALE_TEMP_MILLIS = 60 * 60 * 1000L
+
+        /**
+         * Matches only a real temp name's suffix: `.part-<UUID>` (the exact shape the default
+         * [tempNameFor] produces), anchored at the end of the name. A final picture file whose fb2
+         * binary id happens to contain the literal substring ".part-" (e.g. an id like "pic.part-1")
+         * must NOT match -- it is an owned file, never a temp one.
+         */
+        val TEMP_NAME_PATTERN = Regex("\\.part-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     }
 }
