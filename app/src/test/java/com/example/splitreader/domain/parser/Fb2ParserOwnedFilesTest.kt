@@ -153,6 +153,48 @@ class Fb2ParserOwnedFilesTest {
     }
 
     @Test
+    fun `a picture whose temp write fails keeps the owned file and the book still opens`() = runTest {
+        val uri = bookFile(fb2("\n</FictionBook>\n"))
+        ownBook(uri)
+        // A directory squatting on the temp path makes the temp write throw (like a disk-full write).
+        val tempName = "blocked.part-test"
+        listOf(coverFile(uri), imageFile(uri)).forEach { File(File(it.parentFile, tempName), "keep").apply { parentFile!!.mkdirs(); writeText("x") } }
+
+        val book = try {
+            Fb2Parser(tempNameFor = { tempName }).parse(uri, context)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw AssertionError("the book must still open when a picture can't be written, but: $e")
+        }
+
+        assertEquals(1, book.chapters.size)
+        listOf(coverFile(uri), imageFile(uri)).forEach {
+            assertTrue("owned ${it.name} must still be a file with its original bytes", it.isFile && it.readBytes().contentEquals(oldBytes))
+        }
+    }
+
+    @Test
+    fun `a parse sweeps stale temp files but keeps fresh ones and symlinks`() = runTest {
+        val images = File(context.filesDir, "images").apply { mkdirs() }
+        val covers = File(context.filesDir, "covers").apply { mkdirs() }
+        val hourAgo = System.currentTimeMillis() - 2 * 60 * 60 * 1000L
+        val staleImage = File(images, "s${System.nanoTime()}_a.jpg.part-1").apply { writeText("x"); setLastModified(hourAgo) }
+        val staleCover = File(covers, "s${System.nanoTime()}.jpg.part-2").apply { writeText("x"); setLastModified(hourAgo) }
+        val fresh = File(images, "f${System.nanoTime()}_a.jpg.part-3").apply { writeText("x") }
+        val outside = File(tmp.root, "outside.jpg").apply { writeText("x"); setLastModified(hourAgo) }
+        val link = File(images, "l${System.nanoTime()}_a.jpg.part-4")
+        java.nio.file.Files.createSymbolicLink(link.toPath(), outside.toPath())
+
+        Fb2Parser().parse(bookFile(fb2("\n</FictionBook>\n")), context)
+
+        assertFalse("stale image temp swept", staleImage.exists())
+        assertFalse("stale cover temp swept", staleCover.exists())
+        assertTrue("fresh temp (a running parse's) kept", fresh.exists())
+        assertTrue("symlink left alone", java.nio.file.Files.isSymbolicLink(link.toPath()))
+        assertTrue("symlink target untouched", outside.exists())
+    }
+
+    @Test
     fun `a first import that fails leaves no files behind`() = runTest {
         val uri = bookFile(fb2("\n  <binary id=\"x\">AAAA</wrong>\n</FictionBook>\n"))
 

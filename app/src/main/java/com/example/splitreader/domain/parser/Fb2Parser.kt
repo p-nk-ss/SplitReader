@@ -22,7 +22,12 @@ import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.ensureActive
 
-class Fb2Parser @Inject constructor() : BookParser {
+class Fb2Parser internal constructor(
+    /** Name of the temp file a binary is staged in, next to its final [File]; unique per parse. A test seam. */
+    private val tempNameFor: (target: File) -> String,
+) : BookParser {
+
+    @Inject constructor() : this({ target -> "${target.name}$TEMP_MARKER${UUID.randomUUID()}" })
 
     override val supportedExtensions = listOf("fb2", "fb2.xml")
     override val priority = 5
@@ -39,6 +44,7 @@ class Fb2Parser @Inject constructor() : BookParser {
         val filePath = uri.toString()
         val bookHash = stableId(filePath)
         val staged = mutableListOf<StagedFile>()
+        sweepStaleTemps(context)
         val inputStream = context.contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("Cannot open file stream")
         try {
@@ -92,13 +98,17 @@ class Fb2Parser @Inject constructor() : BookParser {
                 if (bytes.isEmpty()) {
                     null
                 } else {
+                    var temp: File? = null
                     try {
                         val target = if (isCover) coverFile(filePath, context) else ImageStore.targetFile(context, bytes, "${bookHash}_$id")
-                        val temp = File(target.parentFile, "${target.name}.part-${UUID.randomUUID()}")
-                        staged.add(StagedFile(temp, target)) // before writing: a partial write is cleaned up too
+                        temp = File(target.parentFile, tempNameFor(target))
                         temp.writeBytes(bytes)
+                        // Staged only once fully written: a failed (e.g. disk-full) write must never
+                        // be moved over the owned final file, nor fail the commit.
+                        staged.add(StagedFile(temp, target))
                         target.absolutePath
                     } catch (_: Exception) {
+                        try { temp?.delete() } catch (_: Exception) { /* best-effort */ }
                         null // a picture that cannot be written never breaks the parse
                     }
                 }
@@ -164,4 +174,28 @@ class Fb2Parser @Inject constructor() : BookParser {
     /** The cover's final file, `filesDir/covers/<stableId>.jpg`, as before; creates the directory. */
     private fun coverFile(filePath: String, context: Context): File =
         File(File(context.filesDir, "covers").apply { mkdirs() }, "${stableId(filePath)}.jpg")
+
+    /**
+     * Deletes `*.part-*` temp files in covers/ and images/ older than [STALE_TEMP_MILLIS] -- left by
+     * a parse the process died in. A running parse's temps are fresh, so they are never touched.
+     * Plain files only; a symbolic link is left alone. Best-effort.
+     */
+    private fun sweepStaleTemps(context: Context, now: Long = System.currentTimeMillis()) {
+        for (dirName in listOf("covers", "images")) {
+            val children = try { File(context.filesDir, dirName).listFiles() } catch (_: Exception) { null } ?: continue
+            for (f in children) {
+                if (!f.name.contains(TEMP_MARKER)) continue
+                try {
+                    if (Files.isSymbolicLink(f.toPath()) || !f.isFile) continue
+                    if (now - f.lastModified() > STALE_TEMP_MILLIS) f.delete()
+                } catch (_: Exception) { /* best-effort */ }
+            }
+        }
+    }
+
+    private companion object {
+        /** Marks a staged binary's temp file: `<final name>.part-<unique>`. */
+        const val TEMP_MARKER = ".part-"
+        const val STALE_TEMP_MILLIS = 60 * 60 * 1000L
+    }
 }
