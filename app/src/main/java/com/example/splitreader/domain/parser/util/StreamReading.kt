@@ -21,6 +21,20 @@ fun effectiveMaxDecompressed(maxMemory: Long = Runtime.getRuntime().maxMemory())
 
 private const val HEAP_BUDGET_DIVISOR: Long = 4
 
+/**
+ * Per-<binary> cap for decoding one FB2 image (Fb2DocumentBuilder), tighter than
+ * [effectiveMaxDecompressed]'s heap/4: decoding one binary transiently holds ~3.75x its own cap in
+ * contiguous heap at the decode instant -- the accumulating StringBuilder, its toString() copy,
+ * decodeBase64's whitespace-stripped copy, and the decoded ByteArray (~0.75x the base64 size) are
+ * all briefly alive together. At heap/4 that transient would reach ~94% of the heap, leaving no
+ * room for the chapters/paragraphs already built or the rest of the parse; heap/16 keeps it under
+ * ~24%.
+ */
+fun effectiveMaxBinaryBytes(maxMemory: Long = Runtime.getRuntime().maxMemory()): Long =
+    minOf(MAX_DECOMPRESSED, maxMemory / BINARY_HEAP_BUDGET_DIVISOR)
+
+private const val BINARY_HEAP_BUDGET_DIVISOR: Long = 16
+
 /** Thrown when a book's content exceeds the effective budget; surfaced to the user as a parse error. */
 class BookTooLargeException(message: String) : Exception(message)
 

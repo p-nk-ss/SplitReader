@@ -1,6 +1,7 @@
 package com.example.splitreader.domain.parser.fb2
 
 import com.example.splitreader.domain.parser.util.BookTooLargeException
+import com.example.splitreader.domain.parser.util.effectiveMaxBinaryBytes
 import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
 
 /**
@@ -37,7 +38,7 @@ import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
  */
 class Fb2DocumentBuilder(
     private val maxBytes: Long = effectiveMaxDecompressed(),
-    private val maxBinaryBytes: Long = effectiveMaxDecompressed(),
+    private val maxBinaryBytes: Long = effectiveMaxBinaryBytes(),
     private val writeBinary: (id: String, bytes: ByteArray, isCover: Boolean) -> String? = { _, _, _ -> null },
 ) {
 

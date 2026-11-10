@@ -27,4 +27,21 @@ class EffectiveMaxDecompressedTest {
         val budget = effectiveMaxDecompressed(Long.MAX_VALUE / 2)
         assertEquals(MAX_DECOMPRESSED, budget)
     }
+
+    // ── effectiveMaxBinaryBytes: a tighter heap fraction for one in-memory <binary> decode ──────
+    // Decoding one FB2 <binary> transiently holds ~3.75x its own cap in contiguous heap at once
+    // (the accumulating StringBuilder, its toString() copy, decodeBase64's whitespace-stripped
+    // copy, and the decoded ByteArray) -- heap/4 (effectiveMaxDecompressed's default) would let
+    // that hit ~94% of the heap; heap/16 keeps it under ~24%.
+
+    @Test fun smallHeap_binaryBudgetIsASixteenthOfIt() {
+        val maxMemory = 192L * 1024 * 1024
+        val budget = effectiveMaxBinaryBytes(maxMemory)
+        assertEquals(maxMemory / 16, budget)
+    }
+
+    @Test fun largeHeap_binaryBudgetCapsAtMaxDecompressed() {
+        val maxMemory = 16L * 1024 * 1024 * 1024 // 16 GB
+        assertEquals(MAX_DECOMPRESSED, effectiveMaxBinaryBytes(maxMemory))
+    }
 }
