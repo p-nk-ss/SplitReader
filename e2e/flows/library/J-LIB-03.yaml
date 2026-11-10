@@ -1,18 +1,20 @@
 appId: ${APP_ID}
 name: J-LIB-03 A folder of bad files
 tags: [smoke, full, library, J-LIB-03]
-# books: corrupt.epub, corrupt.fb2, corrupt.mobi, short-header.epub, huffcdic.mobi, kf8.azw3, drm.mobi, no-chapters.fb2, empty.epub, alice-illustrated.epub, full-features.fb2
+# books: corrupt.epub, corrupt.fb2, corrupt.mobi, short-header.epub, huffcdic.mobi, kf8.azw3, drm.mobi, no-chapters.fb2, empty.epub, alice-illustrated.epub, full-features.fb2, zipbomb.epub, oversized.fb2
 #
 # (one line, by e2e/run.sh's `# books:` header convention — see e2e/README.md)
-# zipbomb.epub/oversized.fb2 are deliberately NOT in this list — see the MANUAL note before
-# steps 4/5 below: both are confirmed, reproducible app crashes (OutOfMemoryError), not something
-# this flow can observe "passing" without an app fix this task is not authorized to make.
+# zipbomb.epub/oversized.fb2 are built locally (`python3 e2e/books/build_fixtures.py --large`,
+# see e2e/books/SOURCES.md), gitignored, NOT in version control — generate them once before
+# running this flow. Steps 4/5 below now exercise both (v26 fix, commit 5472c85 — see the note
+# there); they were MANUAL/unexercised before that fix (app process OOM-crashed instead of
+# showing an error).
 ---
 # J-LIB-03 — A folder of bad files: every one fails cleanly and none eats a free slot
 # Fixtures: corrupt.epub/.fb2/.mobi, short-header.epub, huffcdic.mobi, kf8.azw3, drm.mobi,
-# no-chapters.fb2, empty.epub, alice-illustrated.epub, full-features.fb2. zipbomb.epub and
-# oversized.fb2 are built (`python3 e2e/books/build_fixtures.py --large`, see
-# e2e/books/SOURCES.md) but NOT pushed/exercised here — see the MANUAL note at steps 4/5.
+# no-chapters.fb2, empty.epub, alice-illustrated.epub, full-features.fb2, zipbomb.epub,
+# oversized.fb2 (the last two built locally with `python3 e2e/books/build_fixtures.py --large`,
+# gitignored — see e2e/books/SOURCES.md).
 # Source: docs/e2e/e2e_journeys.md J-LIB-03.
 #
 # Every bad import (corrupt.*/short-header/huffcdic/azw3/drm/no-chapters) fails at PARSE time,
@@ -49,35 +51,34 @@ tags: [smoke, full, library, J-LIB-03]
 - tapOn: "OK"
 - assertVisible: "Open book"
 
-# 4/5. MANUAL: zipbomb.epub (ERR-005) / oversized.fb2 (ERR-006) — REAL APP BUGS, confirmed
-# on-device (Tab_35_PixelTablet, 2026-11-09), not flow-fixable, not fixed per the rules. Both
-# fixtures crash the whole app process with an uncaught OutOfMemoryError instead of showing any
-# error dialog — directly contradicting ERR-005's own documented expected result ("app does not
-# OOM, freeze, or crash") and ERR-006's ("no crash/hang").
-#   - zipbomb.epub: readZipEntries (ZipReading.kt:30, `out.write(chunk, 0, r)`) grows a
-#     ByteArrayOutputStream one 8 KB chunk at a time, checking `total > maxTotal` (300 MB,
-#     MAX_DECOMPRESSED) only AFTER each write. The default per-process heap on this device has a
-#     target/growth limit of ~192 MB (`growth limit 201326592`, confirmed in the crash log) — a
-#     deterministic ~128 MB away from the 300 MB guard, because ByteArrayOutputStream must
-#     allocate a full-size replacement array on every growth doubling. The crash: "OutOfMemoryError:
-#     Failed to allocate a 134217744 byte allocation with 25100288 free bytes ... growth limit
-#     201326592" at ZipReadingKt.readZipEntries(ZipReading.kt:30) / EpubParser.parse(:44). The
-#     300 MB check can never fire on a default (non-largeHeap) process — this is not
-#     bomb-specific: ANY epub whose combined extracted content nears ~190 MB hits the same crash.
-#   - oversized.fb2: a different code path, same class of bug. Fb2DocumentBuilder.flush
-#     (Fb2DocumentBuilder.kt:106, `StringBuilder.toString()`) OOMs assembling the accumulated
-#     text: "Failed to allocate a 1016 byte allocation with 346656 free bytes ... <1% of heap free
-#     after GC" at Fb2DocumentBuilder.onEnd(:97)/accept(:34) -> Fb2Parser.readDocument(:56). The
-#     FB2 path has no equivalent of EPUB's MAX_DECOMPRESSED pre-check in this call chain.
-# Full crash-report.txt/logcat for both are in task-7a-report.md's Take 4 section. No Maestro
-# flow can "pass" a step whose correct behaviour the app does not currently produce; both steps
-# are therefore left unexercised here rather than asserting against the crash (which would
-# normalize the bug) or asserting the dialog text (which would never be true). The correct,
-# intended text per the source test cases (ERR-005: "too large to open safely"; ERR-006: "Can't
-# open this book") is preserved here for when an app fix (bounded streaming instead of a growing
-# ByteArrayOutputStream, and/or android:largeHeap) lands:
-#   - zipbomb.epub -> expected: assertVisible "too large to open safely" within ~30s, OK, "Open book"
-#   - oversized.fb2 -> expected: assertVisible "Can't open this book" within ~60s, OK, "Open book"
+# 4/5. zipbomb.epub (ERR-005) / oversized.fb2 (ERR-006) — FIXED in v26 (commit 5472c85, "very
+# large books fail with a message instead of running out of memory"). Previously (confirmed
+# on-device, Tab_35_PixelTablet, 2026-11-09, full crash-report.txt/logcat in task-7a-report.md's
+# Take 4 section) both fixtures crashed the whole app process with an uncaught OutOfMemoryError
+# instead of showing an error dialog: readZipEntries's ByteArrayOutputStream (zipbomb) and
+# Fb2DocumentBuilder.flush's StringBuilder.toString() (oversized.fb2) each needed ~1.5x the
+# 300 MB MAX_DECOMPRESSED budget in contiguous heap to grow into, well past this device's
+# ~192 MB default-process heap limit, so the 300 MB guard never got a chance to fire. The fix
+# scales the effective budget down to a fraction of the real heap (effectiveMaxDecompressed(),
+# StreamReading.kt) and gives FB2 its own per-book maxChars budget, so BookTooLargeException
+# ("Book is too large to open safely.") now throws before either buffer can OOM. Both fixtures
+# now import like any other bad file (steps 1-3/6-10's pattern): HomeErrorDialog shows the exact
+# message, no crash, and neither consumes a free-tier slot.
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "zipbomb.epub" } }
+- extendedWaitUntil:
+    visible: "Book is too large to open safely."
+    timeout: 30000
+- tapOn: "OK"
+- assertVisible: "Open book"
+- assertVisible: "Your library is empty"
+
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "oversized.fb2" } }
+- extendedWaitUntil:
+    visible: "Book is too large to open safely."
+    timeout: 60000
+- tapOn: "OK"
+- assertVisible: "Open book"
+- assertVisible: "Your library is empty"
 
 # 6. short-header.epub -> no crash during format sniffing; a clear error is shown (ERR-008)
 - runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "short-header.epub" } }
