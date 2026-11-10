@@ -34,24 +34,43 @@ class Fb2Parser @Inject constructor() : BookParser {
     override suspend fun parse(uri: Uri, context: Context): Book {
         val filePath = uri.toString()
         val bookHash = stableId(filePath)
+        val writtenFiles = mutableListOf<String>()
         val inputStream = context.contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("Cannot open file stream")
-        val doc = inputStream.use { readDocument(it, context, filePath, bookHash) }
-        if (doc.chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
-        return assembleBook(doc, filePath)
+        try {
+            val doc = inputStream.use { readDocument(it, context, filePath, bookHash, writtenFiles) }
+            if (doc.chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
+            return assembleBook(doc, filePath)
+        } catch (e: Exception) {
+            // Cover/images this parse already wrote (readDocument's writeBinary) are orphans the
+            // moment the parse fails -- the book never reaches the library, so nothing else will
+            // ever clean them up. Delete them before letting the failure surface.
+            deleteWrittenFiles(writtenFiles)
+            throw e
+        }
     }
 
     /**
      * Drives XmlPullParser, translating each event into an [Fb2Event] for the pure builder. Each
      * `<binary>` is decoded and written to its final file (image or cover) as soon as it is parsed
      * -- see [Fb2DocumentBuilder]'s `writeBinary` -- so only one image's bytes are ever held at once.
+     * Every path successfully written is appended to [writtenFiles] so a later failure in this same
+     * parse can delete them (see [parse]).
      */
-    private suspend fun readDocument(input: InputStream, context: Context, filePath: String, bookHash: String): Fb2Document {
+    private suspend fun readDocument(
+        input: InputStream,
+        context: Context,
+        filePath: String,
+        bookHash: String,
+        writtenFiles: MutableList<String>,
+    ): Fb2Document {
         val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = false }
             .newPullParser().apply { setInput(input, null) }
         val builder = Fb2DocumentBuilder(
             writeBinary = { id, bytes, isCover ->
-                if (isCover) saveCoverBytes(bytes, filePath, context) else ImageStore.save(context, bytes, "${bookHash}_$id")
+                val saved = if (isCover) saveCoverBytes(bytes, filePath, context) else ImageStore.save(context, bytes, "${bookHash}_$id")
+                saved?.let { writtenFiles.add(it) }
+                saved
             },
         )
         var eventType = parser.eventType
@@ -102,6 +121,13 @@ class Fb2Parser @Inject constructor() : BookParser {
             coverPath = coverPath,
             synopsis = synopsis,
         )
+    }
+
+    /** Best-effort delete of every file this (failed) parse wrote, so it leaves no orphans behind. */
+    private fun deleteWrittenFiles(paths: List<String>) {
+        for (path in paths) {
+            try { File(path).delete() } catch (_: Exception) { /* best-effort */ }
+        }
     }
 
     /** Writes the cover's already-decoded [bytes] to `filesDir/covers/<stableId>.jpg`, as before. */
