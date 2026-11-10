@@ -69,4 +69,28 @@ class SpillDirsTest {
 
         assertTrue(file.exists())
     }
+
+    @Test fun aSymlinkSharingThePrefixIsNeverFollowedOrDeleted() {
+        // isDirectory() follows a symlink, so a stale-looking "epub-*" symlink into some unrelated
+        // directory used to pass the isDirectory+prefix check and then deleteRecursively() walked
+        // into (and deleted the contents of) whatever it points at -- not a scratch folder this
+        // parser ever owned.
+        val now = 10_000_000L
+        val hour = 60 * 60 * 1000L
+        val target = File(tmp.root, "real-target").apply { mkdirs() }
+        val important = File(target, "important").apply { writeText("do not delete") }
+        val link = File(tmp.root, "epub-link")
+        try {
+            java.nio.file.Files.createSymbolicLink(link.toPath(), target.toPath())
+        } catch (_: Exception) {
+            org.junit.Assume.assumeTrue("symlinks unsupported in this test JVM/filesystem", false)
+            return
+        }
+        link.setLastModified(now - hour - 1)
+
+        sweepStaleSpillDirs(tmp.root, "epub-", maxAgeMillis = hour, now = now)
+
+        assertTrue("the symlink itself must survive", link.exists())
+        assertTrue("the real target's contents must survive", important.exists())
+    }
 }
