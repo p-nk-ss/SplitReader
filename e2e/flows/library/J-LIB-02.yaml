@@ -377,6 +377,12 @@ tags: [smoke, full, library, network, J-LIB-02]
 - assertVisible: "· 3 VOLUMES"
 
 # 10. In the reader, Bookmarks -> the chapter-2 bookmark from step 5 is still listed (LIB-005)
+# Same "Bookmarks" ambiguity as step 5 (see that step's comment): the bookmarksButton icon's own
+# contentDescription is "Bookmarks", so waiting on that text doesn't prove the dialog opened.
+# "(Bookmark this page|Remove bookmark here)" is dialog-exclusive and always exactly one of the
+# two is showing (the toggle row's own label, mutually exclusive on isCurrentBookmarked) -
+# confirmed on-device (Tab_35_PixelTablet, 2026-11-10) this exact ambiguity caused a real failure
+# here too (reopening resumes at the bookmarked chapter, so "Remove bookmark here" is expected).
 - tapOn: "Pride and Prejudice"
 - extendedWaitUntil:
     visible:
@@ -387,8 +393,30 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn:
     id: "reader:bookmarksButton"
 - extendedWaitUntil:
-    visible: "Bookmarks"
-    timeout: 15000
+    visible: "(Bookmark this page|Remove bookmark here)"
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      notVisible: "(Bookmark this page|Remove bookmark here)"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+      - tapOn:
+          id: "reader:bookmarksButton"
+      - extendedWaitUntil:
+          visible: "(Bookmark this page|Remove bookmark here)"
+          timeout: 3000
+          optional: true
+- runFlow:
+    when:
+      notVisible: "(Bookmark this page|Remove bookmark here)"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+      - tapOn:
+          id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "(Bookmark this page|Remove bookmark here)"
+    timeout: 20000
 - assertNotVisible: "No bookmarks yet"
 - tapOn: "Close"
 - runFlow: ../../subflows/back_to_library.yaml
