@@ -31,12 +31,57 @@ appId: ${APP_ID}
 # undefended; if it recurs, the terminal extendedWaitUntil below will fail the test with a
 # "WORD" popup in the failure screenshot rather than silently covering for it, which is an
 # acceptable trade for not systematically breaking the common case.
+#
+# Fix round 4 (2026-11-10, Task 7a J-LIB-03 tablet pass): both waits below are now `optional:
+# true` and timeouts raised 5000 -> 8000, and the whole reveal-then-tap sequence is retried once
+# (below) rather than hard-failing here. Confirmed on-device (Tab_35_PixelTablet, fresh boot) in
+# two different ways in the same session: (a) the reveal tap itself can take 7-11 real seconds
+# under cold-start/first-translation load (commands.json: a single tapOnPointV2Command logged
+# "duration": 7880, another run's reveal runFlow logged "duration": 11014) - against
+# READER_BARS_AUTO_HIDE_MS = 3500ms, a flat non-optional 5000ms wait right after can time out on
+# a slow device even though the button is about to appear, hard-failing the whole subflow before
+# the retry below ever runs; (b) even when the wait succeeds, `tapOn: id: reader:backButton`
+# itself can take 3+ seconds (element-stability/animation waits inside Maestro's own
+# tapOnElement) - long enough that the bars it just confirmed visible can auto-hide again before
+# the touch is actually injected, so the tap lands on ordinary page content instead (toggling the
+# bars back off, not navigating away) - confirmed by a commands.json trace where this exact tap
+# reported COMPLETED yet the next command (scrollUntilVisible for "Open book") spent its full 10s
+# scrolling the STILL-OPEN READER upward hunting for text that is never there, landing on the
+# book's own table of contents; a byte-identical before/after screenshot across the whole
+# sequence confirmed no navigation had happened at any point. Both failure modes leave the reader
+# open, so both are handled the same way: don't hard-fail here, verify "Open book" below, and
+# redo the whole reveal-then-tap sequence once if it's still not visible.
 - extendedWaitUntil:
     visible:
       id: "reader:backButton"
-    timeout: 5000
+    timeout: 8000
+    optional: true
 - tapOn:
     id: "reader:backButton"
+    optional: true
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      notVisible: "Open book"
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "reader:backButton"
+          commands:
+            - tapOn:
+                point: "50%, 20%"
+      - extendedWaitUntil:
+          visible:
+            id: "reader:backButton"
+          timeout: 8000
+          optional: true
+      - tapOn:
+          id: "reader:backButton"
+          optional: true
 # scrollUntilVisible (not a plain extendedWaitUntil), fix round 3 (2026-11-09, phone pass):
 # Home's own scroll position survives the round trip through the reader (it's a separate
 # back-stack screen, state preserved) - a caller that scrolled Home down before opening the book

@@ -198,8 +198,8 @@ empty) — a real gap for any accessibility-tree-based tool, Maestro included, a
 1. Open book → picker → `corrupt.epub` → ✓ a readable error message (no stack trace), app stays on Home (ERR-004).
 2. Same with `corrupt.fb2` → ✓ readable error, no crash (ERR-004).
 3. Same with `corrupt.mobi` → ✓ readable error, no crash (ERR-004).
-4. Open book → `zipbomb.epub` → ✓ fails with a "too large to open safely" error within ~15 s; no freeze, no OOM restart (ERR-005).
-5. Open book → `oversized.fb2` → ✓ clear "too large" error before any long load; no hang (ERR-006).
+4. Open book → `zipbomb.epub` → expected: fails with a "too large to open safely" error within ~15 s; no freeze, no OOM restart (ERR-005). **CONFIRMED APP BUG, not fixed (see `task-7a-report.md`):** instead the whole app process crashes with an uncaught `OutOfMemoryError` (`ZipReading.kt:30`, `readZipEntries`'s `ByteArrayOutputStream` must allocate a full-size replacement array on every growth doubling, well before the 300 MB `MAX_DECOMPRESSED` guard can ever fire on this device's ~192 MB default-process heap limit) — not Maestro-observable as a pass; MANUAL/left unexercised in the automated flow.
+5. Open book → `oversized.fb2` → expected: clear "too large" error before any long load; no hang (ERR-006). **CONFIRMED APP BUG, not fixed:** same class of crash, different code path — `Fb2DocumentBuilder.flush` (`Fb2DocumentBuilder.kt:106`) OOMs building its accumulated-text `StringBuilder.toString()`; MANUAL/left unexercised in the automated flow.
 6. Open book → `short-header.epub` → ✓ no crash during format sniffing; a clear error is shown (ERR-008).
 7. Open book → `huffcdic.mobi` → ✓ "This MOBI uses HUFF/CDIC compression, which isn't supported yet." and return to Library (IMP-005).
 8. Open book → `kf8.azw3` → ✓ "This looks like an AZW3/KF8 file, which isn't supported yet." (IMP-006).

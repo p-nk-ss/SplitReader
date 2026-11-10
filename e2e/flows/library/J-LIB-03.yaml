@@ -1,0 +1,178 @@
+appId: ${APP_ID}
+name: J-LIB-03 A folder of bad files
+tags: [smoke, full, library, J-LIB-03]
+# books: corrupt.epub, corrupt.fb2, corrupt.mobi, short-header.epub, huffcdic.mobi, kf8.azw3, drm.mobi, no-chapters.fb2, empty.epub, alice-illustrated.epub, full-features.fb2
+#
+# (one line, by e2e/run.sh's `# books:` header convention — see e2e/README.md)
+# zipbomb.epub/oversized.fb2 are deliberately NOT in this list — see the MANUAL note before
+# steps 4/5 below: both are confirmed, reproducible app crashes (OutOfMemoryError), not something
+# this flow can observe "passing" without an app fix this task is not authorized to make.
+---
+# J-LIB-03 — A folder of bad files: every one fails cleanly and none eats a free slot
+# Fixtures: corrupt.epub/.fb2/.mobi, short-header.epub, huffcdic.mobi, kf8.azw3, drm.mobi,
+# no-chapters.fb2, empty.epub, alice-illustrated.epub, full-features.fb2. zipbomb.epub and
+# oversized.fb2 are built (`python3 e2e/books/build_fixtures.py --large`, see
+# e2e/books/SOURCES.md) but NOT pushed/exercised here — see the MANUAL note at steps 4/5.
+# Source: docs/e2e/e2e_journeys.md J-LIB-03.
+#
+# Every bad import (corrupt.*/short-header/huffcdic/azw3/drm/no-chapters) fails at PARSE time,
+# before the book is ever added — HomeErrorDialog ("Can't open this book") shows on Home, nothing
+# navigates. empty.epub is the one exception: EpubParser does not reject a book with zero
+# readable paragraphs, so it DOES parse, get added, and auto-open into the reader, which shows
+# its own "Nothing to read here" notice (ReaderChrome.kt's EmptyBookNotice) instead of a
+# HomeErrorDialog. The source journey's step 11 hedge ("if it is added, tap its card") is
+# resolved by this: it IS added and auto-opens, same as any successful import (LIB-009) — fixed
+# below instead of tapping a card that was never shown.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. corrupt.epub -> readable error, no stack trace, stays on Home (ERR-004)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "corrupt.epub" } }
+- extendedWaitUntil:
+    visible: "Can't open this book"
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 2. corrupt.fb2 -> readable error, no crash (ERR-004)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "corrupt.fb2" } }
+- extendedWaitUntil:
+    visible: "Can't open this book"
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 3. corrupt.mobi -> readable error, no crash (ERR-004)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "corrupt.mobi" } }
+- extendedWaitUntil:
+    visible: "Can't open this book"
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 4/5. MANUAL: zipbomb.epub (ERR-005) / oversized.fb2 (ERR-006) — REAL APP BUGS, confirmed
+# on-device (Tab_35_PixelTablet, 2026-11-09), not flow-fixable, not fixed per the rules. Both
+# fixtures crash the whole app process with an uncaught OutOfMemoryError instead of showing any
+# error dialog — directly contradicting ERR-005's own documented expected result ("app does not
+# OOM, freeze, or crash") and ERR-006's ("no crash/hang").
+#   - zipbomb.epub: readZipEntries (ZipReading.kt:30, `out.write(chunk, 0, r)`) grows a
+#     ByteArrayOutputStream one 8 KB chunk at a time, checking `total > maxTotal` (300 MB,
+#     MAX_DECOMPRESSED) only AFTER each write. The default per-process heap on this device has a
+#     target/growth limit of ~192 MB (`growth limit 201326592`, confirmed in the crash log) — a
+#     deterministic ~128 MB away from the 300 MB guard, because ByteArrayOutputStream must
+#     allocate a full-size replacement array on every growth doubling. The crash: "OutOfMemoryError:
+#     Failed to allocate a 134217744 byte allocation with 25100288 free bytes ... growth limit
+#     201326592" at ZipReadingKt.readZipEntries(ZipReading.kt:30) / EpubParser.parse(:44). The
+#     300 MB check can never fire on a default (non-largeHeap) process — this is not
+#     bomb-specific: ANY epub whose combined extracted content nears ~190 MB hits the same crash.
+#   - oversized.fb2: a different code path, same class of bug. Fb2DocumentBuilder.flush
+#     (Fb2DocumentBuilder.kt:106, `StringBuilder.toString()`) OOMs assembling the accumulated
+#     text: "Failed to allocate a 1016 byte allocation with 346656 free bytes ... <1% of heap free
+#     after GC" at Fb2DocumentBuilder.onEnd(:97)/accept(:34) -> Fb2Parser.readDocument(:56). The
+#     FB2 path has no equivalent of EPUB's MAX_DECOMPRESSED pre-check in this call chain.
+# Full crash-report.txt/logcat for both are in task-7a-report.md's Take 4 section. No Maestro
+# flow can "pass" a step whose correct behaviour the app does not currently produce; both steps
+# are therefore left unexercised here rather than asserting against the crash (which would
+# normalize the bug) or asserting the dialog text (which would never be true). The correct,
+# intended text per the source test cases (ERR-005: "too large to open safely"; ERR-006: "Can't
+# open this book") is preserved here for when an app fix (bounded streaming instead of a growing
+# ByteArrayOutputStream, and/or android:largeHeap) lands:
+#   - zipbomb.epub -> expected: assertVisible "too large to open safely" within ~30s, OK, "Open book"
+#   - oversized.fb2 -> expected: assertVisible "Can't open this book" within ~60s, OK, "Open book"
+
+# 6. short-header.epub -> no crash during format sniffing; a clear error is shown (ERR-008)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "short-header.epub" } }
+- extendedWaitUntil:
+    visible: "Can't open this book"
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 7. huffcdic.mobi -> "This MOBI uses HUFF/CDIC compression, which isn't supported yet." (IMP-005)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "huffcdic.mobi" } }
+- extendedWaitUntil:
+    visible: "This MOBI uses HUFF/CDIC compression, which isn't supported yet."
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 8. kf8.azw3 -> "This looks like an AZW3/KF8 file, which isn't supported yet." (IMP-006)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "kf8.azw3" } }
+- extendedWaitUntil:
+    visible: "This looks like an AZW3/KF8 file, which isn't supported yet."
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 9. drm.mobi -> "This MOBI is DRM-protected and can't be opened." (IMP-007)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "drm.mobi" } }
+- extendedWaitUntil:
+    visible: "This MOBI is DRM-protected and can't be opened."
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 10. no-chapters.fb2 -> clear "no readable chapters" error; no empty book added (ERR-007)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "no-chapters.fb2" } }
+- extendedWaitUntil:
+    visible: "No chapters found in fb2 file"
+    timeout: 15000
+- tapOn: "OK"
+- assertVisible: "Open book"
+
+# 11. empty.epub -> parses, is added, auto-opens -> a visible message that the book has no
+#     readable content, not a blank/white page (ERR-003)
+- runFlow: { file: ../../subflows/pick_file.yaml, env: { FILE: "empty.epub" } }
+- extendedWaitUntil:
+    visible: "Nothing to read here"
+    timeout: 20000
+# Trailing .*: EmptyBookNotice's subtitle is ONE text node continuing past this sentence ("...
+# It may contain only images or use a layout that isn't supported yet."); Maestro's text selector
+# full-matches the whole node, same reasoning as J-LIB-01's dialog-body assertions.
+- assertVisible: "This book has no text Mirrolit can show.*"
+- runFlow: ../../subflows/back_to_library.yaml
+
+# 12. Back to Library -> none of steps 1-10's files has a card; only empty.epub's "1 VOLUME"
+- assertVisible: "· 1 VOLUME"
+- assertNotVisible: "corrupt"
+- assertNotVisible: "No Qualifying Chapters"
+
+# 13. Import alice-illustrated.epub and full-features.fb2 -> both import with no limit dialog
+#     (failed imports above did not consume free slots)
+# FIRST_TEXT is "So she was considering in her own mind", not the book's literal opening sentence
+# - this edition's chapter 1 is unusually front-matter-heavy (cover/frontispiece/title page/spine
+# art/list of illustrations) before the narrative; see J-LIB-01.yaml step 6 for the full on-device
+# reasoning (same fixture, same fix).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+      TITLE: "Alice.s Adventures in Wonderland"
+      FIRST_TEXT: "So she was considering in her own mind"
+# open_bars.yaml before back_to_library.yaml (not a change to that shared subflow): confirmed
+# on-device that an extra `assertNotVisible` between import_book.yaml's own title check and
+# back_to_library.yaml's first bars check can be enough wall-clock for
+# READER_BARS_AUTO_HIDE_MS (3500ms) to fire again on this front-matter-heavy edition, same race
+# as elsewhere in this suite; a no-op when bars are still up.
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/open_bars.yaml
+- runFlow: ../../subflows/back_to_library.yaml
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "full-features.fb2"
+      TITLE: "The Complete Letters"
+      FIRST_TEXT: "The letter arrived on a grey morning, long after everyone had stopped expecting it"
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/open_bars.yaml
+- runFlow: ../../subflows/back_to_library.yaml
+- assertVisible: "· 3 VOLUMES"
+
+# 14. Force-stop and relaunch -> app starts normally; the library is intact
+# (Not launch_clean.yaml: that clears app state, which would wipe exactly the library we're
+# checking survived a restart.)
+- stopApp
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "· 3 VOLUMES"
+    timeout: 15000
