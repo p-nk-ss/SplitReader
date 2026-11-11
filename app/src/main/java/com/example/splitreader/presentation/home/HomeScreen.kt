@@ -336,22 +336,12 @@ internal fun HomeScreen(
             }
         } else {
             itemsIndexed(filteredBooks, key = { _, book -> book.uri }) { index, book ->
-                // animateItem() on an outer Box, not on StaggeredAppear's own AnimatedVisibility
-                // modifier: both participate in a lookahead-based measure/placement pass, and
-                // stacking them on the SAME layout node let the grid's placement animator and the
-                // card's enter animation measure that node inconsistently on its very first frame
-                // — the card (cover included, a fixed 140x206dp size unrelated to any content it
-                // holds) came in at roughly half height, with its corner delete icon placed past
-                // that cut and so invisible and absent from the accessibility tree, until a scroll
-                // forced the grid to remeasure the item from scratch.
-                Box(modifier = Modifier.animateItem()) {
-                    StaggeredAppear(index = index) {
-                        BookCoverCard(
-                            book = book,
-                            onClick = { onOpenFromLibrary(book.uri) },
-                            onDelete = { onDeleteBook(book.uri) },
-                        )
-                    }
+                StaggeredAppear(index = index, modifier = Modifier.animateItem()) {
+                    BookCoverCard(
+                        book = book,
+                        onClick = { onOpenFromLibrary(book.uri) },
+                        onDelete = { onDeleteBook(book.uri) },
+                    )
                 }
             }
         }
