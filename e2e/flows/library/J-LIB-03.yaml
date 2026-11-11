@@ -133,7 +133,15 @@ tags: [smoke, full, library, J-LIB-03]
 - runFlow: ../../subflows/back_to_library.yaml
 
 # 12. Back to Library -> none of steps 1-10's files has a card; only empty.epub's "1 VOLUME"
-- assertVisible: "· 1 VOLUME"
+# scrollUntilVisible, not a bare assertVisible: confirmed on-device (Pixel_10_Pro/API 37) that
+# Home's "CONTINUE READING" hero (now showing the just-opened empty.epub) fills the whole phone
+# viewport on its own - the "Your shelf · 1 VOLUME" header sits below the fold, hidden the same
+# way every other phone-scroll fix in this suite documents (e.g. J-LIB-01's back_to_library
+# "Open book" fix). scrollUntilVisible is a no-op on tablet, where the header is already on screen.
+- scrollUntilVisible:
+    element: "· 1 VOLUME"
+    direction: DOWN
+    timeout: 10000
 - assertNotVisible: "corrupt"
 - assertNotVisible: "No Qualifying Chapters"
 

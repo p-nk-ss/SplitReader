@@ -105,6 +105,39 @@ tags: [smoke, full, library, network, J-LIB-02]
 # "Assertion is false: id: reader:languageChip is visible" outright with no recovery. Every fresh
 # catalog-open languageChip wait in this flow (steps 4/6/7) gets the same fallback now, not just
 # step 9's re-open case - the race isn't specific to re-opening.
+#
+# Take 8 (2026-11-11, phone pass): the runFlow wrapper around `open_bars.yaml` is now itself
+# `optional: true` too - confirmed on-device (Pixel_10_Pro/API 37) this was a real bug, not just
+# defensive: `open_bars.yaml` ends with its OWN hard (non-optional) 15s terminal assertion for the
+# same languageChip id (its three internal 20%/50%/80% fallback taps had all genuinely fired, per
+# commands.json, but the chip still hadn't appeared under this device's slower translation load) -
+# that inner hard failure propagated straight out and aborted the whole flow BEFORE this step's
+# own, much more generous 90000ms final wait ever got a chance to run (confirmed via
+# `e2e/reports/20261111T082114Z`: step 155/156, `runFlowCommand` FAILED, nested down to
+# `open_bars.yaml`'s own terminal `assertConditionCommand` FAILED at depth 2). A throwaway probe
+# flow confirmed `optional: true` on the outer `runFlow` turns that inner failure into a WARNED
+# (the flow continues) without weakening the real pass/fail signal - the explicit 90000ms wait
+# right after this block is still a hard, non-optional assertion, so the journey only ever passes
+# if the chip genuinely shows up in time.
+#
+# Even with that fix, step 7's Frankenstein open (the George Allen edition, same "illustrated,
+# heavy front matter" genre as this step's own Pride and Prejudice edition and J-LIB-01's
+# alice-illustrated.epub) still hard-failed the 90000ms wait on a genuinely fresh phone boot
+# (`e2e/reports/20261111T084432Z`). The failure screenshot showed the SAME front-matter page the
+# whole time (title page / "CONTENTS" / "Letter 1" heading, no body prose) on BOTH panes (phone's
+# stacked layout) - this edition's front matter is almost entirely short heading/rule lines
+# ("Frankenstein;", "or, the Modern Prometheus", "CONTENTS", "Letter 1"), not body paragraphs, and
+# `open_bars.yaml`'s own doc already established (Issue A, Task 7a "Take 3") that heading/masthead
+# elements carry no tap handler at all (`ChapterMasthead`/equivalent headings, unlike every
+# paragraph/image/divider) - so its three fixed-fraction taps (20%/50%/80%) can ALL legitimately
+# land on dead heading zones at once when a page is front-matter-heavy enough, on a narrow phone
+# layout where each heading line occupies a much larger fraction of the viewport than on a
+# tablet's wider, denser side-by-side layout (where this exact step already passes cleanly). A
+# plain `scroll` moves the viewport past the heading block onto real paragraph prose, which does
+# carry a tap handler - added here as one extra, fully optional retry (one scroll + one more
+# `open_bars.yaml` attempt) local to this flow's own languageChip wait, not to the shared
+# `open_bars.yaml` subflow itself (keeps this fix scoped to J-LIB-02's own heavy-front-matter
+# editions, no shared-subflow change, no J-LIB-01 re-run required).
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
@@ -115,7 +148,18 @@ tags: [smoke, full, library, network, J-LIB-02]
       notVisible:
         id: "reader:languageChip"
     commands:
-      - runFlow: ../../subflows/open_bars.yaml
+      - runFlow:
+          file: ../../subflows/open_bars.yaml
+          optional: true
+      - runFlow:
+          when:
+            notVisible:
+              id: "reader:languageChip"
+          commands:
+            - scroll
+            - runFlow: ../../subflows/open_bars.yaml
+          optional: true
+    optional: true
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
@@ -311,7 +355,18 @@ tags: [smoke, full, library, network, J-LIB-02]
       notVisible:
         id: "reader:languageChip"
     commands:
-      - runFlow: ../../subflows/open_bars.yaml
+      - runFlow:
+          file: ../../subflows/open_bars.yaml
+          optional: true
+      - runFlow:
+          when:
+            notVisible:
+              id: "reader:languageChip"
+          commands:
+            - scroll
+            - runFlow: ../../subflows/open_bars.yaml
+          optional: true
+    optional: true
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
@@ -346,13 +401,30 @@ tags: [smoke, full, library, network, J-LIB-02]
       notVisible:
         id: "reader:languageChip"
     commands:
-      - runFlow: ../../subflows/open_bars.yaml
+      - runFlow:
+          file: ../../subflows/open_bars.yaml
+          optional: true
+      - runFlow:
+          when:
+            notVisible:
+              id: "reader:languageChip"
+          commands:
+            - scroll
+            - runFlow: ../../subflows/open_bars.yaml
+          optional: true
+    optional: true
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
     timeout: 90000
 - runFlow: ../../subflows/back_to_library_from_catalog.yaml
-- assertVisible: "· 3 VOLUMES"
+# scrollUntilVisible, not a bare assertVisible: same phone-only Continue-Reading-hero-fills-
+# the-viewport occlusion confirmed on J-LIB-03 step 12 (Pixel_10_Pro/API 37,
+# `e2e/reports/20261111T084432Z`) - a no-op on tablet, where the header is already on screen.
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
 
 # 8. Catalog -> search "Moby Dick", tap Read -> library-limit dialog with Upgrade/Got it; after
 #    Got it the book is not in the Library (CAT-007)
@@ -382,7 +454,13 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn: "Got it"
 - tapOn: "Library"
 - assertNotVisible: "Moby Dick"
-- assertVisible: "· 3 VOLUMES"
+# scrollUntilVisible, not a bare assertVisible: same phone-only Continue-Reading-hero-fills-
+# the-viewport occlusion confirmed on J-LIB-03 step 12 (Pixel_10_Pro/API 37,
+# `e2e/reports/20261111T084432Z`) - a no-op on tablet, where the header is already on screen.
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
 
 # 9. Catalog -> search "Pride and Prejudice" again, Read the same (already-owned) title.
 # CAT-008 FIXED in v26 (see the header note above, commit d0df6c2): re-reading an already-owned
@@ -427,14 +505,31 @@ tags: [smoke, full, library, network, J-LIB-02]
       notVisible:
         id: "reader:languageChip"
     commands:
-      - runFlow: ../../subflows/open_bars.yaml
+      - runFlow:
+          file: ../../subflows/open_bars.yaml
+          optional: true
+      - runFlow:
+          when:
+            notVisible:
+              id: "reader:languageChip"
+          commands:
+            - scroll
+            - runFlow: ../../subflows/open_bars.yaml
+          optional: true
+    optional: true
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
     timeout: 90000
 - assertNotVisible: "Library is full"
 - runFlow: ../../subflows/back_to_library_from_catalog.yaml
-- assertVisible: "· 3 VOLUMES"
+# scrollUntilVisible, not a bare assertVisible: same phone-only Continue-Reading-hero-fills-
+# the-viewport occlusion confirmed on J-LIB-03 step 12 (Pixel_10_Pro/API 37,
+# `e2e/reports/20261111T084432Z`) - a no-op on tablet, where the header is already on screen.
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
 
 # 10. In the reader, Bookmarks -> the chapter-2 bookmark from step 5 is still listed (LIB-005)
 # Same "Bookmarks" ambiguity as step 5 (see that step's comment): the bookmarksButton icon's own

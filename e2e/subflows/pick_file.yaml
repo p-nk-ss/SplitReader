@@ -80,6 +80,26 @@ appId: ${APP_ID}
 - tapOn:
     text: "${FILE}"
     optional: true
+# Fix round 6 (2026-11-11, Take 8, phone pass): replaced the "Recent" visible -> back fallback
+# above (kept in the file's history via this comment) with a positive confirmation + retry, after
+# confirming on-device (Pixel_10_Pro/API 37) that it actively breaks this picker version: a
+# hierarchy dump right after tapping "Downloads" showed BOTH "Show roots" (content-desc) and
+# "Recent"/"Recent files" (text) still present together - i.e. on this picker build "Recent" is
+# not drawer-only (contradicting this file's own longstanding assumption, confirmed true on
+# earlier API levels/picker builds) - so the gating condition was true even with no modal drawer
+# open, and the resulting `back` exited the picker ACTIVITY entirely (no drawer left to dismiss),
+# landing back on Mirrolit's own Home screen - confirmed via two independent repros
+# (`e2e/reports/20261111T082114Z` and `20261111T083458Z`, both failing identically on the
+# following `scrollUntilVisible` for ${FILE}, both with a final screenshot of Mirrolit's empty
+# Home, and `commands.json` showing `backPressCommand` COMPLETED immediately before it). A
+# first-tap-can-lag probe (same device) also showed the FIRST "Downloads" tap sometimes leaves
+# the picker still showing the "Recent" root's OWN content (not Downloads') even though the tap
+# itself reported COMPLETED - a second tap then correctly switched to "Files in Downloads". The
+# fix below waits for the picker's own unambiguous "Files in Downloads" breadcrumb (confirmed
+# on-device, present once but only once actually on that root, on both the drawer and the
+# newer-tabbed picker builds) and retries the Show-roots-then-Downloads tap once if it doesn't
+# show up the first time, instead of ever assuming navigation succeeded or firing an unconditional
+# `back`.
 - runFlow:
     when:
       visible: "Show roots"
@@ -89,11 +109,22 @@ appId: ${APP_ID}
           visible: "Downloads"
           timeout: 5000
       - tapOn: "Downloads"
+      - extendedWaitUntil:
+          visible: "Files in Downloads"
+          timeout: 5000
+          optional: true
       - runFlow:
           when:
-            visible: "Recent"
+            notVisible: "Files in Downloads"
           commands:
-            - back
+            - tapOn: "Show roots"
+            - extendedWaitUntil:
+                visible: "Downloads"
+                timeout: 5000
+            - tapOn: "Downloads"
+      - extendedWaitUntil:
+          visible: "Files in Downloads"
+          timeout: 10000
       # Fix round 4 (2026-11-08, Task 7a): timeout raised 15000 -> 90000. With the full ~50-file
       # fixture set pushed (the real e2e/run.sh scenario), DocumentsUI does not show one globally
       # re-sorted grid: the files pushed in run.sh's main e2e/books/* loop list first (already
