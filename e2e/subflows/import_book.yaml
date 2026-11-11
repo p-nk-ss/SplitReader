@@ -43,6 +43,24 @@ appId: ${APP_ID}
 - tapOn:
     text: "GOT IT"
     optional: true
+# Fix round 5 (2026-11-11, Take 8, phone pass): the dialog can appear with a short delay AFTER
+# the tap above already ran as a no-op - confirmed on-device (Pixel_10_Pro/API 37,
+# `e2e/reports/20261111T091606Z`, step 13's alice-illustrated.epub import): the tap above
+# completed with nothing to dismiss, but the very next command's failure screenshot
+# (`scrollUntilVisible` for FIRST_TEXT, 120s timeout genuinely exhausted) showed the dialog now
+# fully covering the screen - its modal scrim swallows the scroll gesture too, so every one of
+# scrollUntilVisible's internal scroll attempts was a no-op for the whole 120s. A short poll +
+# conditional second dismiss right before the scroll catches the dialog's delayed entrance
+# without costing anything when it never appears (the poll is optional and short).
+- extendedWaitUntil:
+    visible: "GOT IT"
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      visible: "GOT IT"
+    commands:
+      - tapOn: "GOT IT"
 # Required: the paragraph body is never bar-gated, and survives a slow parse+navigate. Timeout
 # 60000 -> 120000: a cover/plate-heavy book (F-ALICE) needs real scroll-and-settle time per step
 # to get through several full-page illustrations before any text appears, worse on a
