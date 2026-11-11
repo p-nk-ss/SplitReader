@@ -343,7 +343,12 @@ internal fun BookSpread(
             book = book,
             showIllustrations = showIllustrations,
             masthead = { chapterIndex, chapter ->
-                ChapterMasthead(chapter = chapter, chapterIndex = chapterIndex, horizontalMargin = horizontalMargin)
+                ChapterMasthead(
+                    chapter = chapter,
+                    chapterIndex = chapterIndex,
+                    horizontalMargin = horizontalMargin,
+                    onTap = { if (wordSelection != null) onDismiss() else onToggleBars() },
+                )
             },
             image = { _, _, img ->
                 Illustration(

@@ -6,6 +6,7 @@ import com.example.splitreader.presentation.theme.MotionTokens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,8 +35,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -170,14 +173,18 @@ internal fun ChapterMasthead(
     chapterIndex: Int,
     /** The reader's page margin in dp, the same as the text's (`ReadingAppearance.horizontalMargin`). */
     horizontalMargin: Float,
+    /** Mirrors every other row (paragraph/image/divider): a tap here dismisses a selection, else toggles the bars. */
+    onTap: () -> Unit = {},
 ) {
     val palette = LocalReaderPalette.current
+    val currentOnTap by rememberUpdatedState(onTap)
     // The translation banner floats over the top of the reader; at the start of the book it covered
     // the first chapter's number (found on tablet emulators). Only the first masthead makes room.
     val top = if (chapterIndex == 0) 56.dp else 36.dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .pointerInput(Unit) { detectTapGestures(onTap = { currentOnTap() }) }
             .padding(top = top, start = horizontalMargin.dp, end = horizontalMargin.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

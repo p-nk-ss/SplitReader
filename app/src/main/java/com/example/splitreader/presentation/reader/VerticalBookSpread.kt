@@ -277,7 +277,7 @@ internal fun VerticalBookSpread(
                 bookItems(
                     book = book,
                     showIllustrations = showIllustrations,
-                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin) },
+                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin, onTap = { if (wordSelection != null) onDismiss() else onToggleBars() }) },
                     image = { _, _, img ->
                         Illustration(
                             path = img.path, horizontalMargin = horizontalMargin, maxHeight = illustrationMaxHeight,
@@ -345,7 +345,7 @@ internal fun VerticalBookSpread(
                 bookItems(
                     book = book,
                     showIllustrations = showIllustrations,
-                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin) },
+                    masthead = { i, ch -> ChapterMasthead(chapter = ch, chapterIndex = i, horizontalMargin = horizontalMargin, onTap = { if (wordSelection != null) onDismiss() else onToggleBars() }) },
                     // Parity item, not a re-decode: the index must exist in this pane or every
                     // later index shifts, but the picture itself is already on screen above.
                     // The picture's own space, so the two panes' rows keep pace when scrolled in sync.
