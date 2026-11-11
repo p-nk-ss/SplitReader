@@ -97,10 +97,29 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn:
     text: "Read"
     index: 0
+# Take 7 (2026-11-10): soft wait + reveal-tap fallback, same race/fix as step 9 below (that
+# step's own comment has the full on-device evidence) - confirmed here too this run
+# (Tab_35_PixelTablet): the book opened and was actively translating (screenshot showed real
+# bilingual content, not a stuck spinner/dialog) but the languageChip had already auto-hidden
+# (READER_BARS_AUTO_HIDE_MS, 3500ms) by the time the flat 150000ms wait sampled it, failing
+# "Assertion is false: id: reader:languageChip is visible" outright with no recovery. Every fresh
+# catalog-open languageChip wait in this flow (steps 4/6/7) gets the same fallback now, not just
+# step 9's re-open case - the race isn't specific to re-opening.
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
-    timeout: 150000
+    timeout: 60000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:languageChip"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 90000
 
 # 5. Chapter 2, add a bookmark, Back -> Pride and Prejudice is in the Library (CAT-004)
 # Retried up to 3x (open_bars.yaml -> tap chaptersButton -> poll), not a single open_bars.yaml +
@@ -222,53 +241,81 @@ tags: [smoke, full, library, network, J-LIB-02]
 
 # 6. Catalog -> switch to the Standard Ebooks pill -> search "Walden", Read -> downloads, opens,
 #    in the Library (CAT-005)
-# index: 1, not 0: confirmed on-device (Tab_35_PixelTablet, 2026-11-09, reproduced 3x) that a
-# Standard Ebooks search for "Walden" ranks "Poetry" by Ring Lardner ABOVE "Walden" by Henry
-# David Thoreau itself - this journey just displays whatever order the Standard Ebooks search API
-# returns, so index 0 is not reliably "the book you searched for" the way it is for the Open
-# Library/Gutenberg searches elsewhere in this flow. A selector scoped to the row (`rightOf`/
-# `below` the "Walden"/"Henry David Thoreau" text, `containsDescendants`) was tried first and
-# rejected: `rightOf`/`below` ignore the OTHER axis entirely when picking among several
-# candidates (confirmed via `maestro --debug-output`: `rightOf: "Henry David Thoreau"` still
-# resolved to Poetry's Read button, the first "Read" in document order, not the nearest one) and
-# `containsDescendants` returned "Element not found" for a row confirmed (by hierarchy dump) to
-# contain exactly that descendant text. Index 1 is simply "the second (and last) result for this
-# exact query", confirmed stable across 3 consecutive searches.
+# Take 7 (2026-11-10): the index-1 approach above (kept here in history, replaced below) depended
+# on "Read" being individually composed/addressable at a given scroll position, which broke under
+# real keyboard occlusion: a fresh-boot tablet run (`e2e/reports/20261110T121020Z`, step 105)
+# failed with "No visible element found: Read, Index: 1" - the failure screenshot showed only ONE
+# result row ("Poetry" by Ring Lardner) with the keyboard still open covering the rest of the
+# list. Investigated as a possible app/search bug FIRST (CAT-005's own behaviour), per the rule
+# never to fix a real app bug by weakening the flow's assertion:
+#   - Reproduced OUTSIDE the app with curl against the exact URL StandardEbooksCatalogClient
+#     builds (`StandardEbooksCatalogClient.kt:37-39`, "$SE_HOST/ebooks?query=$query"):
+#     `curl "https://standardebooks.org/ebooks?query=Walden"` returns exactly two
+#     `<li typeof="schema:Book">` entries, IN THIS ORDER: "Poetry" / Ring Lardner, then "Walden" /
+#     Henry David Thoreau - the server's own search ranking, not a stale/previous-query race. The
+#     app's parser (`parseListing`) and `CatalogViewModel.runSearch`/`onQueryChange` (searchJob is
+#     cancelled and reassigned on every new query/source change; no stale-result window) just
+#     render that order as-is.
+#   - Verdict: CORRECT (if surprising) behaviour - Standard Ebooks' own full-text search for
+#     "Walden" ranks "Poetry" above "Walden" itself (reproduced 2026-11-09 and again via curl
+#     2026-11-10). NOT an app bug. The single-row screenshot is the keyboard hiding the second
+#     (Walden) row, not a missing result - confirmed below by hiding the keyboard and seeing it.
+# Take 8 (2026-11-11): Take 7's `tapOn: "RESULTS"` workaround (kept in history above) did NOT
+# dismiss the keyboard on a real fresh-boot repro (`e2e/reports/20261111T075520Z`, step 104) - a
+# full-width Gboard panel (with a suggestion strip: "Walden, Waldenses, Warden, Walden's") stayed
+# open and covered the Walden row the whole 60s wait, timing out on
+# `visible: ".*Henry David Thoreau.*"`. Tapping a non-focusable, non-clickable plain `Text`
+# ("RESULTS") does not reliably take focus away from the search field - that Take 7 run must have
+# hit the narrow-toolbar case where there was nothing to dismiss in the first place, not a
+# dismissal this tap actually caused. Re-investigated `hideKeyboard` on the exact frozen failure
+# state (same emulator, same screen) via a standalone one-command probe flow: `hideKeyboard`
+# reported COMPLETED and a follow-up screenshot showed the full-width keyboard gone and BOTH rows
+# ("Poetry" and now "Walden"/"Henry David Thoreau", each with its own enabled "Read") fully
+# visible - confirmed sound for this exact repro, contradicting Take 7's "Couldn't hide the
+# keyboard" rejection (plausibly specific to whatever narrower toolbar state Take 7 saw, or a
+# since-settled transient; not reproduced today). `optional: true` so a run that genuinely has
+# nothing to hide (the narrow-toolbar case) doesn't hard-fail.
+#
+# Also re-confirmed `rightOf`/`below` on the "Read" button itself are still unsound (not just an
+# old finding): a probe `tapOn: { text: "Read", rightOf: "Henry David Thoreau" }` against the
+# live, both-rows-visible screen started POETRY's download (its Read button went into the
+# spinner state; Walden's stayed a plain disabled "Read") - `rightOf` evidently still resolves to
+# the first/topmost "Read" in document order, not the one nearest the anchor on that axis. Kept
+# Take 7's own fix for the actual tap: match the row's unique author text, "Henry David Thoreau"
+# (part of the same `Modifier.clickable(onClick = onDownload)` Row, `CatalogScreen.kt:505-516`,
+# so tapping it fires the identical action a "Read" tap would, with no row ambiguity) - this was
+# never the part that failed; only the keyboard-dismissal step before it needed re-fixing.
 - tapOn: "Catalog"
 - tapOn: "Standard Ebooks"
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "Walden"
 - pressKey: Enter
-# NOT `hideKeyboard` (tried and reverted, 2026-11-10): confirmed by decompiling Maestro's own
-# AndroidDriver.hideKeyboard - it is literally `adb shell input keyevent 4` (KEYCODE_BACK), relying
-# on Android's own "back dismisses an open IME first" behaviour. That only helps when the keyboard
-# is STILL showing; confirmed on-device that it is not always still showing at this point (Enter's
-# own imeAction=Search can already have dropped focus) - when it isn't, the same keyevent instead
-# navigates the APP back a screen (Catalog -> Home), losing the search entirely (observed on-device:
-# the next "Walden" wait then failed with the Home screen in the failure screenshot, not Catalog).
-# Fixed instead with `scrollUntilVisible` on the actual target (`Read`, index 1) below, which
-# handles the keyboard-occlusion case (confirmed on-device, 2026-11-10, under heavy host load: the
-# keyboard can still be showing at this point even after Enter/imeAction=Search, covering roughly
-# the bottom half of the screen and composing the SECOND result row out of the viewport) without
-# any navigation risk - a no-op scroll once the keyboard is already down and the row is visible.
+- hideKeyboard:
+    optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
-    visible: "Walden"
+    visible: ".*Henry David Thoreau.*"
     timeout: 60000
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
-- scrollUntilVisible:
-    element:
-      text: "Read"
-      index: 1
-    direction: DOWN
-    timeout: 10000
 - tapOn:
-    text: "Read"
-    index: 1
+    text: ".*Henry David Thoreau.*"
+# Soft wait + reveal-tap fallback - see step 4's comment above for the on-device evidence (same
+# race, applied consistently to every fresh catalog-open languageChip wait in this flow).
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
-    timeout: 150000
+    timeout: 60000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:languageChip"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 90000
 - runFlow: ../../subflows/back_to_library_from_catalog.yaml
 - assertVisible: "Walden"
 
@@ -287,10 +334,23 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn:
     text: "Read"
     index: 0
+# Soft wait + reveal-tap fallback - see step 4's comment above for the on-device evidence (same
+# race, applied consistently to every fresh catalog-open languageChip wait in this flow).
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
-    timeout: 150000
+    timeout: 60000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "reader:languageChip"
+    commands:
+      - runFlow: ../../subflows/open_bars.yaml
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 90000
 - runFlow: ../../subflows/back_to_library_from_catalog.yaml
 - assertVisible: "· 3 VOLUMES"
 
@@ -423,10 +483,19 @@ tags: [smoke, full, library, network, J-LIB-02]
 
 # 11. Catalog -> search "zxqvbnm qwertyuiop" -> an empty-results state, no crash, no Retry (no
 #     match found, not an error) (CAT-003)
+# hideKeyboard (optional): same keyboard-occlusion race as step 6's Walden search (see that
+# step's Take 8 comment) - confirmed on-device (Tab_35_PixelTablet, 2026-11-11) that the
+# "No books found" CenteredMessage can lay out below the fold, under a still-open full-width
+# keyboard, timing out the wait even though the message is genuinely there (not an app bug: the
+# message isn't IME-inset-aware, same class of layout quirk as CAT-009's documented keyboard/list
+# adjacency). Applied to every remaining post-search wait in this flow (steps 11/12), not just
+# the ones already caught failing, for the same reason Take 8 applied its fix flow-wide at step 4.
 - tapOn: "Catalog"
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "zxqvbnm qwertyuiop"
 - pressKey: Enter
+- hideKeyboard:
+    optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "No books found"
@@ -440,6 +509,8 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "Dracula"
 - pressKey: Enter
+- hideKeyboard:
+    optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Retry"
