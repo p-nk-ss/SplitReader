@@ -28,6 +28,15 @@
 #                      "full,tablet", or a single flow's own id tag, e.g. "J-LIB-01".
 #   --keep-emulator    Don't kill the emulator this run started (--avd only; ignored with
 #                      --serial, since that emulator wasn't started by this script).
+#   --flow-timeout-min N  Per-flow wall-clock watchdog, in minutes (default 20). If a single
+#                      flow's `maestro test` invocation runs longer than this, run.sh kills it
+#                      (SIGTERM, then SIGKILL after a 5s grace period if still alive), records
+#                      that flow as a FAIL with a synthetic junit.xml testcase ("timed out after
+#                      Nm" as the failure message, so it shows up in summary.md same as any other
+#                      failure), and moves on to the next selected flow. Confirmed need: a phone
+#                      run of J-LIB-02 (2026-11-11) produced no Maestro output for 63 minutes
+#                      (network-dependent catalog waits stacking up) with nothing to stop it short
+#                      of a human killing the process by hand.
 #
 # Per-journey fixtures (Task 7a "Take 2"): each flow file declares the books it needs in a
 # `# books: a.epub, b.fb2` comment header (see e2e/README.md for the exact syntax). Before each
@@ -71,6 +80,7 @@ SERIAL=""
 BUILD_TYPE="debug"
 TAGS=""
 KEEP_EMULATOR=0
+FLOW_TIMEOUT_MIN=20
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -79,10 +89,14 @@ while [ $# -gt 0 ]; do
     --build) BUILD_TYPE="$2"; shift 2 ;;
     --tags) TAGS="$2"; shift 2 ;;
     --keep-emulator) KEEP_EMULATOR=1; shift ;;
+    --flow-timeout-min) FLOW_TIMEOUT_MIN="$2"; shift 2 ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
+case "$FLOW_TIMEOUT_MIN" in ''|*[!0-9]*) die "--flow-timeout-min must be a positive integer" ;; esac
+[ "$FLOW_TIMEOUT_MIN" -gt 0 ] || die "--flow-timeout-min must be a positive integer"
+FLOW_TIMEOUT_SEC=$((FLOW_TIMEOUT_MIN * 60))
 
 [ -n "$AVD" ] || [ -n "$SERIAL" ] || die "one of --avd NAME or --serial SERIAL is required"
 [ -z "$AVD" ] || [ -z "$SERIAL" ] || die "--avd and --serial are mutually exclusive"
@@ -369,6 +383,27 @@ remove_pushed_fixtures() {
   : > "$PUSHED_LIST"
 }
 
+# Writes a minimal, valid JUnit XML at $1 with a single failing <testcase> (status != SUCCESS,
+# so report.py's result_label() calls it FAIL), for a flow the watchdog killed before Maestro
+# itself ever got to write (or finish writing) its own junit.xml. $2 is the flow stem (used as
+# both the suite/test name and classname — good enough for summary.md's "Journey" column; it
+# doesn't need to match a real Maestro id since no screenshot lookup is possible for a flow that
+# never produced one), $3 the configured timeout in seconds.
+write_timeout_junit() {
+  local out_path="$1" stem="$2" timeout_sec="$3"
+  local now; now="$(date -u +%Y-%m-%dT%H:%M:%S)"
+  cat > "$out_path" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="$stem" device="$SERIAL" tests="1" failures="1" time="$timeout_sec" timestamp="$now">
+    <testcase id="$stem" name="$stem" classname="$stem" file="$stem.yaml" time="$timeout_sec" timestamp="$now" status="ERROR">
+      <failure message="timed out after ${FLOW_TIMEOUT_MIN}m (--flow-timeout-min)">run.sh's watchdog killed this flow's maestro process after $timeout_sec seconds with no completion — see e2e/run.sh --help for --flow-timeout-min. No Maestro output means this is NOT the normal failing-step signal; check the flow's own maestro.log/commands.json up to the kill point, and host/network load at the time, before treating this like an ordinary assertion failure.</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
+XML
+}
+
 FLOW_FILES=()
 while IFS= read -r f; do
   FLOW_FILES+=("$f")
@@ -412,11 +447,43 @@ for flow in "${SELECTED_FLOWS[@]}"; do
   MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" "$flow" \
     --format junit --output "$FLOW_RUN/junit.xml" --test-output-dir "$FLOW_RUN")
 
-  log "maestro ${MAESTRO_ARGS[*]}"
-  "$MAESTRO" "${MAESTRO_ARGS[@]}"
+  # Per-flow watchdog: run maestro in the background under this script's own control (no
+  # `timeout`/`gtimeout` binary on this Mac — confirmed absent, checked with `command -v`), poll
+  # whether it's still alive every 5s against a wall-clock deadline, and kill it (SIGTERM, then
+  # SIGKILL after a 5s grace period) if it's exceeded. Needed for real: a phone run of J-LIB-02
+  # (2026-11-11) produced zero Maestro output for 63 minutes with nothing to stop it short of a
+  # human killing the process by hand - see this flag's --help text above.
+  log "maestro ${MAESTRO_ARGS[*]} (watchdog: ${FLOW_TIMEOUT_MIN}m)"
+  "$MAESTRO" "${MAESTRO_ARGS[@]}" &
+  flow_pid=$!
+  flow_start=$(date +%s)
+  timed_out=0
+  while kill -0 "$flow_pid" 2>/dev/null; do
+    elapsed=$(( $(date +%s) - flow_start ))
+    if [ "$elapsed" -ge "$FLOW_TIMEOUT_SEC" ]; then
+      timed_out=1
+      log "$stem: exceeded ${FLOW_TIMEOUT_MIN}m watchdog (pid $flow_pid) — sending SIGTERM"
+      kill -TERM "$flow_pid" 2>/dev/null
+      sleep 5
+      if kill -0 "$flow_pid" 2>/dev/null; then
+        log "$stem: still alive after SIGTERM — sending SIGKILL"
+        kill -KILL "$flow_pid" 2>/dev/null
+      fi
+      break
+    fi
+    sleep 5
+  done
+  wait "$flow_pid" 2>/dev/null
   flow_exit=$?
-  log "$stem maestro exit code: $flow_exit"
-  [ "$flow_exit" -eq 0 ] || OVERALL_EXIT=1
+
+  if [ "$timed_out" -eq 1 ]; then
+    log "$stem: TIMED OUT after ${FLOW_TIMEOUT_MIN}m — recording as FAIL"
+    write_timeout_junit "$FLOW_RUN/junit.xml" "$stem" "$FLOW_TIMEOUT_SEC"
+    OVERALL_EXIT=1
+  else
+    log "$stem maestro exit code: $flow_exit"
+    [ "$flow_exit" -eq 0 ] || OVERALL_EXIT=1
+  fi
 done
 
 remove_pushed_fixtures
