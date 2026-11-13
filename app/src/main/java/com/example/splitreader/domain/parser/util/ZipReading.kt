@@ -16,7 +16,7 @@ fun readZipEntries(
     input: InputStream,
     maxTotal: Long,
     accept: (String) -> Boolean,
-): Map<String, ByteArray> = readZipEntries(input, maxTotal, maxTotal, null, { false }, accept).inMemory
+): Map<String, ByteArray> = readZipEntries(input, maxTotal, maxTotal, null, { false }, accept = accept).inMemory
 
 /** What [readZipEntries] read: entries held in memory, and entries streamed to files. */
 class ZipContents(val inMemory: Map<String, ByteArray>, val onDisk: Map<String, File>)
@@ -30,6 +30,9 @@ class ZipContents(val inMemory: Map<String, ByteArray>, val onDisk: Map<String, 
  *  - [memoryBudget]: the entries held in memory (text), summed — a heap fraction, see
  *    [effectiveMaxDecompressed]; it bounds each in-memory entry too;
  *  - [totalBudget]: every accepted entry, held or spilled — the zip-bomb bound on disk use.
+ *
+ * [beforeChunk] runs before every entry and every chunk read (8 KiB): the caller's cancellation
+ * check. Whatever it throws ends the read; a big book is hundreds of MB of entries.
  */
 fun readZipEntries(
     input: InputStream,
@@ -37,6 +40,7 @@ fun readZipEntries(
     totalBudget: Long,
     spillDir: File?,
     spill: (String) -> Boolean,
+    beforeChunk: () -> Unit = {},
     accept: (String) -> Boolean,
 ): ZipContents {
     val inMemory = LinkedHashMap<String, ByteArray>()
@@ -55,6 +59,7 @@ fun readZipEntries(
     ZipInputStream(input).use { zip ->
         var entry = zip.nextEntry
         while (entry != null) {
+            beforeChunk()
             if (!entry.isDirectory && accept(entry.name)) {
                 val toDisk = spillDir != null && spill(entry.name)
                 // Cheap pre-check: an entry whose own declared size already busts the remaining
@@ -68,6 +73,7 @@ fun readZipEntries(
                 }
                 fun copy(out: OutputStream) {
                     while (true) {
+                        beforeChunk()
                         val r = zip.read(chunk)
                         if (r < 0) break
                         total += r

@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.example.splitreader.domain.parser.util.stableId
+import com.example.splitreader.fakes.FakeCrashReporter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -145,8 +146,9 @@ class MobiParserOwnedFilesTest {
         val blocker = File(coverFile(uri).parentFile, tempName)
         File(blocker, "keep").apply { parentFile!!.mkdirs(); writeText("x") }
 
+        val crashes = FakeCrashReporter()
         val book = try {
-            MobiParser().apply { tempNameFor = { tempName } }.parse(uri, context)
+            MobiParser(crashes).apply { tempNameFor = { tempName } }.parse(uri, context)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             throw AssertionError("the book must still open when the cover can't be written, but: $e")
@@ -155,6 +157,7 @@ class MobiParserOwnedFilesTest {
         assertEquals(1, book.chapters.size)
         assertTrue("owned cover must still be a file with its original bytes", coverFile(uri).isFile && coverFile(uri).readBytes().contentEquals(oldBytes))
         blocker.deleteRecursively()
+        assertEquals(listOf("1 picture of a MOBI book could not be saved"), crashes.recorded.map { it.second })
     }
 
     @Test

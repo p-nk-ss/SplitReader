@@ -23,7 +23,6 @@ internal class FakeReadingPreferences(
     val positions = mutableMapOf<String, ReadingPosition>()
     val excerpts = mutableMapOf<String, String>()
 
-    override fun getLastBookUri(): String? = null
     /** Every book [forgetBook] was called for, in order. */
     val forgotten = mutableListOf<String>()
     override fun saveReadingPosition(bookUri: String, position: ReadingPosition) {

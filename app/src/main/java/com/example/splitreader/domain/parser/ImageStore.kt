@@ -62,7 +62,8 @@ object ImageStore {
             val file = File(dir, "$safe.${sniffExtension(header(source))}")
             file.takeIf { f -> staged.stage(f) { source.copyTo(it) } }?.absolutePath
         }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        staged.noteLost(e)
         null
     }
 

@@ -93,10 +93,8 @@ class ReadingProgressManager @Inject constructor(
         _appearance.value = next
     }
 
-    override fun getLastBookUri(): String? = prefs.getString("last_book_uri", null)
-
     override fun saveReadingPosition(bookUri: String, position: ReadingPosition) {
-        prefs.edit().putString("last_book_uri", bookUri).putPosition(bookUri, position).apply()
+        prefs.edit().putPosition(bookUri, position).apply()
     }
 
     override fun getReadingPosition(bookUri: String): ReadingPosition = ReadingPosition(
@@ -174,6 +172,7 @@ class ReadingProgressManager @Inject constructor(
         val edit = prefs.edit()
         for (prefix in PER_BOOK_KEY_PREFIXES) edit.remove(prefix + bookUri)
         legacyScrollKeys(bookUri).forEach { edit.remove(it) }
+        // No longer written (nothing ever read it); older installs may still hold the book's uri here.
         if (prefs.getString("last_book_uri", null) == bookUri) edit.remove("last_book_uri")
         edit.apply()
     }

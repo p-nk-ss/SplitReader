@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.example.splitreader.domain.parser.util.stableId
+import com.example.splitreader.fakes.FakeCrashReporter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -43,7 +44,7 @@ class EpubParserOwnedFilesTest {
     private val newImage = png + "newimage".toByteArray()
 
     /** An EPUB with cover `cover.png` and one chapter showing `pic.png`. */
-    private fun epub(): Uri {
+    private fun epub(bulk: Int = 0): Uri {
         val f = File(tmp.root, "b${System.nanoTime()}.epub")
         ZipOutputStream(f.outputStream()).use { z ->
             val mime = "application/epub+zip".toByteArray()
@@ -56,6 +57,8 @@ class EpubParserOwnedFilesTest {
             put("OEBPS/c0.xhtml", """<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><h1>One</h1><p>Hello there, a paragraph with enough words.</p><img src="pic.png" alt="x"/><p>More words in a second paragraph.</p></body></html>""".toByteArray())
             put("OEBPS/cover.png", newCover)
             put("OEBPS/pic.png", newImage)
+            // Incompressible filler pictures, so the file is much longer than one read.
+            repeat(bulk) { put("OEBPS/bulk$it.png", kotlin.random.Random(it).nextBytes(16 * 1024)) }
             put("OEBPS/content.opf", """<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">x</dc:identifier><dc:title>T</dc:title><dc:language>en</dc:language></metadata><manifest><item id="c0" href="c0.xhtml" media-type="application/xhtml+xml"/><item id="cv" href="cover.png" media-type="image/png" properties="cover-image"/><item id="p" href="pic.png" media-type="image/png"/></manifest><spine><itemref idref="c0"/></spine></package>""".toByteArray())
         }
         return Uri.fromFile(f)
@@ -137,8 +140,9 @@ class EpubParserOwnedFilesTest {
         val tempName = "blocked.part-test"
         listOf(coverFile(uri), imageFile(uri)).forEach { File(File(it.parentFile, tempName), "keep").apply { parentFile!!.mkdirs(); writeText("x") } }
 
+        val crashes = FakeCrashReporter()
         val book = try {
-            EpubParser().apply { tempNameFor = { tempName } }.parse(uri, context)
+            EpubParser(crashes).apply { tempNameFor = { tempName } }.parse(uri, context)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             throw AssertionError("the book must still open when a picture can't be written, but: $e")
@@ -149,6 +153,59 @@ class EpubParserOwnedFilesTest {
             assertTrue("owned ${it.name} must still be a file with its original bytes", it.isFile && it.readBytes().contentEquals(oldBytes))
         }
         listOf(coverFile(uri), imageFile(uri)).forEach { File(it.parentFile, tempName).deleteRecursively() }
+        // Dropped pictures used to vanish without a trace. One non-fatal per parse, however many were lost.
+        assertEquals(
+            listOf("2 pictures of an EPUB book could not be saved"),
+            crashes.recorded.map { it.second },
+        )
+    }
+
+    @Test
+    fun `a book whose pictures are all saved reports nothing`() = runTest {
+        val crashes = FakeCrashReporter()
+        EpubParser(crashes).parse(epub(), context)
+        assertEquals(emptyList<String?>(), crashes.recorded.map { it.second })
+    }
+
+    /**
+     * The zip is read in one loop before any chapter is looked at -- up to hundreds of MB. It had no
+     * cancellation check: closing the reader mid-open kept reading (and spilling pictures to the
+     * cache) to the end of the file.
+     */
+    @Test
+    fun `a re-parse cancelled while the file is being read stops reading and keeps the owned book's files`() = runTest {
+        val file = File(epub(bulk = 64).path!!)
+        val uri = Uri.parse("content://books/cancelled-${System.nanoTime()}.epub")
+        ownBook(uri)
+        lateinit var job: Job
+        var cancelled = false
+        var readAfterCancel = 0L
+        val stream = object : java.io.FilterInputStream(file.inputStream()) {
+            override fun read(b: ByteArray, off: Int, len: Int): Int {
+                val r = super.read(b, off, len)
+                if (cancelled) { if (r > 0) readAfterCancel += r } else { cancelled = true; job.cancel() }
+                return r
+            }
+        }
+        org.robolectric.Shadows.shadowOf(context.contentResolver).registerInputStream(uri, stream)
+        var caught: Throwable? = null
+        job = launch {
+            try {
+                EpubParser().parse(uri, context)
+            } catch (e: Throwable) {
+                caught = e
+                throw e
+            }
+        }
+        job.join()
+
+        assertTrue("CancellationException must propagate, was $caught", caught is CancellationException)
+        assertTrue(
+            "the parse kept reading after it was cancelled: $readAfterCancel of ${file.length()} bytes",
+            readAfterCancel < 64 * 1024,
+        )
+        assertOwnedFilesIntact(uri)
+        assertEquals("no scratch folder left", emptyList<String>(), context.cacheDir.list().orEmpty().filter { it.startsWith("epub-") })
     }
 
     @Test

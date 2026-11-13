@@ -3,6 +3,7 @@ package com.example.splitreader.domain.parser
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
@@ -25,7 +26,13 @@ import kotlin.coroutines.coroutineContext
  * Out of scope (clear errors, no crash): HUFF/CDIC compression and AZW3/KF8 (a separate format),
  * and DRM-protected files. These can be added later as additional [BookParser]s.
  */
-class MobiParser @Inject constructor() : BookParser {
+class MobiParser @Inject constructor(
+    private val crashReporter: CrashReporter,
+) : BookParser {
+
+    /** Built by hand (tests): nothing is reported. */
+    constructor() : this(CrashReporter.NONE)
+
 
     override val supportedExtensions = listOf("mobi", "prc", "azw")
     override val priority = 10
@@ -55,6 +62,7 @@ class MobiParser @Inject constructor() : BookParser {
             val book = parse(uri, context, staged)
             coroutineContext.ensureActive()
             staged.commit()
+            staged.reportLost(crashReporter, "a MOBI")
             return book
         } catch (e: Throwable) {
             staged.rollback()
@@ -211,7 +219,8 @@ class MobiParser @Inject constructor() : BookParser {
             val hash = stableId(filePath)
             val coverFile = File(coversDir, "$hash.$ext")
             coverFile.takeIf { f -> staged.stage(f) { it.writeBytes(img) } }?.absolutePath
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            staged.noteLost(e)
             null
         }
     }

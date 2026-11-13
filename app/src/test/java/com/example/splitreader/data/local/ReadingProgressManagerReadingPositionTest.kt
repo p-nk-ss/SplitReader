@@ -54,7 +54,6 @@ class ReadingProgressManagerReadingPositionTest {
         manager.saveReadingPosition("/b/y", ReadingPosition(1, 2, 0))
         assertEquals(ReadingPosition(3, 7, 42), manager.getReadingPosition("/b/x"))
         assertEquals(ReadingPosition(1, 2, 0), manager.getReadingPosition("/b/y"))
-        assertEquals("/b/y", manager.getLastBookUri())
     }
 
     @Test
@@ -116,9 +115,11 @@ class ReadingProgressManagerReadingPositionTest {
         manager.completeReadingPositionMigration("/b/x", ReadingPosition(3, 7, 42))
         seedLegacy("/b/x", chapter = 3, item = 5, offset = 30)
 
+        prefs.edit().putString("last_book_uri", "/b/x").commit() // written by versions up to 27
+
         manager.forgetBook("/b/x")
 
-        assertEquals(emptyList<String>(), prefs.all.keys.filter { "/b/x" in it }.sorted())
+        assertEquals(emptyList<String>(), prefs.all.filter { (k, v) -> "/b/x" in k || v == "/b/x" }.keys.sorted())
         assertEquals(ReadingPosition.START, manager.getReadingPosition("/b/x"))
         assertNull(manager.getProgress("/b/x"))
         assertFalse(manager.isFinished("/b/x"))

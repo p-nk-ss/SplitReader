@@ -2,6 +2,7 @@ package com.example.splitreader.domain.parser
 
 import android.content.Context
 import android.net.Uri
+import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
@@ -18,7 +19,12 @@ import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.ensureActive
 
-class EpubParser @Inject constructor() : BookParser {
+class EpubParser @Inject constructor(
+    private val crashReporter: CrashReporter,
+) : BookParser {
+
+    /** Built by hand (tests): nothing is reported. */
+    constructor() : this(CrashReporter.NONE)
 
     override val supportedExtensions = listOf("epub")
     override val priority = 10
@@ -74,6 +80,7 @@ class EpubParser @Inject constructor() : BookParser {
             val book = parse(uri, context, spillDir, staged)
             coroutineContext.ensureActive()
             staged.commit()
+            staged.reportLost(crashReporter, "an EPUB")
             return book
         } catch (e: Throwable) {
             staged.rollback()
@@ -90,6 +97,9 @@ class EpubParser @Inject constructor() : BookParser {
 
         // Text in memory, bounded by a heap fraction; pictures on disk; the whole book by the
         // zip-bomb bound MAX_DECOMPRESSED.
+        // The zip is read whole before any chapter is looked at -- hundreds of MB for a big book --
+        // so cancellation (the reader was closed, the book deleted) is checked as it streams.
+        val caller = coroutineContext
         val contents = context.contentResolver.openInputStream(uri)?.use { input ->
             readZipEntries(
                 input,
@@ -97,6 +107,7 @@ class EpubParser @Inject constructor() : BookParser {
                 totalBudget = MAX_DECOMPRESSED,
                 spillDir = spillDir,
                 spill = { ext(it) in imageExtensions },
+                beforeChunk = { caller.ensureActive() },
             ) { name -> ext(name) in textExtensions || ext(name) in imageExtensions }
         } ?: throw IllegalStateException("Cannot open file")
         val entryMap: Map<String, ByteArray> = contents.inMemory
@@ -278,7 +289,8 @@ class EpubParser @Inject constructor() : BookParser {
                 .takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"
             val coverFile = File(coversDir, "${stableId(uriKey)}.$ext")
             coverFile.takeIf { f -> staged.stage(f) { source.copyTo(it) } }?.absolutePath
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            staged.noteLost(e)
             null
         }
 }

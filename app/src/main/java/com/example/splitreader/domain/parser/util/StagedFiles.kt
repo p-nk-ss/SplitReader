@@ -1,5 +1,6 @@
 package com.example.splitreader.domain.parser.util
 
+import com.example.splitreader.domain.CrashReporter
 import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -23,10 +24,37 @@ class StagedFiles(
 
     private val staged = mutableListOf<Staged>()
 
+    private var lost = 0
+    private var firstLoss: Throwable? = null
+
+    /**
+     * A cover or picture that could not be saved. The book still opens, without it -- which is why
+     * nobody would ever hear of it: [reportLost] says so once per parse.
+     */
+    fun noteLost(cause: Throwable) {
+        lost++
+        if (firstLoss == null) firstLoss = cause
+    }
+
+    /**
+     * Records the pictures lost so far as ONE non-fatal ("3 pictures of an EPUB book could not be
+     * saved", with the first cause), not one per picture: a full disk loses every picture of the book.
+     * [book] is the format with its article ("an EPUB"). Nothing lost, nothing recorded.
+     */
+    fun reportLost(reporter: CrashReporter, book: String) {
+        val cause = firstLoss ?: return
+        val count = lost
+        lost = 0
+        firstLoss = null
+        try {
+            reporter.recordNonFatal(cause, "$count picture${if (count == 1) "" else "s"} of $book book could not be saved")
+        } catch (_: Exception) { /* reporting must never fail a parse that succeeded */ }
+    }
+
     /**
      * Writes [target]'s new content to a temp file next to it via [write] and stages it. Returns
      * true when staged; when the write fails (e.g. disk full) the temp is deleted, nothing is staged
-     * -- it can never be moved over the owned file -- and false is returned.
+     * -- it can never be moved over the owned file --, the loss is noted and false is returned.
      */
     fun stage(target: File, write: (temp: File) -> Unit): Boolean {
         var temp: File? = null
@@ -35,8 +63,9 @@ class StagedFiles(
             write(temp)
             staged.add(Staged(temp, target))
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             try { temp?.delete() } catch (_: Exception) { /* best-effort */ }
+            noteLost(e)
             false
         }
     }

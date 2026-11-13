@@ -8,4 +8,11 @@ package com.example.splitreader.domain
 interface CrashReporter {
     /** Records a handled [throwable] as a non-fatal, optionally tagged with a context [message]. */
     fun recordNonFatal(throwable: Throwable, message: String? = null)
+
+    companion object {
+        /** Reports nothing: for code built by hand (tests) where there is nothing to report to. */
+        val NONE: CrashReporter = object : CrashReporter {
+            override fun recordNonFatal(throwable: Throwable, message: String?) = Unit
+        }
+    }
 }

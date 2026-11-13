@@ -3,6 +3,7 @@ package com.example.splitreader.domain.parser
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
@@ -22,9 +23,13 @@ import kotlinx.coroutines.ensureActive
 class Fb2Parser internal constructor(
     /** Name of the temp file a binary is staged in, next to its final [File]; unique per parse. A test seam. */
     private val tempNameFor: (target: File) -> String,
+    private val crashReporter: CrashReporter = CrashReporter.NONE,
 ) : BookParser {
 
-    @Inject constructor() : this(StagedFiles.DEFAULT_TEMP_NAME)
+    @Inject constructor(crashReporter: CrashReporter) : this(StagedFiles.DEFAULT_TEMP_NAME, crashReporter)
+
+    /** Built by hand (tests): nothing is reported. */
+    constructor() : this(StagedFiles.DEFAULT_TEMP_NAME)
 
     override val supportedExtensions = listOf("fb2", "fb2.xml")
     override val priority = 5
@@ -49,6 +54,7 @@ class Fb2Parser internal constructor(
             if (doc.chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
             val book = assembleBook(doc, filePath)
             staged.commit()
+            staged.reportLost(crashReporter, "an FB2")
             return book
         } catch (e: Throwable) {
             // The final paths are deterministic per book URI: an owned book's cover and pictures
@@ -86,7 +92,10 @@ class Fb2Parser internal constructor(
                     // written never breaks the parse.
                     val target = try {
                         if (isCover) coverFile(filePath, context) else ImageStore.targetFile(context, bytes, "${bookHash}_$id")
-                    } catch (_: Exception) { null }
+                    } catch (e: Exception) {
+                        staged.noteLost(e)
+                        null
+                    }
                     target?.takeIf { t -> staged.stage(t) { it.writeBytes(bytes) } }?.absolutePath
                 }
             },
