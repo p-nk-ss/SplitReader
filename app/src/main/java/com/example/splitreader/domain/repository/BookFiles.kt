@@ -12,4 +12,15 @@ interface BookFiles {
      * for it is released. Best-effort: never throws for a file that cannot be removed.
      */
     suspend fun deleteFor(bookUri: String)
+
+    /**
+     * Deletes the covers and pictures in app storage that belong to none of [libraryUris] -- the
+     * books the library shows. Such files are left by a parse that was still running when its book
+     * was deleted (it then wrote the book's pictures anew) or whose book was never added (the free
+     * limit); nothing else would ever remove them.
+     *
+     * A book whose files are not all older than an hour is never touched: it may be an import that
+     * has not written its library row yet. Best-effort: never throws for a file that cannot be removed.
+     */
+    suspend fun sweepOrphans(libraryUris: Collection<String>)
 }

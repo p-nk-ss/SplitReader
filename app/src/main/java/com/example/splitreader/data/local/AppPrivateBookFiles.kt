@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.file.Files
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,6 +38,40 @@ class AppPrivateBookFiles @Inject constructor(
             "file" -> uri.path?.let { deleteDownload(File(it)) }
             "content" -> releaseReadGrant(uri)
         }
+    }
+
+    override suspend fun sweepOrphans(libraryUris: Collection<String>): Unit = withContext(Dispatchers.IO) {
+        val owned = libraryUris.mapTo(HashSet()) { stableId(it) }
+        val now = System.currentTimeMillis()
+        // Every parser names a book's files by stableId(its library uri), so a file's book is its name's
+        // first 16 hex chars; anything named otherwise (a pre-stableId cover) is not ours to judge.
+        val byBook = HashMap<String, MutableList<File>>()
+        for ((dirName, separator) in listOf("covers" to '.', "images" to '_')) {
+            val children = try { File(context.filesDir, dirName).listFiles() } catch (_: Exception) { null } ?: continue
+            for (f in children) {
+                val id = bookIdOf(f.name, separator) ?: continue
+                if (id !in owned) byBook.getOrPut(id) { ArrayList() }.add(f)
+            }
+        }
+        for (bookFiles in byBook.values) {
+            try {
+                // All of the book's files or none: an import in flight (no library row yet) has fresh
+                // files, and may also show an old one it could not rewrite (StagedFiles.stage).
+                if (bookFiles.any { now - it.lastModified() <= StagedFiles.STALE_TEMP_MILLIS }) continue
+                for (f in bookFiles) {
+                    try {
+                        if (!Files.isSymbolicLink(f.toPath()) && f.isFile) f.delete()
+                    } catch (_: Exception) { /* best-effort */ }
+                }
+            } catch (_: Exception) { /* best-effort */ }
+        }
+    }
+
+    /** The stableId a cover (`<id>.<ext>`) or picture (`<id>_<name>`) file name starts with, or null. */
+    private fun bookIdOf(name: String, separator: Char): String? {
+        if (name.length <= ID_LENGTH || name[ID_LENGTH] != separator) return null
+        val id = name.substring(0, ID_LENGTH)
+        return id.takeIf { it.all { c -> c in '0'..'9' || c in 'a'..'f' } }
     }
 
     private fun deleteChildren(dirName: String, matches: (name: String) -> Boolean) {
@@ -78,5 +113,8 @@ class AppPrivateBookFiles @Inject constructor(
 
     private companion object {
         val DOWNLOAD_DIRS = listOf("catalog", "drive")
+
+        /** Length of a [stableId]. */
+        const val ID_LENGTH = 16
     }
 }

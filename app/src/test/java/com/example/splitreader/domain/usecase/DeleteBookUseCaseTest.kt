@@ -124,6 +124,7 @@ class DeleteBookUseCaseTest {
         val cancelling = FakeBookLibraryRepository(log).apply { put(uri) }
         val cancelOnForget = object : com.example.splitreader.domain.repository.BookFiles {
             override suspend fun deleteFor(bookUri: String) { log += "files $bookUri" }
+            override suspend fun sweepOrphans(libraryUris: Collection<String>) = Unit
         }
         val prefs = FakeReadingPreferences()
         val useCase = DeleteBookUseCase(

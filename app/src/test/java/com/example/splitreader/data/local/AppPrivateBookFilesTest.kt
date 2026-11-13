@@ -140,4 +140,85 @@ class AppPrivateBookFilesTest {
         files.deleteFor("content://books/none")
         files.deleteFor("not a uri at all")
     }
+
+    // ── Orphan sweep ─────────────────────────────────────────────────────────
+
+    private fun old(dir: String, name: String): File = file(dir, name).apply { setLastModified(longAgo) }
+
+    /**
+     * A parse still running when its book is deleted commits its pictures after the delete removed
+     * them: files of a book the library no longer has, which nothing would ever delete.
+     */
+    @Test
+    fun `old covers and pictures of a book that is not in the library are swept`() = runTest {
+        val gone = stableId("content://books/gone")
+        old("covers", "$gone.jpg")
+        old("images", "${gone}_plate1.png")
+        old("images", "${gone}_plate2.jpg.part-${UUID.randomUUID()}")
+
+        files.sweepOrphans(listOf("content://books/x"))
+
+        assertEquals(emptyList<String>(), names("covers"))
+        assertEquals(emptyList<String>(), names("images"))
+    }
+
+    @Test
+    fun `the sweep keeps the files of a book in the library, however old`() = runTest {
+        val uri = "content://books/x"
+        val id = stableId(uri)
+        old("covers", "$id.jpg")
+        old("images", "${id}_plate1.png")
+        old("covers", "${stableId("content://books/gone")}.jpg")
+
+        files.sweepOrphans(listOf(uri))
+
+        assertEquals(listOf("$id.jpg"), names("covers"))
+        assertEquals(listOf("${id}_plate1.png"), names("images"))
+    }
+
+    /** A first import writes its pictures before its library row: fresh files with no book yet. */
+    @Test
+    fun `the sweep keeps fresh files of a book that is not in the library yet`() = runTest {
+        val importing = stableId("content://books/importing")
+        file("covers", "$importing.jpg")
+        file("images", "${importing}_plate1.png")
+        file("images", "${importing}_plate2.png.part-${UUID.randomUUID()}")
+
+        files.sweepOrphans(emptyList())
+
+        assertEquals(1, names("covers").size)
+        assertEquals(2, names("images").size)
+    }
+
+    /**
+     * An import that could not rewrite one picture shows the old file that was there (StagedFiles.stage):
+     * while anything of the book is fresh, nothing of it is an orphan.
+     */
+    @Test
+    fun `one fresh file keeps the book's old files too`() = runTest {
+        val importing = stableId("content://books/importing")
+        old("covers", "$importing.jpg")
+        old("images", "${importing}_plate1.png")
+        file("images", "${importing}_plate2.png")
+
+        files.sweepOrphans(emptyList())
+
+        assertEquals(listOf("$importing.jpg"), names("covers"))
+        assertEquals(listOf("${importing}_plate1.png", "${importing}_plate2.png"), names("images"))
+    }
+
+    @Test
+    fun `the sweep leaves alone what is not named like a book's file, and folders`() = runTest {
+        old("covers", "-1234567.jpg")          // a pre-stableId cover name
+        old("covers", "notes.txt")
+        old("images", "0123456789abcdef.png")  // no "_": not a picture name
+        File(context.filesDir, "images/${stableId("content://books/gone")}_dir").mkdirs()
+        old("catalog", "${stableId("content://books/gone")}.epub")
+
+        files.sweepOrphans(emptyList())
+
+        assertEquals(listOf("-1234567.jpg", "notes.txt"), names("covers"))
+        assertEquals(listOf("${stableId("content://books/gone")}_dir", "0123456789abcdef.png").sorted(), names("images"))
+        assertEquals(1, names("catalog").size)
+    }
 }

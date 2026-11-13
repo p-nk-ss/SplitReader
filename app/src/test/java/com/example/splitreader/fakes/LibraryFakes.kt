@@ -64,6 +64,14 @@ internal class FakeBookFiles(
         log?.add("files $bookUri")
         deleted += bookUri
     }
+
+    /** The library uris each orphan sweep was given. */
+    val sweeps = mutableListOf<List<String>>()
+    var failSweep: Throwable? = null
+    override suspend fun sweepOrphans(libraryUris: Collection<String>) {
+        failSweep?.let { throw it }
+        sweeps += libraryUris.toList()
+    }
 }
 
 /** Nobody is signed in; every sign-in call is an error. */
