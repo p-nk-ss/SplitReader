@@ -23,10 +23,10 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 
 | Prefix | Area | Cases |
 |---|---|---|
-| LAY | Reader layout | 28 |
+| LAY | Reader layout | 30 |
 | APP | Appearance | 30 |
 | POS | Reading position | 25 |
-| NAV | Reader navigation | 17 |
+| NAV | Reader navigation | 18 |
 | BMK | Bookmarks | 14 |
 | ILL | Illustrations | 18 |
 | SYS | System UI (insets, bars) | 13 |
@@ -37,18 +37,18 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | MLK | ML Kit | 11 |
 | LNG | Language detection | 9 |
 | SET | Settings | 17 |
-| LIB | Library | 22 |
+| LIB | Library | 27 |
 | IMP | Import | 14 |
 | PRS | Parsers | 25 |
 | ERR | Errors | 17 |
 | PRM | Premium | 15 |
 | ACC | Account | 21 |
-| CAT | Catalog | 15 |
+| CAT | Catalog | 16 |
 | WRD | Words | 14 |
 | UPD | Updates | 6 |
 | ALM | Almanac | 9 |
-| DAT | Data / upgrade | 6 |
-| | **Total** | **448** |
+| DAT | Data / upgrade | 7 |
+| | **Total** | **458** |
 
 ## Reader-layout
 
@@ -82,6 +82,8 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | LAY-026 | Rotating rapidly during active sync-scroll does not crash | P2 | manual,rotation | Phone portrait, stacked reader, actively mid-scroll-sync | 1. While top/bottom panels are mid-sync, rotate the device twice in quick succession. | No crash; sync-scroll re-establishes cleanly after each recreation. | C1 §3.4 (Errors) |
 | LAY-027 | Split-ratio drag math does not divide by zero at a zero-width pane | P2 | manual | n/a — defensive edge case | 1. If reachable (e.g. an extremely narrow split-screen window), attempt to drag the divider when a pane's width is at/near zero. | No crash/NaN ratio; the drag math clamps safely instead of dividing by zero. | C1 §6 (Errors) |
 | LAY-028 | Rotating with the translation hidden keeps one column and does not turn the translation on | P1 | full, rotation | Translation hidden (Aa → Show translation off), a book open mid-chapter | 1. Rotate portrait → landscape → portrait (on a tablet: landscape → portrait → landscape). 2. Look at the layout after each rotation. 3. Open Aa. | One original-only column in every orientation (never stacked or side-by-side panes); the top paragraph stays the same; "Show translation" is still off. | user request 2026-11-09 (E2E coverage review) |
+| LAY-029 | Stacked reader: a tap on empty space toggles the bars | P0 | smoke,full,phone | Phone portrait, stacked reader, a page with empty space on screen (the gap around a chapter title, the space after a short last paragraph, the divider area) | 1. With the bars hidden, tap empty space where there is no text or picture. 2. Tap the same spot again. | The first tap shows the top bar and the footer, the second hides them — the same toggle as a tap on a paragraph; no tap lands in a dead zone. | release-notes-1.0-28 (A); task-7a-report "Issue A" |
+| LAY-030 | Stacked reader: a tap on a chapter title toggles the bars | P0 | smoke,full,phone | Phone portrait, stacked reader, a chapter title (masthead) on screen in the top pane | 1. With the bars hidden, tap the chapter title. 2. Tap it again. | The bars show, then hide; an open word selection is dismissed first instead of toggling. | release-notes-1.0-27/28 (A) |
 
 ## Appearance
 
@@ -169,6 +171,7 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | NAV-015 | Selected word in Words survives a device rotation | P1 | manual,rotation | Phone, a word selected in Words detail | 1. With a word open in detail, rotate the device. | The selection survives Activity recreation; the detail pane (or side-by-side on the now-wide layout) still shows the same word. | C1 S5.5 |
 | NAV-016 | Keyboard (IME) in Words/Catalog search never covers the input field or displaces the bottom bar | P0 | manual | Phone, Words or Catalog screen with a search field | 1. Tap the search field on Words or Catalog. 2. Observe the keyboard and bottom bar. | The field stays visible above the keyboard; the bottom bar itself does not float above the IME and cover the field. | C1 S3.3, S5.5 |
 | NAV-017 | The reader hides both the rail and the bottom bar across phone and tablet | P1 | full | Any form factor, book open | 1. Open a book on tablet, then on phone. | In both cases, the primary navigation chrome (rail or bottom bar) is hidden while in the reader. | C1 S3.2, S5.5 |
+| NAV-018 | Regression: the chapter picker lands on the chapter's masthead and stays there | P1 | full | Reader open in a multi-chapter book, translation on (rows still settling) | 1. Open the chapter picker. 2. Select a chapter further in the book. 3. Wait a few seconds without touching the screen. 4. Open Bookmarks → "Bookmark this page". | The chapter's title (masthead) is at the top of the page with its first paragraph under it, in both layouts; the view does not drift while translations arrive; the bookmark is saved for that chapter, ¶ 1. | release-notes-1.0-28 (A); commit 068622f |
 
 ## Bookmarks
 
@@ -428,6 +431,11 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | LIB-020 | "Continue reading" button label renders on one line | P1 | full | Any book is the most recently opened | 1. Open Library and view the Continue Reading hero, including at a small-width/split-screen device. | The "CONTINUE READING" button text never wraps to a second line. | continue-reading-synopsis-design §190dp fix (D1) |
 | LIB-021 | Two books with distinct covers show distinct Library thumbnails | P1 | full | Two fixture books imported back-to-back, each with its own embedded cover | 1. Import book A (cover A), then book B (cover B). 2. View the Library grid. 3. Repeat the import a few times. | Book A's card always shows cover A and book B's always shows cover B; no swapped/shared cover between the two (`stableId` content-addressed filenames). | phase1a-parser-dispatch-safety-design P12 (D1) |
 | LIB-022 | FB2 `<annotation>` populates the Continue Reading hero synopsis | P1 | full | Fixture FB2 with a non-empty `<description><title-info><annotation>` | 1. Import the fixture FB2. 2. Return to Library and view the Continue Reading hero. | Hero's center text matches the annotation content (cleaned/trimmed), not a first-paragraph fallback. | continue-reading-synopsis-design + phase1b-fb2-rewrite-design (D1) |
+| LIB-023 | Deleting a book keeps its place and bookmarks, and they return when it is added again | P0 | smoke,full | A book read into a later chapter with ≥1 bookmark; free tier | 1. Delete the book from its card, leaving "Also delete my reading progress, bookmarks and notes" unticked. 2. Add the same file again (a free slot is available). 3. Open Bookmarks. | The book reopens at the place where it was left, not at the start; the bookmark is still listed. | release-notes-1.0-28 (A) |
+| LIB-024 | A removed book frees its free-tier slot even though its reading data is kept | P0 | smoke,full | Non-premium; library at 3/3; one book deleted with the checkbox unticked | 1. Look at the count label. 2. Import a new, different book. | The count drops to "2 VOLUMES" and the removed book has no card; the new book imports without the limit dialog. | release-notes-1.0-28 (A); AddBookToLibraryUseCase.kt |
+| LIB-025 | Adding a removed book back with the library full shows the limit dialog | P0 | smoke,full | Non-premium; a book was deleted (data kept) and the library is at 3/3 again | 1. Open book → pick the removed book's file. 2. Tap Got it. | "Library is full" appears: a removed book needs a free slot like any new one; after Got it the library still shows 3 volumes and no card for it. | release-notes-1.0-28 (A) |
+| LIB-026 | Deleting a book with "Also delete my reading progress, bookmarks and notes" removes them | P0 | smoke,full | A book read into a later chapter with ≥1 bookmark | 1. Delete the book with the checkbox ticked. 2. Add the same file again. 3. Open Bookmarks. | The book opens at its start; Bookmarks shows "No bookmarks yet…". | release-notes-1.0-28 (A) |
+| LIB-027 | Delete dialog: the checkbox is unticked every time, and the text says what happens to the reading data | P1 | full | Library has a book | 1. Tap the delete icon on a book card. 2. Read the text and look at the checkbox. 3. Tick the checkbox. 4. Cancel and open the dialog again. | Text: "… will be removed from your library. Your place, bookmarks and notes are kept in case you add it again."; the checkbox "Also delete my reading progress, bookmarks and notes" is unticked. Ticked, the text ends "Your place, bookmarks and notes will be deleted with it." Reopened, the checkbox is unticked again. | release-notes-1.0-28 (A); HomeCovers.kt |
 
 ## Import
 
@@ -565,6 +573,7 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | CAT-013 | Google Drive import: cancelling the picker shows no stray error or partial entry | P2 | manual | Signed in with Google | 1. Tap "Choose a book from Drive". 2. Cancel/back out of the Drive picker. | "Drive access was cancelled." message shown (or no error UI persists); no crash, no partial library entry. | app strings drive_error_cancelled (D2) |
 | CAT-014 | Google Drive import: a download/network failure shows a clear error | P2 | manual | Signed in with Google; network disabled mid-download | 1. Choose a book from Drive. 2. Disable network mid-download or pick while offline. | "Couldn't load the file from Drive. Check your connection and try again." is shown. | app strings drive_error_download (D2) |
 | CAT-015 | Purchased Google Play Books are not offered as an import source | P2 | manual | N/A | 1. Review Catalog and Drive import entry points for any Play Books integration. | No UI path imports from Google Play Books (ACS4 DRM); only Gutenberg, Standard Ebooks, and Drive file import exist. | CLAUDE.md Catalog ("Play Books intentionally not supported") (D2) |
+| CAT-016 | Google Drive: re-opening an already-owned Drive book at the free-tier cap opens it | P1 | manual | Signed in with Google; non-premium; library at 3/3, one of the books came from Drive | 1. Catalog → Google Drive → pick the Drive file that is already in the library. | The book opens at its saved place without the limit dialog (an owned book is not a new add); still 3 volumes. | release-notes-1.0-28 (A) |
 
 ## Words
 
@@ -620,3 +629,4 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | DAT-004 | A pre-synopsis-migration book shows an empty Continue Reading center until re-imported | P2 | manual | A book imported before the synopsis migration (via the v2/v3 historical-build path), now on the current build | 1. Make the legacy book the most recently opened. 2. View the Continue Reading hero. 3. Re-import the same file. 4. View the hero again. | Before re-import: hero center is empty but the widened layout is intact, no crash/placeholder. After re-import: the synopsis populates normally. | continue-reading-synopsis-design.md legacy `synopsis = null` (D1) |
 | DAT-005 | A release build fails loudly instead of silently wiping the library when no migration path matches | P1 | manual | A release-signed (non-debug) build artifact | 1. Attempt to reproduce a schema state with no matching migration path, or inspect the build's database init code/config. | The release build does not silently fall back to destructive migration and wipe the user's data; it fails loudly (crash/clear error) instead, confirming `fallbackToDestructiveMigration` is debug-only. | db-migration-2-3-design.md §3.3 (D1) |
 | DAT-006 | Reading position is preserved across an in-place app version upgrade | P1 | manual | A book partway through on an old build (known chapter/progress %) | 1. Note the book's current chapter and progress on the old build. 2. Install the current build over it. 3. Open the app and view/reopen that book. | The same chapter and progress percentage are shown after the upgrade; reading position was not reset. | db-migration-2-3-design.md upgrade scope (D1) |
+| DAT-007 | An app update from Play keeps the library, covers and reading positions | P0 | manual | Two consecutive Play builds; the older one installed from Play with ≥2 books that have covers (one imported, one from the Catalog), each read to a known place, one with a bookmark | 1. Note each book's cover, progress and place. 2. Update to the newer build from Play (no uninstall). 3. Open Home. 4. Open each book. | Every book is still in the library with its own cover (no blank or swapped covers); progress on the cards is unchanged; each book opens at the place noted; the bookmark is listed. | release-notes-1.0-28 (A); emulator upgrade v27→v28 |

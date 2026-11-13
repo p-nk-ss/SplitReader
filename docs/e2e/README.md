@@ -1,7 +1,7 @@
 # Mirrolit E2E release gate
 
-Maestro-driven black-box journeys against the real app, traceable to the 448-case catalog
-(`docs/e2e/e2e_test_cases.md`) via `docs/e2e/e2e_journeys.md` (54 journeys, 28 automated). Flows live in
+Maestro-driven black-box journeys against the real app, traceable to the 458-case catalog
+(`docs/e2e/e2e_test_cases.md`) via `docs/e2e/e2e_journeys.md` (55 journeys, 29 automated). Flows live in
 `e2e/flows/`, shared steps in `e2e/subflows/`, fixtures in `e2e/books/`.
 
 ## How to use (tags)
@@ -60,10 +60,10 @@ failures, visual judgement) live in `docs/e2e/manual_checklist.md` (Task 12).
 
 | Prefix | Area | Cases |
 |---|---|---|
-| LAY | Reader layout | 28 |
+| LAY | Reader layout | 30 |
 | APP | Appearance | 30 |
 | POS | Reading position | 25 |
-| NAV | Reader navigation | 17 |
+| NAV | Reader navigation | 18 |
 | BMK | Bookmarks | 14 |
 | ILL | Illustrations | 18 |
 | SYS | System UI (insets, bars) | 13 |
@@ -74,17 +74,17 @@ failures, visual judgement) live in `docs/e2e/manual_checklist.md` (Task 12).
 | MLK | ML Kit | 11 |
 | LNG | Language detection | 9 |
 | SET | Settings | 17 |
-| LIB | Library | 22 |
+| LIB | Library | 27 |
 | IMP | Import | 14 |
 | PRS | Parsers | 25 |
 | ERR | Errors | 17 |
 | PRM | Premium | 15 |
 | ACC | Account | 21 |
-| CAT | Catalog | 15 |
+| CAT | Catalog | 16 |
 | WRD | Words | 14 |
 | UPD | Updates | 6 |
 | ALM | Almanac | 9 |
-| DAT | Data / upgrade | 6 |
-| | **Total** | **448** |
+| DAT | Data / upgrade | 7 |
+| | **Total** | **458** |
 
 Full case detail: `docs/e2e/e2e_test_cases.md`. Step-by-step journeys: `docs/e2e/e2e_journeys.md`.

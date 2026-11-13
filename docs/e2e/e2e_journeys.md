@@ -2,8 +2,8 @@
 
 Real user journeys for release testing. Each journey is a whole session a reader goes through (10–25 steps);
 every verifying step carries a checkpoint "✓ … (IDs)" pointing at the atomic cases in `e2e_test_cases.md`.
-Built 2026-11-06. 54 journeys (28 automated with Maestro, 26 manual) cover all
-448 catalog cases.
+Built 2026-11-06. 55 journeys (29 automated with Maestro, 26 manual) cover all
+458 catalog cases.
 
 Gate: every `smoke` journey passes on tablet API 35 + phone before each Play upload; all automated journeys
 before larger releases (+ tablet API 26); manual journeys on a real device before larger releases.
@@ -24,14 +24,15 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-LIB-10 | A reading day shows up in the Almanac, including an unknown-language book | P1 | full, network, tablet, phone | 8 | 6 |
 | J-LIB-11 | Buying Premium from the full-library dialog (Play license tester) | P0 | manual, network, tablet, phone | 9 | 9 |
 | J-LIB-12 | Premium across reinstall, a second account, refund, backup and the debug override | P0 | manual, network | 7 | 7 |
-| J-LIB-13 | Google account and Drive on a Play-installed build, on a real network | P0 | manual, network, tablet, phone | 13 | 13 |
+| J-LIB-13 | Google account and Drive on a Play-installed build, on a real network | P0 | manual, network, tablet, phone | 14 | 14 |
 | J-LIB-14 | A reading week on real hardware: Almanac stats, saved words with audio, screen fit | P1 | manual, network, tablet, phone | 8 | 9 |
-| J-LIB-15 | In-app update between two Play builds | P0 | manual, network, phone, tablet | 7 | 6 |
+| J-LIB-15 | In-app update between two Play builds | P0 | manual, network, phone, tablet | 8 | 7 |
 | J-LIB-16 | Upgrading an old install in place (DB v2 / v3 → current) | P0 | manual, tablet | 8 | 7 |
 | J-LIB-17 | Release artifact audit before a Play upload | P0 | manual | 9 | 9 |
 | J-LIB-18 | Odd files that need a human eye | P1 | manual, tablet | 4 | 4 |
+| J-LIB-19 | Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them | P0 | smoke, full, tablet, phone | 10 | 6 |
 | J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 14 | 17 |
-| J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 11 | 14 |
+| J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 13 | 17 |
 | J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone | 11 | 8 |
 | J-RDR-04 | Reading to the end: 0% to 100% and back | P0 | smoke, full | 9 | 6 |
 | J-RDR-05 | Appearance smoke: margins and one shared theme | P0 | smoke, full | 9 | 3 |
@@ -73,7 +74,7 @@ Composed 2026-11-06 from the atomic catalog `e2e/e2e_test_cases.md` (prefixes LI
 WRD, UPD, ALM, DAT). Each journey is one realistic session. A step that verifies something ends with
 `→ ✓ <what must be true> (<atomic IDs>)`. A journey fails at its first failed checkpoint; record the ID(s) that failed.
 
-- **Automated journeys** (J-LIB-01 … J-LIB-10) run under Maestro on a **debug** build; real network is allowed where
+- **Automated journeys** (J-LIB-01 … J-LIB-10, J-LIB-19) run under Maestro on a **debug** build; real network is allowed where
   tagged `network`. Account coverage there is screens + validation + a throwaway email/password account only.
 - **Manual journeys** (J-LIB-11 … J-LIB-18) need a real Google account, Play Billing, two Play builds, an old APK,
   or a release artifact.
@@ -116,6 +117,7 @@ Put all fixtures flat in the device's `/sdcard/Download/` (`adb push`, as `e2e/r
 | F-EMPTY | `empty.epub` | Valid container, no extractable content |
 | F-EMPTY-CH1 | `empty-first-chapter.epub` | Malformed: first chapter has zero paragraphs |
 | F-PROSE | `plain-prose.epub` | Plain prose, no tables (position regression) |
+| F-LONG | `en-novel.epub` | "The River Crossing", 22 chapters; every sentence carries a marker ("(1)", "(2)" … in chapter 1, "(ch3.1)" … in chapter 3), so any paragraph on screen tells which chapter the reader is in |
 | F-ZIP-NOTBOOK | `notes.pdf` (in Google Drive) | Unsupported Drive file |
 
 Accounts: `ACC_EXISTING` (pre-created email/password Firebase account, password known), throwaway sign-up address
@@ -144,7 +146,7 @@ Accounts: `ACC_EXISTING` (pre-created email/password Firebase account, password 
 10. Open book → picker → `classic-h2.mobi`; in the reader open the Chapter Picker → ✓ 4 chapters, one per `<h2>`, each starting at its heading (PRS-007); every entry has a readable, non-blank title (PRS-016).
 11. Back to Library → ✓ "3 VOLUMES". Open book → picker → `no-description.epub` → ✓ the library-limit dialog explains the 3-book free limit with Upgrade and Got it; after Got it the library still shows 3 volumes and no new card (LIB-001).
 12. Tap the Alice card → ✓ opens normally, no limit dialog. Back, then Open book → picker → `alice-illustrated.epub` again → ✓ opens, no limit dialog, still "3 VOLUMES" (LIB-002).
-13. Tap the small delete icon in the corner of the Alice card (not a long-press — there is no context menu) → Delete → confirm → ✓ the card disappears at once, "2 VOLUMES" (LIB-004).
+13. Tap the small delete icon in the corner of the Alice card (not a long-press — there is no context menu) → the dialog says the book "will be removed from your library…" → leave the checkbox unticked → Delete → ✓ the card disappears at once, "2 VOLUMES" (LIB-004). (The dialog's checkbox and what it does are J-LIB-19.)
 14. Open book → picker → `no-description.epub` → ✓ imports and opens without the limit dialog (LIB-004).
 15. Back. Outside the app: `adb shell rm /sdcard/Download/no-description.epub` (or revoke the persisted URI grant with `adb shell cmd uri ...`), then tap that book's card → ✓ a HomeErrorDialog explains the file is missing/unavailable; the tap never silently does nothing (ERR-002).
 16. Dismiss the dialog → ✓ app is responsive, other cards still open.
@@ -367,6 +369,26 @@ position-based selector when it isn't showing.
 
 **Covers:** ALM-001, ALM-002, ALM-004, ALM-005, ALM-009, WRD-003
 
+### J-LIB-19 — Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them
+
+**Priority** P0 · **Tags** smoke, full, tablet, phone · **Devices** tablet API 35, phone emulator
+**Fixtures** F-LONG, F-NODESC, F-PROSE, F-COVER-B
+**Preconditions** Fresh install, Settings → Premium (debug) off, signed out, fixtures pushed.
+
+**Steps**
+1. Open book → `en-novel.epub`; in the reader open the Chapter Picker → "Chapter 3 — The Long Crossing" → ✓ the reader lands on that chapter's masthead: its title and its first paragraph ("…(ch3.1)…") are on screen (NAV-018).
+2. Scroll about a screen into chapter 3; Bookmarks (top bar) → "Bookmark this page" → ✓ the row becomes "Remove bookmark here" and the list shows "Chapter 3 — The Long Crossing · ¶ n". Close, Back to Library.
+3. Open book → `no-description.epub`, Back; Open book → `plain-prose.epub`, Back → ✓ "3 VOLUMES" (the free tier is full).
+4. Tap the delete icon on "The River Crossing" → ✓ the text reads "… will be removed from your library. Your place, bookmarks and notes are kept in case you add it again." and "Also delete my reading progress, bookmarks and notes" is **not** ticked; tick it → ✓ the text ends "Your place, bookmarks and notes will be deleted with it."; untick it → ✓ the first text is back (LIB-027).
+5. Delete (checkbox unticked) → ✓ the card is gone, "2 VOLUMES". Open book → `cover-b.epub` → ✓ it imports and opens without the limit dialog — a removed book holds no slot (LIB-024). Back → "3 VOLUMES".
+6. Open book → `en-novel.epub` (the removed book), the library being full again → ✓ "Library is full"; after Got it still "3 VOLUMES" and no card for it (LIB-025).
+7. Delete "The Blue Cover Book" → "2 VOLUMES".
+8. Open book → `en-novel.epub` → ✓ no limit dialog; it opens in chapter 3 where it was left ("…(ch3.n)…" on screen), not at the start; Bookmarks still lists "Chapter 3 — The Long Crossing · ¶ n" (LIB-023). Back → "3 VOLUMES".
+9. Tap the delete icon on "The River Crossing" → ✓ the checkbox is unticked again (LIB-027); tick it → Delete → "2 VOLUMES".
+10. Open book → `en-novel.epub` → ✓ it opens at the start of chapter 1 ("…(1)…" on screen, no chapter 3 text); Bookmarks shows "No bookmarks yet…" (LIB-026). Back → "3 VOLUMES".
+
+**Covers:** NAV-018, LIB-027, LIB-024, LIB-025, LIB-023, LIB-026
+
 ---
 
 # Manual journeys
@@ -426,9 +448,10 @@ position-based selector when it isn't showing.
 10. Repeat steps 3 and 9 on a debug build, then `adb shell run-as io.mirrolit.app ls -R files/` and `adb shell ls /sdcard/Download` → ✓ both files are under app-private `files/` (e.g. `files/catalog/<id>.epub`), nothing new in shared storage; App info → Permissions lists no storage write permission (ERR-016).
 11. Sign out. Continue with Google choosing the address of `ACC_PW` → ✓ the collision message ("This email is registered with Google — use Continue with Google." per strings) instead of a duplicate/broken account (ACC-009).
 12. Sign in as `ACC_UNVERIFIED` → Profile shows "Email not verified". Open the verification link from the inbox in a browser, return to the app, tap Refresh → ✓ "Email verified" without signing out (ACC-011).
-13. Tidy up: delete the test accounts.
+13. Sign in with Google again. Add books until the library shows "3 VOLUMES" (the step-3 Drive EPUB among them), then Catalog → Google Drive → pick the step-3 EPUB once more → ✓ it opens at its saved place without the limit dialog; still "3 VOLUMES" (CAT-016).
+14. Tidy up: delete the test accounts.
 
-**Covers:** ACC-008, ACC-009, ACC-011, ACC-017, ACC-018, CAT-006, CAT-010, CAT-011, CAT-013, CAT-014, CAT-015, ERR-016, LIB-005
+**Covers:** ACC-008, ACC-009, ACC-011, ACC-017, ACC-018, CAT-006, CAT-010, CAT-011, CAT-013, CAT-014, CAT-015, ERR-016, LIB-005, CAT-016
 
 ### J-LIB-14 — A reading week on real hardware: Almanac stats, saved words with audio, screen fit
 
@@ -451,7 +474,7 @@ position-based selector when it isn't showing.
 ### J-LIB-15 — In-app update between two Play builds
 
 **Priority** P0 · **Tags** manual, network, phone, tablet · **Devices** real device installed from the Play internal track
-**Fixtures** F-ALICE with a bookmark and a translated page
+**Fixtures** F-ALICE with a bookmark and a translated page; one Catalog book (Gutenberg) read to a known place
 **Preconditions** Build N installed **from Play**; build N+1 uploaded to the same track and rolled out; a second device/emulator with the same build sideloaded via `adb install`.
 
 **Steps**
@@ -461,9 +484,10 @@ position-based selector when it isn't showing.
 4. While it downloads press Home, wait 20 s, return → ✓ the flow reattaches cleanly: no crash, one banner only, progress not lost (UPD-005).
 5. When ready → ✓ About shows the Restart chip (UPD-006) and the Home banner offers Restart; tap Restart → ✓ the app relaunches on build N+1 (Settings → About version) (UPD-002).
 6. Open F-ALICE → ✓ the reading position, bookmark and translation all work right after the update (UPD-002).
-7. On the sideloaded device open the app ≥ 3 times over the session → ✓ no update banner ever appears and nothing crashes (UPD-004).
+7. Before step 3 note every book's cover, progress and place; after the restart on build N+1 open Home → ✓ every book is still in the library with its own cover (none blank or swapped) and the same progress; each book opens at the place noted and the bookmark is listed (DAT-007).
+8. On the sideloaded device open the app ≥ 3 times over the session → ✓ no update banner ever appears and nothing crashes (UPD-004).
 
-**Covers:** UPD-001, UPD-002, UPD-003, UPD-004, UPD-005, UPD-006
+**Covers:** UPD-001, UPD-002, UPD-003, UPD-004, UPD-005, UPD-006, DAT-007
 
 ### J-LIB-16 — Upgrading an old install in place (DB v2 / v3 → current)
 
@@ -529,22 +553,22 @@ position-based selector when it isn't showing.
 
 | Area | IDs → journey |
 |---|---|
-| LIB | 001 J01 · 002 J01,J02 · 003 J04 · 004 J01 · 005 J02,J13 · 006 J01 · 007 J01 · 008 J08 · 009 J01 · 010 J08 · 011 J08 · 012 J08 · 013 J08 · 014 J08 · 015 J08 · 016 J14 · 017 J01 · 018 J08 · 019 J08 · 020 J01,J08 · 021 J04 · 022 J01,J05 |
+| LIB | 001 J01 · 002 J01,J02 · 003 J04 · 004 J01 · 005 J02,J13 · 006 J01 · 007 J01 · 008 J08 · 009 J01 · 010 J08 · 011 J08 · 012 J08 · 013 J08 · 014 J08 · 015 J08 · 016 J14 · 017 J01 · 018 J08 · 019 J08 · 020 J01,J08 · 021 J04 · 022 J01,J05 · 023–027 J19 |
 | IMP | 001 J04 · 002 J04 · 003 J04 · 004 J05 · 005 J03 · 006 J03 · 007 J03 · 008 J04 · 009 J04,J16 · 010 J01 · 011 J14,J18 (known bug) · 012 J18 · 013 J01 · 014 J04 |
 | PRS | 001–005 J04 · 006 J06 · 007 J01,J06 · 008–011 J06 · 012–013 J05 · 014 J04 · 015 J18 · 016 J01,J04,J05,J06 · 017 J01,J05,J06 · 018 J01,J02 · 019–023 J05 · 024 J01,J05 · 025 J18 |
 | ERR | 001 J07 · 002 J01 · 003–008 J03 · 009–015 J17 · 016 J13 · 017 J17 |
 | PRM | 001–003 J11 · 004 J12 · 005 J11,J17 · 006–008 J12 · 009–011 J11 · 012–013 J12 (013 also J04) · 014–015 J11 |
 | ACC | 001–007 J09 · 008–009 J13 · 010 J09 · 011 J13 · 012–015 J09 (014 also J12) · 016 J07 · 017–018 J13 · 019 J08,J09 · 020 J09 · 021 J14 |
-| CAT | 001–005 J02 (002 also J01) · 006 J13 · 007–009 J02 · 010–011 J13 · 012 J01 · 013–015 J13 |
+| CAT | 001–005 J02 (002 also J01) · 006 J13 · 007–009 J02 · 010–011 J13 · 012 J01 · 013–015 J13 · 016 J13 |
 | WRD | 001–002 J07 · 003 J10 · 004–006 J07 · 007 J14 · 008 J07 · 009 J01 · 010 J07 · 011 J14 · 012–014 J07 |
 | UPD | 001–006 J15 |
 | ALM | 001–002 J10 · 003 J14 · 004–005 J10 (005 also J01) · 006–008 J14 · 009 J10 |
-| DAT | 001–006 J16 |
+| DAT | 001–006 J16 · 007 J15 |
 
 
 # Mirrolit — Reader journeys (LAY · APP · POS · NAV · BMK · ILL · SYS)
 
-Composed from the atomic cases in `e2e/e2e_test_cases.md` (144 cases in this area). Each journey is one
+Composed from the atomic cases in `e2e/e2e_test_cases.md` (148 cases in this area). Each journey is one
 realistic reading session; every verifying step carries an inline checkpoint `→ ✓ … (IDs)`. A journey fails
 at its first failed checkpoint; record the failing IDs, not the journey alone.
 
@@ -599,17 +623,19 @@ translation works without network keys.
 
 1. Open F-LONG from the Library → ✓ the bottom bar is hidden in the reader (NAV-008); the "parallel reading" hint appears with "Got it" and a "Don't show again" checkbox (APP-026).
 2. Tap "Got it" without ticking the box → ✓ original on top, translation below, a horizontal divider between; paragraphs full width (LAY-002).
-3. Tap the page → ✓ the bottom bar shows a percentage on the phone (POS-008).
-4. Scroll forward one paragraph at a time for ~6 paragraphs, revealing the bar after each → ✓ the percentage grows smoothly, not only at chapter boundaries (POS-003).
-5. Open the chapter picker; select chapter 3 → ✓ the view lands on chapter 3's masthead/start (NAV-009).
-6. Scroll so the 5th paragraph of chapter 3 is the top paragraph; tap the bookmark icon → ✓ icon shows bookmarked (BMK-001).
-7. Open the Bookmarks list → ✓ the entry is chapter 3, "¶ 5"-equivalent number matching the real paragraph, not shifted by the masthead (BMK-003, BMK-001); its preview text is that paragraph's own text (BMK-002).
-8. Close the list; tap the bookmark icon again → ✓ the bookmark is removed at once (BMK-005); tap again to re-add it.
-9. Open the chapter picker, go to chapter 1; open Bookmarks, tap the chapter-3 bookmark → ✓ one scroll lands exactly on that paragraph; the icon shows bookmarked (BMK-004).
-10. Back to Library, reopen F-LONG → ✓ the hint shows again because the box was not ticked (APP-028).
-11. Tick "Don't show again", tap "Got it"; Back; reopen F-LONG → ✓ no hint (APP-029); the book reopened on the bookmarked paragraph (POS-013).
+3. With the bars hidden, tap the empty space next to the chapter title (no text, no picture under the finger) → ✓ the bars appear; tap the same spot again → ✓ they hide (LAY-029).
+4. Tap the chapter title itself → ✓ the bars appear; tap it again → ✓ they hide (LAY-030).
+5. Tap the page → ✓ the bottom bar shows a percentage on the phone (POS-008).
+6. Scroll forward one paragraph at a time for ~6 paragraphs, revealing the bar after each → ✓ the percentage grows smoothly, not only at chapter boundaries (POS-003).
+7. Open the chapter picker; select chapter 3 → ✓ the view lands on chapter 3's start (NAV-009): the chapter title (masthead) is at the top of the top pane with its first paragraph under it, and it stays there while the translation arrives (NAV-018).
+8. Scroll so the 5th paragraph of chapter 3 is the top paragraph; tap the bookmark icon → ✓ icon shows bookmarked (BMK-001).
+9. Open the Bookmarks list → ✓ the entry is chapter 3, "¶ 5"-equivalent number matching the real paragraph, not shifted by the masthead (BMK-003, BMK-001); its preview text is that paragraph's own text (BMK-002).
+10. Close the list; tap the bookmark icon again → ✓ the bookmark is removed at once (BMK-005); tap again to re-add it.
+11. Open the chapter picker, go to chapter 1; open Bookmarks, tap the chapter-3 bookmark → ✓ one scroll lands exactly on that paragraph; the icon shows bookmarked (BMK-004).
+12. Back to Library, reopen F-LONG → ✓ the hint shows again because the box was not ticked (APP-028).
+13. Tick "Don't show again", tap "Got it"; Back; reopen F-LONG → ✓ no hint (APP-029); the book reopened on the bookmarked paragraph (POS-013).
 
-**Covers:** NAV-008, APP-026, LAY-002, POS-008, POS-003, NAV-009, BMK-001, BMK-003, BMK-002, BMK-005, BMK-004, APP-028, APP-029, POS-013
+**Covers:** NAV-008, APP-026, LAY-002, LAY-029, LAY-030, POS-008, POS-003, NAV-009, NAV-018, BMK-001, BMK-003, BMK-002, BMK-005, BMK-004, APP-028, APP-029, POS-013
 
 ### J-RDR-03 — Rotation and resume: the paragraph never moves
 **Priority** P0 · **Tags** smoke, full, rotation, phone · **Devices** phone emulator API 35 (Maestro `setOrientation`); repeat on tablet in `full` · **Fixtures** F-LONG · **Preconditions** F-LONG has saved progress mid-chapter (e.g. chapter 8); portrait hint already suppressed.
@@ -890,7 +916,7 @@ Expected to fail until fixed; report, never block. Run as one probing session.
 | Journey | Kind | Priority | IDs |
 |---|---|---|---|
 | J-RDR-01 | smoke · tablet | P0 | 17 |
-| J-RDR-02 | smoke · phone | P0 | 14 |
+| J-RDR-02 | smoke · phone | P0 | 17 |
 | J-RDR-03 | smoke · rotation | P0 | 8 |
 | J-RDR-04 | smoke | P0 | 6 |
 | J-RDR-05 | smoke | P0 | 3 |
