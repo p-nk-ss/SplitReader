@@ -99,6 +99,14 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn:
     text: "Read"
     index: 0
+# dismiss_portrait_hint.yaml: confirmed on-device (Pixel_10_Pro/API 37,
+# `e2e/reports/20261113T081244Z`, step 307) that the phone-only "Parallel reading fits landscape
+# better" dialog (not first-open-only - see that subflow's header) can appear over a book opened
+# straight from Catalog, same as any other reader entry - this flow never routes through
+# import_book.yaml (which already handles it), so every fresh catalog-open below needs its own
+# call, right after the book opens and before the languageChip wait, so "Don't show again" is
+# ticked before it can race any of the reveal-tap sequences that follow.
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
 # Take 7 (2026-11-10): soft wait + reveal-tap fallback, same race/fix as step 9 below (that
 # step's own comment has the full on-device evidence) - confirmed here too this run
 # (Tab_35_PixelTablet): the book opened and was actively translating (screenshot showed real
@@ -345,6 +353,8 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - tapOn:
     text: ".*Henry David Thoreau.*"
+# dismiss_portrait_hint.yaml - see step 4's comment above for the on-device evidence.
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
 # Soft wait + reveal-tap fallback - see step 4's comment above for the on-device evidence (same
 # race, applied consistently to every fresh catalog-open languageChip wait in this flow).
 - extendedWaitUntil:
@@ -393,6 +403,8 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn:
     text: "Read"
     index: 0
+# dismiss_portrait_hint.yaml - see step 4's comment above for the on-device evidence.
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
 # Soft wait + reveal-tap fallback - see step 4's comment above for the on-device evidence (same
 # race, applied consistently to every fresh catalog-open languageChip wait in this flow).
 - extendedWaitUntil:
@@ -500,6 +512,9 @@ tags: [smoke, full, library, network, J-LIB-02]
 - tapOn:
     text: "Read"
     index: 0
+# dismiss_portrait_hint.yaml - see step 4's comment above for the on-device evidence. This is the
+# exact call site the step-307 failure happened at (re-reading Pride and Prejudice, chapter XLIV).
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
 # No `extendedWaitUntil: notVisible: "Library is full"` beforehand - an immediate check can pass
 # trivially before the app has had any time to show the dialog. The real proof the fix works is
 # that the reader's languageChip appears at all: pre-fix, the dialog interrupted here and the
