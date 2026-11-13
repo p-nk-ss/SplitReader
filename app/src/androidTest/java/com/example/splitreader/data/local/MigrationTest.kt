@@ -23,6 +23,13 @@ class MigrationTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val testDbName = "migration-test-v2.db"
 
+    /** Builds a database from a committed schema and validates a migrated one; closes them after the test. */
+    @get:org.junit.Rule
+    val helper = androidx.room.testing.MigrationTestHelper(
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation(),
+        AppDatabase::class.java,
+    )
+
     @Before fun clean() = deleteTestDb()
     @After fun cleanup() = deleteTestDb()
     private fun deleteTestDb() {
@@ -92,6 +99,45 @@ class MigrationTest {
             }
         } finally {
             db.close()
+        }
+    }
+
+    /**
+     * v4 -> v5 alone, from the committed v4 schema (`app/schemas/.../4.json`, an androidTest asset) on
+     * the device's own SQLite: a book and its bookmark survive, `removedAt` is NULL (the book is still
+     * in the library), and Room validates the migrated tables against the v5 schema.
+     */
+    @Test
+    fun v4Data_survives_migration_to_v5() {
+        val name = "migration-test-v4.db"
+        context.getDatabasePath(name).delete()
+        try {
+            helper.createDatabase(name, 4).use { v4 ->
+                v4.execSQL(
+                    "INSERT INTO books (uri, title, author, coverPath, lastOpenedAt, chapterCount, synopsis) " +
+                        "VALUES ('content://book/1', 'War and Peace', 'Tolstoy', '/covers/1.jpg', 111, 42, 'long')"
+                )
+                v4.execSQL(
+                    "INSERT INTO bookmarks (bookUri, chapterIndex, paragraphIndex, label, createdAt) " +
+                        "VALUES ('content://book/1', 3, 7, 'ch4', 333)"
+                )
+            }
+
+            helper.runMigrationsAndValidate(name, 5, true, Migrations.MIGRATION_4_5).use { v5 ->
+                v5.query("SELECT title, synopsis, removedAt FROM books WHERE uri = 'content://book/1'").use { c ->
+                    assertTrue(c.moveToFirst())
+                    assertEquals("War and Peace", c.getString(0))
+                    assertEquals("long", c.getString(1))
+                    assertTrue("a book from before v5 is in the library", c.isNull(2))
+                }
+                v5.query("SELECT chapterIndex, paragraphIndex FROM bookmarks WHERE bookUri = 'content://book/1'").use { c ->
+                    assertTrue(c.moveToFirst())
+                    assertEquals(3, c.getInt(0))
+                    assertEquals(7, c.getInt(1))
+                }
+            }
+        } finally {
+            context.getDatabasePath(name).delete()
         }
     }
 }
