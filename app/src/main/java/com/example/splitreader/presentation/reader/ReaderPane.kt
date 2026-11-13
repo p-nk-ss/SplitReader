@@ -332,6 +332,10 @@ internal fun BookSpread(
     // the bars too. Paragraphs, pictures and chapter titles consume their own taps, so a tap never
     // toggles twice. Without it a book read without the translation (every unsupported language)
     // offered no way to its bars when its first screens were titles and short lines.
+    // The stacked layout (VerticalBookSpread, phones and portrait tablets) mirrors this exactly —
+    // same lambda, same unconsumed-first-down approach — but as one catch-all per pane rather than
+    // one over the whole page, since its two LazyColumns and the horizontal divider between them
+    // are siblings, not nested inside a single page Box the way this spread's rows are.
     val pageTap by rememberUpdatedState { if (wordSelection != null) onDismiss() else onToggleBars() }
     Box(
         modifier = modifier

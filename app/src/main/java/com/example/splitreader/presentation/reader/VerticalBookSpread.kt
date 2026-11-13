@@ -248,6 +248,15 @@ internal fun VerticalBookSpread(
         alignBottomToTop()
     }
 
+    // A tap on what nothing else claims — the gap between rows, the margins beside a short line,
+    // the space around a masthead or below the last row — brings up the bars too, one catch-all
+    // per pane (not one over the whole stack): HorizontalDividerHandle sits between the panes as
+    // its own sibling with its own tap handling, so wrapping only each pane keeps that tap from
+    // ever reaching this one. Mirrors BookSpread's `pageTap` (see its comment) — same lambda, same
+    // unconsumed-first-down approach, so rows that consume their own taps (paragraphs, mastheads,
+    // pictures) never double-toggle here either.
+    val pageTap by rememberUpdatedState { if (wordSelection != null) onDismiss() else onToggleBars() }
+
     Box(
         modifier = modifier
             .testTag(VERTICAL_SPREAD_ROOT)
@@ -257,20 +266,27 @@ internal fun VerticalBookSpread(
 
             // Top pane — original, fully interactive. Applied at the pane, not VerticalBookSpread's
             // root — the root carries the spread's background; insetting it would leave a bare band
-            // beside it (Phase 2b defect #4). `windowInsetsPadding` sits between `weight` and
-            // `testTag`, deliberately NOT "testTag first": `weight` gives this LazyColumn an EXACT
-            // height, and a LayoutModifier measured with exact incoming constraints always reports
-            // that exact size back to its parent regardless of what it does internally — so a
-            // testTag placed outside (before) windowInsetsPadding here reports the pane's full
-            // weighted slot unconditionally and cannot see the inset at all — measured directly
-            // while writing VerticalReaderInsetTest: with the inset applied and testTag first,
-            // `VERTICAL_TOP_PANE`'s reported top stayed 0, identical to no inset at all. testTag has
-            // to sit on the shrunk child windowInsetsPadding actually measures, i.e. last.
-            LazyColumn(
-                state = listState,
+            // beside it (Phase 2b defect #4). The wrapping Box carries `weight` (the pane's exact
+            // height) and the page-tap catch-all; the LazyColumn inside fills it and keeps
+            // `windowInsetsPadding` between `fillMaxSize` and `testTag`, deliberately NOT "testTag
+            // first": `fillMaxSize` gives this LazyColumn the Box's EXACT height, and a
+            // LayoutModifier measured with exact incoming constraints always reports that exact size
+            // back to its parent regardless of what it does internally — so a testTag placed outside
+            // (before) windowInsetsPadding here reports the pane's full slot unconditionally and
+            // cannot see the inset at all — measured directly while writing VerticalReaderInsetTest:
+            // with the inset applied and testTag first, `VERTICAL_TOP_PANE`'s reported top stayed 0,
+            // identical to no inset at all. testTag has to sit on the shrunk child windowInsetsPadding
+            // actually measures, i.e. last.
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(effectiveRatio)
+                    .pointerInput(Unit) { detectTapGestures(onTap = { pageTap() }) },
+            ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
                     .testTag(VERTICAL_TOP_PANE),
             ) {
@@ -312,6 +328,7 @@ internal fun VerticalBookSpread(
                     },
                 )
             }
+            }
 
             HorizontalDividerHandle(
                 ratio = effectiveRatio,
@@ -328,14 +345,20 @@ internal fun VerticalBookSpread(
             // consume its own bottom inset anywhere else (TranslationBubble's navigationBarsPadding
             // covers only the word-selection popup, not this pane), so without this the last line
             // of the translation sits under the gesture bar. Same placement rule as the top pane:
-            // last in the chain, after `weight`, and on the pane itself rather than the spread's
-            // root. Not while the bars are up: the status footer below then pads the same inset, and
-            // both together left a blank band above the footer.
-            LazyColumn(
-                state = translationListState,
+            // `weight` and the page-tap catch-all on the wrapping Box, `windowInsetsPadding`/testTag
+            // last on the LazyColumn itself rather than the spread's root. Not while the bars are up:
+            // the status footer below then pads the same inset, and both together left a blank band
+            // above the footer.
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f - effectiveRatio)
+                    .pointerInput(Unit) { detectTapGestures(onTap = { pageTap() }) },
+            ) {
+            LazyColumn(
+                state = translationListState,
+                modifier = Modifier
+                    .fillMaxSize()
                     .then(
                         if (barsVisible) Modifier
                         else Modifier.windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
@@ -405,6 +428,7 @@ internal fun VerticalBookSpread(
                         Spacer(Modifier.height(style.paragraphSpacing.dp))
                     },
                 )
+            }
             }
         }
 
