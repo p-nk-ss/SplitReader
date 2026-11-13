@@ -218,6 +218,10 @@ tags: [smoke, full, library, J-LIB-01]
 - extendedWaitUntil:
     notVisible: "Open book"
     timeout: 15000
+# Opening from the library (not via import_book.yaml, which already handles this) can still show
+# the phone-only portrait hint (it reappears on every reader entry, not just the first - see
+# dismiss_portrait_hint.yaml's header) - dismiss it before touching the bars below.
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
 - runFlow: ../../subflows/open_bars.yaml
 - assertNotVisible: "Library is full"
 - runFlow: ../../subflows/back_to_library.yaml
@@ -236,6 +240,7 @@ tags: [smoke, full, library, J-LIB-01]
 - extendedWaitUntil:
     notVisible: "Open book"
     timeout: 15000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
 - runFlow: ../../subflows/open_bars.yaml
 - assertVisible: "Alice.s Adventures in Wonderland.*"
 - assertNotVisible: "Library is full"

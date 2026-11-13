@@ -1,0 +1,34 @@
+appId: ${APP_ID}
+---
+# dismiss_portrait_hint: dismisses the phone-only "Parallel reading fits landscape better" dialog
+# (PortraitHintDialog, ReaderDialogs.kt) if it is showing right now, ticking "Don't show again"
+# first so it does not reappear on a LATER book open in the same journey. Idempotent/safe to call
+# whether or not the dialog is up (every step below is optional or gated).
+#
+# This is NOT a one-time-ever dialog, confirmed straight from source (ReaderDialogs.kt:471: "this
+# dialog reappears on every reader entry until the checkbox is ticked") and on-device
+# (Pixel_10_Pro/API 37, `e2e/reports/20261113T065850Z`): J-LIB-01 re-opened alice-illustrated.epub
+# — already dismissed once several books earlier via import_book.yaml's own (un-ticked) "GOT IT"
+# tap — through a DIFFERENT path (pick_file.yaml directly, for an already-owned re-open) that had
+# no dismiss handling at all, and the dialog came back, covering the reader and stalling every
+# subsequent step (bar-reveal taps, Back) behind its modal scrim until the flow's final
+# "Open book" check timed out. Earlier comments in this suite (import_book.yaml's own "the FIRST
+# book ever opened shows a one-time... dialog") were wrong about it being first-open-only; ticking
+# "Don't show again" here, in every shared path that opens a book, is the real fix - not a bigger
+# retry budget on each individual caller.
+#
+# None of J-LIB-01/02/03 test the hint's own appearance/wording (that's APP-026, a dedicated
+# reader journey not yet written — see docs/e2e/e2e_test_cases.md) - they only need it out of the
+# way, so ticking the box here is safe for all current callers.
+- extendedWaitUntil:
+    visible: "GOT IT"
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      visible: "GOT IT"
+    commands:
+      - tapOn:
+          text: "Don't show again"
+          optional: true
+      - tapOn: "GOT IT"

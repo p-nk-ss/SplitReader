@@ -36,31 +36,25 @@ appId: ${APP_ID}
     file: pick_file.yaml
     env:
       FILE: ${FILE}
-# On a phone in portrait, the FIRST book ever opened shows a one-time "Parallel reading fits
-# landscape better" dialog (the portrait hint, ReaderDialogs.kt/EditorialDialog) that covers the
-# whole reader and blocks every check below. Dismiss it here if present (tablets/landscape/
-# second+ opens never show it, so this is a no-op there).
-- tapOn:
-    text: "GOT IT"
-    optional: true
+# On a phone in portrait, opening a book can show the "Parallel reading fits landscape better"
+# dialog (the portrait hint, ReaderDialogs.kt/PortraitHintDialog) that covers the whole reader and
+# blocks every check below. It is NOT first-open-only (confirmed straight from source,
+# ReaderDialogs.kt:471: "this dialog reappears on every reader entry until the checkbox is
+# ticked") - dismiss_portrait_hint.yaml dismisses it here if present (tablets/landscape never show
+# it, so this is a no-op there) AND ticks "Don't show again" so it stays gone for every later
+# import_book.yaml call in the same journey - see that subflow's header for the full on-device
+# evidence (Take 9, 2026-11-13) that a one-off "GOT IT" tap here was not enough on its own.
+- runFlow: dismiss_portrait_hint.yaml
 # Fix round 5 (2026-11-11, Take 8, phone pass): the dialog can appear with a short delay AFTER
-# the tap above already ran as a no-op - confirmed on-device (Pixel_10_Pro/API 37,
-# `e2e/reports/20261111T091606Z`, step 13's alice-illustrated.epub import): the tap above
+# the call above already ran as a no-op - confirmed on-device (Pixel_10_Pro/API 37,
+# `e2e/reports/20261111T091606Z`, step 13's alice-illustrated.epub import): the call above
 # completed with nothing to dismiss, but the very next command's failure screenshot
 # (`scrollUntilVisible` for FIRST_TEXT, 120s timeout genuinely exhausted) showed the dialog now
 # fully covering the screen - its modal scrim swallows the scroll gesture too, so every one of
-# scrollUntilVisible's internal scroll attempts was a no-op for the whole 120s. A short poll +
-# conditional second dismiss right before the scroll catches the dialog's delayed entrance
-# without costing anything when it never appears (the poll is optional and short).
-- extendedWaitUntil:
-    visible: "GOT IT"
-    timeout: 3000
-    optional: true
-- runFlow:
-    when:
-      visible: "GOT IT"
-    commands:
-      - tapOn: "GOT IT"
+# scrollUntilVisible's internal scroll attempts was a no-op for the whole 120s. A second call
+# right before the scroll catches the dialog's delayed entrance without costing anything when it
+# never appears (dismiss_portrait_hint.yaml's own poll is optional and short).
+- runFlow: dismiss_portrait_hint.yaml
 # Required: the paragraph body is never bar-gated, and survives a slow parse+navigate. Timeout
 # 60000 -> 120000: a cover/plate-heavy book (F-ALICE) needs real scroll-and-settle time per step
 # to get through several full-page illustrations before any text appears, worse on a
