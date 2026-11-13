@@ -198,6 +198,7 @@ class ReaderViewModel @Inject constructor(
         // Fold the translation engine's snapshots (translated text + foreground banner state) into UI state.
         viewModelScope.launch {
             engine.state.collect { update ->
+                closeStaleSelection(update.notes)
                 _state.update {
                     it.copy(
                         chapterTranslations = update.translations,
@@ -564,9 +565,9 @@ class ReaderViewModel @Inject constructor(
         // downloaded by the lookup itself, behind the reader's back.
         val note = s.paragraphNotes[chapterIndex]?.get(paragraphIndex)
         val source = when (note) {
-            is ParagraphNote.TranslatedFrom -> note.language
+            is ParagraphNote.TranslatedFrom -> wordLanguage(note, s.sourceLanguage)
             is ParagraphNote.Original, is ParagraphNote.NeedsModel -> null
-            null -> s.sourceLanguage.takeIf { s.translatable }
+            null -> wordLanguage(null, s.sourceLanguage).takeIf { s.translatable }
         }
         selectionTranslator.select(
             word, chapterIndex, paragraphIndex, startChar, endChar,
@@ -577,6 +578,25 @@ class ReaderViewModel @Inject constructor(
             // the whole book's language.
             untranslatable = popupReason(note, s.targetLanguage),
         )
+    }
+
+    /**
+     * A popup is looked up in its paragraph's language as known at the tap. When that paragraph is
+     * then told apart ([newNotes] says another language, or that it can't be looked up at all), the
+     * popup shows a translation from the wrong language -- and Save and Listen, which ask the
+     * paragraph's language now, would disagree with it. Same rule as a language/provider change:
+     * the selection never outlives what it was translated with.
+     */
+    private fun closeStaleSelection(newNotes: Map<Int, Map<Int, ParagraphNote>>) {
+        val sel = selectionTranslator.state.value ?: return
+        val s = _state.value
+        val old = s.paragraphNotes[sel.chapterIndex]?.get(sel.paragraphIndex)
+        val new = newNotes[sel.chapterIndex]?.get(sel.paragraphIndex)
+        if (old == new) return
+        val bookCode = s.sourceLanguage.code
+        if (wordLanguageCode(old, bookCode) != wordLanguageCode(new, bookCode) ||
+            popupReason(old, s.targetLanguage) != popupReason(new, s.targetLanguage)
+        ) selectionTranslator.clear()
     }
 
     fun clearWordSelection() = selectionTranslator.clear()
@@ -617,8 +637,7 @@ class ReaderViewModel @Inject constructor(
                 word = word,
                 contextSnippet = context,
                 // A word from a paragraph in another language is filed under that language.
-                sourceLang = (s.paragraphNotes[chapterIndex]?.get(paragraphIndex) as? ParagraphNote.TranslatedFrom)?.language
-                    ?: s.sourceLanguage,
+                sourceLang = wordLanguage(s.paragraphNotes[chapterIndex]?.get(paragraphIndex), s.sourceLanguage),
                 targetLang = s.targetLanguage,
                 bookUri = book.filePath,
                 bookTitle = book.title,

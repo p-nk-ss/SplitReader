@@ -10,6 +10,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.fakes.FakeReadingPreferences
 import com.example.splitreader.fakes.FakeTranslationRepository
 import com.example.splitreader.fakes.FakeTranslatorSettings
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -33,10 +34,14 @@ class DownloadParagraphLanguageTest {
     @get:Rule val main = MainDispatcherRule()
 
     /** "de: …" paragraphs are German; for the book's language the detector answers English. */
-    private class ByPrefix : LanguageDetector {
+    private class ByPrefix(private val gate: CompletableDeferred<Unit>? = null) : LanguageDetector {
         override suspend fun identify(text: String): String = "en"
-        override suspend fun identifyConfident(text: String): String? =
-            text.substringBefore(':').takeIf { ':' in text && it.length == 2 }
+        override suspend fun identifyConfident(text: String): String? {
+            val code = text.substringBefore(':').takeIf { ':' in text && it.length == 2 }
+            // A slow detector: the paragraph is on screen, and tappable, before it is told apart.
+            if (code != null) gate?.await()
+            return code
+        }
     }
 
     private val tail = " — long enough to be told apart from a short reply or a name, by some margin."
@@ -46,11 +51,11 @@ class DownloadParagraphLanguageTest {
         chapters = listOf(Chapter(index = 0, title = "C", paragraphs = listOf("An English paragraph$tail", german))),
     )
 
-    private suspend fun TestScope.open(repo: FakeTranslationRepository): ReaderViewModelHarness {
+    private suspend fun TestScope.open(repo: FakeTranslationRepository, detector: LanguageDetector = ByPrefix()): ReaderViewModelHarness {
         val h = ReaderViewModelHarness(
             book, prefs = FakeReadingPreferences(), repo = repo,
             settings = FakeTranslatorSettings(current = TranslationProvider.BERGAMOT),
-            detector = ByPrefix(), ioDispatcher = main.dispatcher,
+            detector = detector, ioDispatcher = main.dispatcher,
         )
         backgroundScope.launch { h.vm.uiState.collect {} }
         h.vm.loadBook(h.uri)
@@ -102,6 +107,31 @@ class DownloadParagraphLanguageTest {
         h.vm.saveWord("Brief", 0, 1)
         assertTrue(pollUntil(5_000) { h.savedWords.words.value.isNotEmpty() })
         assertEquals("saved under the paragraph's language", "de", h.savedWords.words.value.single().sourceLang)
+    }
+
+    /**
+     * A word tapped before its paragraph was told apart is looked up in the book's language. When
+     * the paragraph then turns out to be German (pack missing), that popup is stale: read-aloud
+     * already speaks German, and Save used to file the word -- with its "English" translation --
+     * under English.
+     */
+    @Test
+    fun `a popup opened before the paragraph was found to be German is closed, never saved as English`() = runTest(main.dispatcher) {
+        val repo = FakeTranslationRepository().apply { notInstalled += Language.GERMAN }
+        val told = CompletableDeferred<Unit>()
+        val h = open(repo, ByPrefix(told))
+        h.vm.selectWord("Brief", 0, 1, 8, 13)
+        pollUntil(5_000) { h.success().wordSelection?.translation is SelectionTranslation.Ready }
+        assertTrue("popup: ${h.success().wordSelection}", h.success().wordSelection?.translation is SelectionTranslation.Ready)
+        assertEquals("looked up in the book's language: the paragraph is not told apart yet", listOf(Language.ENGLISH), repo.sources.distinct())
+
+        told.complete(Unit)
+        assertTrue(pollUntil(5_000) { h.success().paragraphNotes[0]?.get(1) is ParagraphNote.NeedsModel })
+        h.vm.saveWord("Brief", 0, 1)
+        pollUntil(500) { h.savedWords.words.value.isNotEmpty() }
+
+        assertEquals("nothing is saved from the stale popup", emptyList<String>(), h.savedWords.words.value.map { it.sourceLang })
+        assertEquals(null, h.success().wordSelection)
     }
 
     @Test

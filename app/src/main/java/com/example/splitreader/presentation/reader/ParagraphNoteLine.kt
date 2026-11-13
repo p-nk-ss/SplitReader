@@ -19,6 +19,24 @@ import com.example.splitreader.presentation.theme.JetBrainsMono
 import com.example.splitreader.presentation.theme.LocalReaderPalette
 import com.example.splitreader.presentation.ui.LibraryTagButton
 
+/**
+ * The language code of a paragraph's words: its own when the paragraph is noted as another
+ * language -- whatever happened to its translation -- else the book's ([bookCode]). The one answer
+ * the word popup's lookup, Save and read-aloud share, so a word is never looked up, filed and
+ * spoken in different languages.
+ */
+internal fun wordLanguageCode(note: ParagraphNote?, bookCode: String): String = when (note) {
+    is ParagraphNote.TranslatedFrom -> note.language.code
+    is ParagraphNote.NeedsModel -> note.language.code
+    // Romanised text ("hi-latn") read by a Hindi voice is gibberish: the book's voice reads Latin script.
+    is ParagraphNote.Original -> if (note.code.endsWith("-latn")) bookCode else note.code
+    null -> bookCode
+}
+
+/** [wordLanguageCode] as a [Language]; [book] when the paragraph's language is not one the app translates. */
+internal fun wordLanguage(note: ParagraphNote?, book: Language): Language =
+    Language.fromCodeOrNull(wordLanguageCode(note, book.code)) ?: book
+
 /** What the translation panes need to show paragraphs in another language than the book's. */
 @Immutable
 internal data class ParagraphNotesUi(
@@ -30,13 +48,8 @@ internal data class ParagraphNotesUi(
     fun noteAt(chapter: Int, paragraph: Int): ParagraphNote? = notes[chapter]?.get(paragraph)
 
     /** The language to read a word of this paragraph aloud in: its own when noted, else [bookCode]. */
-    fun speechCode(chapter: Int, paragraph: Int, bookCode: String): String = when (val n = noteAt(chapter, paragraph)) {
-        is ParagraphNote.TranslatedFrom -> n.language.code
-        is ParagraphNote.NeedsModel -> n.language.code
-        // Romanised text ("hi-latn") read by a Hindi voice is gibberish: the book's voice reads Latin script.
-        is ParagraphNote.Original -> if (n.code.endsWith("-latn")) bookCode else n.code
-        null -> bookCode
-    }
+    fun speechCode(chapter: Int, paragraph: Int, bookCode: String): String =
+        wordLanguageCode(noteAt(chapter, paragraph), bookCode)
 }
 
 /**

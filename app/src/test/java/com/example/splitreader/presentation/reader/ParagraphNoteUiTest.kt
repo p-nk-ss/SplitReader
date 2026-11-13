@@ -100,6 +100,31 @@ class ParagraphNoteUiTest {
     }
 
     @Test
+    fun `a word's language is its paragraph's for every kind of note, the same for lookup, Save and Listen`() {
+        val en = Language.ENGLISH
+        val cases = listOf(
+            null to "en",
+            ParagraphNote.TranslatedFrom(Language.GERMAN) to "de",
+            ParagraphNote.NeedsModel(Language.GERMAN, TranslationProvider.BERGAMOT) to "de",
+            ParagraphNote.Original("ru") to "ru",
+            ParagraphNote.Original("la") to "la",
+            // Romanised: no voice and no dictionary of its own, the book's are used.
+            ParagraphNote.Original("hi-latn") to "en",
+        )
+        assertEquals(cases.map { it.second }, cases.map { wordLanguageCode(it.first, "en") })
+        // Save files the word under a language the app knows; an unsupported one falls back to the book's.
+        assertEquals(
+            listOf(en, Language.GERMAN, Language.GERMAN, Language.RUSSIAN, en, en),
+            cases.map { wordLanguage(it.first, en) },
+        )
+        // Listen is the same function.
+        cases.forEachIndexed { i, (note, code) ->
+            val ui = ParagraphNotesUi(if (note == null) emptyMap() else mapOf(0 to mapOf(i to note)))
+            assertEquals(code, ui.speechCode(0, i, "en"))
+        }
+    }
+
+    @Test
     fun `romanised text is read with the book's voice, not a voice for another script`() {
         val ui = ParagraphNotesUi(mapOf(0 to mapOf(2 to ParagraphNote.Original("hi-latn"))))
         assertEquals("en", ui.speechCode(0, 2, "en"))
