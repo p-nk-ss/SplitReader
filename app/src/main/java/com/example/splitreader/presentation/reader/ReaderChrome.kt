@@ -145,7 +145,7 @@ internal fun ReaderTopBar(
 /** Test tags on the reader top bar's icon buttons — all previously unaddressable by text/desc. */
 internal const val READER_BACK_BUTTON = "reader:backButton"
 internal const val READER_TRANSLATOR_PICKER_BUTTON = "reader:translatorPickerButton"
-internal const val READER_CHAPTERS_BUTTON = "reader:chaptersButton"
+// READER_CHAPTERS_BUTTON ("reader:chaptersButton") is declared in VerticalBookSpreadTestTags.kt.
 internal const val READER_BOOKMARKS_BUTTON = "reader:bookmarksButton"
 
 /**
