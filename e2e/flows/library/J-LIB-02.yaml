@@ -57,6 +57,8 @@ tags: [smoke, full, library, network, J-LIB-02]
 #    action (CAT-001)
 - inputText: "Pride and Prejudice"
 - pressKey: Enter
+- hideKeyboard:
+    optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Pride and Prejudice"
@@ -381,6 +383,8 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "Frankenstein"
 - pressKey: Enter
+- hideKeyboard:
+    optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Frankenstein"
@@ -440,6 +444,14 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "Moby Dick"
 - pressKey: Enter
+# hideKeyboard (optional): confirmed on-device (Pixel_10_Pro/API 37, `e2e/reports/20261113T065850Z`,
+# step 240) this step was missing the keyboard-dismissal every other search in this flow already
+# has - the keyboard was STILL open all the way through the "Got it" dialog and into the bottom
+# nav bar tap below (screenshot: "Moby Dick" typed, full Gboard panel up, covering the bottom
+# bar), so the later `tapOn: "Library"` failed with "Element not found" - the Library tab was
+# never hidden by any dialog, just physically covered by the keyboard the search never dismissed.
+- hideKeyboard:
+    optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Moby Dick; Or, The Whale"
@@ -452,6 +464,10 @@ tags: [smoke, full, library, network, J-LIB-02]
     visible: "Library is full"
     timeout: 15000
 - tapOn: "Got it"
+# hideKeyboard again (optional, cheap no-op if already closed): belt-and-braces before navigating
+# via the bottom bar, same reasoning as above - the bottom bar's "Library" tab must be unobscured.
+- hideKeyboard:
+    optional: true
 - tapOn: "Library"
 - assertNotVisible: "Moby Dick"
 # scrollUntilVisible, not a bare assertVisible: same phone-only Continue-Reading-hero-fills-
@@ -474,6 +490,8 @@ tags: [smoke, full, library, network, J-LIB-02]
 - runFlow: ../../subflows/tap_catalog_search.yaml
 - inputText: "Pride and Prejudice"
 - pressKey: Enter
+- hideKeyboard:
+    optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - extendedWaitUntil:
     visible: "Pride and Prejudice"
