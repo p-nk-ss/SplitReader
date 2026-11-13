@@ -2,6 +2,7 @@ package com.example.splitreader.data.local
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -21,6 +22,17 @@ interface BookDao {
     // Upserting a removed book (removedAt = null in the new row) is what brings it back.
     @Upsert
     suspend fun upsert(book: BookEntity)
+
+    /**
+     * Saves [book]; when it comes without a cover (a re-parse whose picture write failed) the cover
+     * stored for the book in the library is kept. The read and the write are ONE transaction: as two
+     * statements, a removal landing between them (it deletes the cover file) was undone by the write,
+     * which brought the book back with the deleted file's path.
+     */
+    @Transaction
+    suspend fun saveKeepingCover(book: BookEntity) {
+        upsert(book.copy(coverPath = book.coverPath ?: coverPathOf(book.uri)))
+    }
 
     // Not filtered: a touch changes nothing a library read can see on a removed row.
     @Query("UPDATE books SET lastOpenedAt = :timestamp WHERE uri = :uri")

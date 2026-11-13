@@ -20,13 +20,13 @@ class BookLibraryRepositoryImpl @Inject constructor(
         bookDao.getAllBooks().map { list -> list.map { it.toDomain() } }
 
     override suspend fun saveBook(book: Book) {
-        bookDao.upsert(
+        bookDao.saveKeepingCover(
             BookEntity(
                 uri = book.filePath,
                 title = book.title,
                 author = book.author,
-                // A re-parse can come back without a cover (its picture write failed): keep the stored one.
-                coverPath = book.coverPath ?: bookDao.coverPathOf(book.filePath),
+                // None (a re-parse whose picture write failed): the DAO keeps the stored one.
+                coverPath = book.coverPath,
                 lastOpenedAt = System.currentTimeMillis(),
                 chapterCount = book.chapters.size,
                 synopsis = book.synopsis,

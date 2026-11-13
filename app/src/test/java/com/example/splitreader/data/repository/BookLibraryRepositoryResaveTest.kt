@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.splitreader.data.local.AppDatabase
+import com.example.splitreader.data.local.BookDao
 import com.example.splitreader.data.local.ReadingSessionEntity
 import com.example.splitreader.data.local.SavedWordEntity
 import com.example.splitreader.domain.model.Book
@@ -114,5 +115,29 @@ class BookLibraryRepositoryResaveTest {
         library.saveBook(book().copy(coverPath = "/covers/x.jpg"))
         library.saveBook(book().copy(coverPath = "/covers/y.jpg"))
         assertEquals("/covers/y.jpg", library.getAllBooks().first().single().coverPath)
+    }
+
+    /**
+     * The stored cover is read and the row written by ONE DAO call (a Room transaction). As two
+     * calls, a removal could land between them: here it does, deterministically, whenever the
+     * repository reads the cover on its own -- and the save then brought the book back with the
+     * cover path of the file that removal deleted.
+     */
+    @Test
+    fun `a removal can not land between reading the stored cover and saving the book`() = runTest {
+        library.saveBook(book().copy(coverPath = "/covers/x.jpg"))
+        val real = db.bookDao()
+        var separateReads = 0
+        val dao = object : BookDao by real {
+            override suspend fun coverPathOf(uri: String): String? =
+                real.coverPathOf(uri).also {
+                    separateReads++
+                    real.markRemoved(uri, 1L) // the removal, right after the read
+                }
+        }
+
+        BookLibraryRepositoryImpl(dao).saveBook(book().copy(coverPath = null))
+
+        assertEquals("the cover was read outside the saving transaction", 0, separateReads)
     }
 }
