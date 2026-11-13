@@ -288,10 +288,13 @@ tags: [smoke, full, library, J-LIB-01]
 - extendedWaitUntil:
     visible: "Delete book"
     timeout: 5000
-# Leading + trailing wildcard: the dialog body is ONE text node, `"<title>" will be removed
-# from your library.` - the bare substring alone never full-matches (same full-match reasoning
-# as the other dialog/card text assertions in this flow; confirmed on-device, Task 7a "Take 2").
-- assertVisible: ".*will be removed from your library.*"
+# Leading + trailing wildcard: the dialog body is ONE text node - since v28 `"<title>" will be
+# removed from your library. Your place, bookmarks and notes are kept in case you add it again.`
+# - the bare substring alone never full-matches (same full-match reasoning as the other
+# dialog/card text assertions in this flow; confirmed on-device, Task 7a "Take 2"). The v28
+# "Also delete my reading progress, bookmarks and notes" checkbox is left un-ticked here; what it
+# does is J-LIB-19.
+- assertVisible: ".*will be removed from your library\\. Your place, bookmarks and notes are kept.*"
 - tapOn: "Delete"
 - assertNotVisible: "Alice's Adventures in Wonderland.*"
 # scrollUntilVisible, not assertVisible: see the comment at this flow's first "VOLUME" check (phone-vs-tablet Home scroll position).
