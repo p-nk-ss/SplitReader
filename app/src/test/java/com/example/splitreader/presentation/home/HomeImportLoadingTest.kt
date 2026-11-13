@@ -66,6 +66,7 @@ class HomeImportLoadingTest {
         override fun getAllBooks(): Flow<List<LibraryBook>> = books
         override suspend fun touchBook(uri: String) = Unit
         override suspend fun deleteBook(uri: String) = Unit
+        override suspend fun removeBook(uri: String) = Unit
         override suspend fun bookCount(): Int = 0
         override suspend fun exists(uri: String): Boolean = false
     }

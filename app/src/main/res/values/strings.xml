@@ -25,6 +25,12 @@
     <string name="purchase_failed">Purchase failed. Please try again.</string>
     <string name="restore_none">No previous purchase found.</string>
 
+    <!-- Delete book confirmation (Library) -->
+    <string name="book_delete_body">\"%1$s\" will be removed from your library.</string>
+    <string name="book_delete_data_kept">Your place, bookmarks and notes are kept in case you add it again.</string>
+    <string name="book_delete_data_deleted">Your place, bookmarks and notes will be deleted with it.</string>
+    <string name="book_delete_also_data">Also delete my reading progress, bookmarks and notes</string>
+
     <!-- Words (dictionary) screen -->
     <string name="words_title">Words</string>
     <string name="words_empty_hint">Long-press any word in the reader\nto save it to your words.</string>

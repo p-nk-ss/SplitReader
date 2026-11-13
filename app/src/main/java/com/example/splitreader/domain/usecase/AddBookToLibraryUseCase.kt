@@ -16,7 +16,9 @@ sealed interface AddResult {
  * The single chokepoint for adding a book to the library, enforcing the free-tier limit.
  *
  * The limit is on the *current* number of books in the library (per device, not per account), so:
- *  - re-opening a book already in the library never counts as "new" (it's an upsert), and
+ *  - re-opening a book already in the library never counts as "new" (it's an upsert),
+ *  - a deleted book is not in the library, even when its bookmarks and notes were kept: it frees its
+ *    slot, and adding it again is "new" and needs one (see [DeleteBookUseCase]), and
  *  - a reinstall wipes books to zero and the count resets with them — there's no lifetime tally to game.
  *
  * Premium users (see [EntitlementRepository]) bypass the limit entirely.

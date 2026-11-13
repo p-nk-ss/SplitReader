@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 
 /**
  * Reproduces the real upgrade path: a database created at the shipped v2 schema (translation_cache
- * + books, no synopsis) must migrate all the way to v4 WITHOUT losing data and WITH the v3 tables
+ * + books, no synopsis) must migrate all the way to the current version (v5) WITHOUT losing data and WITH the v3 tables
  * created. Before MIGRATION_2_3 exists, opening the Room DB throws (no 2->3 path) and this fails.
  */
 @RunWith(AndroidJUnit4::class)
@@ -30,7 +30,7 @@ class MigrationTest {
     }
 
     @Test
-    fun v2Data_survives_migration_to_v4() {
+    fun v2Data_survives_migration_to_current() {
         // 1. Build a raw v2 database (schema as shipped in the initial release) with seed rows.
         val dbFile = context.getDatabasePath(testDbName)
         dbFile.parentFile?.mkdirs()
@@ -54,7 +54,7 @@ class MigrationTest {
             raw.version = 2
         }
 
-        // 2. Open the real Room database on the same file -> runs 2->3->4.
+        // 2. Open the real Room database on the same file -> runs 2->3->4->5.
         val db = Room.databaseBuilder(context, AppDatabase::class.java, testDbName)
             .addMigrations(*Migrations.ALL)
             .build()
@@ -73,6 +73,12 @@ class MigrationTest {
             // synopsis column (added in v4) now exists on the migrated books table.
             sdb.query("SELECT synopsis FROM books WHERE uri = 'content://book/1'").use { c ->
                 assertTrue(c.moveToFirst())
+            }
+
+            // removedAt (added in v5) exists and is NULL: a book from before it is in the library.
+            sdb.query("SELECT removedAt FROM books WHERE uri = 'content://book/1'").use { c ->
+                assertTrue(c.moveToFirst())
+                assertTrue(c.isNull(0))
             }
 
             // 4. New v3 tables exist and accept a row referencing the surviving book via its FK column.

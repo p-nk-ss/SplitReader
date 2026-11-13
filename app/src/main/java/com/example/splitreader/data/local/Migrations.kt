@@ -67,6 +67,13 @@ object Migrations {
         }
     }
 
+    /** `removedAt`: a deleted book whose bookmarks and notes are kept (NULL = in the library). */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE books ADD COLUMN removedAt INTEGER")
+        }
+    }
+
     /** All migrations in ascending order, for the database builder and tests. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }

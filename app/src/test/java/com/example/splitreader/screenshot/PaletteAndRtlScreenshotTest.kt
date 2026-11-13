@@ -46,7 +46,7 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
             uiState = ScreenFixtures.homeUiStateRich,
             onOpenFilePicker = {},
             onOpenFromLibrary = {},
-            onDeleteBook = {},
+            onDeleteBook = { _, _ -> },
             onDismissError = {},
         )
     }
@@ -59,7 +59,7 @@ class PaletteAndRtlScreenshotTest : ScreenshotTest() {
             uiState = ScreenFixtures.homeUiStateRich,
             onOpenFilePicker = {},
             onOpenFromLibrary = {},
-            onDeleteBook = {},
+            onDeleteBook = { _, _ -> },
             onDismissError = {},
         )
     }

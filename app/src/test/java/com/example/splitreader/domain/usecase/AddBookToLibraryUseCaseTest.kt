@@ -41,6 +41,7 @@ class AddBookToLibraryUseCaseTest {
         override fun getAllBooks(): Flow<List<LibraryBook>> = flowOf(emptyList())
         override suspend fun touchBook(uri: String) = Unit
         override suspend fun deleteBook(uri: String) = Unit
+        override suspend fun removeBook(uri: String) = Unit
     }
 
     private class FakeEntitlement(premium: Boolean) : EntitlementRepository {

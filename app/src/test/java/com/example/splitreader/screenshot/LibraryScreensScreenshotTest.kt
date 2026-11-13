@@ -23,7 +23,7 @@ class LibraryScreensScreenshotTest : ScreenshotTest() {
             uiState = ScreenFixtures.homeUiStateRich,
             onOpenFilePicker = {},
             onOpenFromLibrary = {},
-            onDeleteBook = {},
+            onDeleteBook = { _, _ -> },
             onDismissError = {},
         )
     }
@@ -36,7 +36,7 @@ class LibraryScreensScreenshotTest : ScreenshotTest() {
             uiState = ScreenFixtures.homeUiStateRich,
             onOpenFilePicker = {},
             onOpenFromLibrary = {},
-            onDeleteBook = {},
+            onDeleteBook = { _, _ -> },
             onDismissError = {},
         )
     }
@@ -47,7 +47,7 @@ class LibraryScreensScreenshotTest : ScreenshotTest() {
             uiState = ScreenFixtures.homeUiStateRich,
             onOpenFilePicker = {},
             onOpenFromLibrary = {},
-            onDeleteBook = {},
+            onDeleteBook = { _, _ -> },
             onDismissError = {},
         )
     }
@@ -58,7 +58,7 @@ class LibraryScreensScreenshotTest : ScreenshotTest() {
             uiState = ScreenFixtures.homeUiStateRich,
             onOpenFilePicker = {},
             onOpenFromLibrary = {},
-            onDeleteBook = {},
+            onDeleteBook = { _, _ -> },
             onDismissError = {},
         )
     }

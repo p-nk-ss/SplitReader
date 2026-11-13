@@ -34,7 +34,7 @@ class HomeErrorTest {
             SplitReaderTheme {
                 HomeScreen(
                     uiState = ScreenFixtures.homeUiStateRich.copy(errorMessage = "Can't access this file — reopen it via \"Open book\"."),
-                    onOpenFilePicker = {}, onOpenFromLibrary = {}, onDeleteBook = {},
+                    onOpenFilePicker = {}, onOpenFromLibrary = {}, onDeleteBook = { _, _ -> },
                     onDismissError = { dismissed++ },
                 )
             }
@@ -52,7 +52,7 @@ class HomeErrorTest {
             SplitReaderTheme {
                 HomeScreen(
                     uiState = state, onOpenFilePicker = {}, onOpenFromLibrary = { opened += it },
-                    onDeleteBook = {}, onDismissError = {},
+                    onDeleteBook = { _, _ -> }, onDismissError = {},
                 )
             }
         }

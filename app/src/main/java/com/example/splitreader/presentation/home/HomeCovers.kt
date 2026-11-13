@@ -54,6 +54,13 @@ import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import com.example.splitreader.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -154,8 +161,11 @@ internal fun coverSpec(title: String, uri: String): CoverSpec {
 
 // ── Book grid card ────────────────────────────────────────────────────────
 
+/** The delete confirmation's "Also delete my reading progress, bookmarks and notes" checkbox. */
+internal const val DELETE_BOOK_ALSO_DATA_CHECKBOX = "delete_book_also_data_checkbox"
+
 @Composable
-internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> Unit) {
+internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: (alsoReadingData: Boolean) -> Unit) {
     val palette = LocalReaderPalette.current
     val spec = coverSpec(book.title, book.uri)
     val progress = book.progress
@@ -163,6 +173,8 @@ internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> 
     var showConfirmDelete by remember { mutableStateOf(false) }
 
     if (showConfirmDelete) {
+        // Inside the `if`: every time the dialog opens the checkbox is unticked again.
+        var alsoReadingData by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showConfirmDelete = false },
             title = {
@@ -175,19 +187,54 @@ internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: () -> 
                 )
             },
             text = {
-                Text(
-                    text = "\"${book.title}\" will be removed from your library.",
-                    fontFamily = Newsreader,
-                    fontWeight = FontWeight.Normal,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 14.sp,
-                    color = palette.ink2,
-                )
+                Column {
+                    Text(
+                        text = stringResource(R.string.book_delete_body, book.title) + " " + stringResource(
+                            if (alsoReadingData) R.string.book_delete_data_deleted else R.string.book_delete_data_kept
+                        ),
+                        fontFamily = Newsreader,
+                        fontWeight = FontWeight.Normal,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 14.sp,
+                        color = palette.ink2,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    // One toggle for the whole row (label included), read out as a single checkbox.
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .toggleable(
+                                value = alsoReadingData,
+                                role = Role.Checkbox,
+                                onValueChange = { alsoReadingData = it },
+                            )
+                            .testTag(DELETE_BOOK_ALSO_DATA_CHECKBOX),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = alsoReadingData,
+                            onCheckedChange = null,
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = palette.accent,
+                                uncheckedColor = palette.ink3,
+                                checkmarkColor = palette.bg,
+                            ),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.book_delete_also_data),
+                            fontFamily = Newsreader,
+                            fontSize = 14.sp,
+                            color = palette.ink,
+                        )
+                    }
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
                     showConfirmDelete = false
-                    onDelete()
+                    onDelete(alsoReadingData)
                 }) {
                     Text(
                         text = "Delete",

@@ -17,3 +17,9 @@ _Avoid_: scroll position, item index, anchor, current paragraph
 **Bookmark**:
 A Reading position the reader saved on purpose. It always opens at the start of its paragraph.
 _Avoid_: mark, saved position
+
+### Library
+
+**Removed book**:
+A book the reader deleted without ticking "Also delete my reading progress, bookmarks and notes". It is not in the library: no list shows it, it does not count toward the free-tier limit, and adding it again needs a free slot. Its Reading position, progress, bookmarks and notes are kept and return when the same book is added again.
+_Avoid_: archived book, hidden book, soft-deleted book

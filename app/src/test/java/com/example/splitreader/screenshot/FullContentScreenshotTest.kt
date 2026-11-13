@@ -32,7 +32,7 @@ class FullContentScreenshotTest : ScreenshotTest() {
             uiState = ScreenFixtures.homeUiStateRich,
             onOpenFilePicker = {},
             onOpenFromLibrary = {},
-            onDeleteBook = {},
+            onDeleteBook = { _, _ -> },
             onDismissError = {},
         )
     }

@@ -199,8 +199,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun deleteBook(uri: String) {
-        viewModelScope.launch { deleteBookUseCase.delete(uri) }
+    fun deleteBook(uri: String, alsoReadingData: Boolean) {
+        viewModelScope.launch { deleteBookUseCase.delete(uri, alsoReadingData) }
     }
 
     fun dismissError() {

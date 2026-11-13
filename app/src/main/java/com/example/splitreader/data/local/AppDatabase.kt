@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         SavedWordEntity::class,
         ReadingSessionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {

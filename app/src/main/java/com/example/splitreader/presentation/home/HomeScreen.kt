@@ -176,7 +176,7 @@ internal fun HomeScreen(
     uiState: HomeUiState,
     onOpenFilePicker: () -> Unit,
     onOpenFromLibrary: (String) -> Unit,
-    onDeleteBook: (String) -> Unit,
+    onDeleteBook: (uri: String, alsoReadingData: Boolean) -> Unit,
     onDismissError: () -> Unit,
     /** Full-width row above the greeting (the update banner); null adds no row and no gap. */
     topBanner: (@Composable () -> Unit)? = null,
@@ -340,7 +340,7 @@ internal fun HomeScreen(
                     BookCoverCard(
                         book = book,
                         onClick = { onOpenFromLibrary(book.uri) },
-                        onDelete = { onDeleteBook(book.uri) },
+                        onDelete = { alsoReadingData -> onDeleteBook(book.uri, alsoReadingData) },
                     )
                 }
             }

@@ -30,12 +30,16 @@ class BookLibraryRepositoryImpl @Inject constructor(
                 lastOpenedAt = System.currentTimeMillis(),
                 chapterCount = book.chapters.size,
                 synopsis = book.synopsis,
+                // Saving is also how a removed book comes back: it is in the library again.
+                removedAt = null,
             )
         )
     }
 
     override suspend fun touchBook(uri: String) =
         bookDao.updateLastOpenedAt(uri, System.currentTimeMillis())
+
+    override suspend fun removeBook(uri: String) = bookDao.markRemoved(uri, System.currentTimeMillis())
 
     override suspend fun deleteBook(uri: String) = bookDao.deleteByUri(uri)
 

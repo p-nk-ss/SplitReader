@@ -28,22 +28,22 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The Library's delete action removes the whole book, not only its row (see DeleteBookUseCaseTest). */
+/** The Library's delete action goes through DeleteBookUseCase with the dialog's choice (see DeleteBookUseCaseTest). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
 class HomeDeleteBookTest {
 
     @get:Rule val main = MainDispatcherRule(UnconfinedTestDispatcher())
 
-    @Test
-    fun `deleting a book from the library forgets its position and deletes its files`() = runTest(main.dispatcher) {
+    private val uri = "content://books/x"
+    private val library = FakeBookLibraryRepository().apply { put(uri) }
+    private val prefs = FakeReadingPreferences().apply { saveReadingPosition(uri, ReadingPosition(3, 7, 42)) }
+    private val files = FakeBookFiles()
+
+    private fun viewModel(): HomeViewModel {
         val context = ApplicationProvider.getApplicationContext<Application>()
-        val uri = "content://books/x"
-        val library = FakeBookLibraryRepository().apply { put(uri) }
-        val prefs = FakeReadingPreferences().apply { saveReadingPosition(uri, ReadingPosition(3, 7, 42)) }
-        val files = FakeBookFiles()
         val sessions = FakeReadingSessionRepository()
-        val vm = HomeViewModel(
+        return HomeViewModel(
             context = context,
             parseBookUseCase = ParseBookUseCase(
                 setOf(FakeBookParser(Book(title = "T", author = "A", chapters = emptyList(), filePath = ""))),
@@ -59,8 +59,20 @@ class HomeDeleteBookTest {
             getStreakUseCase = GetStreakUseCase(sessions),
             authRepository = SignedOutAuth,
         )
+    }
 
-        vm.deleteBook(uri)
+    @Test
+    fun `deleting a book from the library keeps its position and deletes its files`() = runTest(main.dispatcher) {
+        viewModel().deleteBook(uri, alsoReadingData = false)
+
+        assertFalse(library.exists(uri))
+        assertEquals(ReadingPosition(3, 7, 42), prefs.getReadingPosition(uri))
+        assertEquals(listOf(uri), files.deleted)
+    }
+
+    @Test
+    fun `deleting a book with its reading data forgets its position and deletes its files`() = runTest(main.dispatcher) {
+        viewModel().deleteBook(uri, alsoReadingData = true)
 
         assertFalse(library.exists(uri))
         assertEquals(ReadingPosition.START, prefs.getReadingPosition(uri))
