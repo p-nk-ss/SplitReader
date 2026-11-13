@@ -1,0 +1,293 @@
+appId: ${APP_ID}
+name: J-LIB-19 Removing a book and adding it again
+tags: [smoke, full, library, J-LIB-19]
+# books: en-novel.epub, no-description.epub, plain-prose.epub, cover-b.epub
+---
+# J-LIB-19 — Removing a book and adding it again: the place and bookmarks are kept unless the
+# reader asks to delete them; a removed book frees its free-tier slot.
+# Fixtures: en-novel.epub (F-LONG, "The River Crossing": 22 chapters, every sentence carries a
+# marker — "(1)", "(2)" … in chapter 1, "(ch3.1)", "(ch3.2)" … in chapter 3 — so "where the reader
+# is" can be asserted from any paragraph on screen), no-description.epub (F-NODESC),
+# plain-prose.epub (F-PROSE), cover-b.epub (F-COVER-B).
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-19.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open book -> en-novel.epub; Chapter Picker -> "Chapter 3 — The Long Crossing" -> the reader
+#    lands on that chapter's masthead: its title and its first paragraph are on screen (NAV-018)
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn: ".*The Long Crossing"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch3\\.1\\).*"
+    timeout: 15000
+- assertVisible: ".*The Long Crossing"
+
+# 2. Scroll about a screen into chapter 3, Bookmarks -> "Bookmark this page" -> the bookmark is
+#    listed under chapter 3. Back to Library.
+- scroll
+- assertVisible: ".*\\(ch3\\.\\d+\\).*"
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 5000
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- assertVisible: ".*The Long Crossing · ¶ \\d+"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- runFlow: ../../subflows/back_to_library.yaml
+
+# 3. Add two more books -> "3 VOLUMES" (the free tier is full)
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "no-description.epub"
+      TITLE: "No Description Here"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow: ../../subflows/back_to_library.yaml
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "plain-prose.epub"
+      TITLE: "Plain Prose"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow: ../../subflows/back_to_library.yaml
+# scrollUntilVisible, not assertVisible: on a phone the shelf header can sit below the fold under
+# the Continue Reading hero (same reasoning as every "VOLUMES" check in J-LIB-01).
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+
+# 4. Delete icon on "The River Crossing" -> the dialog says the place, bookmarks and notes are
+#    kept, and its "Also delete…" checkbox is NOT ticked (LIB-027); ticking it changes the text to
+#    "…will be deleted with it."; un-tick it again.
+#
+# The checkbox is addressed by its label, not by its testTag (delete_book_also_data_checkbox):
+# the dialog is a Material AlertDialog — its own window, outside MainActivity's
+# testTagsAsResourceId root — so the tag is not exposed as a resource-id (confirmed with
+# `maestro hierarchy`, Tab_35_PixelTablet: the row has no resource-id). The ticked state sits on
+# the clickable row (a View with checked=true), the label is its child TextView, hence
+# `checked` + `containsChild`. "Not ticked" is `assertNotVisible … checked: true`: the un-ticked
+# row carries no checked=false attribute Maestro could match (confirmed on-device — `checked:
+# false` never matched it).
+- scrollUntilVisible:
+    element:
+      text: "Delete book"
+      childOf:
+        id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "Delete book"
+    childOf:
+      id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: ".*will be removed from your library\\. Your place, bookmarks and notes are kept in case you add it again\\."
+    timeout: 5000
+- assertVisible: "Also delete my reading progress, bookmarks and notes"
+- assertNotVisible:
+    checked: true
+    containsChild:
+      text: "Also delete my reading progress, bookmarks and notes"
+- tapOn: "Also delete my reading progress, bookmarks and notes"
+- extendedWaitUntil:
+    visible: ".*will be removed from your library\\. Your place, bookmarks and notes will be deleted with it\\."
+    timeout: 5000
+- assertVisible:
+    checked: true
+    containsChild:
+      text: "Also delete my reading progress, bookmarks and notes"
+- tapOn: "Also delete my reading progress, bookmarks and notes"
+- extendedWaitUntil:
+    visible: ".*Your place, bookmarks and notes are kept in case you add it again\\."
+    timeout: 5000
+- assertVisible: "Also delete my reading progress, bookmarks and notes"
+- assertNotVisible:
+    checked: true
+    containsChild:
+      text: "Also delete my reading progress, bookmarks and notes"
+
+# 5. Delete (checkbox un-ticked) -> the card is gone, "2 VOLUMES". Open book -> cover-b.epub ->
+#    imports without the limit dialog: a removed book whose data is kept holds no slot (LIB-024)
+- tapOn: "Delete"
+- extendedWaitUntil:
+    notVisible:
+      id: "book_card_The River Crossing"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "· 2 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "cover-b.epub"
+      TITLE: "The Blue Cover Book"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+
+# 6. Open book -> en-novel.epub (the removed book) with the library full again -> the limit
+#    dialog; after Got it still 3 volumes, no card for it (LIB-025)
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "en-novel.epub"
+- extendedWaitUntil:
+    visible: "Library is full"
+    timeout: 10000
+- tapOn: "Got it"
+- assertNotVisible: "Library is full"
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    id: "book_card_The River Crossing"
+
+# 7. Delete "The Blue Cover Book" to make room -> "2 VOLUMES"
+- scrollUntilVisible:
+    element:
+      text: "Delete book"
+      childOf:
+        id: "book_card_The Blue Cover Book"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "Delete book"
+    childOf:
+      id: "book_card_The Blue Cover Book"
+- extendedWaitUntil:
+    visible: ".*will be removed from your library\\..*"
+    timeout: 5000
+- tapOn: "Delete"
+- extendedWaitUntil:
+    notVisible:
+      id: "book_card_The Blue Cover Book"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "· 2 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+
+# 8. Open book -> en-novel.epub -> it opens in chapter 3 where it was left, not at the start,
+#    and Bookmarks still lists the chapter 3 bookmark (LIB-023). Back -> "3 VOLUMES".
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "en-novel.epub"
+- extendedWaitUntil:
+    notVisible: "Open book"
+    timeout: 15000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: ".*\\(ch3\\.\\d+\\).*"
+    timeout: 20000
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: ".*The Long Crossing · ¶ \\d+"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: ".*The Long Crossing · ¶ \\d+"
+    timeout: 5000
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+
+# 9. Delete "The River Crossing" again, this time ticking "Also delete my reading progress,
+#    bookmarks and notes" -> "2 VOLUMES"
+- scrollUntilVisible:
+    element:
+      text: "Delete book"
+      childOf:
+        id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "Delete book"
+    childOf:
+      id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: ".*Your place, bookmarks and notes are kept in case you add it again\\."
+    timeout: 5000
+- assertNotVisible:
+    checked: true
+    containsChild:
+      text: "Also delete my reading progress, bookmarks and notes"
+- tapOn: "Also delete my reading progress, bookmarks and notes"
+- extendedWaitUntil:
+    visible: ".*Your place, bookmarks and notes will be deleted with it\\."
+    timeout: 5000
+- assertVisible:
+    checked: true
+    containsChild:
+      text: "Also delete my reading progress, bookmarks and notes"
+- tapOn: "Delete"
+- extendedWaitUntil:
+    notVisible:
+      id: "book_card_The River Crossing"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "· 2 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+
+# 10. Open book -> en-novel.epub -> it opens at the start of chapter 1 and Bookmarks is empty
+#     (LIB-026)
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "en-novel.epub"
+- extendedWaitUntil:
+    notVisible: "Open book"
+    timeout: 15000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 20000
+- assertNotVisible: ".*\\(ch3\\.\\d+\\).*"
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "No bookmarks yet.*"
+    timeout: 5000
+- assertNotVisible: ".*The Long Crossing · ¶ \\d+"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "No bookmarks yet.*"
+    timeout: 5000
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
