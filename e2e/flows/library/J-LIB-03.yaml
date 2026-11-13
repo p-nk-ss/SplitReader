@@ -194,7 +194,16 @@ tags: [smoke, full, library, J-LIB-03]
 # scrollUntilVisible, not a bare extendedWaitUntil: same phone-only Continue-Reading-hero
 # occlusion as step 13's own check just above (a fresh relaunch reopens Home on the same hero) -
 # a no-op on tablet.
+#
+# timeout 15000 -> 30000: confirmed on-device (Pixel_10_Pro/API 37, `e2e/reports/20261113T083810Z`,
+# step 358) that right after stopApp/launchApp cold-starts the app (Hilt/Room/DataStore init,
+# JIT not yet warm), this scrollUntilVisible timed out with the failure screenshot showing the
+# hero fully scrolled into view ("LAST OPENED" and the bottom nav bar both on screen) and the
+# shelf header still not reached - the identical check at step 13 above (same hero, same device,
+# no cold-start) passed in under 3s immediately before this, so the content/scroll distance isn't
+# the issue - a cold-started app leaves scrollUntilVisible's internal scroll-and-settle loop less
+# real scrolling per second of its budget, not a sign the header is unreachable.
 - scrollUntilVisible:
     element: "· 3 VOLUMES"
     direction: DOWN
-    timeout: 15000
+    timeout: 30000
