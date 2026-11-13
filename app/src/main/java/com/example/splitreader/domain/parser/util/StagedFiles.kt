@@ -144,9 +144,22 @@ class StagedFiles(
         private val TEMP_NAME_PATTERN = Regex("\\.part-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
         /**
+         * True for a `.part-<UUID>` temp file young enough that the parse that wrote it may still be
+         * running (younger than [STALE_TEMP_MILLIS]). Nobody but that parse may delete it; once it is
+         * older, [sweepStale] does.
+         */
+        fun isLiveTemp(file: File, now: Long = System.currentTimeMillis()): Boolean =
+            TEMP_NAME_PATTERN.containsMatchIn(file.name) && now - file.lastModified() <= STALE_TEMP_MILLIS
+
+        /**
          * Deletes `*.part-<UUID>` temp files in `filesDir/covers` and `filesDir/images` older than
          * [STALE_TEMP_MILLIS] -- left by a parse the process died in. A running parse's temps are
          * fresh, so they are never touched. Plain files only; a symbolic link is left alone. Best-effort.
+         *
+         * Known limit: "fresh" is the file's age, not "its parse is alive". A single parse that runs
+         * longer than [STALE_TEMP_MILLIS] after writing a picture can have that temp swept by another
+         * book's parse; its commit then drops that one picture (or keeps the owned file) -- see
+         * [commit] -- and the next open writes it again. Accepted: no parse comes near an hour.
          */
         fun sweepStale(filesDir: File, now: Long = System.currentTimeMillis()) {
             for (dirName in listOf("covers", "images")) {

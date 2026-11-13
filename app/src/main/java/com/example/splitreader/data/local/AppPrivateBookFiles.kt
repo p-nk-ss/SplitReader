@@ -3,6 +3,7 @@ package com.example.splitreader.data.local
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.example.splitreader.domain.parser.util.StagedFiles
 import com.example.splitreader.domain.parser.util.stableId
 import com.example.splitreader.domain.repository.BookFiles
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,7 +18,7 @@ import javax.inject.Singleton
  *
  * File names are the parsers' and downloaders' own: a cover is `covers/<stableId(uri)>.<ext>`, a
  * picture `images/<stableId(uri)>_<name>.<ext>`, each possibly with a `.part-<UUID>` temp next to
- * it (StagedFiles); a catalog book is `catalog/<source>/<id>.epub` and a Drive book
+ * it (StagedFiles; a temp younger than the sweep age is left to its parse or the sweep); a catalog book is `catalog/<source>/<id>.epub` and a Drive book
  * `drive/<fileId>[.<ext>]`, and for those two the book's uri IS the file.
  */
 @Singleton
@@ -41,7 +42,11 @@ class AppPrivateBookFiles @Inject constructor(
     private fun deleteChildren(dirName: String, matches: (name: String) -> Boolean) {
         val children = try { File(context.filesDir, dirName).listFiles() } catch (_: Exception) { null } ?: return
         for (f in children) {
-            try { if (matches(f.name) && f.isFile) f.delete() } catch (_: Exception) { /* best-effort */ }
+            try {
+                // A fresh `.part-<UUID>` may belong to a parse of this book that is still running
+                // (opened, then deleted elsewhere); the parse removes it itself, or the sweep does later.
+                if (matches(f.name) && f.isFile && !StagedFiles.isLiveTemp(f)) f.delete()
+            } catch (_: Exception) { /* best-effort */ }
         }
     }
 

@@ -36,6 +36,8 @@ class AppPrivateBookFilesTest {
         files = AppPrivateBookFiles(context)
     }
 
+    private val longAgo get() = System.currentTimeMillis() - 2 * 60 * 60 * 1000L
+
     private fun file(dir: String, name: String): File =
         File(File(context.filesDir, dir).apply { mkdirs() }, name).apply { writeText("x") }
 
@@ -49,16 +51,40 @@ class AppPrivateBookFilesTest {
         val id = stableId(uri)
         val otherId = stableId(other)
         file("covers", "$id.jpg")
-        file("covers", "$id.png.part-${UUID.randomUUID()}")
+        file("covers", "$id.png.part-${UUID.randomUUID()}").setLastModified(longAgo)
         file("covers", "$otherId.jpg")
         file("images", "${id}_plate1.png")
-        file("images", "${id}_plate2.jpg.part-${UUID.randomUUID()}")
+        file("images", "${id}_plate2.jpg.part-${UUID.randomUUID()}").setLastModified(longAgo)
         file("images", "${otherId}_plate1.png")
 
         files.deleteFor(uri)
 
         assertEquals(listOf("$otherId.jpg"), names("covers"))
         assertEquals(listOf("${otherId}_plate1.png"), names("images"))
+    }
+
+    /**
+     * A parse of this very book may be running (it was opened, then deleted from another screen): its
+     * fresh temps are that parse's working files. Deleting them made its commit fail; the hourly
+     * sweep (StagedFiles.sweepStale) takes them if the parse really died.
+     */
+    @Test
+    fun `temp files a running parse may still be writing are left for the sweep`() = runTest {
+        val uri = "content://books/x"
+        val id = stableId(uri)
+        val freshCover = "$id.png.part-${UUID.randomUUID()}"
+        val freshPicture = "${id}_plate2.jpg.part-${UUID.randomUUID()}"
+        file("covers", "$id.png")
+        file("covers", freshCover)
+        file("images", "${id}_plate2.jpg")
+        file("images", freshPicture)
+        // Not a temp, only named like one: a picture whose own name contains ".part-".
+        file("images", "${id}_pic.part-1.jpg")
+
+        files.deleteFor(uri)
+
+        assertEquals(listOf(freshCover), names("covers"))
+        assertEquals(listOf(freshPicture), names("images"))
     }
 
     @Test
