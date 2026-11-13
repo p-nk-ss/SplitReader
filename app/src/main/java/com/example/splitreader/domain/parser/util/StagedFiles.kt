@@ -1,0 +1,96 @@
+package com.example.splitreader.domain.parser.util
+
+import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.UUID
+
+/**
+ * The cover and pictures a parse writes, held back until the whole parse has succeeded.
+ *
+ * Books are re-parsed on every open, and a parse's final paths (`filesDir/covers/<stableId>.<ext>`,
+ * `filesDir/images/<bookHash>_<name>.<ext>`) are deterministic per book URI -- the SAME files an
+ * owned book's cover and chapter images are. So each file is written to a temp file next to its
+ * target ([stage]); [commit] moves them all over their targets once the parse has succeeded, and
+ * [rollback] deletes them when it fails or is cancelled, leaving the owned files untouched.
+ */
+class StagedFiles(
+    /** Name of the temp file a picture is staged in, next to its final [File]; unique per parse. */
+    private val tempNameFor: (target: File) -> String = DEFAULT_TEMP_NAME,
+) {
+    private class Staged(val temp: File, val target: File)
+
+    private val staged = mutableListOf<Staged>()
+
+    /**
+     * Writes [target]'s new content to a temp file next to it via [write] and stages it. Returns
+     * true when staged; when the write fails (e.g. disk full) the temp is deleted, nothing is staged
+     * -- it can never be moved over the owned file -- and false is returned.
+     */
+    fun stage(target: File, write: (temp: File) -> Unit): Boolean {
+        var temp: File? = null
+        return try {
+            temp = File(target.parentFile, tempNameFor(target))
+            write(temp)
+            staged.add(Staged(temp, target))
+            true
+        } catch (_: Exception) {
+            try { temp?.delete() } catch (_: Exception) { /* best-effort */ }
+            false
+        }
+    }
+
+    /** Moves every staged file over its target (atomic rename, replacing the old file), in staging order. */
+    fun commit() {
+        for (s in staged) {
+            try {
+                Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+        staged.clear()
+    }
+
+    /** Best-effort delete of this parse's temp files (never a target). */
+    fun rollback() {
+        for (s in staged) {
+            try { s.temp.delete() } catch (_: Exception) { /* best-effort */ }
+        }
+        staged.clear()
+    }
+
+    companion object {
+        /** Marks a staged file's temp name: `<final name>.part-<UUID>`. */
+        private const val TEMP_MARKER = ".part-"
+        const val STALE_TEMP_MILLIS = 60 * 60 * 1000L
+
+        val DEFAULT_TEMP_NAME: (File) -> String = { target -> "${target.name}$TEMP_MARKER${UUID.randomUUID()}" }
+
+        /**
+         * Matches only a real temp name's suffix: `.part-<UUID>` (the exact shape [DEFAULT_TEMP_NAME]
+         * produces), anchored at the end of the name. A final picture file whose name happens to
+         * contain the literal substring ".part-" (e.g. an fb2 binary id "pic.part-1") must NOT match.
+         */
+        private val TEMP_NAME_PATTERN = Regex("\\.part-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+        /**
+         * Deletes `*.part-<UUID>` temp files in `filesDir/covers` and `filesDir/images` older than
+         * [STALE_TEMP_MILLIS] -- left by a parse the process died in. A running parse's temps are
+         * fresh, so they are never touched. Plain files only; a symbolic link is left alone. Best-effort.
+         */
+        fun sweepStale(filesDir: File, now: Long = System.currentTimeMillis()) {
+            for (dirName in listOf("covers", "images")) {
+                val children = try { File(filesDir, dirName).listFiles() } catch (_: Exception) { null } ?: continue
+                for (f in children) {
+                    if (!TEMP_NAME_PATTERN.containsMatchIn(f.name)) continue
+                    try {
+                        if (Files.isSymbolicLink(f.toPath()) || !f.isFile) continue
+                        if (now - f.lastModified() > STALE_TEMP_MILLIS) f.delete()
+                    } catch (_: Exception) { /* best-effort */ }
+                }
+            }
+        }
+    }
+}

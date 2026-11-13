@@ -1,6 +1,7 @@
 package com.example.splitreader.domain.parser
 
 import android.content.Context
+import com.example.splitreader.domain.parser.util.StagedFiles
 import java.io.File
 
 /**
@@ -46,16 +47,20 @@ object ImageStore {
         return File(dir, "$safe.${sniffExtension(bytes)}")
     }
 
-    /** As [save], from a picture already on disk (an EPUB entry streamed out of the zip): copied, never loaded whole. */
-    fun save(context: Context, source: File, baseName: String): String? = try {
+    /**
+     * A picture already on disk (an EPUB entry streamed out of the zip), copied -- never loaded whole --
+     * into a temp file staged in [staged] for `filesDir/images/<sanitized baseName>.<sniffed ext>`.
+     * Returns that final path (filled only when [staged] commits), or null if [source] is empty or
+     * anything fails; the owned file at the final path is never touched here.
+     */
+    fun stage(context: Context, source: File, baseName: String, staged: StagedFiles): String? = try {
         if (source.length() == 0L) {
             null
         } else {
             val dir = File(context.filesDir, "images").apply { mkdirs() }
             val safe = baseName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "img" }
             val file = File(dir, "$safe.${sniffExtension(header(source))}")
-            source.copyTo(file, overwrite = true)
-            file.absolutePath
+            file.takeIf { f -> staged.stage(f) { source.copyTo(it) } }?.absolutePath
         }
     } catch (_: Exception) {
         null

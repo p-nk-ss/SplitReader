@@ -6,6 +6,7 @@ import android.util.Log
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
+import com.example.splitreader.domain.parser.util.StagedFiles
 import com.example.splitreader.domain.parser.util.readAllBounded
 import com.example.splitreader.domain.parser.util.stableId
 import java.io.File
@@ -29,6 +30,12 @@ class MobiParser @Inject constructor() : BookParser {
     override val supportedExtensions = listOf("mobi", "prc", "azw")
     override val priority = 10
 
+    /** Test seam: name of the temp file the cover is staged in next to its final [File]. */
+    internal var tempNameFor: (target: File) -> String = StagedFiles.DEFAULT_TEMP_NAME
+
+    /** Test seam: runs once the cover is written, just before the parse succeeds. */
+    internal var afterPictures: suspend () -> Unit = {}
+
     override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
         supportedExtensions.any { fileName.endsWith(".$it", ignoreCase = true) } ||
             mimeType.contains("mobi", ignoreCase = true) ||
@@ -38,6 +45,24 @@ class MobiParser @Inject constructor() : BookParser {
             })
 
     override suspend fun parse(uri: Uri, context: Context): Book {
+        StagedFiles.sweepStale(context.filesDir)
+        // MOBIs are re-parsed on every open and the cover's path is deterministic per book URI --
+        // an owned book's cover IS that file. It is written to a temp file and moved into place only
+        // once the whole parse has succeeded; a failed or cancelled parse (CancellationException
+        // included -- rethrown) only removes its own temp.
+        val staged = StagedFiles(tempNameFor)
+        try {
+            val book = parse(uri, context, staged)
+            coroutineContext.ensureActive()
+            staged.commit()
+            return book
+        } catch (e: Throwable) {
+            staged.rollback()
+            throw e
+        }
+    }
+
+    private suspend fun parse(uri: Uri, context: Context, staged: StagedFiles): Book {
         val bytes = context.contentResolver.openInputStream(uri)?.use { readAllBounded(it, effectiveMaxDecompressed()) }
             ?: throw IllegalStateException("Cannot open file")
 
@@ -95,7 +120,8 @@ class MobiParser @Inject constructor() : BookParser {
         val chapters = buildChapters(html)
         if (chapters.isEmpty()) throw IllegalStateException("No readable text found in MOBI file")
 
-        val coverPath = extractCover(pdb, exth, firstImageIndex, uri.toString(), context)
+        val coverPath = extractCover(pdb, exth, firstImageIndex, uri.toString(), context, staged)
+        afterPictures()
 
         val synopsis = SynopsisExtractor.build(exth[103], chapters.flatMap { it.paragraphs })
 
@@ -167,6 +193,7 @@ class MobiParser @Inject constructor() : BookParser {
         firstImageIndex: Int,
         filePath: String,
         context: Context,
+        staged: StagedFiles,
     ): String? {
         val coverOffset = exth[201]?.toIntOrNull() ?: return null
         if (firstImageIndex < 0) return null
@@ -183,8 +210,7 @@ class MobiParser @Inject constructor() : BookParser {
             val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
             val hash = stableId(filePath)
             val coverFile = File(coversDir, "$hash.$ext")
-            coverFile.writeBytes(img)
-            coverFile.absolutePath
+            coverFile.takeIf { f -> staged.stage(f) { it.writeBytes(img) } }?.absolutePath
         } catch (_: Exception) {
             null
         }

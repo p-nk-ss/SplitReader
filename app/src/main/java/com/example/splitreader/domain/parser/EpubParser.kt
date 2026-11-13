@@ -6,6 +6,7 @@ import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.Chapter
 import com.example.splitreader.domain.model.ChapterImage
 import com.example.splitreader.domain.parser.util.MAX_DECOMPRESSED
+import com.example.splitreader.domain.parser.util.StagedFiles
 import com.example.splitreader.domain.parser.util.effectiveMaxDecompressed
 import com.example.splitreader.domain.parser.util.readZipEntries
 import com.example.splitreader.domain.parser.util.stableId
@@ -14,6 +15,8 @@ import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
 import java.io.File
 import javax.inject.Inject
+import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.ensureActive
 
 class EpubParser @Inject constructor() : BookParser {
 
@@ -30,6 +33,12 @@ class EpubParser @Inject constructor() : BookParser {
 
     /** A seam so tests can control "now" for the stale-spill-dir sweep without real file-system timing. */
     internal var nowMillis: () -> Long = System::currentTimeMillis
+
+    /** Test seam: name of the temp file a picture is staged in next to its final [File]. */
+    internal var tempNameFor: (target: File) -> String = StagedFiles.DEFAULT_TEMP_NAME
+
+    /** Test seam: runs once every picture and the cover are written, just before the parse succeeds. */
+    internal var afterPictures: suspend () -> Unit = {}
 
     override fun canParse(fileName: String, mimeType: String, header: ByteArray): Boolean =
         fileName.endsWith(".epub", ignoreCase = true) ||
@@ -55,14 +64,26 @@ class EpubParser @Inject constructor() : BookParser {
         // its folder behind forever; sweep ones old enough that no parse could still be using them.
         // This parse's own folder is excluded so a sweep never races a concurrent parse.
         sweepStaleSpillDirs(context.cacheDir, SPILL_PREFIX, STALE_SPILL_AGE_MILLIS, keep = spillDir, now = nowMillis())
+        StagedFiles.sweepStale(context.filesDir)
+        // EPUBs are re-parsed on every open and the final picture/cover paths are deterministic per
+        // book URI -- an owned book's files ARE them. Everything is written to temp files and moved
+        // into place only once the whole parse has succeeded; a failed or cancelled parse
+        // (CancellationException included -- rethrown) only removes its own temps.
+        val staged = StagedFiles(tempNameFor)
         try {
-            return parse(uri, context, spillDir)
+            val book = parse(uri, context, spillDir, staged)
+            coroutineContext.ensureActive()
+            staged.commit()
+            return book
+        } catch (e: Throwable) {
+            staged.rollback()
+            throw e
         } finally {
             spillDir.deleteRecursively()
         }
     }
 
-    private suspend fun parse(uri: Uri, context: Context, spillDir: File): Book {
+    private suspend fun parse(uri: Uri, context: Context, spillDir: File, staged: StagedFiles): Book {
         val textExtensions = setOf("xml", "html", "xhtml", "opf", "ncx", "htm")
         val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "webp", "svg")
         fun ext(name: String) = name.substringAfterLast('.').lowercase()
@@ -107,6 +128,7 @@ class EpubParser @Inject constructor() : BookParser {
         val coverKey = opf.coverHref?.let { normalizePath(opfDir + decodeSrc(it)) }
 
         opf.spineIds.filter { id -> id !in opf.navItemIds }.forEach { id ->
+            coroutineContext.ensureActive()
             val href = opf.manifestMap[id] ?: return@forEach
             val fullPath = "$opfDir$href"
             val htmlContent = entryMap[fullPath] ?: entryMap[href] ?: return@forEach
@@ -119,7 +141,7 @@ class EpubParser @Inject constructor() : BookParser {
                 // The reader can't draw SVG; a newly collected one (title pages) would be an empty
                 // slot. Images the old parser produced stay as they were (legacy layout).
                 if (!ref.inLegacyLayout && (key(ref).endsWith(".svg", true) || ImageStore.header(file).firstOrNull() == '<'.code.toByte())) return null
-                return ImageStore.save(context, file, "${bookHash}_${key(ref).substringAfterLast('/')}")
+                return ImageStore.stage(context, file, "${bookHash}_${key(ref).substringAfterLast('/')}", staged)
             }
 
             if (result.isImageOnly) {
@@ -169,9 +191,10 @@ class EpubParser @Inject constructor() : BookParser {
             val fullCoverPath = if (opfDir.isEmpty()) href else "$opfDir$href"
             val coverFile = resolveImage(href, opfDir, imageMap)
                 ?: imageMap[fullCoverPath]
-            coverFile?.let { saveCover(context, it, uri.toString(), fullCoverPath) }
+            coverFile?.let { saveCover(context, it, uri.toString(), fullCoverPath, staged) }
         }
 
+        afterPictures()
         val synopsis = SynopsisExtractor.build(opf.description, chapters.flatMap { it.paragraphs })
         return Book(opf.title, opf.author, chapters, uri.toString(), coverPath, synopsis)
     }
@@ -247,15 +270,14 @@ class EpubParser @Inject constructor() : BookParser {
         return imageMap.entries.firstOrNull { it.key.endsWith("/$basename", ignoreCase = true) }?.value
     }
 
-    /** Copies the cover [source] to filesDir/covers/<stableId>.<ext> and returns its absolute path. */
-    private fun saveCover(context: Context, source: File, uriKey: String, coverEntryPath: String): String? =
+    /** Stages a copy of the cover [source] for filesDir/covers/<stableId>.<ext>; returns that final path. */
+    private fun saveCover(context: Context, source: File, uriKey: String, coverEntryPath: String, staged: StagedFiles): String? =
         try {
             val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
             val ext = coverEntryPath.substringAfterLast('.', "jpg").lowercase()
                 .takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"
             val coverFile = File(coversDir, "${stableId(uriKey)}.$ext")
-            source.copyTo(coverFile, overwrite = true)
-            coverFile.absolutePath
+            coverFile.takeIf { f -> staged.stage(f) { source.copyTo(it) } }?.absolutePath
         } catch (_: Exception) {
             null
         }
