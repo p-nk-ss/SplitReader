@@ -22,6 +22,9 @@ private const val DRIVE_FILES_BASE = "https://www.googleapis.com/drive/v3/files"
 /** File extensions our parsers recognise; used to keep the local file name routable. */
 private val BOOK_EXTENSIONS = setOf("epub", "fb2", "mobi", "prc", "azw", "azw3")
 
+/** A download in flight is `<fileId>.part`; renamed to the book's name only when complete. */
+private const val DOWNLOAD_TEMP_SUFFIX = ".part"
+
 /** Drive mime → extension, for files whose name carries no recognisable book extension. */
 private val MIME_TO_EXTENSION = mapOf(
     "application/epub+zip" to "epub",
@@ -65,7 +68,7 @@ class DriveRepositoryImpl @Inject constructor(
                 }
                 // Stream to a temp file first so a failed/partial download never leaves a truncated
                 // file that the parser would later choke on (same guard as the catalog download).
-                val tmp = File(dir, "${file.fileId}.part")
+                val tmp = File(dir, "${file.fileId}$DOWNLOAD_TEMP_SUFFIX")
                 body.byteStream().use { input ->
                     tmp.outputStream().use { output -> input.copyTo(output) }
                 }
@@ -78,14 +81,19 @@ class DriveRepositoryImpl @Inject constructor(
             Uri.fromFile(target)
         }
 
-    override fun localUriFor(file: DrivePickedFile): Uri? {
-        val dir = File(context.filesDir, "drive")
-        // Name-independent: the extension (if any) was derived from Drive metadata at download time.
-        val match = dir.listFiles()?.firstOrNull {
-            it.isFile && it.length() > 0 && (it.name == file.fileId || it.name.substringBeforeLast('.') == file.fileId)
-        }
-        return match?.let { Uri.fromFile(it) }
+    override suspend fun localUriFor(file: DrivePickedFile): Uri? = withContext(Dispatchers.IO) {
+        File(context.filesDir, "drive").listFiles()
+            ?.firstOrNull { it.isFile && it.length() > 0 && isDownloadOf(file.fileId, it.name) }
+            ?.let { Uri.fromFile(it) }
     }
+
+    /**
+     * Exactly the names [downloadFile] saves a book under: `<fileId>` or `<fileId>.<book extension>`
+     * (the extension came from Drive metadata at download time, so it is not known here). Anything
+     * else -- above all the in-flight `<fileId>$DOWNLOAD_TEMP_SUFFIX` -- is not the book.
+     */
+    private fun isDownloadOf(fileId: String, name: String): Boolean =
+        name == fileId || (name.startsWith("$fileId.") && name.substring(fileId.length + 1).lowercase() in BOOK_EXTENSIONS)
 
     private fun fetchMetadata(fileId: String, accessToken: String): Pair<String, String?> {
         val request = Request.Builder()

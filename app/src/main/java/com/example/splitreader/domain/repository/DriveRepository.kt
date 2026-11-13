@@ -20,6 +20,7 @@ interface DriveRepository {
     /**
      * The `file://` [Uri] of [file] if it was already downloaded (the target path is deterministic:
      * `drive/<fileId>[.ext]`), else null. Lets callers recognise an owned book before downloading.
+     * A download still in flight (`<fileId>.part`) is not a book. Reads the folder off the main thread.
      */
-    fun localUriFor(file: DrivePickedFile): Uri?
+    suspend fun localUriFor(file: DrivePickedFile): Uri?
 }

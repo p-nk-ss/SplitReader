@@ -56,7 +56,7 @@ class DriveViewModelTest {
             return Uri.fromFile(t)
         }
         // Like the real repository: only a file that is already on disk is "local".
-        override fun localUriFor(file: DrivePickedFile): Uri? =
+        override suspend fun localUriFor(file: DrivePickedFile): Uri? =
             target(file).takeIf { it.exists() }?.let { Uri.fromFile(it) }
         fun preexisting(f: DrivePickedFile) = target(f).writeBytes(ByteArray(8))
     }
@@ -96,8 +96,9 @@ class DriveViewModelTest {
 
     private val picked = DrivePickedFile(fileId = "abc123", name = "b.epub")
     private lateinit var repo: FakeDriveRepository
+    private val parser = FakeBookParser(Book(title = "T", author = "A", chapters = emptyList(), filePath = ""))
 
-    private fun viewModel(library: FakeLibrary, premium: Boolean = false): DriveViewModel {
+    private fun viewModel(library: FakeLibrary, premium: Boolean = false, realRepo: DriveRepository? = null): DriveViewModel {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val dir = File(context.cacheDir, "drive-test-${System.nanoTime()}").apply { mkdirs() }
         repo = FakeDriveRepository(dir)
@@ -105,9 +106,9 @@ class DriveViewModelTest {
             context = context,
             authRepository = SignedOutAuth,
             driveAuthClient = DriveAuthClient(),
-            driveRepository = repo,
+            driveRepository = realRepo ?: repo,
             parseBookUseCase = ParseBookUseCase(
-                setOf(FakeBookParser(Book(title = "T", author = "A", chapters = emptyList(), filePath = ""))),
+                setOf(parser),
                 context,
                 FakeCrashReporter(),
             ),
@@ -166,5 +167,28 @@ class DriveViewModelTest {
         run(vm, navigated)
         assertFalse(vm.uiState.value.showLimitDialog)
         assertEquals(1, navigated.size)
+    }
+
+    /**
+     * The file is on disk (a download that was never added, or a book deleted with its row while the
+     * file survived) but the library has NO row for it: it is a new book and the cap applies. Uses
+     * the real repository, so "it is on disk" is the real folder lookup.
+     */
+    @Test
+    fun `a drive file on disk with no library row at the cap shows the limit dialog`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val onDisk = File(File(context.filesDir, "drive").apply { mkdirs() }, "${picked.fileId}.epub").apply { writeBytes(ByteArray(8)) }
+        val real = com.example.splitreader.data.repository.DriveRepositoryImpl(okhttp3.OkHttpClient(), context)
+        // (Not asked here: the lookup hops to Dispatchers.IO, and resuming this unconfined test body
+        // there would queue the view model's coroutine behind it. DriveRepositoryImplTest covers it.)
+        val vm = viewModel(FakeLibrary(FREE_BOOK_LIMIT, mutableSetOf("/a", "/b", "/c")), realRepo = real)
+        val navigated = mutableListOf<String>()
+
+        run(vm, navigated)
+
+        assertTrue("a file on disk is not an owned book", vm.uiState.value.showLimitDialog)
+        assertEquals(emptyList<String>(), navigated)
+        assertEquals("stopped at the gate, before the file on disk is parsed", 0, parser.parses.get())
+        onDisk.delete()
     }
 }
