@@ -7,6 +7,7 @@ import com.example.splitreader.data.local.TextToSpeechManager
 import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.data.mlkit.MlKitLanguageDetector
+import com.example.splitreader.data.local.AppPrivateBookFiles
 import com.example.splitreader.data.repository.BookLibraryRepositoryImpl
 import com.example.splitreader.data.repository.EntitlementRepositoryImpl
 import com.example.splitreader.data.repository.BookmarkRepositoryImpl
@@ -15,6 +16,7 @@ import com.example.splitreader.data.repository.ReadingSessionRepositoryImpl
 import com.example.splitreader.data.repository.SavedWordRepositoryImpl
 import com.example.splitreader.data.translator.TranslatorSettingsImpl
 import com.example.splitreader.domain.LanguageDetector
+import com.example.splitreader.domain.repository.BookFiles
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.EntitlementRepository
 import com.example.splitreader.domain.repository.BookmarkRepository
@@ -47,6 +49,9 @@ object AppModule {
 
     @Provides @Singleton
     fun provideBookLibraryRepository(impl: BookLibraryRepositoryImpl): BookLibraryRepository = impl
+
+    @Provides @Singleton
+    fun provideBookFiles(impl: AppPrivateBookFiles): BookFiles = impl
 
     @Provides @Singleton
     fun provideEntitlementRepository(impl: EntitlementRepositoryImpl): EntitlementRepository = impl

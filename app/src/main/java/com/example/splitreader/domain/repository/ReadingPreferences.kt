@@ -21,7 +21,11 @@ interface ReadingPreferences {
     fun getExcerpt(bookUri: String): String?
     fun markFinished(bookUri: String)
     fun isFinished(bookUri: String): Boolean
-    fun clearProgress(bookUri: String)
+    /**
+     * Forgets everything stored for [bookUri] (position, progress, excerpt, finished, its source
+     * language, migration state), so the same file imported again starts as a new book.
+     */
+    fun forgetBook(bookUri: String)
     /** The language the reader chose for [bookUri]'s text; null = detect it (the default). */
     fun getSourceLanguage(bookUri: String): Language?
     fun saveSourceLanguage(bookUri: String, language: Language?)

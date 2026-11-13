@@ -169,16 +169,13 @@ class ReadingProgressManager @Inject constructor(
     override fun isFinished(bookUri: String): Boolean =
         prefs.getBoolean("finished_$bookUri", false)
 
-    override fun clearProgress(bookUri: String) {
-        prefs.edit()
-            .remove("last_chapter_$bookUri")
-            .remove("last_paragraph_$bookUri")
-            .remove("last_paragraph_offset_$bookUri")
-            .remove("finished_$bookUri")
-            .remove("last_excerpt_$bookUri")
-            .remove("progress_$bookUri")
-            .remove("source_language_$bookUri")
-            .apply()
+    /** Every per-book key this class writes, legacy ones included; keep in step with the writers above. */
+    override fun forgetBook(bookUri: String) {
+        val edit = prefs.edit()
+        for (prefix in PER_BOOK_KEY_PREFIXES) edit.remove(prefix + bookUri)
+        legacyScrollKeys(bookUri).forEach { edit.remove(it) }
+        if (prefs.getString("last_book_uri", null) == bookUri) edit.remove("last_book_uri")
+        edit.apply()
     }
 
     override fun saveTargetLanguage(language: Language) {
@@ -219,4 +216,11 @@ class ReadingProgressManager @Inject constructor(
     }
 
     override fun getTtsPitch(): Float = prefs.getFloat("tts_pitch", ReadingDefaults.TTS_PITCH)
+
+    private companion object {
+        val PER_BOOK_KEY_PREFIXES = listOf(
+            "last_chapter_", "last_paragraph_", "last_paragraph_offset_", "position_v2_",
+            "progress_", "last_excerpt_", "finished_", "source_language_",
+        )
+    }
 }

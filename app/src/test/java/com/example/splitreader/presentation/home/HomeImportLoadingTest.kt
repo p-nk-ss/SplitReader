@@ -12,9 +12,12 @@ import com.example.splitreader.domain.model.LibraryBook
 import com.example.splitreader.domain.repository.AuthRepository
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase
+import com.example.splitreader.domain.usecase.DeleteBookUseCase
 import com.example.splitreader.domain.usecase.GetStreakUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
+import com.example.splitreader.fakes.FakeBookFiles
 import com.example.splitreader.fakes.FakeBookParser
+import com.example.splitreader.fakes.SignedOutAuth
 import com.example.splitreader.fakes.FakeCrashReporter
 import com.example.splitreader.fakes.FakeEntitlementRepository
 import com.example.splitreader.fakes.FakeReadingPreferences
@@ -71,23 +74,6 @@ class HomeImportLoadingTest {
         uri = uri, title = "T", author = "A", coverPath = null, lastOpenedAt = 0L, chapterCount = 0, synopsis = null,
     )
 
-    private object SignedOutAuth : AuthRepository {
-        override val authState: Flow<AuthState> = flowOf(AuthState.SignedOut)
-        override val currentUser: AuthUser? = null
-        private fun no(): AuthResult = error("not used")
-        override suspend fun registerWithEmail(email: String, password: String, displayName: String?) = no()
-        override suspend fun signInWithEmail(email: String, password: String) = no()
-        override suspend fun signInWithGoogle(activityContext: Context) = no()
-        override suspend fun sendEmailVerification() = no()
-        override suspend fun reloadUser() = no()
-        override suspend fun sendPasswordReset(email: String) = no()
-        override fun signOut() = Unit
-        override suspend fun deleteAccount() = no()
-        override suspend fun reauthenticateWithPassword(password: String) = no()
-        override suspend fun reauthenticateWithGoogle(activityContext: Context) = no()
-        override suspend fun signInMethodsForEmail(email: String): List<String> = emptyList()
-    }
-
     @Test
     fun `the screen stays in loading until the imported book is saved`() = runTest(main.dispatcher) {
         val context = ApplicationProvider.getApplicationContext<Application>()
@@ -103,6 +89,7 @@ class HomeImportLoadingTest {
             ),
             bookLibraryRepository = library,
             addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlementRepository()),
+            deleteBookUseCase = DeleteBookUseCase(library, FakeReadingPreferences(), FakeBookFiles()),
             progressManager = FakeReadingPreferences(),
             sessionRepository = sessions,
             savedWordRepository = FakeSavedWordRepository(),

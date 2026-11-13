@@ -106,18 +106,46 @@ class ReadingProgressManagerReadingPositionTest {
     }
 
     @Test
-    fun `clearProgress forgets the Reading position`() {
+    fun `forgetting a book removes every key stored for it`() {
+        seedLegacy("/b/x", chapter = 2, item = 5, offset = 30)
         manager.saveReadingPosition("/b/x", ReadingPosition(3, 7, 42))
-        manager.clearProgress("/b/x")
+        manager.saveProgress("/b/x", 0.25f)
+        manager.saveExcerpt("/b/x", "excerpt")
+        manager.markFinished("/b/x")
+        manager.saveSourceLanguage("/b/x", com.example.splitreader.domain.model.Language.GERMAN)
+        manager.completeReadingPositionMigration("/b/x", ReadingPosition(3, 7, 42))
+        seedLegacy("/b/x", chapter = 3, item = 5, offset = 30)
+
+        manager.forgetBook("/b/x")
+
+        assertEquals(emptyList<String>(), prefs.all.keys.filter { "/b/x" in it }.sorted())
         assertEquals(ReadingPosition.START, manager.getReadingPosition("/b/x"))
+        assertNull(manager.getProgress("/b/x"))
+        assertFalse(manager.isFinished("/b/x"))
+        // Not "migrated": a re-import has no legacy data, and its migration then just sets the flag.
+        assertFalse(manager.isReadingPositionMigrated("/b/x"))
+        assertNull(manager.legacyProgress("/b/x"))
     }
 
     @Test
-    fun `progress is null until saved, round-trips, and is cleared with the rest of the book's progress`() {
+    fun `forgetting a book leaves a book whose uri extends it untouched`() {
+        for (uri in listOf("/b/a", "/b/a_1")) {
+            seedLegacy(uri, chapter = 1, item = 6, offset = 8)
+            manager.saveProgress(uri, 0.5f)
+            manager.markFinished(uri)
+        }
+
+        manager.forgetBook("/b/a")
+
+        assertEquals(LegacyProgress(1, 6, 8), manager.legacyProgress("/b/a_1"))
+        assertEquals(0.5f, manager.getProgress("/b/a_1")!!, 0f)
+        assertTrue(manager.isFinished("/b/a_1"))
+    }
+
+    @Test
+    fun `progress is null until saved and round-trips`() {
         assertNull(manager.getProgress("/b/x"))
         manager.saveProgress("/b/x", 0.25f)
         assertEquals(0.25f, manager.getProgress("/b/x")!!, 0f)
-        manager.clearProgress("/b/x")
-        assertNull(manager.getProgress("/b/x"))
     }
 }

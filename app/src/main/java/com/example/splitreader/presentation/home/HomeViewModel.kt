@@ -17,6 +17,7 @@ import com.example.splitreader.domain.repository.ReadingSessionRepository
 import com.example.splitreader.domain.repository.SavedWordRepository
 import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase
 import com.example.splitreader.domain.usecase.AddResult
+import com.example.splitreader.domain.usecase.DeleteBookUseCase
 import com.example.splitreader.domain.usecase.GetStreakUseCase
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,6 +42,7 @@ class HomeViewModel @Inject constructor(
     private val parseBookUseCase: ParseBookUseCase,
     private val bookLibraryRepository: BookLibraryRepository,
     private val addBookToLibraryUseCase: AddBookToLibraryUseCase,
+    private val deleteBookUseCase: DeleteBookUseCase,
     private val progressManager: ReadingPreferences,
     private val sessionRepository: ReadingSessionRepository,
     private val savedWordRepository: SavedWordRepository,
@@ -198,7 +200,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun deleteBook(uri: String) {
-        viewModelScope.launch { bookLibraryRepository.deleteBook(uri) }
+        viewModelScope.launch { deleteBookUseCase.delete(uri) }
     }
 
     fun dismissError() {

@@ -24,6 +24,8 @@ internal class FakeReadingPreferences(
     val excerpts = mutableMapOf<String, String>()
 
     override fun getLastBookUri(): String? = null
+    /** Every book [forgetBook] was called for, in order. */
+    val forgotten = mutableListOf<String>()
     override fun saveReadingPosition(bookUri: String, position: ReadingPosition) {
         positions[bookUri] = position
     }
@@ -35,9 +37,14 @@ internal class FakeReadingPreferences(
     val progress = mutableMapOf<String, Float>()
     override fun saveProgress(bookUri: String, progress: Float) { this.progress[bookUri] = progress }
     override fun getProgress(bookUri: String): Float? = progress[bookUri]
-    override fun markFinished(bookUri: String) = Unit
-    override fun isFinished(bookUri: String) = false
-    override fun clearProgress(bookUri: String) = Unit
+    val finished = mutableSetOf<String>()
+    override fun markFinished(bookUri: String) { finished += bookUri }
+    override fun isFinished(bookUri: String) = bookUri in finished
+    override fun forgetBook(bookUri: String) {
+        forgotten += bookUri
+        positions.remove(bookUri); excerpts.remove(bookUri); progress.remove(bookUri)
+        finished.remove(bookUri); sourceLanguages.remove(bookUri)
+    }
     val sourceLanguages = mutableMapOf<String, Language>()
     override fun getSourceLanguage(bookUri: String): Language? = sourceLanguages[bookUri]
     override fun saveSourceLanguage(bookUri: String, language: Language?) {

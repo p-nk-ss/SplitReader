@@ -87,6 +87,14 @@ class BookLibraryRepositoryResaveTest {
     }
 
     @Test
+    fun `deleting a book deletes its bookmarks and keeps its saved words and reading history, detached`() = runTest {
+        library.deleteBook(uri)
+        assertEquals(emptyList<String?>(), bookUris("bookmarks"))
+        assertEquals(listOf<String?>(null), bookUris("saved_words"))
+        assertEquals(listOf<String?>(null), bookUris("reading_sessions"))
+    }
+
+    @Test
     fun `re-saving a book still updates its metadata`() = runTest {
         library.saveBook(book(title = "Renamed", chapters = 5))
         val saved = library.getAllBooks().first().single()
