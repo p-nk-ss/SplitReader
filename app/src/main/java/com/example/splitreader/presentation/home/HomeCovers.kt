@@ -179,7 +179,7 @@ internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: (alsoR
             onDismissRequest = { showConfirmDelete = false },
             title = {
                 Text(
-                    text = "Delete book",
+                    text = stringResource(R.string.book_delete_title),
                     fontFamily = Newsreader,
                     fontWeight = FontWeight.Medium,
                     fontSize = 18.sp,
@@ -237,7 +237,7 @@ internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: (alsoR
                     onDelete(alsoReadingData)
                 }) {
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.action_delete),
                         fontFamily = Newsreader,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp,
@@ -248,7 +248,7 @@ internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: (alsoR
             dismissButton = {
                 TextButton(onClick = { showConfirmDelete = false }) {
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.action_cancel),
                         fontFamily = Newsreader,
                         fontWeight = FontWeight.Normal,
                         fontSize = 14.sp,
@@ -333,7 +333,7 @@ internal fun BookCoverCard(book: BookItem, onClick: () -> Unit, onDelete: (alsoR
                 ) {
                     Icon(
                         Icons.Outlined.Delete,
-                        contentDescription = "Delete book",
+                        contentDescription = stringResource(R.string.book_delete_title),
                         tint = Color.White,
                         modifier = Modifier.size(14.dp),
                     )
