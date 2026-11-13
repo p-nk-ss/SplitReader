@@ -202,7 +202,7 @@ class ReaderViewModelTest {
         h.vm.updateAppearance { it.copy(showIllustrations = !it.showIllustrations) }
         advanceUntilIdle()
 
-        assertEquals(ReadingPosition(2, 1, 37), h.success().pendingJump)
+        assertEquals(ReaderJump(ReadingPosition(2, 1, 37)), h.success().pendingJump)
     }
 
     @Test
@@ -218,6 +218,25 @@ class ReaderViewModelTest {
         assertNull(h.success().pendingJump)
     }
 
+    /** The picker used to scroll the list itself; a chapter is a jump like any other. */
+    @Test
+    fun `choosing a chapter asks for a jump to that chapter's masthead`() = runTest(main.dispatcher) {
+        val h = harness(book(3, 4))
+        open(h)
+
+        h.vm.selectChapter(1)
+        advanceUntilIdle()
+
+        assertEquals(ReaderJump(ReadingPosition(1, 0, 0), atChapterStart = true), h.success().pendingJump)
+        assertEquals(ReadingPosition(1, 0, 0), h.success().position)
+
+        h.vm.consumePendingJump()
+        h.vm.selectChapter(2)
+        h.vm.selectChapter(-1)
+        advanceUntilIdle()
+        assertNull("a chapter the book does not have is not a jump", h.success().pendingJump)
+    }
+
     @Test
     fun `jumping to a bookmark sets and then clears pendingJump`() = runTest(main.dispatcher) {
         val h = harness(book(3, 4))
@@ -225,7 +244,7 @@ class ReaderViewModelTest {
 
         h.vm.jumpToBookmark(1, 2)
         advanceUntilIdle()
-        assertEquals(ReadingPosition(1, 2, 0), h.success().pendingJump)
+        assertEquals(ReaderJump(ReadingPosition(1, 2, 0)), h.success().pendingJump)
 
         h.vm.consumePendingJump()
         advanceUntilIdle()

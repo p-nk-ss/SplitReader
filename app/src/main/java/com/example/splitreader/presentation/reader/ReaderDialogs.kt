@@ -524,6 +524,7 @@ internal fun ChapterPickerDialog(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .testTag(chapterRowTag(index))
                     .clickable { onSelect(index) }
                     .drawBehind {
                         drawLine(edgeColor, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())

@@ -30,7 +30,7 @@ internal const val JUMP_HOLD_MILLIS = 10_000L
  * Only while the list sits where this function last left it, or is still pinned at its end: rows
  * growing below the first visible item do not move that item, and a list that merely re-clamps (a
  * taller viewport when the reader's bars auto-hide, a row shrinking) stays at the end — both keep
- * the hold going. ANY other scroll — a drag, a fling, the chapter picker's scrollToItem, the stacked
+ * the hold going. ANY other scroll — a drag, a fling, the stacked
  * layout's pane sync, a divider-strip drag (raw deltas, no DragInteraction), a mouse wheel,
  * TalkBack — leaves the list somewhere it can still scroll forward from and ends the hold for good.
  * The drag listener just ends it a frame earlier.

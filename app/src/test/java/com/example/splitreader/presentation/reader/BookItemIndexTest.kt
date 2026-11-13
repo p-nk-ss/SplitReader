@@ -100,6 +100,18 @@ class BookItemIndexTest {
     }
 
     @Test
+    fun `a chapter jump targets the masthead, a position jump its paragraph, and both save the same position`() {
+        // Chapter 1: masthead 6, lead picture 7, first paragraph 8.
+        val chapter = ReaderJump(ReadingPosition(1, 0, 0), atChapterStart = true)
+        assertEquals(6 to 0, index.scrollTargetOf(chapter))
+        assertEquals(8 to 12, index.scrollTargetOf(ReaderJump(ReadingPosition(1, 0, 12))))
+        // The masthead names the chapter's first paragraph (ADR 0001): what gets saved after the jump.
+        assertEquals(ReadingPosition(1, 0, 0), index.positionAt(6, 0))
+        // A chapter the book does not have clamps instead of throwing.
+        assertEquals(6 to 0, index.scrollTargetOf(ReaderJump(ReadingPosition(9, 0, 0), atChapterStart = true)))
+    }
+
+    @Test
     fun `an inline image above a paragraph does not shift the reported window`() {
         // Item 3 is p_0_1 (one image item sits above it). The naive `itemIndex - chapterStart - 1`
         // arithmetic reports paragraph 2 here — the off-by-images bug that starves the top visible

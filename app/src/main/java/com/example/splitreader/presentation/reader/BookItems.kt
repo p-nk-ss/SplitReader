@@ -68,6 +68,11 @@ internal class BookItemIndex(book: Book, showIllustrations: Boolean) {
     fun itemIndexOf(chapter: Int, paragraph: Int): Int =
         itemByParagraph[chapter to paragraph] ?: chapterStartItem(chapter)
 
+    /** Where the list must scroll for [jump]: item index to scroll offset. */
+    fun scrollTargetOf(jump: ReaderJump): Pair<Int, Int> =
+        if (jump.atChapterStart) chapterStartItem(jump.position.chapter) to 0
+        else itemIndexOf(jump.position.chapter, jump.position.paragraph) to jump.position.offset
+
     /** Item index of [chapter]'s masthead, clamped to the book (0 for a book with no chapters). */
     fun chapterStartItem(chapter: Int): Int =
         if (chapterStarts.isEmpty()) 0 else chapterStarts[chapter.coerceIn(chapterStarts.indices)]

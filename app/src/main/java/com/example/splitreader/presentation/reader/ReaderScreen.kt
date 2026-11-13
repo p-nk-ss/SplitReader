@@ -250,16 +250,16 @@ internal fun ReaderContent(
     // illustrations toggle (which rebuilds the index) is seen by them, not the first-composition one.
     val currentBookItemIndex by rememberUpdatedState(bookItemIndex)
 
-    // The single scroll-to-position path: book-load restore, bookmark jumps and the illustrations
-    // toggle all arrive here. The jump keeps re-anchoring for a few seconds while rows settle (see
+    // The single scroll-to-position path: book-load restore, bookmark jumps, the chapter picker and
+    // the illustrations toggle all arrive here. The jump keeps re-anchoring for a few seconds while rows settle (see
     // scrollToItemAndHold). It runs in the screen's scope, not this effect's: consuming the jump
     // changes this effect's key, which would cancel the hold the moment it started.
     val jumpHold = remember { arrayOfNulls<Job>(1) }
     LaunchedEffect(state.pendingJump, bookItemIndex) {
         val jump = state.pendingJump ?: return@LaunchedEffect
-        val index = bookItemIndex.itemIndexOf(jump.chapter, jump.paragraph)
+        val (index, offset) = bookItemIndex.scrollTargetOf(jump)
         jumpHold[0]?.cancel()
-        jumpHold[0] = coroutineScope.launch { listState.scrollToItemAndHold(index, jump.offset) }
+        jumpHold[0] = coroutineScope.launch { listState.scrollToItemAndHold(index, offset) }
         onConsumePendingJump()
     }
 
@@ -530,8 +530,8 @@ internal fun ReaderContent(
                 book = state.book,
                 currentChapterIndex = state.currentChapterIndex,
                 onSelect = { idx ->
+                    // The ViewModel answers with a pendingJump; the list is never scrolled from here.
                     onSelectChapter(idx)
-                    coroutineScope.launch { listState.scrollToItem(bookItemIndex.chapterStartItem(idx)) }
                     showChapterPicker = false
                 },
                 onDismiss = { showChapterPicker = false },

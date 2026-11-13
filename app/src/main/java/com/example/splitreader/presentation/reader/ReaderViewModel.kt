@@ -85,7 +85,7 @@ class ReaderViewModel @Inject constructor(
         val paragraphNotes: Map<Int, Map<Int, ParagraphNote>> = emptyMap(),
         val languageDownloads: Map<Language, LanguageDownload> = emptyMap(),
         val translationNotice: TranslationState.FallbackNotice? = null,
-        val pendingJump: ReadingPosition? = null,
+        val pendingJump: ReaderJump? = null,
         val appearance: ReadingAppearance = ReadingAppearance.defaults(isTablet = false),
         val portraitHintDismissed: Boolean = ReadingDefaults.PORTRAIT_HINT_DISMISSED,
         val isLoading: Boolean = false,
@@ -284,7 +284,7 @@ class ReaderViewModel @Inject constructor(
                 sourceDetection = detection,
                 chosenSource = chosen,
                 targetLanguage = targetLang,
-                pendingJump = saved.takeUnless { p -> book.isAtStart(p) },
+                pendingJump = saved.takeUnless { p -> book.isAtStart(p) }?.let(::ReaderJump),
             )
         }
         // Seed the restored paragraph so it translates first, before the screen's first visible-range report.
@@ -340,10 +340,13 @@ class ReaderViewModel @Inject constructor(
     fun selectChapter(index: Int) {
         val book = _state.value.book ?: return
         if (index < 0 || index >= book.chapters.size) return
-        _state.update { it.copy(position = ReadingPosition(index, 0, 0)) }
-        // A jump lands at the top of the chapter; seed the window there and the reader's visible-range
-        // report will widen it once the chapter is laid out.
-        engine.viewport(ReadingPosition(index, 0, 0), ReadingPosition(index, 0, 0))
+        // Through the single pending-jump path, like a bookmark: the screen re-anchors while rows
+        // settle and ends any jump still holding. It lands on the chapter's masthead, which names
+        // the chapter's first paragraph -- the position saved here and by the screen after the jump.
+        val target = ReadingPosition(index, 0, 0)
+        _state.update { it.copy(position = target, pendingJump = ReaderJump(target, atChapterStart = true)) }
+        // Seed the window there; the reader's visible-range report widens it once the chapter is laid out.
+        engine.viewport(target, target)
     }
 
     /**
@@ -469,7 +472,7 @@ class ReaderViewModel @Inject constructor(
         val book = _state.value.book ?: return
         if (chapterIndex !in book.chapters.indices) return
         val target = ReadingPosition(chapterIndex, paragraphIndex, 0).coercedTo(book)
-        _state.update { it.copy(position = target, pendingJump = target) }
+        _state.update { it.copy(position = target, pendingJump = ReaderJump(target)) }
         engine.viewport(target, target)
     }
 
@@ -506,7 +509,7 @@ class ReaderViewModel @Inject constructor(
         // offset is kept: a paragraph's own layout does not depend on illustrations, and
         // positionAt already reports 0 when the top item is an illustration.
         if (after.showIllustrations != before.showIllustrations) {
-            _state.update { s -> s.copy(pendingJump = s.position) }
+            _state.update { s -> s.copy(pendingJump = ReaderJump(s.position)) }
         }
     }
 

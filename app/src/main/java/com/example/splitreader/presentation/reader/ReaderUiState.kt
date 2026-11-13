@@ -62,6 +62,14 @@ sealed interface LanguageDownload {
     data object Failed : LanguageDownload
 }
 
+/**
+ * A scroll the reader screen must make, through its one jump path (`scrollToItemAndHold`): to
+ * [position], or -- [atChapterStart] -- to the masthead of [position]'s chapter, so the chapter's
+ * title and opening pictures are on screen. The Reading position saved there is the same either way
+ * (a masthead names the first paragraph below it).
+ */
+data class ReaderJump(val position: ReadingPosition, val atChapterStart: Boolean = false)
+
 sealed interface ReaderUiState {
     data object Loading : ReaderUiState
     data class Error(val message: String) : ReaderUiState
@@ -73,7 +81,7 @@ sealed interface ReaderUiState {
         val translationState: TranslationState,
         val chapterTranslations: Map<Int, List<String>>,
         val translationNotice: TranslationState.FallbackNotice? = null,
-        val pendingJump: ReadingPosition? = null,
+        val pendingJump: ReaderJump? = null,
         val appearance: ReadingAppearance = ReadingAppearance.defaults(isTablet = false),
         val portraitHintDismissed: Boolean = ReadingDefaults.PORTRAIT_HINT_DISMISSED,
         val bookmarks: List<Bookmark> = emptyList(),

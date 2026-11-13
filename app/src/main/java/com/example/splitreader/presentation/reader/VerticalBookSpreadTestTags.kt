@@ -46,3 +46,9 @@ const val VERTICAL_BACKGROUND = "reader:verticalBackground"
  * labelled — but fixing the reader top bar's labels is not this phase's business.)
  */
 const val READER_DISPLAY_SETTINGS_BUTTON = "reader:displaySettingsButton"
+
+/** The top bar's "Chapters" button. */
+const val READER_CHAPTERS_BUTTON = "reader:chaptersButton"
+
+/** Chapter [index]'s row in the chapter picker. */
+fun chapterRowTag(index: Int) = "reader:chapterRow:$index"

@@ -128,7 +128,7 @@ internal fun ReaderTopBar(
         ) {
             Icon(Icons.Outlined.TextFields, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
-        IconButton(onClick = onOpenChapterPicker) {
+        IconButton(onClick = onOpenChapterPicker, modifier = Modifier.testTag(READER_CHAPTERS_BUTTON)) {
             Icon(Icons.Outlined.FormatListBulleted, null, tint = palette.ink2, modifier = Modifier.size(20.dp))
         }
         IconButton(onClick = onOpenBookmarks) {
