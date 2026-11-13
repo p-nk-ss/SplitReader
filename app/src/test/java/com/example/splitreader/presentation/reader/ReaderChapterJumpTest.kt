@@ -4,7 +4,10 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.example.splitreader.domain.model.Book
@@ -15,6 +18,7 @@ import com.example.splitreader.screenshot.PHONE_PORTRAIT
 import com.example.splitreader.screenshot.ScreenFixtures
 import com.example.splitreader.screenshot.TABLET
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -98,6 +102,11 @@ class ReaderChapterJumpTest {
         assertEquals(1, consumed)
         // The masthead is the top row; the position it names is the chapter's first paragraph (ADR 0001).
         assertEquals("reported: $positions", ReadingPosition(2, 0, 0), positions.last())
+        // ...which a jump to paragraph 0 itself reports too. Only the masthead on screen tells the two
+        // apart: landing on the paragraph leaves the chapter's number and title above the page.
+        val mastheads = composeRule.onAllNodesWithText("— 3 —")
+        assertTrue("chapter 3's masthead is not on the page", mastheads.fetchSemanticsNodes().isNotEmpty())
+        mastheads.onFirst().assertIsDisplayed()
     }
 
     private fun composeReader(onConsume: () -> Unit = {}) {
