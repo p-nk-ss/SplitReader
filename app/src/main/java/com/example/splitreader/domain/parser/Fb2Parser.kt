@@ -53,9 +53,9 @@ class Fb2Parser internal constructor(
             val doc = inputStream.use { readDocument(it, context, filePath, bookHash, staged) }
             if (doc.chapters.isEmpty()) throw IllegalStateException("No chapters found in fb2 file")
             val book = assembleBook(doc, filePath)
-            staged.commit()
+            val committed = staged.commit(book)
             staged.reportLost(crashReporter, "an FB2")
-            return book
+            return committed
         } catch (e: Throwable) {
             // The final paths are deterministic per book URI: an owned book's cover and pictures
             // ARE those files, and FB2s are re-parsed on every open. A failed or cancelled parse

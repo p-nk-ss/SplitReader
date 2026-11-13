@@ -160,6 +160,29 @@ class EpubParserOwnedFilesTest {
         )
     }
 
+    /** One picture that cannot be moved into place at the end used to fail the whole open, every time. */
+    @Test
+    fun `a picture that cannot be moved into place is dropped and the book still opens`() = runTest {
+        val uri = epub()
+        // A non-empty directory squatting on the picture's final path: the move throws.
+        File(imageFile(uri), "keep").apply { parentFile!!.mkdirs(); writeText("x") }
+        val crashes = FakeCrashReporter()
+
+        val book = try {
+            EpubParser(crashes).parse(uri, context)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            throw AssertionError("the book must still open when a picture can't be moved into place, but: $e")
+        }
+        imageFile(uri).deleteRecursively()
+
+        assertEquals("the lost picture must not be referenced", emptyList<String>(), book.chapters.single().images.map { it.path })
+        assertEquals(coverFile(uri).absolutePath, book.coverPath)
+        assertArrayEquals(newCover, coverFile(uri).readBytes())
+        assertEquals(emptyList<File>(), tempFilesOf(uri))
+        assertEquals(listOf("1 picture of an EPUB book could not be saved"), crashes.recorded.map { it.second })
+    }
+
     @Test
     fun `a book whose pictures are all saved reports nothing`() = runTest {
         val crashes = FakeCrashReporter()

@@ -61,9 +61,9 @@ class MobiParser @Inject constructor(
         try {
             val book = parse(uri, context, staged)
             coroutineContext.ensureActive()
-            staged.commit()
+            val committed = staged.commit(book)
             staged.reportLost(crashReporter, "a MOBI")
-            return book
+            return committed
         } catch (e: Throwable) {
             staged.rollback()
             throw e

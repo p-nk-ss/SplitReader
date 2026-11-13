@@ -1,6 +1,7 @@
 package com.example.splitreader.domain.parser.util
 
 import com.example.splitreader.domain.CrashReporter
+import com.example.splitreader.domain.model.Book
 import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -70,17 +71,51 @@ class StagedFiles(
         }
     }
 
-    /** Moves every staged file over its target (atomic rename, replacing the old file), in staging order. */
-    fun commit() {
+    /**
+     * Moves every staged file over its target (atomic rename, replacing the old file), in staging order.
+     *
+     * One file that cannot be moved never fails the parse (it would fail on every open of the book):
+     * its temp is deleted, the loss is noted ([reportLost]) and the rest are still moved. Returns the
+     * final paths that hold NO file afterwards -- a book must not reference those. A target that was
+     * already there when its move failed is still the owned, valid picture and is not returned.
+     */
+    fun commit(): Set<String> {
+        val failed = mutableListOf<File>()
         for (s in staged) {
             try {
-                Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                try {
+                    Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(s.temp.toPath(), s.target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            } catch (e: Exception) {
+                try { s.temp.delete() } catch (_: Exception) { /* best-effort */ }
+                noteLost(e)
+                failed += s.target
             }
         }
         staged.clear()
+        // Looked at only now: the same target may have been staged twice, and a later move may have filled it.
+        return failed.filterNot { isFile(it) }.mapTo(LinkedHashSet()) { it.absolutePath }
     }
+
+    /**
+     * [commit], for the parsers: [book] was built with the FINAL paths before anything was moved, so
+     * the cover and the pictures whose files did not make it are taken out of it here. Text, chapters
+     * and paragraph indices are never changed.
+     */
+    fun commit(book: Book): Book {
+        val missing = commit()
+        if (missing.isEmpty()) return book
+        return book.copy(
+            coverPath = book.coverPath?.takeUnless { it in missing },
+            chapters = book.chapters.map { ch ->
+                if (ch.images.none { it.path in missing }) ch else ch.copy(images = ch.images.filterNot { it.path in missing })
+            },
+        )
+    }
+
+    private fun isFile(f: File): Boolean = try { f.isFile } catch (_: Exception) { false }
 
     /** Best-effort delete of this parse's temp files (never a target). */
     fun rollback() {

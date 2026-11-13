@@ -79,9 +79,9 @@ class EpubParser @Inject constructor(
         try {
             val book = parse(uri, context, spillDir, staged)
             coroutineContext.ensureActive()
-            staged.commit()
+            val committed = staged.commit(book)
             staged.reportLost(crashReporter, "an EPUB")
-            return book
+            return committed
         } catch (e: Throwable) {
             staged.rollback()
             throw e
