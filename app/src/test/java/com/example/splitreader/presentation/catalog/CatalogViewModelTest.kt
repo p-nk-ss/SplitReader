@@ -52,10 +52,12 @@ class CatalogViewModelTest {
     /** Deterministic in-memory stand-in for the real EpubDownloader-backed repository. */
     private class FakeCatalogRepository(private val dir: File) : CatalogRepository {
         val downloadCalls = mutableListOf<CatalogBook>()
+        var cancelDownload = false
         override suspend fun search(query: String, source: CatalogSource, page: Int): CatalogPage =
             CatalogPage(emptyList(), false)
         override suspend fun downloadEpub(book: CatalogBook): Uri {
             downloadCalls += book
+            if (cancelDownload) throw kotlinx.coroutines.CancellationException("cancelled")
             val file = fileFor(book)
             if (!file.exists()) file.writeBytes(ByteArray(8))
             return Uri.fromFile(file)
@@ -98,6 +100,8 @@ class CatalogViewModelTest {
         epubUrl = "https://www.gutenberg.org/ebooks/$id.epub.images",
     )
 
+    private val crash = FakeCrashReporter()
+
     private fun viewModel(
         catalogRepository: FakeCatalogRepository,
         library: FakeLibrary,
@@ -112,7 +116,7 @@ class CatalogViewModelTest {
                 FakeCrashReporter(),
             ),
             addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlement(premium)),
-            crashReporter = FakeCrashReporter(),
+            crashReporter = crash,
         )
     }
 
@@ -192,6 +196,21 @@ class CatalogViewModelTest {
         assertFalse(vm.uiState.value.showLimitDialog)
         assertEquals(1, navigated.size)
         collector.cancel()
+    }
+
+    @Test
+    fun `a cancelled download is not an error and is not reported`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-5").apply { mkdirs() })
+        repo.cancelDownload = true
+        val vm = viewModel(repo, FakeLibrary())
+
+        vm.downloadAndOpen(catalogBook())
+        awaitReal { repo.downloadCalls.isNotEmpty() }
+        runCurrent()
+
+        assertEquals("cancellation must not show an error", null, vm.uiState.value.errorMessage)
+        assertTrue("cancellation must not be reported as a crash: ${crash.recorded}", crash.recorded.isEmpty())
     }
 
     // runCurrent, not advanceUntilIdle: ParseBookUseCase/download run on the real Dispatchers.IO,

@@ -11,6 +11,7 @@ import com.example.splitreader.domain.usecase.AddBookToLibraryUseCase
 import com.example.splitreader.domain.usecase.AddResult
 import com.example.splitreader.domain.usecase.ParseBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -128,6 +129,9 @@ class CatalogViewModel @Inject constructor(
                         is ParseResult.Idle -> _uiState.update { it.copy(downloadingId = null) }
                     }
                 }
+            } catch (e: CancellationException) {
+                _uiState.update { it.copy(downloadingId = null) }
+                throw e
             } catch (e: Exception) {
                 crashReporter.recordNonFatal(e, "Catalog download failed: ${book.id}")
                 _uiState.update {
