@@ -15,14 +15,15 @@ import javax.inject.Inject
 class SplitReaderApplication : Application() {
     /** Hilt field-injects before onCreate, so onTrimMemory can never see this uninitialised. */
     @Inject lateinit var bergamotEngine: BergamotEngine
-    @Inject lateinit var sweepOrphanBookFiles: SweepOrphanBookFilesUseCase
+    /** Lazy: its graph (repository, database) is built on the IO thread below, not before onCreate. */
+    @Inject lateinit var sweepOrphanBookFiles: dagger.Lazy<SweepOrphanBookFilesUseCase>
 
     override fun onCreate() {
         super.onCreate()
         // Only report from real (release) builds; keep developer-machine crashes out of the dashboard.
         FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = !BuildConfig.DEBUG
         // Once per process, off the main thread (it opens the database and lists two folders).
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { sweepOrphanBookFiles() }
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { sweepOrphanBookFiles.get()() }
     }
 
     /** Offline HQ models are hundreds of MB of native memory; drop them when we leave the foreground. */

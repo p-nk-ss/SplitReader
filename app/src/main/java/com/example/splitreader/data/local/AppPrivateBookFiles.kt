@@ -60,7 +60,10 @@ class AppPrivateBookFiles @Inject constructor(
                 if (bookFiles.any { now - it.lastModified() <= StagedFiles.STALE_TEMP_MILLIS }) continue
                 for (f in bookFiles) {
                     try {
-                        if (!Files.isSymbolicLink(f.toPath()) && f.isFile) f.delete()
+                        // Checked again per file: a parse of this book may have committed a fresh
+                        // one since the look above.
+                        val stale = System.currentTimeMillis() - f.lastModified() > StagedFiles.STALE_TEMP_MILLIS
+                        if (stale && !Files.isSymbolicLink(f.toPath()) && f.isFile) f.delete()
                     } catch (_: Exception) { /* best-effort */ }
                 }
             } catch (_: Exception) { /* best-effort */ }

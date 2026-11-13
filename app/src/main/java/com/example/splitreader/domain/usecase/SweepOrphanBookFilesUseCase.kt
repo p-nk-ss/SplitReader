@@ -15,7 +15,9 @@ import javax.inject.Inject
  * A removed book (deleted, reading data kept) is not in the library: its files went when it was
  * removed, so whatever carries its id now is an orphan too.
  *
- * Run once per app start, off the main thread: nothing is being parsed by this process yet, the
+ * Run once per app start, off the main thread. A parse may already be running (a restored reader,
+ * a picker result): it is safe because a book the library shows is never touched and a book being
+ * imported has fresh files. The
  * orphans of the last run are an hour old by the next one or the one after, and a delete -- the
  * other candidate -- stays as fast as it is and is not where most of them come from. Best-effort:
  * a start that cannot read the library or the folders sweeps nothing, and the next start tries again.
