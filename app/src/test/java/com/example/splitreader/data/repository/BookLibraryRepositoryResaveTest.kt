@@ -93,4 +93,18 @@ class BookLibraryRepositoryResaveTest {
         assertEquals("Renamed", saved.title)
         assertEquals(5, saved.chapterCount)
     }
+
+    @Test
+    fun `re-saving a book with no cover keeps the stored cover`() = runTest {
+        library.saveBook(book().copy(coverPath = "/covers/x.jpg"))
+        library.saveBook(book().copy(coverPath = null))
+        assertEquals("/covers/x.jpg", library.getAllBooks().first().single().coverPath)
+    }
+
+    @Test
+    fun `re-saving a book with a new cover replaces the stored cover`() = runTest {
+        library.saveBook(book().copy(coverPath = "/covers/x.jpg"))
+        library.saveBook(book().copy(coverPath = "/covers/y.jpg"))
+        assertEquals("/covers/y.jpg", library.getAllBooks().first().single().coverPath)
+    }
 }

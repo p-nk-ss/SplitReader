@@ -25,7 +25,8 @@ class BookLibraryRepositoryImpl @Inject constructor(
                 uri = book.filePath,
                 title = book.title,
                 author = book.author,
-                coverPath = book.coverPath,
+                // A re-parse can come back without a cover (its picture write failed): keep the stored one.
+                coverPath = book.coverPath ?: bookDao.coverPathOf(book.filePath),
                 lastOpenedAt = System.currentTimeMillis(),
                 chapterCount = book.chapters.size,
                 synopsis = book.synopsis,

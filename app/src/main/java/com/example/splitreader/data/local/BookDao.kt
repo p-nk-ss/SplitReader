@@ -22,6 +22,9 @@ interface BookDao {
     @Query("DELETE FROM books WHERE uri = :uri")
     suspend fun deleteByUri(uri: String)
 
+    @Query("SELECT coverPath FROM books WHERE uri = :uri")
+    suspend fun coverPathOf(uri: String): String?
+
     @Query("SELECT COUNT(*) FROM books")
     suspend fun count(): Int
 
