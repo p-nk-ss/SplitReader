@@ -174,7 +174,16 @@ tags: [smoke, full, library, J-LIB-03]
 - assertNotVisible: "Library is full"
 - runFlow: ../../subflows/open_bars.yaml
 - runFlow: ../../subflows/back_to_library.yaml
-- assertVisible: "· 3 VOLUMES"
+# scrollUntilVisible, not a bare assertVisible: confirmed on-device (Pixel_10_Pro/API 37,
+# `e2e/reports/20261113T065850Z`, step 340) that the just-opened "The Complete Letters" Continue
+# Reading hero fills the whole phone viewport on its own, the same phone-only occlusion already
+# documented at this flow's step 12 and throughout J-LIB-01/02 - the "Your shelf · 3 VOLUMES"
+# header sits below the fold, hidden, not missing. A no-op on tablet, where the header is already
+# on screen.
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
 
 # 14. Force-stop and relaunch -> app starts normally; the library is intact
 # (Not launch_clean.yaml: that clears app state, which would wipe exactly the library we're
@@ -182,6 +191,10 @@ tags: [smoke, full, library, J-LIB-03]
 - stopApp
 - launchApp:
     clearState: false
-- extendedWaitUntil:
-    visible: "· 3 VOLUMES"
+# scrollUntilVisible, not a bare extendedWaitUntil: same phone-only Continue-Reading-hero
+# occlusion as step 13's own check just above (a fresh relaunch reopens Home on the same hero) -
+# a no-op on tablet.
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
     timeout: 15000
