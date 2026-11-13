@@ -16,4 +16,10 @@ interface DriveRepository {
      * `drive.file` token from the Authorization flow.
      */
     suspend fun downloadFile(file: DrivePickedFile, accessToken: String): Uri
+
+    /**
+     * The `file://` [Uri] of [file] if it was already downloaded (the target path is deterministic:
+     * `drive/<fileId>[.ext]`), else null. Lets callers recognise an owned book before downloading.
+     */
+    fun localUriFor(file: DrivePickedFile): Uri?
 }

@@ -136,9 +136,11 @@ class DriveViewModel @Inject constructor(
         downloadAndOpen(files.first(), token)
     }
 
-    private suspend fun downloadAndOpen(file: DrivePickedFile, accessToken: String) {
+    internal suspend fun downloadAndOpen(file: DrivePickedFile, accessToken: String) {
         // Gate before downloading so a free-tier user at the limit never pulls the file from Drive.
-        if (!addBookToLibraryUseCase.canAddNew(null)) {
+        // The target path is deterministic, so an already-downloaded (owned) book is recognised and
+        // re-opening it is an upsert, never "new".
+        if (!addBookToLibraryUseCase.canAddNew(driveRepository.localUriFor(file)?.toString())) {
             _uiState.update { it.copy(isBusy = false, showLimitDialog = true) }
             return
         }

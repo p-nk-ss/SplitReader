@@ -78,6 +78,15 @@ class DriveRepositoryImpl @Inject constructor(
             Uri.fromFile(target)
         }
 
+    override fun localUriFor(file: DrivePickedFile): Uri? {
+        val dir = File(context.filesDir, "drive")
+        // Name-independent: the extension (if any) was derived from Drive metadata at download time.
+        val match = dir.listFiles()?.firstOrNull {
+            it.isFile && it.length() > 0 && (it.name == file.fileId || it.name.substringBeforeLast('.') == file.fileId)
+        }
+        return match?.let { Uri.fromFile(it) }
+    }
+
     private fun fetchMetadata(fileId: String, accessToken: String): Pair<String, String?> {
         val request = Request.Builder()
             .url("$DRIVE_FILES_BASE/$fileId?fields=name,mimeType")
