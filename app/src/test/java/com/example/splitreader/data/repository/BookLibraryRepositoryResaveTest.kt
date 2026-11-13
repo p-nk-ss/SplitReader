@@ -13,11 +13,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
 
 /**
  * Saving a book that is already in the library (re-import of the same file, a catalog or Drive
@@ -104,10 +107,21 @@ class BookLibraryRepositoryResaveTest {
     }
 
     @Test
-    fun `re-saving a book with no cover keeps the stored cover`() = runTest {
-        library.saveBook(book().copy(coverPath = "/covers/x.jpg"))
+    fun `re-saving a book with no cover keeps the stored cover while its file is there`() = runTest {
+        val cover = File.createTempFile("cover", ".jpg").apply { deleteOnExit() }
+        library.saveBook(book().copy(coverPath = cover.absolutePath))
         library.saveBook(book().copy(coverPath = null))
-        assertEquals("/covers/x.jpg", library.getAllBooks().first().single().coverPath)
+        assertEquals(cover.absolutePath, library.getAllBooks().first().single().coverPath)
+    }
+
+    /** A stored path whose file is gone (deleted, storage cleared) is a card with a broken cover for good. */
+    @Test
+    fun `re-saving a book with no cover drops a stored cover whose file is gone`() = runTest {
+        val cover = File.createTempFile("cover", ".jpg")
+        library.saveBook(book().copy(coverPath = cover.absolutePath))
+        assertTrue(cover.delete())
+        library.saveBook(book().copy(coverPath = null))
+        assertNull(library.getAllBooks().first().single().coverPath)
     }
 
     @Test
