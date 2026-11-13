@@ -139,4 +139,71 @@ class EpubParserImagesTest {
         assertEquals(listOf(false), book.chapters[0].images.map { it.inLegacyLayout })
         assertEquals(listOf(false, true), book.chapters[1].images.map { it.inLegacyLayout })
     }
+
+    // ── One picture used many times (an ornament under every chapter heading) ────────────────────
+
+    private val context: Application get() = ApplicationProvider.getApplicationContext()
+    private fun chapter(n: Int, picture: String) = "<h1>Chapter $n</h1>" + p(2, "C$n") + img(picture)
+
+    @Test
+    fun `a picture used in every chapter is staged once, and every chapter shows it`() = runTest {
+        val uri = epub(chapter(1, "a.png"), chapter(2, "a.png"), chapter(3, "a.png"))
+        val images = File(context.filesDir, "images")
+        var temps = -1
+        val hash = com.example.splitreader.domain.parser.util.stableId(uri.toString())
+
+        val book = EpubParser().apply {
+            afterPictures = { temps = images.listFiles().orEmpty().count { it.name.startsWith(hash) && ".part-" in it.name } }
+        }.parse(uri, context)
+
+        assertEquals("temp copies of the one picture", 1, temps)
+        val paths = book.chapters.map { it.images.single().path }
+        assertEquals(3, paths.size)
+        assertEquals(1, paths.toSet().size)
+        org.junit.Assert.assertArrayEquals(png + "a".toByteArray(), File(paths[0]).readBytes())
+    }
+
+    @Test
+    fun `a picture that is also the cover is saved as both`() = runTest {
+        val book = EpubParser().parse(epub(chapter(1, "a.png"), chapter(2, "a.png"), cover = "a.png"), context)
+
+        org.junit.Assert.assertArrayEquals(png + "a".toByteArray(), File(book.coverPath!!).readBytes())
+        book.chapters.forEach { org.junit.Assert.assertArrayEquals(png + "a".toByteArray(), File(it.images.single().path).readBytes()) }
+    }
+
+    @Test
+    fun `a picture used after a heading and again on a page of its own is in both places`() = runTest {
+        // The second use is not in the legacy layout: its file is looked at again (SVG check) after
+        // the first use has already taken it out of the scratch folder.
+        val book = EpubParser().parse(epub(chapter(1, "a.png"), img("a.png"), chapter(2, "b.png")), context)
+
+        assertEquals(2, book.chapters.size)
+        val a = book.chapters[0].images.single().path
+        assertEquals(listOf(a), book.chapters[1].images.filterNot { it.inLegacyLayout }.map { it.path })
+        org.junit.Assert.assertArrayEquals(png + "a".toByteArray(), File(a).readBytes())
+    }
+
+    @Test
+    fun `staging a scratch file it may take moves it instead of copying`() {
+        val source = File(tmp.root, "e0").apply { writeBytes(png) }
+        val staged = com.example.splitreader.domain.parser.util.StagedFiles()
+
+        val path = ImageStore.stage(context, source, "moved_${System.nanoTime()}", staged, move = true)
+
+        assertEquals("the scratch file was moved, not copied", false, source.exists())
+        staged.commit()
+        org.junit.Assert.assertArrayEquals(png, File(path!!).readBytes())
+    }
+
+    @Test
+    fun `staging a file it may not take leaves it where it is`() {
+        val source = File(tmp.root, "e1").apply { writeBytes(png) }
+        val staged = com.example.splitreader.domain.parser.util.StagedFiles()
+
+        val path = ImageStore.stage(context, source, "copied_${System.nanoTime()}", staged)
+
+        assertEquals(true, source.exists())
+        staged.commit()
+        org.junit.Assert.assertArrayEquals(png, File(path!!).readBytes())
+    }
 }

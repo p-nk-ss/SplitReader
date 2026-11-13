@@ -137,6 +137,14 @@ class EpubParser @Inject constructor(
             pendingImages.map { ChapterImage(0, it, inLegacyLayout = false) }.also { pendingImages.clear() }
         // The library already shows the cover; an image-only cover page must not repeat it in chapter 1.
         val coverKey = opf.coverHref?.let { normalizePath(opfDir + decodeSrc(it)) }
+        val fullCoverPath = opf.coverHref?.let { href -> if (opfDir.isEmpty()) href else "$opfDir$href" }
+        val coverSource = opf.coverHref?.let { href -> resolveImage(href, opfDir, imageMap) ?: imageMap[fullCoverPath] }
+        // One picture is staged once per parse however often it is used (an ornament under every
+        // chapter heading was a temp copy per chapter), and its scratch file is moved into the temp
+        // rather than copied -- so nothing may read that file again: what the SVG check needs is
+        // remembered here. The cover's file is copied: saveCover reads it after the chapters.
+        val stagedPictures = HashMap<File, String?>()
+        val markupFiles = HashMap<File, Boolean>()
 
         opf.spineIds.filter { id -> id !in opf.navItemIds }.forEach { id ->
             coroutineContext.ensureActive()
@@ -151,8 +159,13 @@ class EpubParser @Inject constructor(
                 val file = resolveImage(ref.src, contentDir, imageMap) ?: return null
                 // The reader can't draw SVG; a newly collected one (title pages) would be an empty
                 // slot. Images the old parser produced stay as they were (legacy layout).
-                if (!ref.inLegacyLayout && (key(ref).endsWith(".svg", true) || ImageStore.header(file).firstOrNull() == '<'.code.toByte())) return null
-                return ImageStore.stage(context, file, "${bookHash}_${key(ref).substringAfterLast('/')}", staged)
+                val isMarkup = markupFiles.getOrPut(file) {
+                    try { ImageStore.header(file).firstOrNull() == '<'.code.toByte() } catch (_: java.io.IOException) { false }
+                }
+                if (!ref.inLegacyLayout && (key(ref).endsWith(".svg", true) || isMarkup)) return null
+                if (file in stagedPictures) return stagedPictures[file]
+                return ImageStore.stage(context, file, "${bookHash}_${key(ref).substringAfterLast('/')}", staged, move = file != coverSource)
+                    .also { stagedPictures[file] = it }
             }
 
             if (result.isImageOnly) {
@@ -198,12 +211,7 @@ class EpubParser @Inject constructor(
             }
         }
 
-        val coverPath = opf.coverHref?.let { href ->
-            val fullCoverPath = if (opfDir.isEmpty()) href else "$opfDir$href"
-            val coverFile = resolveImage(href, opfDir, imageMap)
-                ?: imageMap[fullCoverPath]
-            coverFile?.let { saveCover(context, it, uri.toString(), fullCoverPath, staged) }
-        }
+        val coverPath = coverSource?.let { saveCover(context, it, uri.toString(), fullCoverPath.orEmpty(), staged) }
 
         afterPictures()
         val synopsis = SynopsisExtractor.build(opf.description, chapters.flatMap { it.paragraphs })

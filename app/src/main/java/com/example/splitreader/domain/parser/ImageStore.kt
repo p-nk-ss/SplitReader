@@ -50,18 +50,21 @@ object ImageStore {
     /**
      * A picture already on disk (an EPUB entry streamed out of the zip), copied -- never loaded whole --
      * into a temp file staged in [staged] for `filesDir/images/<sanitized baseName>.<sniffed ext>`.
+     * With [move] the caller gives [source] up: it is renamed into the temp where the file system
+     * allows (no second copy of every picture on disk) and copied otherwise; [source] may be gone after.
      * Returns that final path (filled only when [staged] commits; when the copy fails but an earlier
      * parse's file is still there, that file stays the picture), or null if [source] is empty or there
      * is nothing to show; the owned file at the final path is never touched here.
      */
-    fun stage(context: Context, source: File, baseName: String, staged: StagedFiles): String? = try {
+    fun stage(context: Context, source: File, baseName: String, staged: StagedFiles, move: Boolean = false): String? = try {
         if (source.length() == 0L) {
             null
         } else {
             val dir = File(context.filesDir, "images").apply { mkdirs() }
             val safe = baseName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "img" }
             val file = File(dir, "$safe.${sniffExtension(header(source))}")
-            file.takeIf { f -> staged.stage(f) { source.copyTo(it) } }?.absolutePath
+            // A rename is free; it fails (false) across mounts -- cacheDir and filesDir need not share one.
+            file.takeIf { f -> staged.stage(f) { temp -> if (!move || !source.renameTo(temp)) source.copyTo(temp) } }?.absolutePath
         }
     } catch (e: Exception) {
         staged.noteLost(e)
