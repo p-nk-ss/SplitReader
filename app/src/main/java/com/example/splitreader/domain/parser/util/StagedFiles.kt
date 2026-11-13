@@ -54,8 +54,12 @@ class StagedFiles(
 
     /**
      * Writes [target]'s new content to a temp file next to it via [write] and stages it. Returns
-     * true when staged; when the write fails (e.g. disk full) the temp is deleted, nothing is staged
-     * -- it can never be moved over the owned file --, the loss is noted and false is returned.
+     * true when [target]'s path may be shown by the book: the new content is staged, or the write
+     * failed (e.g. disk nearly full) but the owned file from an earlier parse is still there, intact
+     * -- a re-parse that cannot rewrite a picture must not take it away for the session.
+     *
+     * A failed write is never staged (it can never be moved over the owned file): its temp is
+     * deleted and the loss is noted either way. False only when there is no file to show at all.
      */
     fun stage(target: File, write: (temp: File) -> Unit): Boolean {
         var temp: File? = null
@@ -67,7 +71,7 @@ class StagedFiles(
         } catch (e: Exception) {
             try { temp?.delete() } catch (_: Exception) { /* best-effort */ }
             noteLost(e)
-            false
+            isFile(target)
         }
     }
 

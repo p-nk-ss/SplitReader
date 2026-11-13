@@ -47,11 +47,23 @@ class StagedFilesTest {
         val target = owned("a.jpg")
         val staged = StagedFiles()
 
-        assertFalse(staged.stage(target) { it.writeText("half"); throw IOException("disk full") })
-        staged.commit()
+        // The owned file is intact, so its path is still good for the book (true), though nothing was staged.
+        assertTrue(staged.stage(target) { it.writeText("half"); throw IOException("disk full") })
+        assertEquals(emptySet<String>(), staged.commit())
 
         assertEquals("old", target.readText())
         assertEquals(listOf("a.jpg"), tmp.root.list()!!.toList())
+    }
+
+    @Test
+    fun `a failed write with no file at the target gives no path to show`() {
+        val target = File(tmp.root, "a.jpg")
+        val staged = StagedFiles()
+
+        assertFalse(staged.stage(target) { it.writeText("half"); throw IOException("disk full") })
+        staged.commit()
+
+        assertEquals(emptyList<String>(), tmp.root.list()!!.toList())
     }
 
     // ── commit: one file that cannot be moved must not fail the parse ────────────────────────────

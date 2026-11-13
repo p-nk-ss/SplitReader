@@ -153,11 +153,28 @@ class EpubParserOwnedFilesTest {
             assertTrue("owned ${it.name} must still be a file with its original bytes", it.isFile && it.readBytes().contentEquals(oldBytes))
         }
         listOf(coverFile(uri), imageFile(uri)).forEach { File(it.parentFile, tempName).deleteRecursively() }
+        // The owned files are intact: the book keeps showing them (they used to vanish for the session).
+        assertEquals("the owned cover is still the book's cover", coverFile(uri).absolutePath, book.coverPath)
+        assertEquals("the owned picture is still in the chapter", listOf(imageFile(uri).absolutePath), book.chapters.single().images.map { it.path })
         // Dropped pictures used to vanish without a trace. One non-fatal per parse, however many were lost.
         assertEquals(
             listOf("2 pictures of an EPUB book could not be saved"),
             crashes.recorded.map { it.second },
         )
+    }
+
+    @Test
+    fun `a first import whose temp writes fail opens without the cover and the picture`() = runTest {
+        val uri = epub()
+        val tempName = "blocked.part-test"
+        listOf(coverFile(uri), imageFile(uri)).forEach { File(File(it.parentFile, tempName), "keep").apply { parentFile!!.mkdirs(); writeText("x") } }
+
+        val book = EpubParser().apply { tempNameFor = { tempName } }.parse(uri, context)
+        listOf(coverFile(uri), imageFile(uri)).forEach { File(it.parentFile, tempName).deleteRecursively() }
+
+        assertEquals(null, book.coverPath)
+        assertEquals(emptyList<String>(), book.chapters.single().images.map { it.path })
+        assertFalse(coverFile(uri).exists() || imageFile(uri).exists())
     }
 
     /** One picture that cannot be moved into place at the end used to fail the whole open, every time. */

@@ -157,6 +157,7 @@ class MobiParserOwnedFilesTest {
         assertEquals(1, book.chapters.size)
         assertTrue("owned cover must still be a file with its original bytes", coverFile(uri).isFile && coverFile(uri).readBytes().contentEquals(oldBytes))
         blocker.deleteRecursively()
+        assertEquals("the owned cover is still the book's cover", coverFile(uri).absolutePath, book.coverPath)
         assertEquals(listOf("1 picture of a MOBI book could not be saved"), crashes.recorded.map { it.second })
     }
 

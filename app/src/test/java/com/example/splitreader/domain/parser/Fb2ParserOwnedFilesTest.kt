@@ -174,6 +174,8 @@ class Fb2ParserOwnedFilesTest {
         listOf(coverFile(uri), imageFile(uri)).forEach {
             assertTrue("owned ${it.name} must still be a file with its original bytes", it.isFile && it.readBytes().contentEquals(oldBytes))
         }
+        assertEquals("the owned cover is still the book's cover", coverFile(uri).absolutePath, book.coverPath)
+        assertEquals("the owned picture is still in the book", listOf(imageFile(uri).absolutePath), book.chapters.flatMap { c -> c.images.map { it.path } })
         assertEquals(listOf("2 pictures of an FB2 book could not be saved"), crashes.recorded.map { it.second })
     }
 

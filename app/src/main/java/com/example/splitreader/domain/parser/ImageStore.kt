@@ -50,8 +50,9 @@ object ImageStore {
     /**
      * A picture already on disk (an EPUB entry streamed out of the zip), copied -- never loaded whole --
      * into a temp file staged in [staged] for `filesDir/images/<sanitized baseName>.<sniffed ext>`.
-     * Returns that final path (filled only when [staged] commits), or null if [source] is empty or
-     * anything fails; the owned file at the final path is never touched here.
+     * Returns that final path (filled only when [staged] commits; when the copy fails but an earlier
+     * parse's file is still there, that file stays the picture), or null if [source] is empty or there
+     * is nothing to show; the owned file at the final path is never touched here.
      */
     fun stage(context: Context, source: File, baseName: String, staged: StagedFiles): String? = try {
         if (source.length() == 0L) {
