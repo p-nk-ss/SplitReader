@@ -71,6 +71,20 @@ since flows run one file at a time. A single flow's own id is always one of its 
 `skipping <file> (tags don't include any of: <TAGLIST>)` for every flow it excludes — that line
 is the proof a non-matching flow was actually skipped, not silently run anyway.
 
+### Device class (`tablet` / `phone` tags)
+
+Independently of `--tags`, `run.sh` reads the device's class from `wm size` / `wm density`
+(smallest width >= 600dp = tablet) and skips a flow tagged `tablet` but not `phone` on a phone,
+and a flow tagged `phone` but not `tablet` on a tablet — logging
+`skipping <file> (not tagged for a phone)`. A flow with both tags, or neither (all the library
+journeys), runs everywhere. The rule also applies when the flow is named explicitly
+(`--tags J-RDR-01` on a phone runs nothing). The rules live in `e2e/flow_select.sh`; check them
+with `bash e2e/test_flow_select.sh`.
+
+`run.sh` also passes the class to every flow as `-e DEVICE_CLASS=tablet|phone|unknown`, so a flow
+tagged for both can keep a phone-only step behind `when: true: ${DEVICE_CLASS == 'phone'}`
+(`J-RDR-03`). Running such a flow with `maestro test` directly needs the same `-e`.
+
 ## Picker reset (`launch_clean.yaml`)
 
 `launch_clean.yaml` also runs `- clearState: { appId: ..., optional: true }` against BOTH

@@ -26,6 +26,9 @@
 #                      `maestro test` invocation over the whole flows/ directory). Omit to run
 #                      every flow under e2e/flows. Comma-separated, e.g. "smoke" or
 #                      "full,tablet", or a single flow's own id tag, e.g. "J-LIB-01".
+#                      Independently of --tags, a flow tagged `tablet` but not `phone` is skipped
+#                      on a phone, and one tagged `phone` but not `tablet` is skipped on a tablet
+#                      (see flow_select.sh; the skip is logged).
 #   --keep-emulator    Don't kill the emulator this run started (--avd only; ignored with
 #                      --serial, since that emulator wasn't started by this script).
 #   --flow-timeout-min N  Per-flow wall-clock watchdog, in minutes (default 20). If a single
@@ -338,35 +341,10 @@ flow_books() {
     | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
 }
 
-# Parses a flow file's `tags: [a, b, c]` YAML header line into one tag per output line.
-flow_tags() {
-  local flow_file="$1"
-  local line
-  line="$(grep -m1 '^tags:' "$flow_file" || true)"
-  [ -z "$line" ] && return 0
-  printf '%s\n' "$line" | sed -n 's/^tags:[[:space:]]*\[\(.*\)\][[:space:]]*$/\1/p' \
-    | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
-}
-
-# True (exit 0) iff TAGS is empty (no filter — every flow runs) or this flow declares at least
-# one tag in common with the (comma-separated) requested TAGS — OR semantics, the same as
-# maestro's own --include-tags. Needed because flows now run one file at a time rather than as
-# one `maestro test` invocation over the whole flows/ directory, where --include-tags would
-# otherwise do this filtering for us.
-flow_matches_tags() {
-  local flow_file="$1"
-  [ -z "$TAGS" ] && return 0
-  local ft wt
-  local want_tags=()
-  IFS=',' read -r -a want_tags <<< "$TAGS"
-  while IFS= read -r ft; do
-    [ -z "$ft" ] && continue
-    for wt in "${want_tags[@]}"; do
-      [ "$ft" = "$wt" ] && return 0
-    done
-  done < <(flow_tags "$flow_file")
-  return 1
-}
+# flow_tags / flow_matches_tags (--tags, OR semantics) and flow_matches_device (the `tablet` /
+# `phone` tags) live in flow_select.sh so e2e/test_flow_select.sh can check them without a device.
+# shellcheck source=flow_select.sh
+. "$HERE/flow_select.sh"
 
 # Removes every fixture pushed for the flow that just ran (no-op the first time: PUSHED_LIST
 # starts empty). `< /dev/null` matters: without it, `adb shell` would inherit this function's
@@ -404,6 +382,12 @@ write_timeout_junit() {
 XML
 }
 
+# tablet | phone (smallest width >= 600dp is a tablet); empty if `wm` can't be read, and then no
+# flow is excluded by device class.
+DEVICE_CLASS="$(device_class_from_wm "$("$ADB" -s "$SERIAL" shell wm size 2>/dev/null | tr -d '\r')" \
+  "$("$ADB" -s "$SERIAL" shell wm density 2>/dev/null | tr -d '\r')")"
+log "device class: ${DEVICE_CLASS:-unknown}"
+
 FLOW_FILES=()
 while IFS= read -r f; do
   FLOW_FILES+=("$f")
@@ -411,10 +395,12 @@ done < <(find "$REPO_ROOT/e2e/flows" -name '*.yaml' ! -name 'config.yaml' ! -nam
 
 SELECTED_FLOWS=()
 for f in "${FLOW_FILES[@]}"; do
-  if flow_matches_tags "$f"; then
-    SELECTED_FLOWS+=("$f")
-  else
+  if ! flow_matches_tags "$f"; then
     log "skipping $(basename "$f") (tags don't include any of: $TAGS)"
+  elif ! flow_matches_device "$f" "$DEVICE_CLASS"; then
+    log "skipping $(basename "$f") (not tagged for a $DEVICE_CLASS)"
+  else
+    SELECTED_FLOWS+=("$f")
   fi
 done
 [ "${#SELECTED_FLOWS[@]}" -gt 0 ] || log "WARNING: no flow under e2e/flows matched --tags $TAGS"
@@ -444,7 +430,9 @@ for flow in "${SELECTED_FLOWS[@]}"; do
 
   FLOW_RUN="$RUN/$stem"
   mkdir -p "$FLOW_RUN"
-  MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" "$flow" \
+  # DEVICE_CLASS (tablet | phone | unknown) lets a flow that runs on both keep a phone-only step
+  # behind `when: true: ${DEVICE_CLASS == 'phone'}`.
+  MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" -e "DEVICE_CLASS=${DEVICE_CLASS:-unknown}" "$flow" \
     --format junit --output "$FLOW_RUN/junit.xml" --test-output-dir "$FLOW_RUN")
 
   # Per-flow watchdog: run maestro in the background under this script's own control (no
