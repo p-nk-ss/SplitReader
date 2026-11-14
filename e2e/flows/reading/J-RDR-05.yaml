@@ -83,6 +83,14 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-05]
           id: "translation_0_0"
           width: 1088
           tolerance: 4
+# The crop is cut at the title's place as Maestro last read it, from a screenshot taken a moment
+# later. When the bars hide in between, the page moves up by the top bar and the crop holds the
+# paragraph under the title instead (Pixel_10_Pro, e2e/reports/20261114T180323Z). So every crop
+# of the reader's page is taken with the bars hidden — a settled state.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
 - assertScreenshot:
     path: ../../refs/theme/${DEVICE_CLASS}-reader-paper
     cropOn: "Chapter 1 — The Ferry"
@@ -263,6 +271,11 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-05]
 - extendedWaitUntil:
     notVisible: "Display"
     timeout: 5000
+# Bars hidden first — see step 2.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
 - assertScreenshot:
     path: ../../refs/theme/${DEVICE_CLASS}-reader-night
     cropOn: "Chapter 1 — The Ferry"
@@ -287,6 +300,11 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-05]
     visible:
       id: "original_0_0"
     timeout: 20000
+# Bars hidden first — see step 2.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
 - assertScreenshot:
     path: ../../refs/theme/${DEVICE_CLASS}-reader-night
     cropOn: "Chapter 1 — The Ferry"
