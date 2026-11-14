@@ -34,8 +34,8 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 15 | 17 |
 | J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 13 | 17 |
 | J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone, tablet | 11 | 8 |
-| J-RDR-04 | Reading to the end: 0% to 100% and back | P0 | smoke, full | 9 | 6 |
-| J-RDR-05 | Appearance smoke: margins and one shared theme | P0 | smoke, full | 9 | 3 |
+| J-RDR-04 | Reading to the end: 0% to 100% and back | P0 | smoke, full, phone, tablet | 9 | 6 |
+| J-RDR-05 | Appearance smoke: margins and one shared theme | P0 | smoke, full, phone, tablet | 9 | 3 |
 | J-RDR-06 | Tablet: tuning typography, layout combos and persistence | P1 | full, tablet | 13 | 10 |
 | J-RDR-07 | Phone: tuning the stacked reader at large font scale | P1 | full, phone | 10 | 6 |
 | J-RDR-08 | Tablet: unusual books and jumps while translation is loading | P1 | full, tablet | 6 | 5 |
@@ -656,32 +656,34 @@ translation works without network keys.
 **Covers:** APP-024, APP-022, APP-023, POS-016, NAV-001, NAV-002, POS-013, LAY-028
 
 ### J-RDR-04 — Reading to the end: 0% to 100% and back
-**Priority** P0 · **Tags** smoke, full · **Devices** tablet API 35 and phone emulator · **Fixtures** F-SHORT, F-LONG · **Preconditions** F-SHORT never opened; F-LONG saved in its last chapter; one bookmark on F-LONG's final screen.
+**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** tablet API 35 and phone emulator · **Fixtures** F-SHORT, F-LONG · **Preconditions** F-SHORT never opened; F-LONG saved near its end, not yet read to the end, with one bookmark on its final screen (the flow sets it up: from chapter 21 it scrolls until the book's last paragraph starts to show and bookmarks that page — on the tablet the whole last chapter fits on one screen, so opening chapter 22 from the chapter picker already is the end of the book; the "Continue reading" card must then read 9x%, not 100%).
 
-1. Open F-SHORT; tap to show the bar → ✓ footer shows 0% (POS-004).
-2. Read ~10 paragraphs; show the bar → ✓ the percentage has grown (POS-004).
-3. Back to Library → ✓ F-SHORT's card shows the same % as the footer (POS-004).
-4. Open F-LONG; open the chapter picker, go to chapter 1; open Bookmarks and tap the bookmark on the final screen → ✓ it lands on exactly that paragraph, one scroll (BMK-004).
+1. Open F-SHORT (importing a book opens it); tap to show the bar → ✓ footer shows 0% (POS-004).
+2. Read on until the 10th paragraph is the top one; show the bar → ✓ the percentage has grown to 30% — 9 of 30 paragraphs are behind (POS-004).
+3. Back to Library → ✓ the "Continue reading" card shows F-SHORT with the same % as the footer (POS-004). (A percentage is text only on that card; a shelf card has a progress line and a "✓" badge, no number.)
+4. Open F-LONG; open the chapter picker, go to chapter 1; open Bookmarks and tap the bookmark on the final screen → ✓ it lands on exactly that paragraph, one scroll: it is the top one, the paragraph before it is off screen (BMK-004).
 5. Scroll to the very last paragraph → ✓ the footer shows 100% (POS-005).
-6. Tap to hide and show the bars five times → ✓ the footer stays at 100% (POS-007).
-7. Back to Library → ✓ F-LONG's card shows 100%, matching the footer (POS-005).
-8. Reopen F-LONG → ✓ still 100% / finished; opened at (or near) the end (POS-019).
+6. Hide and show the bars five times → ✓ the footer is at 100% every time (POS-007).
+7. Back to Library → ✓ the "Continue reading" card shows F-LONG at 100%, matching the footer (POS-005).
+8. Reopen F-LONG → ✓ opened at the end (the last paragraph is on screen), still 100% (POS-019).
 9. Scroll back up two screens; show the bar → ✓ the real, lower percentage is shown, not stuck at 100% (POS-006).
 
 **Covers:** POS-004, BMK-004, POS-005, POS-007, POS-019, POS-006
 
 ### J-RDR-05 — Appearance smoke: margins and one shared theme
-**Priority** P0 · **Tags** smoke, full · **Devices** tablet API 35 and phone emulator · **Fixtures** F-LONG · **Preconditions** clean install (`pm clear`), F-LONG imported; Paper theme.
+**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** tablet API 35 (`Tab_35_PixelTablet`) and phone emulator (`Pixel_10_Pro`) — the theme checks compare against reference crops of exactly these two, see `e2e/refs/README.md` · **Fixtures** F-LONG · **Preconditions** clean install (`pm clear`); Paper theme.
 
-1. Settings → Display → ✓ "Page margins" shows 32dp (APP-001).
-2. Open F-LONG → ✓ the text edge sits 32dp in from the screen edge (APP-001).
-3. Open the reader's Display dialog; drag Page margins to 12dp, then to 40dp → ✓ the text edge visibly moves inward/outward with the slider (APP-001).
-4. In the dialog select Night → ✓ the reader turns dark at once (APP-007).
-5. Kill and relaunch; reopen F-LONG → ✓ still Night (APP-007).
+Maestro can tell a dark screen from a light one (reference crops), not Sepia from Paper nor Amoled from Night, so the theme is switched between a light and a dark one at every step — each check can then fail. "It is Sepia, not Paper" in step 7 is a visual check of the screenshot.
+
+1. Settings → Reading → ✓ "Page margins" shows 32dp (APP-001); the screen is light.
+2. Open F-LONG (importing a book opens it) → ✓ the text edge sits 32dp in from the screen edge — asserted through the paragraph's width (APP-001).
+3. The reader's Display dialog has no "Page margins" slider (the margin is set only in Settings). Settings → Page margins to 12dp, reopen F-LONG → ✓ the text edge moved outward; then to 40dp, reopen → ✓ it moved inward (APP-001).
+4. In the reader's Display dialog select Night → ✓ the dialog and the page turn dark at once (APP-007).
+5. Kill and relaunch; reopen F-LONG → ✓ still dark (APP-007).
 6. Back to Library, then Almanac, then Words → ✓ all three are dark (APP-008).
-7. Settings → Theme → select Sepia; reopen F-LONG and its Display dialog → ✓ the dialog shows Sepia, no restart needed (APP-007).
-8. In the Display dialog select Paper; go to Settings → ✓ Settings shows Paper (APP-007).
-9. Select Night from Settings; open Library → ✓ Library is dark, same result as from the reader (APP-008).
+7. Settings → Theme → select Sepia; reopen F-LONG and its Display dialog → ✓ the dialog is light again, no restart needed (APP-007). *Visual:* it is Sepia, not Paper.
+8. In the Display dialog select Night; go to Settings → ✓ Settings is dark (APP-007).
+9. Select Paper in Settings; open Library → ✓ light. Select Night in Settings; open Library → ✓ dark, the same result as from the reader (APP-008).
 
 **Covers:** APP-001, APP-007, APP-008
 
@@ -733,19 +735,19 @@ translation works without network keys.
 **Covers:** ILL-004, NAV-009, BMK-007, POS-001, BMK-004
 
 ### J-RDR-09 — App chrome and the Words screen on phone and tablet
-**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** phone emulator (compact) and tablet API 35 · **Fixtures** F-LONG · **Preconditions** fresh phone install (portrait default); at least 3 saved words (seeded via the reader's word popup "Save"); signed out.
+**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** phone emulator (compact) and tablet API 35 · **Fixtures** F-LONG · **Preconditions** fresh install (phone: portrait default); signed out. The three saved words are made in the flow, inside step 4 / 11 (a long press on a word in the reader → the popup's "Save").
 
-1. Launch on the phone → ✓ a bottom bar with exactly 5 items: Library, Catalog, Almanac, Words, Settings (NAV-005).
-2. Tap each bottom-bar item in turn, then system Back → ✓ each opens its destination; Back behaves as on tablet (NAV-006).
-3. Tap the avatar in the top status strip → ✓ the Auth screen opens (signed out) (NAV-007).
-4. Back; open F-LONG → ✓ the bottom bar is hidden in the reader (NAV-017). Back.
+1. Launch on the phone → ✓ a bottom bar with the 5 items Library, Catalog, Almanac, Words, Settings, in that order (NAV-005).
+2. Tap each bottom-bar item in turn, then system Back → ✓ each opens its destination; Back returns to the Library, as on the tablet (NAV-006).
+3. Tap the avatar ("?") in the top status strip → ✓ the sign-in screen opens (signed out) (NAV-007).
+4. Back; open F-LONG → ✓ the bottom bar is hidden in the reader (NAV-017). Save three words; Back.
 5. Open Words; tap a saved word → ✓ the list is replaced full-screen by its detail (NAV-010).
 6. Perform the system back gesture → ✓ the list returns; the app/screen is not exited (NAV-011).
 7. Tap another word; tap the back arrow in the detail header → ✓ the list returns (NAV-012).
-8. Tap a third word; delete it from the detail pane → ✓ the list returns without that word (NAV-014).
-9. On the tablet, tap Library/Catalog/Almanac/Words/Settings on the rail → ✓ the same destinations as on the phone (NAV-006).
-10. On the tablet, open Words and select a word → ✓ master list and detail are side by side, no back arrow (NAV-013).
-11. On the tablet, open F-LONG → ✓ the rail is hidden in the reader (NAV-017).
+8. Tap a third word; tap "Delete" in the detail pane and confirm in the "Delete word" dialog → ✓ the list returns without that word (NAV-014).
+9. On the tablet, tap Catalog/Almanac/Words/Settings on the rail, then system Back after each → ✓ the same destinations as on the phone, and Back returns to the Library (NAV-006).
+10. On the tablet, open Words and select a word → ✓ master list and detail are side by side, no back arrow (NAV-013). (Runs after step 11, which makes the saved words.)
+11. On the tablet, open F-LONG → ✓ the rail is hidden in the reader (NAV-017). Save three words; Back.
 
 **Covers:** NAV-005, NAV-006, NAV-007, NAV-017, NAV-010, NAV-011, NAV-012, NAV-014, NAV-013
 

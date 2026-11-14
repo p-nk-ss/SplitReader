@@ -1,0 +1,22 @@
+appId: ${APP_ID}
+---
+# tap_reader_button (env BUTTON, OPENS): taps a button of the reader's top bar by its id
+# (reader:chaptersButton, reader:bookmarksButton, reader:displaySettingsButton) and waits for the
+# text ${OPENS} that only the opened dialog shows ("Chapters", "Bookmark this page|Remove
+# bookmark here", "Display").
+#
+# Why not a plain open_bars + tapOn: the bars hide by themselves 3.5 s after they appear, and on
+# a freshly booted or loaded emulator one `tapOn: id:` was measured at 6.5 s (Pixel_10_Pro,
+# e2e/reports/20261114T133742Z): the bars were gone when the touch landed, the tap hit the page
+# instead and no dialog opened. So the attempt is a `retry`, up to three more times, each from a
+# fresh show_bars.yaml (which starts from the bars hidden, so a stray tap of the attempt before
+# cannot confuse it).
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow: show_bars.yaml
+      - tapOn:
+          id: "${BUTTON}"
+      - extendedWaitUntil:
+          visible: "${OPENS}"
+          timeout: 4000

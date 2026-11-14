@@ -1,0 +1,39 @@
+appId: ${APP_ID}
+---
+# show_bars: shows the reader's bars (top bar + footer) for a caller that is about to read the
+# footer or tap a top-bar button — without a `when:` block.
+#
+# open_bars.yaml asks "are the bars up?" with `when: notVisible:` before each tap. On a slow
+# emulator one such question was measured at 5–10 s (Pixel_10_Pro under host load,
+# e2e/reports/20261114T134215Z: a SKIPPED `when` took 9977 ms), longer than the 3.5 s after which
+# the bars hide by themselves — so the bars it had just shown were gone again before its last
+# check. This subflow never asks: it first waits for the bars to be hidden (if they are up, their
+# own timer hides them within 3.5 s), then sends ONE point tap that does not wait for the screen
+# to settle, and waits for the bars. A tap on a paragraph, a chapter title, a picture or empty
+# page space toggles the bars; "30%, 30%" is on the page in both layouts (left pane on a tablet,
+# top pane on a phone) and never on the tablet's divider (x = 50%).
+#
+# One tap was once seen to do nothing (Pixel_10_Pro under host load, straight after a swipe,
+# e2e/reports/20261114T140108Z: no bars for 5 s after it; the same sequence worked four times in
+# a re-try), so the whole sequence is a `retry`: a failed attempt starts again from "wait until
+# the bars are hidden", and so can never hide bars that the attempt before did show.
+# Do NOT turn this into `repeat: while: notVisible:` or `when: notVisible:` — while the element
+# is visible Maestro keeps waiting (about 4 s) for it to disappear before it answers, which is
+# exactly the time the bars need to hide by themselves (tried: e2e/reports/20261114T141349Z,
+# three taps in a row, each undoing the one before).
+#
+# The caller has about 3 s after this returns: do the footer check or the button tap next.
+- retry:
+    maxRetries: 2
+    commands:
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 10000
+      - tapOn:
+          point: "30%, 30%"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          visible:
+            id: "reader:languageChip"
+          timeout: 4000

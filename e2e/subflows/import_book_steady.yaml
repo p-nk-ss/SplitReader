@@ -1,0 +1,31 @@
+appId: ${APP_ID}
+---
+# import_book_steady (env FILE, TITLE, FIRST_TEXT): import_book.yaml's job — pick ${FILE} in the
+# system picker, get the phone's portrait hint out of the way ("Don't show again" ticked), and
+# prove the RIGHT book opened by its first text and by its title in the reader's top bar — with
+# the top bar shown through show_bars.yaml instead of open_bars.yaml.
+#
+# Why a second subflow: import_book ends in two open_bars calls, and under host load open_bars
+# loses its race with the bars' 3.5 s auto-hide (its `when: notVisible:` questions take longer
+# than that to answer — see show_bars.yaml). On Pixel_10_Pro, 2026-11-14, that failed an import
+# that had in fact worked. The reader journeys J-RDR-04/05/09 use this one; import_book.yaml is
+# unchanged for the library journeys.
+#
+# Ends with the bars showing (for about 3 s).
+- runFlow:
+    file: pick_file.yaml
+    env:
+      FILE: ${FILE}
+- runFlow: dismiss_portrait_hint.yaml
+- runFlow: dismiss_portrait_hint.yaml
+- scrollUntilVisible:
+    element: ".*${FIRST_TEXT}.*"
+    direction: DOWN
+    timeout: 120000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: show_bars.yaml
+      - extendedWaitUntil:
+          visible: ".*${TITLE}.*"
+          timeout: 3000

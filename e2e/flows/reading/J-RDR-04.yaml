@@ -1,0 +1,286 @@
+appId: ${APP_ID}
+name: J-RDR-04 Reading to the end - 0% to 100% and back
+tags: [smoke, full, phone, tablet, reading, J-RDR-04]
+# books: en-novel.epub, short-novel.epub
+---
+# J-RDR-04 — Reading to the end: 0% to 100% and back.
+# Fixtures: short-novel.epub (F-SHORT, "A Short Crossing": one chapter, 30 paragraphs marked
+# "(1)" … "(30)") and en-novel.epub (F-LONG, "The River Crossing": 22 chapters, 262 paragraphs; the
+# last chapter has 8, marked "(ch22.1)" … "(ch22.8)"). Ids: original_<chapter>_<paragraph>,
+# both 0-based. Runs on the phone and on the tablet.
+#
+# The Library shows a percentage as text only on the "Continue reading" card (the book opened
+# last); a shelf card has a progress line and a "✓" badge, no number. So "the card shows the same
+# % as the footer" is checked on the Continue reading card, straight after leaving that book.
+#
+# The bars hide by themselves after 3.5 s; every footer check is made straight after
+# subflows/show_bars.yaml (one tap from the settled hidden state), every top-bar button is tapped
+# through subflows/tap_reader_button.yaml (which retries).
+# Swipes are at x = 30% (x = 50% is the pane divider on the tablet) and short (6% of the screen),
+# less than one paragraph, so a paragraph cannot be skipped between two looks at the screen.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-04.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# Preconditions: F-LONG saved near its end, with one bookmark on its final screen, and NOT yet
+# read to the end. On the tablet the whole last chapter fits on one screen, so opening chapter 22
+# from the chapter picker already is the end of the book; the setup therefore starts in chapter 21
+# there (in chapter 22 on the phone) and scrolls in short steps only until the book's last paragraph STARTS to show (its bottom is
+# still below the screen: the end has not been reached). That page is bookmarked. The bookmark's
+# label ("Chapter 22 · ¶ N", or "Chapter 21 · ¶ N" on the tablet) tells which paragraph is on top:
+#   output.mark = original_<c>_<n>   the bookmarked paragraph,
+#   output.before = original_…       the paragraph before it (the previous chapter's 8th if n = 1).
+- runFlow:
+    file: ../../subflows/import_book_steady.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- evalScript: "${output.start = DEVICE_CLASS == 'tablet' ? 20 : 21}"
+- scrollUntilVisible:
+    element:
+      id: "reader:chapterRow:${output.start}"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "reader:chapterRow:${output.start}"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "original_${output.start}_0"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "translation_${output.start}_0"
+    timeout: 240000
+- assertNotVisible:
+    id: "original_21_7"
+- repeat:
+    while:
+      notVisible:
+        id: "original_21_7"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 34%"
+          duration: 800
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page|Remove bookmark here"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Chapter 2[12] · ¶ \\d+"
+    timeout: 5000
+- copyTextFrom: "Chapter 2[12] · ¶ \\d+"
+- evalScript: ${output.c = parseInt(maestro.copiedText.split(' ')[1]) - 1}
+- evalScript: ${output.n = parseInt(maestro.copiedText.split('¶ ')[1]) - 1}
+- evalScript: ${output.mark = 'original_' + output.c + '_' + output.n}
+- evalScript: "${output.before = output.n > 0 ? 'original_' + output.c + '_' + (output.n - 1) : 'original_' + (output.c - 1) + '_7'}"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- takeScreenshot: J-RDR-04-setup-bookmarked-page
+- runFlow: ../../subflows/leave_reader.yaml
+#   …saved near the end, not finished: the Continue reading card reads 9x%, not 100%.
+- scrollUntilVisible:
+    element: "CH 2[12] OF 22"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "9[0-9]%"
+- assertNotVisible: "100%"
+
+# 1. Open F-SHORT (importing a book opens it); show the bar -> the footer shows 0% (POS-004)
+- runFlow:
+    file: ../../subflows/import_book_steady.yaml
+    env:
+      FILE: "short-novel.epub"
+      TITLE: "A Short Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow: ../../subflows/show_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "0%"
+
+# 2. Read on until the 10th paragraph is the top one; show the bar -> the percentage has grown:
+#    9 of the book's 30 paragraphs are behind, 30% (POS-004).
+#    Until the 9th paragraph is off screen, and one short swipe more: the gap under a paragraph
+#    that has just left still counts as that paragraph.
+- repeat:
+    while:
+      notVisible:
+        id: "original_0_9"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 34%"
+          duration: 800
+- repeat:
+    while:
+      visible:
+        id: "original_0_8"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 34%"
+          duration: 800
+- swipe:
+    start: "30%, 40%"
+    end: "30%, 36%"
+    duration: 800
+- assertVisible:
+    id: "original_0_9"
+- runFlow: ../../subflows/show_bars.yaml
+- copyTextFrom:
+    id: "footer_percent"
+- evalScript: ${output.shortPercent = maestro.copiedText}
+- assertTrue: ${output.shortPercent == '30%'}
+- takeScreenshot: J-RDR-04-step2-footer
+
+# 3. Back to Library -> the Continue reading card shows F-SHORT with the same % as the footer
+#    (POS-004)
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element: "CH 1 OF 1"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "${output.shortPercent}"
+- assertNotVisible: "9[0-9]%"
+- takeScreenshot: J-RDR-04-step3-library-card
+
+# 4. Open F-LONG (it opens where it was left); chapter picker -> chapter 1; Bookmarks -> the
+#    bookmark on the final screen -> one jump lands on exactly that paragraph: it is the top one,
+#    the paragraph before it is off screen (BMK-004)
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "${output.mark}"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- scrollUntilVisible:
+    element:
+      id: "reader:chapterRow:0"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 15000
+- assertNotVisible: ".*\\(ch22\\.\\d+\\).*"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page|Remove bookmark here"
+- extendedWaitUntil:
+    visible: "Chapter 2[12] · ¶ \\d+"
+    timeout: 5000
+- tapOn: "Chapter 2[12] · ¶ \\d+"
+- extendedWaitUntil:
+    visible:
+      id: "${output.mark}"
+    timeout: 15000
+- assertNotVisible:
+    id: "${output.before}"
+- assertNotVisible: ".*downstream\\. \\(1\\).*"
+- takeScreenshot: J-RDR-04-step4-bookmark-jump
+
+# 5. Scroll to the very last paragraph -> the footer shows 100% (POS-005)
+- repeat:
+    times: 4
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 30%"
+          duration: 600
+- assertVisible: ".*\\(ch22\\.8\\).*"
+- runFlow: ../../subflows/show_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "100%"
+- takeScreenshot: J-RDR-04-step5-end
+
+# 6. Hide and show the bars five times -> the footer is at 100% every time (POS-007).
+#    Each round: a tap hides the bars (or their own 3.5 s timer, if it is quicker), the footer is
+#    gone, one tap shows them again and the footer reads 100%.
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          point: "30%, 30%"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          notVisible:
+            id: "footer_percent"
+          timeout: 8000
+      - runFlow: ../../subflows/show_bars.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "footer_percent"
+            text: "100%"
+          timeout: 3000
+
+# 7. Back to Library -> the Continue reading card shows F-LONG at 100%, the footer's number
+#    (POS-005)
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element: "CH 22 OF 22"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "100%"
+- takeScreenshot: J-RDR-04-step7-library-card
+
+# 8. Reopen F-LONG -> it opens at the end (the last paragraph is on screen) and still reads 100%
+#    (POS-019)
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: ".*\\(ch22\\.8\\).*"
+    timeout: 20000
+- runFlow: ../../subflows/show_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "100%"
+
+# 9. Scroll back up two screens; show the bar -> the real, lower percentage, not stuck at 100%
+#    (POS-006)
+- repeat:
+    times: 2
+    commands:
+      - swipe:
+          start: "30%, 25%"
+          end: "30%, 85%"
+          duration: 600
+- assertNotVisible: ".*\\(ch22\\.8\\).*"
+- runFlow: ../../subflows/show_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "[89][0-9]%"
+- takeScreenshot: J-RDR-04-step9-scrolled-back

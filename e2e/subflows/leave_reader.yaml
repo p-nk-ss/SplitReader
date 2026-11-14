@@ -1,0 +1,23 @@
+appId: ${APP_ID}
+---
+# leave_reader: leaves the reader with its top-bar Back button and ends on the Library scrolled
+# to its top ("Open book" on screen). Same job as back_to_library.yaml, built on show_bars.yaml
+# and `retry` instead of `when: notVisible:` blocks: under host load back_to_library's two
+# attempts both missed the Back button (Pixel_10_Pro, the bars hid again while its conditions
+# were being answered — see show_bars.yaml), and the flow died in its final scroll.
+#
+# "Catalog" is the proof that the reader is gone: the navigation (bottom bar or rail) is hidden
+# inside the reader and is on every other screen, wherever the Library is scrolled to.
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow: show_bars.yaml
+      - tapOn:
+          id: "reader:backButton"
+      - extendedWaitUntil:
+          visible: "Catalog"
+          timeout: 5000
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
