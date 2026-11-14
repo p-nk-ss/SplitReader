@@ -120,6 +120,17 @@ class ReportTest(unittest.TestCase):
         self.assertIn("1 failed", text)
         self.assertIn("2 total", text)
 
+    def test_write_summary_lists_flows_skipped_for_the_device(self):
+        meta = dict(report.load_meta(self.run_dir), device_class="phone",
+                    skipped_for_device=["J-RDR-01", "J-RDR-06"])
+        text = report.write_summary(self.run_dir, meta).read_text(encoding="utf-8")
+        self.assertIn("- Not run on this phone (tagged for the other device class): J-RDR-01, J-RDR-06", text)
+
+    def test_write_summary_without_skipped_flows_has_no_such_line(self):
+        meta = dict(report.load_meta(self.run_dir), device_class="phone", skipped_for_device=[])
+        text = report.write_summary(self.run_dir, meta).read_text(encoding="utf-8")
+        self.assertNotIn("Not run on this", text)
+
     def test_write_summary_pass_only_run_shows_zero_failures(self):
         only_pass = SAMPLE_JUNIT.replace(
             '<testcase id="j_imp_01" name="J-IMP-01 import book" classname="e2e.flows" '

@@ -10,14 +10,25 @@
 #      This rule also holds when the flow is named explicitly (`--tags J-RDR-01` on a phone skips
 #      it): a tablet-only journey asserts a layout the phone does not have.
 
-# Parses a flow file's `tags: [a, b, c]` YAML header line into one tag per output line.
+# Parses a flow file's `tags: [a, b, c]` YAML header line into one tag per output line. Quotes
+# around a tag (`["smoke", 'tablet']`) are dropped. Only an inline list on the `tags:` line is
+# read — see flow_tags_readable.
 flow_tags() {
   local flow_file="$1"
   local line
   line="$(grep -m1 '^tags:' "$flow_file" || true)"
   [ -z "$line" ] && return 0
   printf '%s\n' "$line" | sed -n 's/^tags:[[:space:]]*\[\(.*\)\][[:space:]]*$/\1/p' \
-    | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
+    | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+        -e 's/^"\(.*\)"$/\1/' -e "s/^'\\(.*\\)'\$/\\1/" -e '/^$/d'
+}
+
+# True (exit 0) iff flow_tags can read this flow's tags: it has a `tags: [...]` line with at least
+# one tag. A flow without one, or with a YAML block list (`tags:` and `- smoke` lines under it),
+# would have NO tags for the two rules below — it would run on every device and match no --tags —
+# so run.sh refuses to start when a flow under e2e/flows fails this.
+flow_tags_readable() {
+  [ -n "$(flow_tags "$1")" ]
 }
 
 # True (exit 0) iff TAGS is empty (no filter — every flow runs) or this flow declares at least
@@ -43,7 +54,8 @@ flow_matches_tags() {
 # Prints `tablet` or `phone` from the outputs of `adb shell wm size` and `adb shell wm density`
 # ("Physical size: 2560x1600", optionally followed by an "Override size: …" line that wins; same
 # for density). Tablet = smallest width >= 600dp, the same breakpoint the app's shell uses.
-# Prints nothing when either output can't be read — the caller then applies no device rule.
+# Prints nothing when either output can't be read — run.sh then stops: without the class a flow
+# would run with its device-specific steps skipped.
 device_class_from_wm() {
   local size_out="$1" density_out="$2"
   local size density w h sw
@@ -55,11 +67,13 @@ device_class_from_wm() {
   if [ $((sw * 160 / density)) -ge 600 ]; then echo tablet; else echo phone; fi
 }
 
-# True (exit 0) iff the flow can run on a device of class $2 (`tablet`, `phone`, or empty =
-# unknown, which never excludes anything).
+# True (exit 0) iff the flow can run on a device of class $2 (`tablet` or `phone`). Any other
+# class — empty, "unknown", a typo — matches no flow: a flow must never run on a device whose
+# class is not known (its `when: ${DEVICE_CLASS == …}` steps would all be skipped and it would
+# still pass).
 flow_matches_device() {
   local flow_file="$1" class="$2"
-  [ -z "$class" ] && return 0
+  case "$class" in tablet|phone) ;; *) return 1 ;; esac
   local has_tablet=0 has_phone=0 ft
   while IFS= read -r ft; do
     [ "$ft" = "tablet" ] && has_tablet=1

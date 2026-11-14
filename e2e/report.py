@@ -22,6 +22,9 @@ RUN_DIR must contain:
                     "version_code": <app versionCode>,
                     "date": "<YYYY-MM-DD>",
                     "tags": ["smoke", ...],
+                    "device_class": "tablet" | "phone",
+                    "skipped_for_device": ["J-RDR-01", ...],   # selected by the tags, skipped
+                                                              # by the tablet / phone rule
                     "copy_to": "<optional absolute path>"   # set by run.sh for --build release
                                                               # or --tags smoke
                   }
@@ -196,6 +199,12 @@ def render_summary(run_dir, meta, cases):
     lines.append(f"- Date: {meta.get('date', '-')}")
     tags = meta.get("tags") or []
     lines.append(f"- Tags: {', '.join(tags) if tags else '-'}")
+    skipped = meta.get("skipped_for_device") or []
+    if skipped:
+        lines.append(
+            f"- Not run on this {meta.get('device_class') or 'device'} "
+            f"(tagged for the other device class): {', '.join(skipped)}"
+        )
     lines.append("")
     lines.append("| Journey | Result | Duration | Failing step | Screenshot |")
     lines.append("|---|---|---|---|---|")

@@ -46,7 +46,10 @@ expect yes "flow tagged for both runs on a tablet"    flow_matches_device "$BOTH
 expect yes "flow tagged for both runs on a phone"     flow_matches_device "$BOTH" phone
 expect yes "flow with neither tag runs on a tablet"   flow_matches_device "$NEITHER" tablet
 expect yes "flow with neither tag runs on a phone"    flow_matches_device "$NEITHER" phone
-expect yes "unknown device class excludes nothing"    flow_matches_device "$TABLET_ONLY" ""
+expect no  "no device class: a tablet-only flow does not run"  flow_matches_device "$TABLET_ONLY" ""
+expect no  "no device class: a two-class flow does not run"    flow_matches_device "$BOTH" ""
+expect no  "no device class: an untagged flow does not run"    flow_matches_device "$NEITHER" ""
+expect no  "class 'unknown' runs nothing"                      flow_matches_device "$BOTH" unknown
 
 # Device class from `wm size` / `wm density`
 expect_eq tablet "$(device_class_from_wm 'Physical size: 2560x1600' 'Physical density: 320')" "Pixel Tablet is a tablet"
@@ -56,6 +59,20 @@ expect_eq phone  "$(device_class_from_wm 'Physical size: 1600x2560
 Override size: 1080x2400' 'Physical density: 320
 Override density: 420')" "an override size/density wins"
 expect_eq ""     "$(device_class_from_wm 'error: device offline' '')" "unreadable output gives no class"
+
+# Tags a flow may write with quotes; tags flow_tags cannot read
+QUOTED="$TMP/quoted.yaml"
+printf 'appId: ${APP_ID}\nname: quoted\ntags: ["smoke", %stablet%s, J-Q]\n---\n- launchApp\n' "'" "'" > "$QUOTED"
+BLOCK="$TMP/block.yaml"
+printf 'appId: ${APP_ID}\nname: block\ntags:\n  - smoke\n  - tablet\n---\n- launchApp\n' > "$BLOCK"
+NOTAGS="$TMP/notags.yaml"
+printf 'appId: ${APP_ID}\nname: notags\n---\n- launchApp\n' > "$NOTAGS"
+expect_eq "smoke tablet J-Q" "$(flow_tags "$QUOTED" | tr '\n' ' ' | sed 's/ $//')" "quotes around a tag are dropped"
+expect no  "a quoted tablet-only flow is skipped on a phone"   flow_matches_device "$QUOTED" phone
+expect yes "an inline tags list is readable"          flow_tags_readable "$BOTH"
+expect yes "a quoted inline tags list is readable"    flow_tags_readable "$QUOTED"
+expect no  "a block-list tags header is not readable" flow_tags_readable "$BLOCK"
+expect no  "a flow without tags is not readable"      flow_tags_readable "$NOTAGS"
 
 # --tags rule (unchanged behaviour, now covered)
 TAGS=""

@@ -28,7 +28,12 @@
 #                      "full,tablet", or a single flow's own id tag, e.g. "J-LIB-01".
 #                      Independently of --tags, a flow tagged `tablet` but not `phone` is skipped
 #                      on a phone, and one tagged `phone` but not `tablet` is skipped on a tablet
-#                      (see flow_select.sh; the skip is logged).
+#                      (see flow_select.sh; the skip is logged and listed in summary.md).
+#                      A run that selects NO flow is an error (exit 1, "no flow selected"): when
+#                      no flow has any of the tags, before anything is built or booted; when the
+#                      device rule skipped them all, right after boot — the emulator this run
+#                      started is killed first. The same when the device's class cannot be read
+#                      from `wm size` / `wm density`: no flow runs on a device of unknown class.
 #   --keep-emulator    Don't kill the emulator this run started (--avd only; ignored with
 #                      --serial, since that emulator wasn't started by this script).
 #   --flow-timeout-min N  Per-flow wall-clock watchdog, in minutes (default 20). If a single
@@ -57,6 +62,11 @@
 # copied to <releases dir>/e2e-<versionName>-<versionCode>-<device>.md, where <releases dir> is
 # resolved exactly like app/build.gradle.kts resolves `releaseDir` for copyReleaseBundle:
 # `mirrolit.releaseDir` in local.properties if set, else `<repo root>/releases`.
+#
+# Colour checks: a flow that takes crops named `colour-check/<label>__<Constant>` (J-RDR-05's
+# themes) has them checked by e2e/check_colours.py right after it ran — each crop's dominant
+# pixel must be exactly that constant of the app's Color.kt. The result is its own row,
+# "<flow> colours", in summary.md, and a wrong colour fails the run like a failed flow.
 #
 # Exit code is non-zero if ANY selected flow failed (0 = every selected flow passed), so this
 # script is CI-usable as a gate. Report generation and cleanup (pushed fixtures removed, emulator
@@ -106,6 +116,36 @@ FLOW_TIMEOUT_SEC=$((FLOW_TIMEOUT_MIN * 60))
 case "$BUILD_TYPE" in debug|release) ;; *) die "--build must be debug or release" ;; esac
 [ -n "$MAESTRO" ] || die "maestro not found on PATH"
 [ -x "$ADB" ] || die "adb not found at $ADB"
+
+# ---------------------------------------------------------------------------
+# 0. Which flows do the tags select? Decided before anything is built or booted, so a mistyped
+# --tags costs a second, not a build and a boot. (The device rule needs the device: step 2.)
+#
+# flow_tags / flow_matches_tags (--tags, OR semantics) and flow_matches_device (the `tablet` /
+# `phone` tags) live in flow_select.sh so e2e/test_flow_select.sh can check them without a device;
+# e2e/test_run_select.sh checks what this script does with them.
+# ---------------------------------------------------------------------------
+# shellcheck source=flow_select.sh
+. "$HERE/flow_select.sh"
+
+FLOW_FILES=()
+while IFS= read -r f; do
+  FLOW_FILES+=("$f")
+done < <(find "$REPO_ROOT/e2e/flows" -name '*.yaml' ! -name 'config.yaml' ! -name '_*' | sort)
+[ "${#FLOW_FILES[@]}" -gt 0 ] || die "no flow files under $REPO_ROOT/e2e/flows"
+
+TAG_MATCHED_FLOWS=()
+for f in "${FLOW_FILES[@]}"; do
+  flow_tags_readable "$f" \
+    || die "$(basename "$f"): no readable tags — every flow needs one inline line \`tags: [a, b]\` (a YAML block list is not read; the flow would run on every device and match no --tags)"
+  if flow_matches_tags "$f"; then
+    TAG_MATCHED_FLOWS+=("$f")
+  else
+    log "skipping $(basename "$f") (tags don't include any of: $TAGS)"
+  fi
+done
+[ "${#TAG_MATCHED_FLOWS[@]}" -gt 0 ] \
+  || die "no flow selected: no flow under e2e/flows has any of the tags: $TAGS"
 
 # ---------------------------------------------------------------------------
 # Signed release build: copy signing files from the main checkout for the build only, and
@@ -229,12 +269,47 @@ kill_emulator() {
     log "--keep-emulator: leaving $SERIAL running"
   fi
 }
+# From here on a fatal error must not leave the emulator this run started running.
+die_after_boot() { kill_emulator; die "$@"; }
+
+# Device class: tablet | phone (smallest width >= 600dp is a tablet). It decides which flows run
+# and which of a two-class flow's steps run (`when: ${DEVICE_CLASS == 'phone'}`), so without it
+# nothing runs: a flow on a device of unknown class would skip its device-specific steps and
+# still pass. `wm` is asked a few times — right after boot it can answer late.
+DEVICE_CLASS=""
+tries=0
+while [ -z "$DEVICE_CLASS" ] && [ $tries -lt 5 ]; do
+  [ $tries -eq 0 ] || sleep 2
+  DEVICE_CLASS="$(device_class_from_wm "$("$ADB" -s "$SERIAL" shell wm size 2>/dev/null | tr -d '\r')" \
+    "$("$ADB" -s "$SERIAL" shell wm density 2>/dev/null | tr -d '\r')")"
+  tries=$((tries + 1))
+done
+case "$DEVICE_CLASS" in
+  tablet|phone) log "device class: $DEVICE_CLASS" ;;
+  *) die_after_boot "cannot tell the device class of $SERIAL (tablet or phone) from \`wm size\` / \`wm density\` — no flow runs on a device of unknown class" ;;
+esac
+
+SELECTED_FLOWS=()
+SKIPPED_FOR_DEVICE=()
+for f in "${TAG_MATCHED_FLOWS[@]}"; do
+  if flow_matches_device "$f" "$DEVICE_CLASS"; then
+    SELECTED_FLOWS+=("$f")
+  else
+    log "skipping $(basename "$f") (not tagged for a $DEVICE_CLASS)"
+    SKIPPED_FOR_DEVICE+=("$(basename "$f" .yaml)")
+  fi
+done
+# An explicit count, never "${SELECTED_FLOWS[@]}" on an empty array: under `set -u` bash 3.2 (the
+# macOS /bin/bash) calls that an unbound variable and dies on the spot, bash 4.4+ runs zero flows
+# and reports a green run of nothing.
+[ "${#SELECTED_FLOWS[@]}" -gt 0 ] \
+  || die_after_boot "no flow selected (tags: ${TAGS:-none}; device: $DEVICE_CLASS): every flow with those tags is tagged for the other device class — ${SKIPPED_FOR_DEVICE[*]}"
 
 # ---------------------------------------------------------------------------
 # 3. Install
 # ---------------------------------------------------------------------------
 log "adb install -r $APK"
-"$ADB" -s "$SERIAL" install -r "$APK" || { kill_emulator; die "install failed"; }
+"$ADB" -s "$SERIAL" install -r "$APK" || die_after_boot "install failed"
 
 API="$("$ADB" -s "$SERIAL" shell getprop ro.build.version.sdk | tr -d '\r\n')"
 log "device API level: $API"
@@ -269,8 +344,8 @@ log "listing /sdcard/Download before pushing any fixtures"
 # Flow selection by --tags still works: it is now run.sh's OWN filter (flow_matches_tags, OR
 # semantics against each flow's `tags: [...]` header — the same semantics maestro's own
 # --include-tags has), since flows run one file at a time rather than as one `maestro test`
-# invocation over a whole directory. A skipped flow is logged explicitly below, which is this
-# script's proof that a non-matching flow was actually skipped, not silently run anyway.
+# invocation over a whole directory. A skipped flow is logged explicitly (steps 0 and 2), which is
+# this script's proof that a non-matching flow was actually skipped, not silently run anyway.
 # ---------------------------------------------------------------------------
 
 # `adb shell` concatenates ALL of its argv (space-joined) into one command line that the
@@ -305,7 +380,7 @@ push_fixture() {
   # adb push's remote argument goes straight to the sync protocol, not through a remote shell,
   # so (unlike media_scan/rm below) it needs no remote-shell quoting — a space or quote in $bn
   # survives it literally.
-  "$ADB" -s "$SERIAL" push "$local_path" "/sdcard/Download/$bn" >/dev/null || die "push failed: $local_path"
+  "$ADB" -s "$SERIAL" push "$local_path" "/sdcard/Download/$bn" >/dev/null || die_after_boot "push failed: $local_path"
   media_scan "/sdcard/Download/$bn"
   echo "$bn" >> "$PUSHED_LIST"
 }
@@ -340,11 +415,6 @@ flow_books() {
   printf '%s\n' "$line" | sed -e 's/^# books:[[:space:]]*//' -e 's/[[:space:]]*$//' \
     | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
 }
-
-# flow_tags / flow_matches_tags (--tags, OR semantics) and flow_matches_device (the `tablet` /
-# `phone` tags) live in flow_select.sh so e2e/test_flow_select.sh can check them without a device.
-# shellcheck source=flow_select.sh
-. "$HERE/flow_select.sh"
 
 # Removes every fixture pushed for the flow that just ran (no-op the first time: PUSHED_LIST
 # starts empty). `< /dev/null` matters: without it, `adb shell` would inherit this function's
@@ -382,29 +452,6 @@ write_timeout_junit() {
 XML
 }
 
-# tablet | phone (smallest width >= 600dp is a tablet); empty if `wm` can't be read, and then no
-# flow is excluded by device class.
-DEVICE_CLASS="$(device_class_from_wm "$("$ADB" -s "$SERIAL" shell wm size 2>/dev/null | tr -d '\r')" \
-  "$("$ADB" -s "$SERIAL" shell wm density 2>/dev/null | tr -d '\r')")"
-log "device class: ${DEVICE_CLASS:-unknown}"
-
-FLOW_FILES=()
-while IFS= read -r f; do
-  FLOW_FILES+=("$f")
-done < <(find "$REPO_ROOT/e2e/flows" -name '*.yaml' ! -name 'config.yaml' ! -name '_*' | sort)
-
-SELECTED_FLOWS=()
-for f in "${FLOW_FILES[@]}"; do
-  if ! flow_matches_tags "$f"; then
-    log "skipping $(basename "$f") (tags don't include any of: $TAGS)"
-  elif ! flow_matches_device "$f" "$DEVICE_CLASS"; then
-    log "skipping $(basename "$f") (not tagged for a $DEVICE_CLASS)"
-  else
-    SELECTED_FLOWS+=("$f")
-  fi
-done
-[ "${#SELECTED_FLOWS[@]}" -gt 0 ] || log "WARNING: no flow under e2e/flows matched --tags $TAGS"
-
 OVERALL_EXIT=0
 for flow in "${SELECTED_FLOWS[@]}"; do
   stem="$(basename "$flow" .yaml)"
@@ -422,7 +469,7 @@ for flow in "${SELECTED_FLOWS[@]}"; do
   else
     for name in "${books[@]}"; do
       src="$(resolve_fixture "$name")" \
-        || die "$stem needs fixture '$name' but it was not found under e2e/books/, e2e/books/fetched/, or app/src/androidTest/assets/qa-pd/"
+        || die_after_boot "$stem needs fixture '$name' but it was not found under e2e/books/, e2e/books/fetched/, or app/src/androidTest/assets/qa-pd/"
       push_fixture "$src"
     done
     log "pushed ${#books[@]} fixture(s) for $stem: ${books[*]}"
@@ -430,9 +477,9 @@ for flow in "${SELECTED_FLOWS[@]}"; do
 
   FLOW_RUN="$RUN/$stem"
   mkdir -p "$FLOW_RUN"
-  # DEVICE_CLASS (tablet | phone | unknown) lets a flow that runs on both keep a phone-only step
-  # behind `when: true: ${DEVICE_CLASS == 'phone'}`.
-  MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" -e "DEVICE_CLASS=${DEVICE_CLASS:-unknown}" "$flow" \
+  # DEVICE_CLASS (tablet | phone) lets a flow that runs on both keep a phone-only step behind
+  # `when: true: ${DEVICE_CLASS == 'phone'}`.
+  MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" -e "DEVICE_CLASS=$DEVICE_CLASS" "$flow" \
     --format junit --output "$FLOW_RUN/junit.xml" --test-output-dir "$FLOW_RUN")
 
   # Per-flow watchdog: run maestro in the background under this script's own control (no
@@ -472,6 +519,17 @@ for flow in "${SELECTED_FLOWS[@]}"; do
     log "$stem maestro exit code: $flow_exit"
     [ "$flow_exit" -eq 0 ] || OVERALL_EXIT=1
   fi
+
+  # Colour crops (see the header): checked here, reported as the row "<stem> colours". Its junit
+  # goes into its own subdirectory of $RUN, which is where report.py looks for rows.
+  if grep -q 'path:.*colour-check/' "$flow"; then
+    if "$PYTHON3" "$REPO_ROOT/e2e/check_colours.py" "$flow" "$FLOW_RUN" "$RUN/$stem-colours/junit.xml" >&2; then
+      log "$stem: colour crops OK"
+    else
+      log "$stem: colour crops WRONG (or not taken) — recording as FAIL"
+      OVERALL_EXIT=1
+    fi
+  fi
 done
 
 remove_pushed_fixtures
@@ -507,6 +565,15 @@ if [ "$BUILD_TYPE" = "release" ] || [ "$NEEDS_COPY" = "1" ]; then
   COPY_TO="$RELEASE_DIR/e2e-${VERSION_NAME}-${VERSION_CODE}-${DEVICE_SLUG}.md"
 fi
 
+SKIPPED_JSON="[]"
+if [ "${#SKIPPED_FOR_DEVICE[@]}" -gt 0 ]; then
+  skipped_json_parts=""
+  for t in "${SKIPPED_FOR_DEVICE[@]}"; do
+    skipped_json_parts="${skipped_json_parts}\"${t}\","
+  done
+  SKIPPED_JSON="[${skipped_json_parts%,}]"
+fi
+
 TAGS_JSON="[]"
 if [ -n "$TAGS" ]; then
   # Split on commas via IFS into an array, then quote each element explicitly — avoids the
@@ -529,6 +596,8 @@ cat > "$RUN/meta.json" <<EOF
   "version_name": "$VERSION_NAME",
   "version_code": $VERSION_CODE,
   "date": "$RUN_DATE",
+  "device_class": "$DEVICE_CLASS",
+  "skipped_for_device": $SKIPPED_JSON,
   "tags": $TAGS_JSON$( [ -n "$COPY_TO" ] && printf ',\n  "copy_to": "%s"' "$COPY_TO" )
 }
 EOF
