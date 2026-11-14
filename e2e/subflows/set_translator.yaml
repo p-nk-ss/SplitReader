@@ -16,24 +16,14 @@ appId: ${APP_ID}
 # is only part of the displayName, and escape any regex metacharacters in it yourself (e.g. the
 # parentheses in "ML Kit \\(offline\\)" or "Quick Translate \\(free, online\\)").
 #
-# Same bars-auto-hide hazard as open_bars.yaml/back_to_library.yaml: reveal the chrome first,
-# only if it isn't already showing.
+# The picker button is in the top bar, which hides by itself after 3.5 s: it is tapped through
+# tap_reader_button.yaml (show the bars, tap, wait for the dialog — retried), never after a
+# `when: notVisible:` question (see show_bars.yaml).
 - runFlow:
-    when:
-      notVisible:
-        id: "reader:translatorPickerButton"
-    commands:
-      - tapOn:
-          point: "50%, 20%"
-- extendedWaitUntil:
-    visible:
-      id: "reader:translatorPickerButton"
-    timeout: 5000
-- tapOn:
-    id: "reader:translatorPickerButton"
-- extendedWaitUntil:
-    visible: "Choose provider"
-    timeout: 5000
+    file: tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
 - tapOn: "${NAME}"
 - extendedWaitUntil:
     notVisible: "Choose provider"

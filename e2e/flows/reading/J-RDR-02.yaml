@@ -134,7 +134,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     timeout: 1500
 
 # 5. Tap the page -> the footer shows a percentage on the phone, 0% at the start (POS-008)
-- runFlow: ../../subflows/open_bars.yaml
+- runFlow: ../../subflows/show_bars.yaml
 - assertVisible:
     id: "footer_percent"
     text: "0%"
@@ -167,7 +167,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     duration: 800
 - assertVisible:
     id: "original_0_3"
-- runFlow: ../../subflows/open_bars.yaml
+- runFlow: ../../subflows/show_bars.yaml
 - assertVisible:
     id: "footer_percent"
     text: "1%"
@@ -196,7 +196,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     duration: 800
 - assertVisible:
     id: "original_0_6"
-- runFlow: ../../subflows/open_bars.yaml
+- runFlow: ../../subflows/show_bars.yaml
 - assertVisible:
     id: "footer_percent"
     text: "2%"
@@ -225,7 +225,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     duration: 800
 - assertVisible:
     id: "original_0_9"
-- runFlow: ../../subflows/open_bars.yaml
+- runFlow: ../../subflows/show_bars.yaml
 - assertVisible:
     id: "footer_percent"
     text: "3%"
@@ -233,11 +233,11 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 # 7. Chapter picker -> chapter 3 -> the view lands on chapter 3's start (NAV-009): the chapter
 #    title is in the top pane with its first paragraph under it, and it is still there when the
 #    translation has arrived (NAV-018)
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn:
     id: "reader:chapterRow:2"
 - extendedWaitUntil:
@@ -296,12 +296,11 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     id: "original_2_4"
 - assertVisible: ".*\\(ch3\\.5\\).*"
 - takeScreenshot: J-RDR-02-step8-paragraph5-on-top
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Bookmark this page"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
 - tapOn: "Bookmark this page"
 - extendedWaitUntil:
     visible: "Remove bookmark here"
@@ -334,12 +333,11 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 # 11. Chapter picker -> chapter 1; Bookmarks -> tap the chapter 3 bookmark -> one jump lands
 #     exactly on that paragraph: the 5th is on top, the 4th is off screen; Bookmarks shows this
 #     page as bookmarked (BMK-004)
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn:
     id: "reader:chapterRow:0"
 - extendedWaitUntil:
@@ -349,12 +347,11 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     visible: ".*downstream\\. \\(1\\).*"
     timeout: 15000
 - assertNotVisible: ".*\\(ch3\\.\\d+\\).*"
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Bookmark this page"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
 - tapOn: "Chapter 3 — The Long Crossing · ¶ 5"
 - extendedWaitUntil:
     visible:
@@ -363,12 +360,11 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 - assertNotVisible:
     id: "original_2_3"
 - assertVisible: ".*\\(ch3\\.5\\).*"
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Remove bookmark here"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Remove bookmark here"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "Remove bookmark here"
@@ -376,7 +372,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 
 # 12. Back to Library, reopen the book -> the hint shows again because the box was not ticked
 #     (APP-028)
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"
@@ -396,7 +392,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     visible:
       id: "original_2_4"
     timeout: 15000
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"

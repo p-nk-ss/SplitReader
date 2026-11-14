@@ -32,11 +32,11 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
       FILE: "en-novel.epub"
       TITLE: "The River Crossing"
       FIRST_TEXT: "The old mill still stood at the bend of the river"
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn:
     id: "reader:chapterRow:7"
 - extendedWaitUntil:
@@ -65,12 +65,11 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     start: "30%, 40%"
     end: "30%, 30%"
     duration: 800
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Bookmark this page"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
 - tapOn: "Bookmark this page"
 - extendedWaitUntil:
     visible: "Chapter 8 · ¶ \\d+"
@@ -87,7 +86,7 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     timeout: 15000
 - assertNotVisible:
     id: "original_7_${output.prev}"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 
 # 1. Settings -> Orientation -> three options Auto / Landscape / Portrait, in English (APP-024)
 - tapOn: "Settings"
@@ -205,12 +204,11 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
 #     column both ways, the same paragraph on top; Aa still shows "Show translation" off
 #     (LAY-028). Turn it back on.
 #     The switch has no label of its own: it is the checkable node in the "Show translation" row.
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:displaySettingsButton"
-- extendedWaitUntil:
-    visible: "Display"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
 - scrollUntilVisible:
     element: "Show illustrations"
     direction: DOWN
@@ -260,12 +258,11 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     id: "translation_7_.*"
 - assertNotVisible:
     id: "reader:verticalBottomPane"
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:displaySettingsButton"
-- extendedWaitUntil:
-    visible: "Display"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
 - scrollUntilVisible:
     element: "Show illustrations"
     direction: DOWN
@@ -292,7 +289,7 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     timeout: 60000
 
 # 7. Back to Library; reopen the book from its card -> the same paragraph (NAV-002)
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"
@@ -310,12 +307,11 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
 # 8. Chapter picker -> chapter 10, so the first row on screen is a chapter title; Back; reopen
 #    -> the place is chapter 10's first paragraph, from its first line: it is on top, the chapter
 #    title is above the screen and nothing of chapter 9 shows (POS-013)
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn:
     id: "reader:chapterRow:9"
 - extendedWaitUntil:
@@ -325,7 +321,7 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     visible: ".*\\(ch10\\.1\\).*"
     timeout: 15000
 - assertVisible: "— 10 —"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"
@@ -344,12 +340,11 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
 
 # 9. Bookmarks -> the chapter 8 bookmark (its paragraph exactly on top), then scroll a little so
 #    its first lines are off screen; Back; reopen -> the same paragraph is on top (POS-013)
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Chapter 8 · ¶ \\d+"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Chapter 8 · ¶ \\d+"
 - tapOn: "Chapter 8 · ¶ \\d+"
 - extendedWaitUntil:
     visible:
@@ -364,7 +359,7 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
 - assertVisible:
     id: "original_7_${output.p}"
 - takeScreenshot: J-RDR-03-step9-partway-before
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"

@@ -30,7 +30,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 #   output.mark = original_<c>_<n>   the bookmarked paragraph,
 #   output.before = original_…       the paragraph before it (the previous chapter's 8th if n = 1).
 - runFlow:
-    file: ../../subflows/import_book_steady.yaml
+    file: ../../subflows/import_book.yaml
     env:
       FILE: "en-novel.epub"
       TITLE: "The River Crossing"
@@ -100,7 +100,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 
 # 1. Open F-SHORT (importing a book opens it); show the bar -> the footer shows 0% (POS-004)
 - runFlow:
-    file: ../../subflows/import_book_steady.yaml
+    file: ../../subflows/import_book.yaml
     env:
       FILE: "short-novel.epub"
       TITLE: "A Short Crossing"

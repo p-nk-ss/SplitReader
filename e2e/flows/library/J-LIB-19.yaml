@@ -20,11 +20,11 @@ tags: [smoke, full, library, J-LIB-19]
       FILE: "en-novel.epub"
       TITLE: "The River Crossing"
       FIRST_TEXT: "The old mill still stood at the bend of the river"
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn: ".*The Long Crossing"
 - extendedWaitUntil:
     notVisible: "Chapters"
@@ -38,12 +38,11 @@ tags: [smoke, full, library, J-LIB-19]
 #    listed under chapter 3. Back to Library.
 - scroll
 - assertVisible: ".*\\(ch3\\.\\d+\\).*"
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Bookmark this page"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
 - tapOn: "Bookmark this page"
 - extendedWaitUntil:
     visible: "Remove bookmark here"
@@ -53,7 +52,7 @@ tags: [smoke, full, library, J-LIB-19]
 - extendedWaitUntil:
     notVisible: "Remove bookmark here"
     timeout: 5000
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 
 # 3. Add two more books -> "3 VOLUMES" (the free tier is full)
 - runFlow:
@@ -62,14 +61,14 @@ tags: [smoke, full, library, J-LIB-19]
       FILE: "no-description.epub"
       TITLE: "No Description Here"
       FIRST_TEXT: "The old mill still stood at the bend of the river"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - runFlow:
     file: ../../subflows/import_book.yaml
     env:
       FILE: "plain-prose.epub"
       TITLE: "Plain Prose"
       FIRST_TEXT: "The old mill still stood at the bend of the river"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 # scrollUntilVisible, not assertVisible: on a phone the shelf header can sit below the fold under
 # the Continue Reading hero (same reasoning as every "VOLUMES" check in J-LIB-01).
 - scrollUntilVisible:
@@ -144,7 +143,7 @@ tags: [smoke, full, library, J-LIB-19]
       TITLE: "The Blue Cover Book"
       FIRST_TEXT: "The old mill still stood at the bend of the river"
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element: "· 3 VOLUMES"
     direction: DOWN
@@ -207,17 +206,16 @@ tags: [smoke, full, library, J-LIB-19]
     visible: ".*\\(ch3\\.\\d+\\).*"
     timeout: 20000
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: ".*The Long Crossing · ¶ \\d+"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: ".*The Long Crossing · ¶ \\d+"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: ".*The Long Crossing · ¶ \\d+"
     timeout: 5000
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element: "· 3 VOLUMES"
     direction: DOWN
@@ -275,18 +273,17 @@ tags: [smoke, full, library, J-LIB-19]
     visible: ".*downstream\\. \\(1\\).*"
     timeout: 20000
 - assertNotVisible: ".*\\(ch3\\.\\d+\\).*"
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "No bookmarks yet.*"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "No bookmarks yet.*"
 - assertNotVisible: ".*The Long Crossing · ¶ \\d+"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "No bookmarks yet.*"
     timeout: 5000
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element: "· 3 VOLUMES"
     direction: DOWN

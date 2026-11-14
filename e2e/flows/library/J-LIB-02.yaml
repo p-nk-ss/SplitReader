@@ -107,129 +107,37 @@ tags: [smoke, full, library, network, J-LIB-02]
 # call, right after the book opens and before the languageChip wait, so "Don't show again" is
 # ticked before it can race any of the reveal-tap sequences that follow.
 - runFlow: ../../subflows/dismiss_portrait_hint.yaml
-# Take 7 (2026-11-10): soft wait + reveal-tap fallback, same race/fix as step 9 below (that
-# step's own comment has the full on-device evidence) - confirmed here too this run
-# (Tab_35_PixelTablet): the book opened and was actively translating (screenshot showed real
-# bilingual content, not a stuck spinner/dialog) but the languageChip had already auto-hidden
-# (READER_BARS_AUTO_HIDE_MS, 3500ms) by the time the flat 150000ms wait sampled it, failing
-# "Assertion is false: id: reader:languageChip is visible" outright with no recovery. Every fresh
-# catalog-open languageChip wait in this flow (steps 4/6/7) gets the same fallback now, not just
-# step 9's re-open case - the race isn't specific to re-opening.
-#
-# Take 8 (2026-11-11, phone pass): the runFlow wrapper around `open_bars.yaml` is now itself
-# `optional: true` too - confirmed on-device (Pixel_10_Pro/API 37) this was a real bug, not just
-# defensive: `open_bars.yaml` ends with its OWN hard (non-optional) 15s terminal assertion for the
-# same languageChip id (its three internal 20%/50%/80% fallback taps had all genuinely fired, per
-# commands.json, but the chip still hadn't appeared under this device's slower translation load) -
-# that inner hard failure propagated straight out and aborted the whole flow BEFORE this step's
-# own, much more generous 90000ms final wait ever got a chance to run (confirmed via
-# `e2e/reports/20261111T082114Z`: step 155/156, `runFlowCommand` FAILED, nested down to
-# `open_bars.yaml`'s own terminal `assertConditionCommand` FAILED at depth 2). A throwaway probe
-# flow confirmed `optional: true` on the outer `runFlow` turns that inner failure into a WARNED
-# (the flow continues) without weakening the real pass/fail signal - the explicit 90000ms wait
-# right after this block is still a hard, non-optional assertion, so the journey only ever passes
-# if the chip genuinely shows up in time.
-#
-# Even with that fix, step 7's Frankenstein open (the George Allen edition, same "illustrated,
-# heavy front matter" genre as this step's own Pride and Prejudice edition and J-LIB-01's
-# alice-illustrated.epub) still hard-failed the 90000ms wait on a genuinely fresh phone boot
-# (`e2e/reports/20261111T084432Z`). The failure screenshot showed the SAME front-matter page the
-# whole time (title page / "CONTENTS" / "Letter 1" heading, no body prose) on BOTH panes (phone's
-# stacked layout) - this edition's front matter is almost entirely short heading/rule lines
-# ("Frankenstein;", "or, the Modern Prometheus", "CONTENTS", "Letter 1"), not body paragraphs, and
-# `open_bars.yaml`'s own doc already established (Issue A, Task 7a "Take 3") that heading/masthead
-# elements carry no tap handler at all (`ChapterMasthead`/equivalent headings, unlike every
-# paragraph/image/divider) - so its three fixed-fraction taps (20%/50%/80%) can ALL legitimately
-# land on dead heading zones at once when a page is front-matter-heavy enough, on a narrow phone
-# layout where each heading line occupies a much larger fraction of the viewport than on a
-# tablet's wider, denser side-by-side layout (where this exact step already passes cleanly). A
-# plain `scroll` moves the viewport past the heading block onto real paragraph prose, which does
-# carry a tap handler - added here as one extra, fully optional retry (one scroll + one more
-# `open_bars.yaml` attempt) local to this flow's own languageChip wait, not to the shared
-# `open_bars.yaml` subflow itself (keeps this fix scoped to J-LIB-02's own heavy-front-matter
-# editions, no shared-subflow change, no J-LIB-01 re-run required).
+# "The reader opened" in two halves, neither of which races the bars' 3.5 s auto-hide:
+#  1. the Catalog is no longer on screen - its "Standard Ebooks" source pill sits above the list
+#     and never scrolls away; if the limit dialog came up instead, the Catalog stays where it
+#     is and either this wait or the next half fails. 150 s for the download + parse (the old soft 60 s + hard 90 s; under heavy
+#     host load this step has needed more than 90 s);
+#  2. the reader's bars come up on a tap and show the languageChip (show_bars.yaml; it fails the
+#     flow if they do not).
+# A bare wait for the chip, which this used to be, missed it when the book took a while to
+# settle: the bars of a just-opened reader were gone again before the wait sampled them
+# (Tab_35_PixelTablet, 2026-11-10), and the `when: notVisible:` fallback that followed is the
+# pattern show_bars.yaml replaces. Every chapter title, picture and empty page space toggles the
+# bars now, so the old "scroll past the headings and try again" fallback (Frankenstein's front
+# matter on the phone, e2e/reports/20261111T084432Z) is not needed.
+# The portrait hint again after the wait: on the phone it comes with the reader, i.e. after the
+# download, when the call above has long given up.
 - extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 60000
-    optional: true
-- runFlow:
-    when:
-      notVisible:
-        id: "reader:languageChip"
-    commands:
-      - runFlow:
-          file: ../../subflows/open_bars.yaml
-          optional: true
-      - runFlow:
-          when:
-            notVisible:
-              id: "reader:languageChip"
-          commands:
-            - scroll
-            - runFlow: ../../subflows/open_bars.yaml
-          optional: true
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 90000
+    notVisible: "Standard Ebooks"
+    timeout: 150000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/show_bars.yaml
 
 # 5. Chapter 2, add a bookmark, Back -> Pride and Prejudice is in the Library (CAT-004)
-# Retried up to 3x (open_bars.yaml -> tap chaptersButton -> poll), not a single open_bars.yaml +
-# tap: confirmed on-device (Tab_35_PixelTablet, 2026-11-09) that on this specific illustrated
-# edition's opening page (cover/title page/illustrations/a full critical-essay preface - far more
-# front matter than a typical import), even a tap that successfully revealed the chip can lose
-# the race against READER_BARS_AUTO_HIDE_MS (3500ms) before the next command (here,
-# chaptersButton) actually executes - a direct on-device probe also found plain content taps on
-# this particular page inconsistent at toggling the bars at all (open_bars.yaml's own fallback
-# taps already cover that per-attempt). Each attempt's "Chapters" check is a short, optional poll
-# except the last, which is the real (non-optional) assertion with a generous timeout.
-#
-# 4th attempt + final timeout 15000 -> 30000 added 2026-11-10: confirmed on-device
-# (Tab_35_PixelTablet, under the same sustained heavy host load documented at this flow's step 4)
-# that even 3 attempts could exhaust themselves (a single open_bars.yaml call alone took 56s,
-# more than its own nominal ~20s budget) before "Chapters" ever appeared - headroom here, not a
-# new app/logic issue, same reasoning as the step-4 languageChip timeout bump above.
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 3000
-    optional: true
+# Through tap_reader_button.yaml (show the bars, tap, wait for the dialog - retried): on this
+# illustrated edition's opening page even a tap that showed the bars can lose the race against
+# their 3.5 s auto-hide before the chaptersButton tap actually lands (confirmed on-device,
+# Tab_35_PixelTablet, 2026-11-09 and, under heavy host load, 2026-11-10).
 - runFlow:
-    when:
-      notVisible: "Chapters"
-    commands:
-      - runFlow: ../../subflows/open_bars.yaml
-      - tapOn:
-          id: "reader:chaptersButton"
-      - extendedWaitUntil:
-          visible: "Chapters"
-          timeout: 3000
-          optional: true
-- runFlow:
-    when:
-      notVisible: "Chapters"
-    commands:
-      - runFlow: ../../subflows/open_bars.yaml
-      - tapOn:
-          id: "reader:chaptersButton"
-      - extendedWaitUntil:
-          visible: "Chapters"
-          timeout: 3000
-          optional: true
-- runFlow:
-    when:
-      notVisible: "Chapters"
-    commands:
-      - runFlow: ../../subflows/open_bars.yaml
-      - tapOn:
-          id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 60000
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 # "CHAPTER XLIV.", not "Chapter 2" (the journey's literal guess, which never appears anywhere in
 # this dialog): confirmed on-device (Tab_35_PixelTablet, 2026-11-09) that this illustrated
 # edition's Chapters list labels each row with the book's OWN printed chapter heading (as it
@@ -255,42 +163,15 @@ tags: [smoke, full, library, network, J-LIB-02]
 # bookmarksButton) are visible, whether or not the tap actually opened the dialog. Confirmed
 # on-device (Tab_35_PixelTablet, 2026-11-10, under heavy host load) that this let the flow sail
 # past a bookmarksButton tap that landed too late (bars had auto-hidden again) straight into a
-# "Bookmark this page" tap with no dialog ever open, failing with "Element not found". Retried up
-# to 3x (open_bars.yaml -> tap bookmarksButton -> poll for "Bookmark this page", the dialog's own
-# action text, present only once it's actually open), same pattern as the "Chapters" sequence
-# above - chaptersButton has no such ambiguity (no contentDescription on that icon; only "Chapters"
-# the dialog's own title matches it), so it is unchanged.
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Bookmark this page"
-    timeout: 3000
-    optional: true
+# "Bookmark this page" tap with no dialog ever open, failing with "Element not found".
 - runFlow:
-    when:
-      notVisible: "Bookmark this page"
-    commands:
-      - runFlow: ../../subflows/open_bars.yaml
-      - tapOn:
-          id: "reader:bookmarksButton"
-      - extendedWaitUntil:
-          visible: "Bookmark this page"
-          timeout: 3000
-          optional: true
-- runFlow:
-    when:
-      notVisible: "Bookmark this page"
-    commands:
-      - runFlow: ../../subflows/open_bars.yaml
-      - tapOn:
-          id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "Bookmark this page"
-    timeout: 20000
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
 - tapOn: "Bookmark this page"
 - tapOn: "Close"
-- runFlow: ../../subflows/back_to_library_from_catalog.yaml
+- runFlow: ../../subflows/leave_reader_from_catalog.yaml
 - assertVisible: "Pride and Prejudice"
 
 # 6. Catalog -> switch to the Standard Ebooks pill -> search "Walden", Read -> downloads, opens,
@@ -355,35 +236,13 @@ tags: [smoke, full, library, network, J-LIB-02]
     text: ".*Henry David Thoreau.*"
 # dismiss_portrait_hint.yaml - see step 4's comment above for the on-device evidence.
 - runFlow: ../../subflows/dismiss_portrait_hint.yaml
-# Soft wait + reveal-tap fallback - see step 4's comment above for the on-device evidence (same
-# race, applied consistently to every fresh catalog-open languageChip wait in this flow).
+# The reader opened and its bars come up - see step 4's comment.
 - extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 60000
-    optional: true
-- runFlow:
-    when:
-      notVisible:
-        id: "reader:languageChip"
-    commands:
-      - runFlow:
-          file: ../../subflows/open_bars.yaml
-          optional: true
-      - runFlow:
-          when:
-            notVisible:
-              id: "reader:languageChip"
-          commands:
-            - scroll
-            - runFlow: ../../subflows/open_bars.yaml
-          optional: true
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 90000
-- runFlow: ../../subflows/back_to_library_from_catalog.yaml
+    notVisible: "Standard Ebooks"
+    timeout: 150000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/show_bars.yaml
+- runFlow: ../../subflows/leave_reader_from_catalog.yaml
 - assertVisible: "Walden"
 
 # 7. Catalog -> switch back to Open Library -> search "Frankenstein", Read -> Library shows
@@ -405,35 +264,13 @@ tags: [smoke, full, library, network, J-LIB-02]
     index: 0
 # dismiss_portrait_hint.yaml - see step 4's comment above for the on-device evidence.
 - runFlow: ../../subflows/dismiss_portrait_hint.yaml
-# Soft wait + reveal-tap fallback - see step 4's comment above for the on-device evidence (same
-# race, applied consistently to every fresh catalog-open languageChip wait in this flow).
+# The reader opened and its bars come up - see step 4's comment.
 - extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 60000
-    optional: true
-- runFlow:
-    when:
-      notVisible:
-        id: "reader:languageChip"
-    commands:
-      - runFlow:
-          file: ../../subflows/open_bars.yaml
-          optional: true
-      - runFlow:
-          when:
-            notVisible:
-              id: "reader:languageChip"
-          commands:
-            - scroll
-            - runFlow: ../../subflows/open_bars.yaml
-          optional: true
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 90000
-- runFlow: ../../subflows/back_to_library_from_catalog.yaml
+    notVisible: "Standard Ebooks"
+    timeout: 150000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/show_bars.yaml
+- runFlow: ../../subflows/leave_reader_from_catalog.yaml
 # scrollUntilVisible, not a bare assertVisible: same phone-only Continue-Reading-hero-fills-
 # the-viewport occlusion confirmed on J-LIB-03 step 12 (Pixel_10_Pro/API 37,
 # `e2e/reports/20261111T084432Z`) - a no-op on tablet, where the header is already on screen.
@@ -520,42 +357,15 @@ tags: [smoke, full, library, network, J-LIB-02]
 # that the reader's languageChip appears at all: pre-fix, the dialog interrupted here and the
 # flow never left Catalog, so this wait would time out instead.
 #
-# Soft wait + reveal-tap fallback, not one flat 150000ms wait: confirmed on-device
-# (Tab_35_PixelTablet, 2026-11-10) that RE-opening an already-read book (unlike steps 4/6/7's
-# fresh downloads) can resume at its last saved position (chapter XLIV, from step 5's bookmark)
-# with a position-restoring scroll/jump that, under heavy host load, can still be settling past
-# READER_BARS_AUTO_HIDE_MS (3500ms) - so the bars that were visible right after open can hide
-# again before this wait ever samples them, even though the book opened correctly (no stuck
-# loading spinner, no dialog). The fallback reveal tap recovers that case without weakening the
-# real proof-of-fix (languageChip still has to actually appear for either wait to pass).
+# RE-opening an already-read book (unlike steps 4/6/7's fresh downloads) resumes at its last
+# saved position (chapter XLIV, from step 5's bookmark); same "the reader opened" check as step 4.
 - extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 60000
-    optional: true
-- runFlow:
-    when:
-      notVisible:
-        id: "reader:languageChip"
-    commands:
-      - runFlow:
-          file: ../../subflows/open_bars.yaml
-          optional: true
-      - runFlow:
-          when:
-            notVisible:
-              id: "reader:languageChip"
-          commands:
-            - scroll
-            - runFlow: ../../subflows/open_bars.yaml
-          optional: true
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 90000
+    notVisible: "Standard Ebooks"
+    timeout: 150000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/show_bars.yaml
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/back_to_library_from_catalog.yaml
+- runFlow: ../../subflows/leave_reader_from_catalog.yaml
 # scrollUntilVisible, not a bare assertVisible: same phone-only Continue-Reading-hero-fills-
 # the-viewport occlusion confirmed on J-LIB-03 step 12 (Pixel_10_Pro/API 37,
 # `e2e/reports/20261111T084432Z`) - a no-op on tablet, where the header is already on screen.
@@ -571,43 +381,23 @@ tags: [smoke, full, library, network, J-LIB-02]
 # two is showing (the toggle row's own label, mutually exclusive on isCurrentBookmarked) -
 # confirmed on-device (Tab_35_PixelTablet, 2026-11-10) this exact ambiguity caused a real failure
 # here too (reopening resumes at the bookmarked chapter, so "Remove bookmark here" is expected).
+#
+# "The reader opened" is the navigation leaving the screen ("Catalog" is on every screen but the
+# reader); that its bars and languageChip come up is checked inside tap_reader_button.yaml
+# (show_bars.yaml), which taps for them - the bars of a just-opened reader hide after 3.5 s, so a
+# bare wait for the chip could miss them on a slow emulator.
 - tapOn: "Pride and Prejudice"
 - extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
+    notVisible: "Catalog"
     timeout: 15000
-- runFlow: ../../subflows/open_bars.yaml
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "(Bookmark this page|Remove bookmark here)"
-    timeout: 3000
-    optional: true
 - runFlow:
-    when:
-      notVisible: "(Bookmark this page|Remove bookmark here)"
-    commands:
-      - runFlow: ../../subflows/open_bars.yaml
-      - tapOn:
-          id: "reader:bookmarksButton"
-      - extendedWaitUntil:
-          visible: "(Bookmark this page|Remove bookmark here)"
-          timeout: 3000
-          optional: true
-- runFlow:
-    when:
-      notVisible: "(Bookmark this page|Remove bookmark here)"
-    commands:
-      - runFlow: ../../subflows/open_bars.yaml
-      - tapOn:
-          id: "reader:bookmarksButton"
-- extendedWaitUntil:
-    visible: "(Bookmark this page|Remove bookmark here)"
-    timeout: 20000
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "(Bookmark this page|Remove bookmark here)"
 - assertNotVisible: "No bookmarks yet"
 - tapOn: "Close"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 
 # 11. Catalog -> search "zxqvbnm qwertyuiop" -> an empty-results state, no crash, no Retry (no
 #     match found, not an error) (CAT-003)

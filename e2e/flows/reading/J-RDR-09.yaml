@@ -132,7 +132,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
 # 4 (phone) / 11 (tablet). Open F-LONG -> the bottom bar / the rail is hidden in the reader
 #   (NAV-017)
 - runFlow:
-    file: ../../subflows/import_book_steady.yaml
+    file: ../../subflows/import_book.yaml
     env:
       FILE: "en-novel.epub"
       TITLE: "The River Crossing"

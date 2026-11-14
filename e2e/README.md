@@ -85,6 +85,44 @@ with `bash e2e/test_flow_select.sh`.
 tagged for both can keep a phone-only step behind `when: true: ${DEVICE_CLASS == 'phone'}`
 (`J-RDR-03`). Running such a flow with `maestro test` directly needs the same `-e`.
 
+## Shared subflows (`e2e/subflows/`)
+
+One subflow per job; a flow never re-implements one of these inline.
+
+| Subflow | Job |
+|---|---|
+| `launch_clean.yaml` | Clear Mirrolit's and the system picker's state, launch, wait for "Open book". |
+| `pick_file.yaml` (FILE) | "Open book" -> pick the file in the system picker (per API level). Asserts nothing about the result. |
+| `import_book.yaml` (FILE, TITLE, FIRST_TEXT) | `pick_file` + dismiss the portrait hint + prove the right book opened (first text, then title in the top bar). |
+| `dismiss_portrait_hint.yaml` | Phone only: tick "Don't show again" and close the "Parallel reading…" hint if it is up. |
+| `show_bars.yaml` | Show the reader's bars: wait until hidden, one tap, wait for the language chip (retried). |
+| `tap_reader_button.yaml` (BUTTON, OPENS) | `show_bars` + tap a top-bar button by id + wait for its dialog's text (retried). |
+| `leave_reader.yaml` | `show_bars` + Back (retried), ends on the Library scrolled up to "Open book". |
+| `leave_reader_from_catalog.yaml` | The same for a reader opened from the Catalog (Back lands there): then taps "Library". |
+| `set_translator.yaml` (NAME) | Open the translator picker (`tap_reader_button`) and choose a provider that needs no key. |
+| `wait_translated.yaml` (TEXT, TIMEOUT) | Wait for a translated text. |
+| `tap_catalog_search.yaml` | Focus the Catalog's search field. |
+| `dismiss_stylus_popup.yaml` | Close the emulator's stylus-handwriting popup if it is up. |
+| `premium_debug.yaml` | Turn on Settings -> "Premium (debug)". |
+
+### The reader's bars: never `when: notVisible:`
+
+The reader's top bar and footer hide by themselves 3.5 s after they appear, and a tap on the
+page toggles them. Do not ask "are the bars up?" before tapping: while an element is visible,
+Maestro takes about 4 s (up to 10 s under host load) to answer a `when: notVisible:` /
+`repeat: while: notVisible:` condition — as long as the auto-hide — and one `tapOn: id:` can take
+longer than 3.5 s too. So:
+
+- to read the footer or the title: `show_bars.yaml`, then the check as the very next command;
+- to tap a top-bar button: `tap_reader_button.yaml` — never `show_bars` + `tapOn: id:`, never a
+  bare `tapOn: id: reader:…Button` even "right after" something that showed the bars;
+- to leave the reader: `leave_reader.yaml` / `leave_reader_from_catalog.yaml`;
+- before any of them the reader must be open: wait for something that does not depend on the
+  bars (a paragraph id `original_<ch>_<p>`, a text, the navigation's "Catalog" gone).
+
+The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_catalog.yaml`
+(built on `when: notVisible:`) were removed on 2026-11-14 for this reason.
+
 ## Picker reset (`launch_clean.yaml`)
 
 `launch_clean.yaml` also runs `- clearState: { appId: ..., optional: true }` against BOTH

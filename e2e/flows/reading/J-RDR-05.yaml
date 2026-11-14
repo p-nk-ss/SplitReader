@@ -54,7 +54,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-05]
 #    (APP-001); the page is light
 - tapOn: "Library"
 - runFlow:
-    file: ../../subflows/import_book_steady.yaml
+    file: ../../subflows/import_book.yaml
     env:
       FILE: "en-novel.epub"
       TITLE: "The River Crossing"

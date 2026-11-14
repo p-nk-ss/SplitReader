@@ -73,7 +73,7 @@ tags: [smoke, full, library, J-LIB-01]
 # 7. Scroll ~half a screen, Back -> count label "1 VOLUME" (LIB-006); filter "Reading" lists
 #    Alice, filter "Unread" does not (LIB-007)
 - scroll
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 # scrollUntilVisible (not a plain assertVisible), Task 7a "Take 2": on a phone in portrait the
 # Continue Reading hero card + header take enough vertical space that the "Your shelf · N
 # VOLUME(S)" header can sit below the fold right after returning from the reader - confirmed
@@ -122,7 +122,7 @@ tags: [smoke, full, library, J-LIB-01]
       FILE: "full-features.fb2"
       TITLE: "The Complete Letters"
       FIRST_TEXT: "The letter arrived on a grey morning, long after everyone had stopped expecting it"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - assertVisible: "The Complete Letters"
 - assertVisible: "by First Last"
 # Trailing wildcard: the hero shows the full <annotation> text, which continues past this
@@ -138,23 +138,23 @@ tags: [smoke, full, library, J-LIB-01]
       FILE: "classic-h2.mobi"
       TITLE: "Classic H2 Test"
       FIRST_TEXT: "Chapter 1 opens here, on a quiet morning by the old mill"
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - assertVisible: "Chapter 1"
 - assertVisible: "Chapter 2"
 - assertVisible: "Chapter 3"
 - assertVisible: "Chapter 4"
 - assertNotVisible: "Chapter 5"
 - tapOn: "Close"
-# Let the dialog's close animation finish before back_to_library's own bar-reveal tap - tapping
+# Let the dialog's close animation finish before leave_reader's own bar-reveal tap - tapping
 # immediately risked landing mid-animation and not registering as a real bar toggle (Task 7a).
 - extendedWaitUntil:
     notVisible: "Chapters"
     timeout: 5000
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 
 # 11. Back to Library -> "3 VOLUMES". Open book -> no-description.epub -> LibraryLimitDialog
 #     explains the 3-book free limit with Upgrade/Got it; after Got it still 3 volumes, no new
@@ -212,19 +212,26 @@ tags: [smoke, full, library, J-LIB-01]
 - tapOn:
     id: "book_card_Alice's Adventures in Wonderland.*"
 # Reopening resumes at the saved reading position (not necessarily the top), so this checks the
-# reader actually opened (not a blank/wrong screen) rather than any one paragraph's text. Reveals
-# the bars first (open_bars.yaml's own idempotent pattern): a raw wait for the languageChip risks
-# racing READER_BARS_AUTO_HIDE_MS if the reader took a few seconds to resume its position.
+# reader actually opened (not a blank/wrong screen) rather than any one paragraph's text: some
+# paragraph of the book is on screen (the saved position is inside the text), and the bars come
+# up on a tap (show_bars.yaml: a raw wait for the languageChip would race the bars' 3.5 s
+# auto-hide if the reader took a few seconds to resume its position).
 - extendedWaitUntil:
     notVisible: "Open book"
     timeout: 15000
 # Opening from the library (not via import_book.yaml, which already handles this) can still show
 # the phone-only portrait hint (it reappears on every reader entry, not just the first - see
-# dismiss_portrait_hint.yaml's header) - dismiss it before touching the bars below.
+# dismiss_portrait_hint.yaml's header) - dismiss it before touching the bars below. Twice, around
+# the wait for the book's text: the hint can come up after the first call found nothing.
 - runFlow: ../../subflows/dismiss_portrait_hint.yaml
-- runFlow: ../../subflows/open_bars.yaml
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 30000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/show_bars.yaml
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 # Not import_book.yaml: picking an ALREADY-OWNED book re-opens it at its saved reading
 # position (an upsert, per AddBookToLibraryUseCase), not back at chapter 1 - confirmed on-device
 # (Pixel_10_Pro/API 37): import_book.yaml's scrollUntilVisible(FIRST_TEXT, DOWN) failed with "No
@@ -241,10 +248,20 @@ tags: [smoke, full, library, J-LIB-01]
     notVisible: "Open book"
     timeout: 15000
 - runFlow: ../../subflows/dismiss_portrait_hint.yaml
-- runFlow: ../../subflows/open_bars.yaml
-- assertVisible: "Alice.s Adventures in Wonderland.*"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 30000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+# The title is in the top bar, which hides by itself after 3.5 s: read it straight after
+# show_bars.yaml, the pair retried (same as import_book.yaml's own title check).
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible: "Alice.s Adventures in Wonderland.*"
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 # scrollUntilVisible, not assertVisible: see the comment at this flow's first "VOLUME" check (phone-vs-tablet Home scroll position).
 - scrollUntilVisible:
     element: "· 3 VOLUMES"
@@ -318,7 +335,7 @@ tags: [smoke, full, library, J-LIB-01]
       TITLE: "No Description Here"
       FIRST_TEXT: "The old mill still stood at the bend of the river"
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 # scrollUntilVisible, not assertVisible: see the comment at this flow's first "VOLUME" check (phone-vs-tablet Home scroll position).
 - scrollUntilVisible:
     element: "· 3 VOLUMES"

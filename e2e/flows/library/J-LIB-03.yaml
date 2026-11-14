@@ -130,14 +130,14 @@ tags: [smoke, full, library, J-LIB-03]
 # It may contain only images or use a layout that isn't supported yet."); Maestro's text selector
 # full-matches the whole node, same reasoning as J-LIB-01's dialog-body assertions.
 - assertVisible: "This book has no text Mirrolit can show.*"
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 
 # 12. Back to Library -> none of steps 1-10's files has a card; only empty.epub's "1 VOLUME"
 # scrollUntilVisible, not a bare assertVisible: confirmed on-device (Pixel_10_Pro/API 37) that
 # Home's "CONTINUE READING" hero (now showing the just-opened empty.epub) fills the whole phone
 # viewport on its own - the "Your shelf · 1 VOLUME" header sits below the fold, hidden the same
-# way every other phone-scroll fix in this suite documents (e.g. J-LIB-01's back_to_library
-# "Open book" fix). scrollUntilVisible is a no-op on tablet, where the header is already on screen.
+# way every other phone-scroll fix in this suite documents (e.g. leave_reader.yaml's scroll up to
+# "Open book"). scrollUntilVisible is a no-op on tablet, where the header is already on screen.
 - scrollUntilVisible:
     element: "· 1 VOLUME"
     direction: DOWN
@@ -157,14 +157,8 @@ tags: [smoke, full, library, J-LIB-03]
       FILE: "alice-illustrated.epub"
       TITLE: "Alice.s Adventures in Wonderland"
       FIRST_TEXT: "So she was considering in her own mind"
-# open_bars.yaml before back_to_library.yaml (not a change to that shared subflow): confirmed
-# on-device that an extra `assertNotVisible` between import_book.yaml's own title check and
-# back_to_library.yaml's first bars check can be enough wall-clock for
-# READER_BARS_AUTO_HIDE_MS (3500ms) to fire again on this front-matter-heavy edition, same race
-# as elsewhere in this suite; a no-op when bars are still up.
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/open_bars.yaml
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - runFlow:
     file: ../../subflows/import_book.yaml
     env:
@@ -172,8 +166,7 @@ tags: [smoke, full, library, J-LIB-03]
       TITLE: "The Complete Letters"
       FIRST_TEXT: "The letter arrived on a grey morning, long after everyone had stopped expecting it"
 - assertNotVisible: "Library is full"
-- runFlow: ../../subflows/open_bars.yaml
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 # scrollUntilVisible, not a bare assertVisible: confirmed on-device (Pixel_10_Pro/API 37,
 # `e2e/reports/20261113T065850Z`, step 340) that the just-opened "The Complete Letters" Continue
 # Reading hero fills the whole phone viewport on its own, the same phone-only occlusion already

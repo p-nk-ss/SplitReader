@@ -1,103 +1,38 @@
 appId: ${APP_ID}
 ---
-# import_book (env FILE, TITLE, optional FIRST_TEXT): picks ${FILE} via pick_file.yaml and
-# confirms the RIGHT book opened, so a wrong pick in the system file picker fails this step
-# instead of silently continuing into a journey that reads the wrong book.
+# import_book (env FILE, TITLE, FIRST_TEXT): picks ${FILE} in the system picker, gets the phone's
+# portrait hint out of the way ("Don't show again" ticked) and proves the RIGHT book opened — by
+# its first text AND by its title in the reader's top bar. Both are required: several fixtures
+# share an opening line under different titles (seven open "The old mill still stood at the bend
+# of the river…"), so the text alone would let a wrong pick through.
 #
-# Fix round 1 (2026-11-08, code review): TITLE used to be a best-effort (`optional: true`) check
-# with FIRST_TEXT as the sole blocking assertion. That is NOT safe on its own: several fixtures
-# share an opening line under different titles/files (mixed-lang.epub "Letters in Many Tongues"
-# and letter-prague.epub "A Letter from Prague" both open "It was late in the autumn when the
-# letter finally..."; seven more all open "The old mill still stood at the bend of the river...").
-# A wrong pick that happens to share the right fixture's opening would have passed FIRST_TEXT and
-# only WARNed on TITLE - silently continuing into a journey reading the wrong book. TITLE is now
-# a required, blocking check too.
+# Order matters. ${FIRST_TEXT} is checked first: a paragraph does not depend on the bars, so it
+# survives however long parsing takes. It is a scrollUntilVisible because a book can open on
+# pictures (alice-illustrated.epub: cover, frontispiece, title page) with its first text below
+# the screen; 120 s because a freshly booted emulator scrolls slowly through full-page pictures.
+# The title is in the top bar, which hides by itself 3.5 s after it appears, so it is read
+# straight after show_bars.yaml, and the pair is a `retry` (see show_bars.yaml for why there is
+# no `when: notVisible:` here).
 #
-# Design note (observed on Tab_35_PixelTablet, API 35, 2026-11-08): asserting ${TITLE} in the
-# reader's top bar (ReaderChrome.kt renders state.book.title there) right after the pick is NOT
-# robust by itself - the reader's bars auto-hide READER_BARS_AUTO_HIDE_MS = 3500ms after it opens,
-# with no way back except a tap, and parse+navigate time after picking a file is variable (parser,
-# device, first-run JIT...). So this subflow checks ${FIRST_TEXT} FIRST (never bar-gated, so it
-# survives however long the parse+navigate takes), THEN reveals the bars (reusing open_bars.yaml,
-# which is idempotent and only taps if they're not already up) and asserts ${TITLE} immediately
-# afterwards, inside the same short window open_bars.yaml itself relies on - not racing a second,
-# independent 3.5s window of its own.
+# The portrait hint is dismissed twice: it can come up a moment after the first call found
+# nothing, and its scrim then swallows every scroll (Pixel_10_Pro, e2e/reports/20261111T091606Z).
 #
-# Fix round 2 (2026-11-08, Task 7a): a plain (non-scrolling) visibility wait is not enough for a
-# book whose chapter 1 opens on a cover-only/plate leading page (e.g. F-ALICE's OPF cover +
-# frontispiece, or an FB2 with a <coverpage> image) - confirmed on-device: the reader opens
-# straight to those images, the first paragraph's row is composed below the fold, and a plain
-# `extendedWaitUntil: visible` timed out even though the book opened correctly. scrollUntilVisible
-# both waits AND scrolls as needed, so it is a strict superset of the old check: a no-op scroll
-# when the text is already on screen, and a few scrolls down when it isn't. A scroll gesture does
-# not toggle the reader bars (only a tap on page content does, per ReaderScreen.kt), so this is
-# safe with the bars-auto-hide timing this subflow otherwise relies on.
+# Ends with the bars showing (for about 3 s). Do not tap a top-bar button by id next — use
+# tap_reader_button.yaml, which shows the bars again itself.
 - runFlow:
     file: pick_file.yaml
     env:
       FILE: ${FILE}
-# On a phone in portrait, opening a book can show the "Parallel reading fits landscape better"
-# dialog (the portrait hint, ReaderDialogs.kt/PortraitHintDialog) that covers the whole reader and
-# blocks every check below. It is NOT first-open-only (confirmed straight from source,
-# ReaderDialogs.kt:471: "this dialog reappears on every reader entry until the checkbox is
-# ticked") - dismiss_portrait_hint.yaml dismisses it here if present (tablets/landscape never show
-# it, so this is a no-op there) AND ticks "Don't show again" so it stays gone for every later
-# import_book.yaml call in the same journey - see that subflow's header for the full on-device
-# evidence (Take 9, 2026-11-13) that a one-off "GOT IT" tap here was not enough on its own.
 - runFlow: dismiss_portrait_hint.yaml
-# Fix round 5 (2026-11-11, Take 8, phone pass): the dialog can appear with a short delay AFTER
-# the call above already ran as a no-op - confirmed on-device (Pixel_10_Pro/API 37,
-# `e2e/reports/20261111T091606Z`, step 13's alice-illustrated.epub import): the call above
-# completed with nothing to dismiss, but the very next command's failure screenshot
-# (`scrollUntilVisible` for FIRST_TEXT, 120s timeout genuinely exhausted) showed the dialog now
-# fully covering the screen - its modal scrim swallows the scroll gesture too, so every one of
-# scrollUntilVisible's internal scroll attempts was a no-op for the whole 120s. A second call
-# right before the scroll catches the dialog's delayed entrance without costing anything when it
-# never appears (dismiss_portrait_hint.yaml's own poll is optional and short).
 - runFlow: dismiss_portrait_hint.yaml
-# Required: the paragraph body is never bar-gated, and survives a slow parse+navigate. Timeout
-# 60000 -> 120000: a cover/plate-heavy book (F-ALICE) needs real scroll-and-settle time per step
-# to get through several full-page illustrations before any text appears, worse on a
-# freshly-booted (not yet warmed-up) emulator; 60s was not always enough on-device.
 - scrollUntilVisible:
     element: ".*${FIRST_TEXT}.*"
     direction: DOWN
     timeout: 120000
-# Fix round 4 (2026-11-09, Task 7a "Take 2"): tap directly on ${FIRST_TEXT} (known on-screen -
-# scrollUntilVisible just confirmed it) to reveal the bars, before falling back to
-# open_bars.yaml's generic point-based taps below. Confirmed on-device (Pixel_10_Pro/API 37,
-# phone stacked layout): after scrollUntilVisible lands on a chapter-heading-heavy stop (large
-# illustrated front-matter editions like F-ALICE put a lot of blank padding around "— N —" /
-# chapter-title rules), open_bars.yaml's fixed percentage points (20%/50%/80%) can ALL land in
-# such blank gaps - confirmed by a failure screenshot showing the 20% point sitting in exactly
-# such a gap, and the fix still failing even after adding 50%/80% retries with settle waits
-# (same scroll stop, same gap pattern recurring at roughly even intervals). A single tap on
-# PARAGRAPH TEXT is safe and toggles bars exactly like a tap on blank space - confirmed by
-# reading ReaderPane.kt: `detectTapGestures(onTap = { currentOnTap() }, onLongPress = { ...word
-# selection... })` - only a LONG press starts word selection; a plain tap always calls onTap
-# (-> onToggleBars), never selects a word. Gated on notVisible so it's a no-op once the chip is
-# already showing (e.g. non-F-ALICE books that don't hit this chapter-heading gap pattern).
-- runFlow:
-    when:
-      notVisible:
-        id: "reader:languageChip"
+- retry:
+    maxRetries: 2
     commands:
-      - tapOn: ".*${FIRST_TEXT}.*"
-# Required: reveal the bars (no-op if already up) and assert the top-bar title immediately,
-# before READER_BARS_AUTO_HIDE_MS can elapse again.
-#
-# Fix round 3 (2026-11-08, Task 7a): open_bars.yaml is called a second time right before the
-# title check itself. Observed on-device: under load (a busy emulator, or scrollUntilVisible
-# above having just done real work) enough wall-clock time can pass between open_bars.yaml's own
-# internal wait succeeding and this subflow's follow-up title check starting that the 3.5s
-# auto-hide timer fires in between, hiding the bars again before the title is ever read - the
-# title check then times out even though the right book is open. open_bars.yaml is idempotent (a
-# no-op if the chip is already showing), so calling it again immediately before the title check
-# re-reveals the bars if they slipped, giving the title check a fresh window.
-- runFlow:
-    file: open_bars.yaml
-- runFlow:
-    file: open_bars.yaml
-- extendedWaitUntil:
-    visible: ".*${TITLE}.*"
-    timeout: 5000
+      - runFlow: show_bars.yaml
+      - extendedWaitUntil:
+          visible: ".*${TITLE}.*"
+          timeout: 3000

@@ -36,7 +36,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 - assertNotVisible: "Catalog"
 - assertNotVisible: "Almanac"
 - assertNotVisible: ".*ML KIT READY.*"
-- runFlow: ../../subflows/open_bars.yaml
+- runFlow: ../../subflows/show_bars.yaml
 - assertNotVisible: ".*ML KIT READY.*"
 - assertNotVisible: "Catalog"
 
@@ -63,7 +63,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 
 # 4. Back to Library without scrolling -> the Continue Reading card is at chapter 1, 0%; open the
 #    book again from its card -> still the very start, no false "continue reading" jump (POS-011)
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - assertVisible: "CONTINUE READING"
 - assertVisible: "CH 1 OF 14"
 - assertVisible: "0%"
@@ -91,12 +91,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 #     than one Maestro check takes (observed: a 30 s wait started right after the chapter tap never
 #     saw it, the translation was already there), and whether it overlaps the number is a visual
 #     judgement Maestro cannot make.
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn:
     id: "reader:chapterRow:1"
 - extendedWaitUntil:
@@ -120,12 +119,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     rightOf:
       id: "original_1_0"
 #     Back to the first chapter for its pictures.
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn:
     id: "reader:chapterRow:0"
 - extendedWaitUntil:
@@ -198,12 +196,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 # 7. Chapter picker -> the third chapter; scroll to its first picture -> it sits inside the
 #    chapter at its anchor, between the 9th and 10th paragraphs (ILL-001), as its own row
 #    (ILL-015), at full size (183x450 image -> 366x900 px), not a thumbnail (ILL-006)
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:chaptersButton"
-- extendedWaitUntil:
-    visible: "Chapters"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
 - tapOn:
     id: "reader:chapterRow:2"
 - extendedWaitUntil:
@@ -361,12 +358,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 # 13. Display (Aa) -> "Split position" 50 / 50 -> move the slider to about 35 / 65 -> the value
 #     changes live (LAY-004). The pane widths themselves are not asserted: they are device pixels
 #     that differ between the two required tablets; the screenshot after Close shows them.
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:displaySettingsButton"
-- extendedWaitUntil:
-    visible: "Display"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
 - scrollUntilVisible:
     element: "Show translation"
     direction: DOWN
@@ -391,7 +387,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     notVisible: "Display"
     timeout: 5000
 - takeScreenshot: J-RDR-01-step13-split-35-65
-- runFlow: ../../subflows/back_to_library.yaml
+- runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element:
       id: "book_card_Alice's Adventures in Wonderland.*"
@@ -403,12 +399,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     visible:
       id: "original_2_.*"
     timeout: 30000
-- runFlow: ../../subflows/open_bars.yaml
-- tapOn:
-    id: "reader:displaySettingsButton"
-- extendedWaitUntil:
-    visible: "Display"
-    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
 - scrollUntilVisible:
     element: "Show translation"
     direction: DOWN

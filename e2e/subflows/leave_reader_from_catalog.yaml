@@ -1,0 +1,22 @@
+appId: ${APP_ID}
+---
+# leave_reader_from_catalog: leave_reader.yaml for a reader that was opened straight from the
+# Catalog (CatalogViewModel.downloadAndOpen goes Catalog -> reader, never through the Library).
+# The reader's Back button returns to the screen that opened it, so it lands on the Catalog, where
+# leave_reader.yaml's final "Open book" does not exist. This one leaves the reader the same way
+# (show_bars.yaml + Back in a `retry`, "Catalog" in the navigation = the reader is gone), then
+# taps "Library" and ends, like leave_reader.yaml, on the Library scrolled to "Open book".
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow: show_bars.yaml
+      - tapOn:
+          id: "reader:backButton"
+      - extendedWaitUntil:
+          visible: "Catalog"
+          timeout: 5000
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
