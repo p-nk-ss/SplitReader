@@ -184,6 +184,13 @@ tags: [smoke, full, library, J-LIB-03]
 - stopApp
 - launchApp:
     clearState: false
+# Home first, then the scroll: on a freshly booted Tab_35_PixelTablet under host load (load
+# average 10, e2e/reports/20261114T165715Z) the relaunched app had not drawn Home when the 30 s of
+# the scrollUntilVisible below ran out — the failure screenshot, taken a moment later, shows the
+# shelf header on screen. Same wait as launch_clean.yaml and J-RDR-03 after their launchApp.
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
 # scrollUntilVisible, not a bare extendedWaitUntil: same phone-only Continue-Reading-hero
 # occlusion as step 13's own check just above (a fresh relaunch reopens Home on the same hero) -
 # a no-op on tablet.
