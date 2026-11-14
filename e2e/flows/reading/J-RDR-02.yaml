@@ -17,15 +17,14 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 # paragraph (273 px), so the wanted paragraph cannot be scrolled away.
 #
 # Bars: they hide by themselves 3.5 s after they appear, and nothing on screen tells a tap that
-# hid them from that timer. So "a tap hides the bars" is checked as a pair of taps sent back to
-# back from the settled hidden state (point taps that do not wait for the screen to settle,
-# well under a second apart): the first shows the bars — the same tap, on the same spot, is
-# proven to show them just before — and the bars must be gone straight after the second. If the
-# second tap did nothing, the bars would still be up for the next 3 s and the 1.5 s check fails.
-# A slow device cannot make this fail by itself (a freshly booted emulator did exactly that to
-# the first version, which waited and checked between the two taps).
-# Points are for Pixel_10_Pro (1280x2856): bars hidden, the chapter title is at y 14.5–17.2%;
-# bars shown, the page moves down by the top bar and the title is at y 19.5–22.3%.
+# hid them from that timer. So "a tap here shows the bars, a tap there hides them" is one timed
+# exchange, subflows/tap_shows_tap_hides.yaml: from the settled hidden state, tap, see the bars,
+# tap, see them gone — all within 3 s of the first tap, before the timer could have done it.
+# Points are for Pixel_10_Pro (1280x2856, 3 px per dp). The page margin is 32 dp = 96 px on each
+# side (asserted in step 3 through the paragraph's width), so x = 2% (26 px) is inside the margin:
+# no paragraph, title or picture is under the finger there, only the pane itself. Bars hidden, the
+# chapter title is at y 14.5–17.2%; bars shown, the page moves down by the top bar and the title
+# is at y 19.5–22.3%.
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-02.
 - runFlow: ../../subflows/launch_clean.yaml
 
@@ -76,62 +75,49 @@ tags: [smoke, full, phone, reading, J-RDR-02]
       id: "original_0_0"
 - takeScreenshot: J-RDR-02-step2-stacked
 
-# 3. With the bars hidden, tap the empty space beside the chapter title (no text, no picture
-#    under the finger) -> the bars appear (LAY-029)
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 8000
-- tapOn:
-    point: "10%, 16%"
-    waitToSettleTimeoutMs: 100
-- extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 3000
-#    …tap the same spot again -> they hide (LAY-029). Done as show-then-hide from the settled
-#    hidden state, two taps back to back (see the header): the first is the tap just proven to
-#    show the bars, so finding them hidden straight after the second means the second hid them.
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 8000
-- tapOn:
-    point: "10%, 16%"
-    waitToSettleTimeoutMs: 100
-- tapOn:
-    point: "10%, 16%"
-    waitToSettleTimeoutMs: 100
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 1500
+# 3. With the bars hidden, tap empty page space — the margin beside a paragraph, where no row is
+#    under the finger and only the pane's own catch-all can answer — in the top pane: the bars
+#    appear; tap the same spot again: they hide. The same in the bottom pane, which has its own
+#    catch-all (LAY-029). (The space beside the chapter TITLE is not empty space: the title's row
+#    takes taps edge to edge — that is step 4.)
+#    The paragraph is 1088 px wide: 1280 minus a 96 px margin on each side, so x = 2% is margin.
+- assertVisible:
+    id: "original_0_0"
+    width: 1088
+    tolerance: 4
+- assertVisible:
+    id: "translation_0_0"
+    width: 1088
+    tolerance: 4
+- runFlow:
+    file: ../../subflows/tap_shows_tap_hides.yaml
+    env:
+      SHOW_AT: "2%, 40%"
+      HIDE_AT: "2%, 40%"
+- runFlow:
+    file: ../../subflows/tap_shows_tap_hides.yaml
+    env:
+      SHOW_AT: "2%, 75%"
+      HIDE_AT: "2%, 75%"
 
-# 4. Tap the chapter title itself -> the bars appear (LAY-030)
-- assertVisible: "Chapter 1 — The Ferry"
-- tapOn:
-    point: "50%, 16%"
-    waitToSettleTimeoutMs: 100
+# 4. Tap the chapter title itself -> the bars appear (LAY-030). The bars are hidden and nothing is
+#    counting down, so this tap can be by the title's text.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- tapOn: "Chapter 1 — The Ferry"
 - extendedWaitUntil:
     visible:
       id: "reader:languageChip"
     timeout: 3000
 #    …tap it again -> they hide (LAY-030): the title is at y 16% with the bars hidden and at
 #    y 21% once they are shown.
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 8000
-- tapOn:
-    point: "50%, 16%"
-    waitToSettleTimeoutMs: 100
-- tapOn:
-    point: "50%, 21%"
-    waitToSettleTimeoutMs: 100
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 1500
+- runFlow:
+    file: ../../subflows/tap_shows_tap_hides.yaml
+    env:
+      SHOW_AT: "50%, 16%"
+      HIDE_AT: "50%, 21%"
 
 # 5. Tap the page -> the footer shows a percentage on the phone, 0% at the start (POS-008)
 - runFlow: ../../subflows/show_bars.yaml
@@ -256,6 +242,10 @@ tags: [smoke, full, phone, reading, J-RDR-02]
       text: "Chapter 3 — The Long Crossing"
       childOf:
         id: "reader:verticalTopPane"
+#    …the title is the FIRST row on screen: nothing of chapter 2 is above it (a landing one row
+#    early would show chapter 2's last paragraph on top and the title under it)
+- assertNotVisible:
+    id: "original_1_.*"
 - extendedWaitUntil:
     visible:
       id: "translation_2_0"
@@ -266,7 +256,30 @@ tags: [smoke, full, phone, reading, J-RDR-02]
       id: "reader:verticalTopPane"
 - assertVisible:
     id: "original_2_0"
+- assertNotVisible:
+    id: "original_1_.*"
 - takeScreenshot: J-RDR-02-step7-chapter3
+#    …and the app itself calls this place chapter 3, paragraph 1: a bookmark made here says so
+#    (NAV-009). Removed again, so step 8 starts without a bookmark.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- assertVisible: "Chapter 3 — The Long Crossing · ¶ 1"
+- tapOn: "Remove bookmark here"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 5000
+- assertNotVisible: ".*The Long Crossing · ¶ \\d+"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Bookmark this page"
+    timeout: 5000
 
 # 8. Scroll so the 5th paragraph of chapter 3 is the top paragraph; Bookmarks -> "Bookmark this
 #    page" -> the button turns into "Remove bookmark here" (BMK-001)
@@ -307,9 +320,15 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     timeout: 5000
 
 # 9. The Bookmarks list -> the entry is chapter 3, ¶ 5 — the real paragraph number, not shifted
-#    by the chapter title (BMK-003, BMK-001); its preview is that paragraph's own text (BMK-002)
+#    by the chapter title (BMK-003, BMK-001); its preview is that paragraph's own text (BMK-002):
+#    exactly its first 80 characters, under the entry's label. The paragraphs before and after
+#    start with other sentences ("In the long grass…", "The old mill…"), and the page's own
+#    paragraph is longer than 80 characters, so only the right preview can match. (With the
+#    dialog open Maestro does not see the page at all — checked with `maestro hierarchy`.)
 - assertVisible: "Chapter 3 — The Long Crossing · ¶ 5"
-- assertVisible: "The schoolmaster kept a ledger of the weather.*"
+- assertVisible:
+    text: "The schoolmaster kept a ledger of the weather going back thirty years, and on we"
+    below: "Chapter 3 — The Long Crossing · ¶ 5"
 - takeScreenshot: J-RDR-02-step9-bookmark
 
 # 10. "Remove bookmark here" -> the bookmark is gone at once (BMK-005); "Bookmark this page"

@@ -1,0 +1,53 @@
+appId: ${APP_ID}
+---
+# tap_shows_tap_hides (env SHOW_AT, HIDE_AT — screen points like "2%, 40%"): proves that a tap at
+# ${SHOW_AT} shows the reader's bars and that a tap at ${HIDE_AT} then HIDES them — the tap, not
+# the bars' own timer.
+#
+# The bars hide by themselves 3.5 s after they appear (READER_BARS_AUTO_HIDE_MS; the timer starts
+# when they appear and nothing restarts it), and nothing on screen tells a tap that hid them from
+# that timer. So the whole exchange is timed:
+#   - start from the bars hidden (a settled state: nothing is counting down),
+#   - note the time, tap ${SHOW_AT}, see the bars (so the first tap did show them),
+#   - tap ${HIDE_AT}, see the bars gone,
+#   - and only then: less than 3 s have passed since BEFORE the first tap. The timer could not
+#     have hidden them before 3.5 s, so the second tap did.
+# With a hiding tap that does nothing the bars are still up when "gone within 1.5 s" is asked, or
+# they leave by the timer — after the 3 s limit. Either way the attempt fails.
+#
+# A loaded emulator can be too slow for one exchange (measured on a warm Pixel_10_Pro: bars seen
+# 0.7 s and gone 1.9 s after the first tap; one command was once measured at 6.5 s on a fresh
+# boot). A slow attempt proves nothing either way, so it is not a pass — it is tried again, up to
+# four attempts in all, each from the hidden state; four slow or failed attempts fail the flow.
+# The taps are point taps that do not wait for the screen to settle: a tap by id or text looks the
+# element up first, which alone can take longer than the bars stay.
+#
+# The reader must be open with no dialog over it. Ends with the bars hidden.
+- evalScript: ${output.tapPairAttempt = 0}
+- retry:
+    maxRetries: 3
+    commands:
+      - evalScript: ${output.tapPairAttempt = output.tapPairAttempt + 1}
+      - evalScript: ${console.log('tap_shows_tap_hides ' + SHOW_AT + ' / ' + HIDE_AT + ' - attempt ' + output.tapPairAttempt)}
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 10000
+      - evalScript: ${output.tapPairStart = Date.now()}
+      - tapOn:
+          point: "${SHOW_AT}"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          visible:
+            id: "reader:languageChip"
+          timeout: 1500
+      - tapOn:
+          point: "${HIDE_AT}"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 1500
+      - evalScript: ${output.tapPairTook = Date.now() - output.tapPairStart}
+      - evalScript: ${console.log('tap_shows_tap_hides - shown and hidden in ' + output.tapPairTook + ' ms (limit 3000)')}
+      - assertTrue: ${output.tapPairTook < 3000}
