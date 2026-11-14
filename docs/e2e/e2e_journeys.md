@@ -620,19 +620,19 @@ translation works without network keys.
 **Covers:** POS-011, NAV-017, LAY-022, LAY-023, POS-023, ILL-003, LAY-001, ILL-011, ILL-001, ILL-015, ILL-006, ILL-008, ILL-007, ILL-009, NAV-003, SYS-012, LAY-004
 
 ### J-RDR-02 — Phone: stacked reading, progress and bookmarks
-**Priority** P0 · **Tags** smoke, full, phone · **Devices** phone emulator API 35, portrait (default) · **Fixtures** F-LONG · **Preconditions** F-LONG imported, never opened; portrait hint never dismissed with "Don't show again"; translation on.
+**Priority** P0 · **Tags** smoke, full, phone · **Devices** phone emulator API 35, portrait (default) · **Fixtures** F-LONG · **Preconditions** clean install; portrait hint never dismissed with "Don't show again"; translation on (default).
 
-1. Open F-LONG from the Library → ✓ the bottom bar is hidden in the reader (NAV-008); the "parallel reading" hint appears with "Got it" and a "Don't show again" checkbox (APP-026).
-2. Tap "Got it" without ticking the box → ✓ original on top, translation below, a horizontal divider between; paragraphs full width (LAY-002).
+1. On the empty Library tap "Open book" and pick F-LONG (importing a book opens it) → ✓ the "parallel reading" hint appears with "Got it" and a "Don't show again" checkbox (APP-026).
+2. Tap "Got it" without ticking the box → ✓ the bottom bar is hidden in the reader (NAV-008); original on top, translation below, a horizontal divider between (LAY-002).
 3. With the bars hidden, tap the empty space next to the chapter title (no text, no picture under the finger) → ✓ the bars appear; tap the same spot again → ✓ they hide (LAY-029).
 4. Tap the chapter title itself → ✓ the bars appear; tap it again → ✓ they hide (LAY-030).
-5. Tap the page → ✓ the bottom bar shows a percentage on the phone (POS-008).
-6. Scroll forward one paragraph at a time for ~6 paragraphs, revealing the bar after each → ✓ the percentage grows smoothly, not only at chapter boundaries (POS-003).
+5. Tap the page → ✓ the footer shows a percentage on the phone, 0% at the start (POS-008).
+6. Scroll forward three paragraphs at a time (the 4th, 7th, 10th paragraph on top), revealing the bar each time → ✓ the percentage grows inside the chapter — 1%, 2%, 3% — not only at chapter boundaries (POS-003).
 7. Open the chapter picker; select chapter 3 → ✓ the view lands on chapter 3's start (NAV-009): the chapter title (masthead) is at the top of the top pane with its first paragraph under it, and it stays there while the translation arrives (NAV-018).
-8. Scroll so the 5th paragraph of chapter 3 is the top paragraph; tap the bookmark icon → ✓ icon shows bookmarked (BMK-001).
-9. Open the Bookmarks list → ✓ the entry is chapter 3, "¶ 5"-equivalent number matching the real paragraph, not shifted by the masthead (BMK-003, BMK-001); its preview text is that paragraph's own text (BMK-002).
-10. Close the list; tap the bookmark icon again → ✓ the bookmark is removed at once (BMK-005); tap again to re-add it.
-11. Open the chapter picker, go to chapter 1; open Bookmarks, tap the chapter-3 bookmark → ✓ one scroll lands exactly on that paragraph; the icon shows bookmarked (BMK-004).
+8. Scroll so the 5th paragraph of chapter 3 is the top paragraph; open Bookmarks (the bookmark icon opens the Bookmarks dialog) and tap "Bookmark this page" → ✓ the button turns into "Remove bookmark here" (BMK-001).
+9. Look at the list in the same dialog → ✓ the entry is "Chapter 3 — The Long Crossing · ¶ 5" — the real paragraph number, not shifted by the masthead (BMK-003, BMK-001); its preview text is that paragraph's own text (BMK-002).
+10. Tap "Remove bookmark here" → ✓ the bookmark is removed at once: the list is empty and the button reads "Bookmark this page" (BMK-005); tap it to re-add the bookmark; Close.
+11. Open the chapter picker, go to chapter 1; open Bookmarks, tap the chapter-3 bookmark → ✓ one jump lands exactly on that paragraph (the 5th on top, the 4th off screen); Bookmarks shows "Remove bookmark here" for this page (BMK-004).
 12. Back to Library, reopen F-LONG → ✓ the hint shows again because the box was not ticked (APP-028).
 13. Tick "Don't show again", tap "Got it"; Back; reopen F-LONG → ✓ no hint (APP-029); the book reopened on the bookmarked paragraph (POS-013).
 

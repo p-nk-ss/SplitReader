@@ -1,0 +1,421 @@
+appId: ${APP_ID}
+name: J-RDR-02 Phone stacked reading, progress and bookmarks
+tags: [smoke, full, phone, reading, J-RDR-02]
+# books: en-novel.epub
+---
+# J-RDR-02 — Phone: stacked reading, progress and bookmarks.
+# Fixture: en-novel.epub (F-LONG, "The River Crossing": 22 chapters, 262 paragraphs; every
+# paragraph ends with a marker — "(1)", "(2)" … in chapter 1, "(ch3.1)", "(ch3.2)" … in chapter 3;
+# the paragraph texts cycle through five sentences, the 5th starts "The schoolmaster kept a
+# ledger…"). Ids: original_<chapter>_<paragraph> / translation_<chapter>_<paragraph>, both 0-based.
+#
+# "Paragraph N is the top paragraph" is reached the same way everywhere (see step 6): slow short
+# swipes in the top pane until paragraph N is on screen, on until the paragraph before it is no
+# longer reported, then one more short swipe. The extra swipe matters: a paragraph whose text has left the screen still owns the gap
+# under it, and while that gap is on screen the app (rightly) still counts it as the top one.
+# The swipes are ~5% of the screen (≈120 px after touch slop) + 4%: together less than one
+# paragraph (273 px), so the wanted paragraph cannot be scrolled away.
+#
+# Bars: they hide by themselves 3.5 s after they appear, and nothing on screen tells a tap that
+# hid them from that timer. So "a tap hides the bars" is checked as a pair of taps sent back to
+# back from the settled hidden state (point taps that do not wait for the screen to settle,
+# well under a second apart): the first shows the bars — the same tap, on the same spot, is
+# proven to show them just before — and the bars must be gone straight after the second. If the
+# second tap did nothing, the bars would still be up for the next 3 s and the 1.5 s check fails.
+# A slow device cannot make this fail by itself (a freshly booted emulator did exactly that to
+# the first version, which waited and checked between the two taps).
+# Points are for Pixel_10_Pro (1280x2856): bars hidden, the chapter title is at y 14.5–17.2%;
+# bars shown, the page moves down by the top bar and the title is at y 19.5–22.3%.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-02.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open book -> en-novel.epub -> the "parallel reading" hint appears with "Got it" and a
+#    "Don't show again" checkbox (APP-026)
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "en-novel.epub"
+- extendedWaitUntil:
+    visible: "Parallel reading fits landscape better"
+    timeout: 30000
+- assertVisible: "Don't show again"
+- assertVisible: "GOT IT"
+
+# 2. Tap "Got it" without ticking the box -> the bottom bar is hidden in the reader (NAV-008);
+#    original on top, translation below, a horizontal divider between (LAY-002)
+- tapOn: "GOT IT"
+- extendedWaitUntil:
+    visible:
+      id: "reader:verticalTopPane"
+    timeout: 10000
+- assertNotVisible: "Catalog"
+- assertNotVisible: "Almanac"
+- assertVisible:
+    id: "reader:verticalDivider"
+    below:
+      id: "reader:verticalTopPane"
+- assertVisible:
+    id: "reader:verticalBottomPane"
+    below:
+      id: "reader:verticalDivider"
+- assertVisible:
+    id: "original_0_0"
+    childOf:
+      id: "reader:verticalTopPane"
+#    The first translation downloads the Offline HQ EN->RU pack (~35 MB).
+- extendedWaitUntil:
+    visible: ".*Старая мельница.*"
+    timeout: 240000
+- assertVisible:
+    id: "translation_0_0"
+    childOf:
+      id: "reader:verticalBottomPane"
+- assertVisible:
+    id: "translation_0_0"
+    below:
+      id: "original_0_0"
+- takeScreenshot: J-RDR-02-step2-stacked
+
+# 3. With the bars hidden, tap the empty space beside the chapter title (no text, no picture
+#    under the finger) -> the bars appear (LAY-029)
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- tapOn:
+    point: "10%, 16%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 3000
+#    …tap the same spot again -> they hide (LAY-029). Done as show-then-hide from the settled
+#    hidden state, two taps back to back (see the header): the first is the tap just proven to
+#    show the bars, so finding them hidden straight after the second means the second hid them.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- tapOn:
+    point: "10%, 16%"
+    waitToSettleTimeoutMs: 100
+- tapOn:
+    point: "10%, 16%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 1500
+
+# 4. Tap the chapter title itself -> the bars appear (LAY-030)
+- assertVisible: "Chapter 1 — The Ferry"
+- tapOn:
+    point: "50%, 16%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 3000
+#    …tap it again -> they hide (LAY-030): the title is at y 16% with the bars hidden and at
+#    y 21% once they are shown.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- tapOn:
+    point: "50%, 16%"
+    waitToSettleTimeoutMs: 100
+- tapOn:
+    point: "50%, 21%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 1500
+
+# 5. Tap the page -> the footer shows a percentage on the phone, 0% at the start (POS-008)
+- runFlow: ../../subflows/open_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "0%"
+
+# 6. Scroll forward a few paragraphs at a time, revealing the bar each time -> the percentage
+#    grows inside the chapter, paragraph by paragraph, not only at chapter boundaries
+#    (chapter 1 is 42 of the book's 262 paragraphs) (POS-003)
+#    …the 4th paragraph on top
+- repeat:
+    while:
+      notVisible:
+        id: "original_0_3"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- repeat:
+    while:
+      visible:
+        id: "original_0_2"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 36%"
+    duration: 800
+- assertVisible:
+    id: "original_0_3"
+- runFlow: ../../subflows/open_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "1%"
+#    …the 7th paragraph on top
+- repeat:
+    while:
+      notVisible:
+        id: "original_0_6"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- repeat:
+    while:
+      visible:
+        id: "original_0_5"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 36%"
+    duration: 800
+- assertVisible:
+    id: "original_0_6"
+- runFlow: ../../subflows/open_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "2%"
+#    …the 10th paragraph on top
+- repeat:
+    while:
+      notVisible:
+        id: "original_0_9"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- repeat:
+    while:
+      visible:
+        id: "original_0_8"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 36%"
+    duration: 800
+- assertVisible:
+    id: "original_0_9"
+- runFlow: ../../subflows/open_bars.yaml
+- assertVisible:
+    id: "footer_percent"
+    text: "3%"
+
+# 7. Chapter picker -> chapter 3 -> the view lands on chapter 3's start (NAV-009): the chapter
+#    title is in the top pane with its first paragraph under it, and it is still there when the
+#    translation has arrived (NAV-018)
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn:
+    id: "reader:chapterRow:2"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch3\\.1\\).*"
+    timeout: 15000
+- assertVisible:
+    text: "Chapter 3 — The Long Crossing"
+    childOf:
+      id: "reader:verticalTopPane"
+- assertVisible:
+    id: "original_2_0"
+    below:
+      text: "Chapter 3 — The Long Crossing"
+      childOf:
+        id: "reader:verticalTopPane"
+- extendedWaitUntil:
+    visible:
+      id: "translation_2_0"
+    timeout: 120000
+- assertVisible:
+    text: "Chapter 3 — The Long Crossing"
+    childOf:
+      id: "reader:verticalTopPane"
+- assertVisible:
+    id: "original_2_0"
+- takeScreenshot: J-RDR-02-step7-chapter3
+
+# 8. Scroll so the 5th paragraph of chapter 3 is the top paragraph; Bookmarks -> "Bookmark this
+#    page" -> the button turns into "Remove bookmark here" (BMK-001)
+- repeat:
+    while:
+      notVisible:
+        id: "original_2_4"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- repeat:
+    while:
+      visible:
+        id: "original_2_3"
+    commands:
+      - swipe:
+          start: "50%, 40%"
+          end: "50%, 35%"
+          duration: 800
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 36%"
+    duration: 800
+- assertVisible:
+    id: "original_2_4"
+- assertVisible: ".*\\(ch3\\.5\\).*"
+- takeScreenshot: J-RDR-02-step8-paragraph5-on-top
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 5000
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+
+# 9. The Bookmarks list -> the entry is chapter 3, ¶ 5 — the real paragraph number, not shifted
+#    by the chapter title (BMK-003, BMK-001); its preview is that paragraph's own text (BMK-002)
+- assertVisible: "Chapter 3 — The Long Crossing · ¶ 5"
+- assertVisible: "The schoolmaster kept a ledger of the weather.*"
+- takeScreenshot: J-RDR-02-step9-bookmark
+
+# 10. "Remove bookmark here" -> the bookmark is gone at once (BMK-005); "Bookmark this page"
+#     again -> it is back
+- tapOn: "Remove bookmark here"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 5000
+- assertVisible: "No bookmarks yet.*"
+- assertNotVisible: ".*The Long Crossing · ¶ \\d+"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- assertVisible: "Chapter 3 — The Long Crossing · ¶ 5"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+
+# 11. Chapter picker -> chapter 1; Bookmarks -> tap the chapter 3 bookmark -> one jump lands
+#     exactly on that paragraph: the 5th is on top, the 4th is off screen; Bookmarks shows this
+#     page as bookmarked (BMK-004)
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 15000
+- assertNotVisible: ".*\\(ch3\\.\\d+\\).*"
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 5000
+- tapOn: "Chapter 3 — The Long Crossing · ¶ 5"
+- extendedWaitUntil:
+    visible:
+      id: "original_2_4"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_2_3"
+- assertVisible: ".*\\(ch3\\.5\\).*"
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+
+# 12. Back to Library, reopen the book -> the hint shows again because the box was not ticked
+#     (APP-028)
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: "Parallel reading fits landscape better"
+    timeout: 15000
+
+# 13. Tick "Don't show again", "Got it"; Back; reopen -> no hint (APP-029); the book reopened on
+#     the bookmarked paragraph: the 5th of chapter 3 on top, the 4th off screen (POS-013)
+- tapOn: "Don't show again"
+- tapOn: "GOT IT"
+- extendedWaitUntil:
+    visible:
+      id: "original_2_4"
+    timeout: 15000
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_2_4"
+    timeout: 15000
+- assertNotVisible: "Parallel reading fits landscape better"
+- assertNotVisible:
+    id: "original_2_3"
+- assertVisible: ".*\\(ch3\\.5\\).*"
+- takeScreenshot: J-RDR-02-step13-reopened
+# The hint, if it came, would come with the reader: give it the same time it took in step 12.
+- extendedWaitUntil:
+    visible:
+      id: "reader:verticalTopPane"
+    timeout: 5000
+- assertNotVisible: "GOT IT"
