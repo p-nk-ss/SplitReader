@@ -1,0 +1,403 @@
+appId: ${APP_ID}
+name: J-RDR-03 Rotation and resume - the paragraph never moves
+tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
+# books: en-novel.epub
+---
+# J-RDR-03 — Rotation and resume: the paragraph never moves.
+# Fixture: en-novel.epub (F-LONG, "The River Crossing": 22 chapters; chapter 8 has 8 paragraphs
+# marked "(ch8.1)" … "(ch8.8)"). Ids: original_<chapter>_<paragraph>, both 0-based.
+# Runs on the phone and on the tablet. e2e/run.sh passes DEVICE_CLASS (phone | tablet); the steps
+# that only a phone can show (the Landscape lock turning the screen, stacked panes) sit behind
+# `when: true: ${DEVICE_CLASS == 'phone'}`. Run by hand, add `-e DEVICE_CLASS=phone|tablet`.
+#
+# "Where the reader is" is never guessed from swipe distances. The setup bookmarks the page it
+# scrolled to, reads the paragraph number N from the bookmark's label ("Chapter 8 · ¶ N") and
+# jumps to that bookmark, which puts paragraph N exactly on top. From then on:
+#   output.p    = N - 1   -> original_7_${output.p} must be on screen,
+#   output.prev = N - 2   -> original_7_${output.prev}, the paragraph before it, must not be.
+# Limit: Maestro sees which paragraph is on top, not how many pixels of it are scrolled off, so
+# the "same pixel offset" half of POS-013 stays a visual check (manual journey J-RDR-11).
+#
+# setOrientation names are relative to the device's natural orientation, which is portrait on the
+# phone and landscape on the tablet: LANDSCAPE_LEFT is "the other way up" on both, PORTRAIT is
+# "the way it started".
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-03.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# Preconditions: F-LONG with saved progress in the middle of chapter 8; the portrait hint
+# suppressed (import_book ticks "Don't show again"); the Offline HQ pack already downloaded.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn:
+    id: "reader:chapterRow:7"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch8\\.1\\).*"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "translation_7_0"
+    timeout: 240000
+# Into the chapter: until its first paragraph is off screen, and one swipe more (the gap under a
+# paragraph that has just left still counts as that paragraph). Chapter 8 has 8 paragraphs, so
+# this stops well inside it.
+- repeat:
+    while:
+      visible:
+        id: "original_7_0"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 30%"
+          duration: 800
+- swipe:
+    start: "30%, 40%"
+    end: "30%, 30%"
+    duration: 800
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 5000
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Chapter 8 · ¶ \\d+"
+    timeout: 5000
+- copyTextFrom: "Chapter 8 · ¶ \\d+"
+- evalScript: ${output.p = parseInt(maestro.copiedText.split('¶ ')[1]) - 1}
+- evalScript: ${output.prev = output.p - 1}
+# Mid-chapter: not the first paragraph (there must be a paragraph before it to check against).
+- assertTrue: ${output.p >= 1}
+- tapOn: "Chapter 8 · ¶ \\d+"
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+- runFlow: ../../subflows/back_to_library.yaml
+
+# 1. Settings -> Orientation -> three options Auto / Landscape / Portrait, in English (APP-024)
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "LANDSCAPE"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "Screen orientation"
+- assertVisible: "AUTO"
+- assertVisible: "LANDSCAPE"
+- assertVisible: "PORTRAIT"
+
+# 2. Phone: select Landscape without restarting -> the app turns to landscape at once (APP-022):
+#    the navigation becomes the side rail (its items one under another) instead of the bottom
+#    bar (its items side by side).
+# 3. Phone: kill the app and relaunch -> still landscape, not reset to the phone's default
+#    Portrait (APP-023).
+#    On a tablet Landscape is the default and nothing would turn; that half is manual (J-RDR-12).
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          text: "Catalog"
+          rightOf: "Library"
+      - tapOn: "LANDSCAPE"
+      - extendedWaitUntil:
+          notVisible:
+            text: "Catalog"
+            rightOf: "Library"
+          timeout: 10000
+      - assertVisible: "Catalog"
+      - assertVisible: "Library"
+      - stopApp
+      - launchApp
+      - extendedWaitUntil:
+          visible: "Open book"
+          timeout: 45000
+      - assertVisible: "Catalog"
+      - assertNotVisible:
+          text: "Catalog"
+          rightOf: "Library"
+      - tapOn: "Settings"
+      - scrollUntilVisible:
+          element: "AUTO"
+          direction: DOWN
+          timeout: 40000
+
+#    Select Auto (both devices), so the device may be turned.
+- tapOn: "AUTO"
+- setOrientation: PORTRAIT
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "Catalog"
+            rightOf: "Library"
+          timeout: 10000
+
+# 4. Library -> "Continue reading" -> the book opens at the saved paragraph, the same as
+#    reopening it from its card (POS-016)
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "CONTINUE READING"
+    direction: UP
+    timeout: 10000
+- tapOn: "CONTINUE READING"
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 20000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+
+# 5. Turn the device -> the same paragraph is on top (NAV-001)
+# 6. Turn it back; repeat three times -> the same paragraph every time, never the start of the
+#    book (NAV-001). On the phone the layout follows: side by side when landscape, stacked when
+#    portrait.
+- repeat:
+    times: 4
+    commands:
+      - setOrientation: LANDSCAPE_LEFT
+      - extendedWaitUntil:
+          visible:
+            id: "original_7_${output.p}"
+          timeout: 15000
+      - assertNotVisible:
+          id: "original_7_${output.prev}"
+      - assertNotVisible: ".*downstream\\. \\(1\\).*"
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - assertNotVisible:
+                id: "reader:verticalTopPane"
+      - setOrientation: PORTRAIT
+      - extendedWaitUntil:
+          visible:
+            id: "original_7_${output.p}"
+          timeout: 15000
+      - assertNotVisible:
+          id: "original_7_${output.prev}"
+      - assertNotVisible: ".*downstream\\. \\(1\\).*"
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - assertVisible:
+                id: "reader:verticalTopPane"
+- takeScreenshot: J-RDR-03-step6-after-rotations
+
+# 6a. Aa -> "Show translation" off; turn the device and turn it back -> one original-only
+#     column both ways, the same paragraph on top; Aa still shows "Show translation" off
+#     (LAY-028). Turn it back on.
+#     The switch has no label of its own: it is the checkable node in the "Show translation" row.
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:displaySettingsButton"
+- extendedWaitUntil:
+    visible: "Display"
+    timeout: 5000
+- scrollUntilVisible:
+    element: "Show illustrations"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    checked: true
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- tapOn:
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- assertNotVisible:
+    checked: true
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- assertVisible:
+    id: "original_7_${output.p}"
+- assertNotVisible:
+    id: "translation_7_.*"
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+- assertNotVisible:
+    id: "translation_7_.*"
+- assertNotVisible:
+    id: "reader:verticalBottomPane"
+- takeScreenshot: J-RDR-03-step6a-turned-one-column
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+- assertNotVisible:
+    id: "translation_7_.*"
+- assertNotVisible:
+    id: "reader:verticalBottomPane"
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:displaySettingsButton"
+- extendedWaitUntil:
+    visible: "Display"
+    timeout: 5000
+- scrollUntilVisible:
+    element: "Show illustrations"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Show translation"
+- assertNotVisible:
+    checked: true
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- tapOn:
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- assertVisible:
+    checked: true
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible:
+      id: "translation_7_${output.p}"
+    timeout: 60000
+
+# 7. Back to Library; reopen the book from its card -> the same paragraph (NAV-002)
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 20000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+
+# 8. Chapter picker -> chapter 10, so the first row on screen is a chapter title; Back; reopen
+#    -> the place is chapter 10's first paragraph, from its first line: it is on top, the chapter
+#    title is above the screen and nothing of chapter 9 shows (POS-013)
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn:
+    id: "reader:chapterRow:9"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch10\\.1\\).*"
+    timeout: 15000
+- assertVisible: "— 10 —"
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_9_0"
+    timeout: 20000
+- assertNotVisible:
+    id: "original_8_.*"
+- assertNotVisible: "— 10 —"
+- takeScreenshot: J-RDR-03-step8-reopened-at-chapter-title
+
+# 9. Bookmarks -> the chapter 8 bookmark (its paragraph exactly on top), then scroll a little so
+#    its first lines are off screen; Back; reopen -> the same paragraph is on top (POS-013)
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:bookmarksButton"
+- extendedWaitUntil:
+    visible: "Chapter 8 · ¶ \\d+"
+    timeout: 5000
+- tapOn: "Chapter 8 · ¶ \\d+"
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+- swipe:
+    start: "30%, 40%"
+    end: "30%, 37%"
+    duration: 800
+- assertVisible:
+    id: "original_7_${output.p}"
+- takeScreenshot: J-RDR-03-step9-partway-before
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 20000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+- takeScreenshot: J-RDR-03-step9-partway-reopened
+
+# 10. Kill the app; relaunch; open the book -> the same chapter and paragraph after a full
+#     restart (POS-013)
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 20000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+- assertNotVisible: ".*downstream\\. \\(1\\).*"

@@ -33,7 +33,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-LIB-19 | Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them | P0 | smoke, full, tablet, phone | 10 | 6 |
 | J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 15 | 17 |
 | J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 13 | 17 |
-| J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone | 11 | 8 |
+| J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone, tablet | 11 | 8 |
 | J-RDR-04 | Reading to the end: 0% to 100% and back | P0 | smoke, full | 9 | 6 |
 | J-RDR-05 | Appearance smoke: margins and one shared theme | P0 | smoke, full | 9 | 3 |
 | J-RDR-06 | Tablet: tuning typography, layout combos and persistence | P1 | full, tablet | 13 | 10 |
@@ -639,19 +639,19 @@ translation works without network keys.
 **Covers:** NAV-008, APP-026, LAY-002, LAY-029, LAY-030, POS-008, POS-003, NAV-009, NAV-018, BMK-001, BMK-003, BMK-002, BMK-005, BMK-004, APP-028, APP-029, POS-013
 
 ### J-RDR-03 — Rotation and resume: the paragraph never moves
-**Priority** P0 · **Tags** smoke, full, rotation, phone · **Devices** phone emulator API 35 (Maestro `setOrientation`); repeat on tablet in `full` · **Fixtures** F-LONG · **Preconditions** F-LONG has saved progress mid-chapter (e.g. chapter 8); portrait hint already suppressed.
+**Priority** P0 · **Tags** smoke, full, rotation, phone, tablet · **Devices** phone emulator API 35 and tablet API 35 (Maestro `setOrientation`) · **Fixtures** F-LONG · **Preconditions** F-LONG has saved progress mid-chapter (the flow sets it up: chapter 8, a bookmark on the top paragraph, then a jump to that bookmark so the paragraph is exactly on top); portrait hint already suppressed.
 
-1. Settings → Orientation → ✓ three options Auto / Landscape / Portrait, in English (APP-024).
-2. Select Landscape without restarting → ✓ the app turns to landscape immediately (APP-022).
-3. Kill the app and relaunch → ✓ Orientation still shows Landscape, not reset to Portrait (APP-023). Select Auto.
-4. On Home, tap "Continue reading" for F-LONG → ✓ opens at the saved chapter/paragraph/offset, same as reopening from the Library (POS-016).
-5. Note the top paragraph; rotate to landscape → ✓ the same paragraph is on top (NAV-001).
-6. Rotate back to portrait; repeat landscape↔portrait three times → ✓ the same paragraph stays on top every time, never back to the start (NAV-001).
-6a. Aa → **Show translation** off; rotate to landscape and back to portrait → ✓ one original-only column in both orientations, the same paragraph on top; Aa still shows "Show translation" off (LAY-028). Turn it back on.
+1. Settings → Orientation → ✓ three options AUTO / LANDSCAPE / PORTRAIT, in English (APP-024).
+2. *Phone:* select LANDSCAPE without restarting → ✓ the app turns to landscape immediately — the navigation becomes the side rail instead of the bottom bar (APP-022). (On a tablet Landscape is the default and nothing turns; manual, J-RDR-12.)
+3. *Phone:* kill the app and relaunch → ✓ still landscape, not reset to Portrait (APP-023). Select AUTO (both devices).
+4. On the Library, tap "Continue reading" for F-LONG → ✓ opens at the saved paragraph, same as reopening from the Library (POS-016).
+5. Note the top paragraph; turn the device → ✓ the same paragraph is on top (NAV-001).
+6. Turn it back; repeat three more times → ✓ the same paragraph stays on top every time, never back to the start (NAV-001); on the phone the layout is side-by-side when landscape and stacked when portrait.
+6a. Aa → **Show translation** off; turn the device and turn it back → ✓ one original-only column in both orientations, the same paragraph on top; Aa still shows "Show translation" off (LAY-028). Turn it back on.
 7. Back to Library; reopen F-LONG → ✓ it reopens on that same paragraph (NAV-002).
-8. Scroll so the first visible row is a chapter masthead; Back; reopen → ✓ the position resolves to the first paragraph below the masthead, offset 0 (POS-013).
-9. Scroll partway into a normal paragraph (top line half off-screen); Back; reopen → ✓ same paragraph and pixel offset (POS-013).
-10. Scroll partway into another paragraph; kill the app; relaunch; open F-LONG → ✓ same chapter/paragraph/offset after a full restart (POS-013).
+8. Chapter picker → chapter 10, so the first visible row is a chapter masthead; Back; reopen → ✓ the position resolves to the first paragraph below the masthead, offset 0: that paragraph is on top, the masthead is above the screen (POS-013).
+9. Bookmarks → the chapter 8 bookmark, then scroll a little so the paragraph's first lines are off-screen; Back; reopen → ✓ same paragraph on top (POS-013; the same pixel offset is a visual check — see the screenshots).
+10. Kill the app; relaunch; open F-LONG → ✓ same chapter and paragraph after a full restart (POS-013).
 
 **Covers:** APP-024, APP-022, APP-023, POS-016, NAV-001, NAV-002, POS-013, LAY-028
 
