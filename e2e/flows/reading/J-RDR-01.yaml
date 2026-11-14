@@ -1,0 +1,418 @@
+appId: ${APP_ID}
+name: J-RDR-01 Tablet first read of an illustrated classic
+tags: [smoke, full, tablet, reading, J-RDR-01]
+# books: alice-illustrated.epub
+---
+# J-RDR-01 — Tablet: first read of an illustrated classic, side-by-side.
+# Fixture: alice-illustrated.epub (F-ALICE, Gutenberg 28885, Rackham). As the app reads it:
+#   chapter index 0  "— 1 — ALICE'S ADVENTURES IN WONDERLAND": three pictures (endpapers 600x401,
+#                    frontispiece 256x500, title page 373x500) and only then the first text,
+#                    "Printed in England" (original_0_0);
+#   chapter index 1  "— 2 — Chapter 2": "CHAPTER I", "Down the Rabbit-Hole", "ALICE was beginning…";
+#   chapter index 2  "— 3 — Chapter 3": a tall drawing (183x450) between original_2_8 and
+#                    original_2_9, and the plate "The Pool of Tears" (373x500) further down.
+# A picture is laid out at one image pixel = one dp; both required tablets (Tab_35_PixelTablet,
+# Tab_26_Nexus9) are 320 dpi, so a 600x401 picture is exactly 1200x802 device px. uiautomator
+# reports only the on-screen part of a node, so a picture matching its FULL size is a picture
+# that is entirely on screen — that is how "fits within one screen" is asserted below.
+# Scrolling is done with slow fixed swipes at x=30% (never x=50%: that is the pane divider),
+# short enough that a 1000 px plate cannot be skipped between two stops.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-01.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open book -> alice-illustrated.epub (importing a book opens it) -> the reader shows the very
+#    start: the first chapter's number and title, no jump (POS-023, POS-011)
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+- extendedWaitUntil:
+    visible: "— 1 —"
+    timeout: 30000
+- assertVisible: "ALICE'S ADVENTURES IN WONDERLAND"
+
+# 2. The navigation rail is hidden inside the reader (NAV-017); no "ML KIT READY" label anywhere,
+#    with the bars hidden and with them shown (LAY-022)
+- assertNotVisible: "Catalog"
+- assertNotVisible: "Almanac"
+- assertNotVisible: ".*ML KIT READY.*"
+- runFlow: ../../subflows/open_bars.yaml
+- assertNotVisible: ".*ML KIT READY.*"
+- assertNotVisible: "Catalog"
+
+# 3. The pictures placed before and right after the book's first heading render under the first
+#    chapter title, none dropped (ILL-011), at full size — one image pixel per dp, not a thumbnail
+#    (ILL-006); the 350x500 cover is not repeated as a page of the first chapter (ILL-003)
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+      width: 1200
+      height: 802
+      tolerance: 6
+    timeout: 15000
+- assertVisible:
+    id: "illustration"
+    width: 1200
+    height: 802
+    tolerance: 6
+    below: "ALICE'S ADVENTURES IN WONDERLAND"
+- assertNotVisible:
+    id: "illustration"
+    width: 700
+    tolerance: 6
+
+# 4. Back to Library without scrolling -> the Continue Reading card is at chapter 1, 0%; open the
+#    book again from its card -> still the very start, no false "continue reading" jump (POS-011)
+- runFlow: ../../subflows/back_to_library.yaml
+- assertVisible: "CONTINUE READING"
+- assertVisible: "CH 1 OF 14"
+- assertVisible: "0%"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Alice's Adventures in Wonderland.*"
+- extendedWaitUntil:
+    visible: "— 1 —"
+    timeout: 30000
+- assertVisible: "ALICE'S ADVENTURES IN WONDERLAND"
+- assertVisible:
+    id: "illustration"
+    width: 1200
+    tolerance: 6
+
+# 4a. Chapter picker -> the second chapter, whose text starts right under its title: no picture
+#     stands between the chapter title and "CHAPTER I" — the cover is not repeated as this
+#     chapter's first page (ILL-003)
+# MANUAL: LAY-023 — "Preparing translation…" not covering the chapter number. The banner is on
+#     screen only while the Offline HQ pack downloads; on the emulator's network that is shorter
+#     than one Maestro check takes (observed: a 30 s wait started right after the chapter tap never
+#     saw it, the translation was already there), and whether it overlaps the number is a visual
+#     judgement Maestro cannot make.
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn:
+    id: "reader:chapterRow:1"
+- extendedWaitUntil:
+    visible: "CHAPTER I"
+    timeout: 15000
+- assertVisible: "— 2 —"
+- assertNotVisible:
+    id: "illustration"
+#     …and the translation arrives (the first one downloads the Offline HQ EN->RU pack, ~35 MB):
+#     original left, translation right, one row per paragraph (LAY-001)
+- extendedWaitUntil:
+    visible: ".*Алиса начала.*"
+    timeout: 240000
+- takeScreenshot: J-RDR-01-step4a-translated
+- assertVisible:
+    id: "translation_1_2"
+    rightOf:
+      id: "original_1_2"
+- assertVisible:
+    id: "translation_1_0"
+    rightOf:
+      id: "original_1_0"
+#     Back to the first chapter for its pictures.
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    visible: "— 1 —"
+    timeout: 15000
+
+# 5. Scroll down the first chapter -> the frontispiece (256x500) and the title page (373x500)
+#    each fit on one screen at full size (ILL-011, ILL-006, ILL-007), then the first text
+- repeat:
+    while:
+      notVisible:
+        id: "illustration"
+        width: 512
+        height: 1000
+        tolerance: 6
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 45%"
+          duration: 1200
+- repeat:
+    while:
+      notVisible:
+        id: "illustration"
+        width: 746
+        height: 1000
+        tolerance: 6
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 45%"
+          duration: 1200
+- repeat:
+    while:
+      notVisible: "Printed in England"
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 45%"
+          duration: 1200
+
+# 6. The first text of the book is translated beside it (LAY-001)
+- extendedWaitUntil:
+    visible: ".*в Англии.*"
+    timeout: 240000
+- assertVisible:
+    id: "translation_0_0"
+    rightOf:
+      id: "original_0_0"
+- takeScreenshot: J-RDR-01-step6-side-by-side
+#    …and the panes scroll together: two paragraphs further each original still has its
+#    translation beside it (LAY-001)
+- repeat:
+    while:
+      notVisible: "AUSTIN DOBSON\\."
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 45%"
+          duration: 1200
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_2"
+    timeout: 60000
+- assertVisible:
+    id: "translation_0_2"
+    rightOf:
+      id: "original_0_2"
+
+# 7. Chapter picker -> the third chapter; scroll to its first picture -> it sits inside the
+#    chapter at its anchor, between the 9th and 10th paragraphs (ILL-001), as its own row
+#    (ILL-015), at full size (183x450 image -> 366x900 px), not a thumbnail (ILL-006)
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:chaptersButton"
+- extendedWaitUntil:
+    visible: "Chapters"
+    timeout: 5000
+- tapOn:
+    id: "reader:chapterRow:2"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "CHAPTER II"
+    timeout: 15000
+- assertVisible: "— 3 —"
+- repeat:
+    while:
+      notVisible:
+        id: "illustration"
+        width: 366
+        height: 900
+        tolerance: 6
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 45%"
+          duration: 1200
+- assertVisible:
+    id: "illustration"
+    width: 366
+    height: 900
+    tolerance: 6
+    below:
+      id: "original_2_8"
+- assertVisible:
+    id: "illustration_row"
+    below:
+      id: "original_2_8"
+- repeat:
+    while:
+      notVisible:
+        id: "original_2_9"
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 45%"
+          duration: 1200
+- assertVisible:
+    id: "original_2_9"
+    below:
+      id: "illustration"
+
+# 8. MANUAL: ILL-008 — the divider handle fading out over a picture / chapter title. The handle
+#    is drawn with an animated alpha and has no node of its own in the accessibility tree, so
+#    Maestro cannot see whether it is shown.
+
+# 9. Scroll to the tall plate "The Pool of Tears" (373x500) -> it is whole on one screen at its
+#    full 746x1000 px (ILL-007, ILL-006)
+- repeat:
+    while:
+      notVisible:
+        id: "illustration"
+        width: 746
+        height: 1000
+        tolerance: 6
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 45%"
+          duration: 1200
+- takeScreenshot: J-RDR-01-step9-plate
+# Let the bars' auto-hide (3.5 s after the last scroll) finish, so "hidden" is a settled state.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+
+# Steps 10–12 tap by point, without waiting for the screen to settle: the bars hide by themselves
+# 3.5 s after they appear, and a tap by id can take longer than that on a freshly booted
+# emulator. The plate was found scrolling down in 400 px steps, so (bars hidden) its top is
+# 300–700 px down the 1600 px screen: x 50%, y 62% is always on the plate, x 25%, y 12% is
+# always the original's text above it.
+# "A tap hides the bars" cannot be told from the 3.5 s timer by looking at the screen, so it is
+# checked as two taps back to back from the settled hidden state: the first shows the bars (that
+# same tap is proven to show them just before), and they must be gone straight after the second.
+
+# 10. Tap directly on the plate -> the bars appear (ILL-009); the picture keeps its width — it is
+#     not resized (ILL-007)
+- tapOn:
+    point: "50%, 62%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 3000
+- assertVisible:
+    id: "illustration"
+    width: 746
+    tolerance: 6
+
+# 11. From the hidden state a tap on plain text shows the bars too (NAV-003)…
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- tapOn:
+    point: "25%, 12%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 3000
+#     …and with the bars shown by a tap on the plate, a tap on plain text hides them — the same
+#     toggle as on the picture (NAV-003)
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- tapOn:
+    point: "50%, 62%"
+    waitToSettleTimeoutMs: 100
+- tapOn:
+    point: "25%, 12%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 1500
+
+# 12. Two more taps -> each time the page is laid out against the bars again: hidden, the footer
+#     percentage is gone and the plate is whole at its full size; shown, the footer is back and
+#     the plate keeps its width (SYS-012). The exact pixel position is a visual check.
+- assertNotVisible:
+    id: "footer_percent"
+- assertVisible:
+    id: "illustration"
+    width: 746
+    height: 1000
+    tolerance: 6
+- tapOn:
+    point: "50%, 62%"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: "footer_percent"
+    timeout: 3000
+- assertVisible:
+    id: "illustration"
+    width: 746
+    tolerance: 6
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- assertVisible:
+    id: "illustration"
+    width: 746
+    height: 1000
+    tolerance: 6
+
+# 13. Display (Aa) -> "Split position" 50 / 50 -> move the slider to about 35 / 65 -> the value
+#     changes live (LAY-004). The pane widths themselves are not asserted: they are device pixels
+#     that differ between the two required tablets; the screenshot after Close shows them.
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:displaySettingsButton"
+- extendedWaitUntil:
+    visible: "Display"
+    timeout: 5000
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Split position"
+- assertVisible: "50 / 50"
+# The split slider has no testTag; it is the 22 dp high bar between its label and the next row.
+- tapOn:
+    below: "Split position"
+    above: "Show translation"
+    height: 44
+    tolerance: 8
+    point: "13%, 50%"
+- extendedWaitUntil:
+    visible: "3[0-9] / 6[0-9]"
+    timeout: 5000
+- assertNotVisible: "50 / 50"
+
+# 14. Close; Back to Library; reopen the book -> Display still shows the new split (LAY-004)
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- takeScreenshot: J-RDR-01-step13-split-35-65
+- runFlow: ../../subflows/back_to_library.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Alice's Adventures in Wonderland.*"
+- extendedWaitUntil:
+    visible:
+      id: "original_2_.*"
+    timeout: 30000
+- runFlow: ../../subflows/open_bars.yaml
+- tapOn:
+    id: "reader:displaySettingsButton"
+- extendedWaitUntil:
+    visible: "Display"
+    timeout: 5000
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "3[0-9] / 6[0-9]"
+- assertNotVisible: "50 / 50"
+- tapOn: "Close"

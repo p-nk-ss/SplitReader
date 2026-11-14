@@ -31,7 +31,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-LIB-17 | Release artifact audit before a Play upload | P0 | manual | 9 | 9 |
 | J-LIB-18 | Odd files that need a human eye | P1 | manual, tablet | 4 | 4 |
 | J-LIB-19 | Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them | P0 | smoke, full, tablet, phone | 10 | 6 |
-| J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 14 | 17 |
+| J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 15 | 17 |
 | J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 13 | 17 |
 | J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone | 11 | 8 |
 | J-RDR-04 | Reading to the end: 0% to 100% and back | P0 | smoke, full | 9 | 6 |
@@ -599,22 +599,23 @@ translation works without network keys.
 ## Automated journeys
 
 ### J-RDR-01 — Tablet: first read of an illustrated classic, side-by-side
-**Priority** P0 · **Tags** smoke, full, tablet · **Devices** tablet API 35 (and API 26 in `full`), landscape lock (default) · **Fixtures** F-ALICE · **Preconditions** F-ALICE imported but never opened; translation on, target RU; "Show illustrations" on; default margins.
+**Priority** P0 · **Tags** smoke, full, tablet · **Devices** tablet API 35 (and API 26 in `full`), landscape lock (default) · **Fixtures** F-ALICE · **Preconditions** clean install; translation on, target RU (defaults); "Show illustrations" on; default margins.
 
-1. Launch the app on Home/Library → ✓ F-ALICE shows no "Continue reading" excerpt although its first chapter is a cover (POS-011).
-2. Tap F-ALICE in the Library → ✓ the navigation rail is hidden inside the reader (NAV-017); no "ML KIT READY" label anywhere in the top-right (LAY-022).
-3. Immediately, while "Preparing translation…" is shown, look at the chapter-number area → ✓ the banner does not cover the chapter number (LAY-023).
-4. Check the very first screen → ✓ the book opened at the start (chapter 0, ¶0), no jump (POS-023); the cover appears once and is not repeated as the first page of chapter 1 (ILL-003).
-5. Wait for translation → ✓ original left, translation right, one row per paragraph, panes scroll together (LAY-001).
-6. Scroll into chapter 1 → ✓ the images placed before the chapter heading render, none dropped (ILL-011).
-7. Scroll to the first plate inside a chapter → ✓ it sits inside the chapter at its anchor (ILL-001), inline as its own item (ILL-015), rendered up to page width, not a thumbnail (ILL-006).
-8. Scroll so the plate / a chapter title sits under the divider handle → ✓ the handle fades out instead of covering it (ILL-008).
-9. Scroll to the tall plate → ✓ it fits within one screen height (ILL-007).
-10. Tap directly on the plate → ✓ bars appear; the picture and text do not shift or resize (ILL-009, ILL-007).
-11. Tap on plain text → ✓ bars hide — the same toggle as on the picture (NAV-003).
-12. Tap twice more → ✓ content repositions correctly against system bars each time, no stale padding (SYS-012).
-13. Open the reader's Display dialog; move the Split ratio slider to about 35/65 → ✓ pane widths change live (LAY-004).
-14. Close the dialog, Back to Library, reopen F-ALICE → ✓ the new ratio is still applied (LAY-004).
+1. On the empty Library tap "Open book" and pick F-ALICE (importing a book opens it) → ✓ the reader shows the very start — the first chapter's number "— 1 —" and title — no jump (POS-023, POS-011).
+2. Look at the reader → ✓ the navigation rail is hidden inside the reader (NAV-017); no "ML KIT READY" label anywhere, with the bars hidden or shown (LAY-022).
+3. Check the first screen → ✓ the pictures placed before and right after the book's first heading (endpapers, frontispiece, title page) render under the first chapter title, none dropped (ILL-011), at full size — one image pixel per dp, not a thumbnail (ILL-006); the 350×500 cover is not repeated as a page of the first chapter (ILL-003).
+4. Back to Library without scrolling → ✓ the "Continue reading" card shows the book at "CH 1 OF 14", 0% (the app has no imported-but-never-opened state; the card's excerpt is the book's opening text). Open the book again from its card → ✓ still the very start, no false "continue reading" jump (POS-011).
+4a. Chapter picker → the second chapter ("— 2 —", text starts right under the title) → ✓ no picture stands between the chapter title and "CHAPTER I" — the cover is not repeated as this chapter's first page (ILL-003). Wait for translation → ✓ original left, translation right, one row per paragraph (LAY-001). *Manual:* while "Preparing translation…" is shown the banner does not cover the chapter number (LAY-023) — the banner is too short-lived for Maestro and the overlap is a visual judgement.
+5. Chapter picker → the first chapter; scroll down → ✓ the frontispiece and the title page each fit on one screen at full size (ILL-011, ILL-006, ILL-007).
+6. Scroll on to the first text ("Printed in England") and two paragraphs further → ✓ each original has its translation beside it; the panes scroll together (LAY-001).
+7. Chapter picker → the third chapter; scroll to its first picture → ✓ it sits inside the chapter at its anchor, between the 9th and 10th paragraphs (ILL-001), inline as its own row (ILL-015), rendered at full size, not a thumbnail (ILL-006).
+8. *Manual:* scroll so the picture / a chapter title sits under the divider handle → ✓ the handle fades out instead of covering it (ILL-008) — the handle has no node Maestro can see.
+9. Scroll to the tall plate ("The Pool of Tears") → ✓ it fits within one screen height at full size (ILL-007, ILL-006).
+10. With the bars hidden, tap directly on the plate → ✓ bars appear (ILL-009); the picture is not resized (ILL-007).
+11. Tap on plain text → ✓ bars hide — the same toggle as on the picture; tap the text again → ✓ bars appear (NAV-003).
+12. Tap twice more (text, then the plate) → ✓ bars hide and show; each time the plate keeps its size and the footer percentage leaves and returns with the bars — no stale padding (SYS-012; the exact pixel position is a visual check).
+13. Open the reader's Display dialog (Aa); move the "Split position" slider from 50 / 50 to about 35 / 65 → ✓ the value changes live (LAY-004).
+14. Close the dialog, Back to Library, reopen F-ALICE → ✓ Display still shows the new split (LAY-004).
 
 **Covers:** POS-011, NAV-017, LAY-022, LAY-023, POS-023, ILL-003, LAY-001, ILL-011, ILL-001, ILL-015, ILL-006, ILL-008, ILL-007, ILL-009, NAV-003, SYS-012, LAY-004
 
