@@ -1,0 +1,286 @@
+appId: ${APP_ID}
+name: J-RDR-09 App chrome and the Words screen on phone and tablet
+tags: [smoke, full, phone, tablet, reading, J-RDR-09]
+# books: en-novel.epub
+---
+# J-RDR-09 — App chrome and the Words screen on phone and tablet.
+# Fixture: en-novel.epub (F-LONG, "The River Crossing"). Runs on the phone and on the tablet;
+# e2e/run.sh passes DEVICE_CLASS, and the steps that belong to one device sit behind
+# `when: true: ${DEVICE_CLASS == '…'}`. The journey's steps 1–8 are the phone's, 9–11 the
+# tablet's; the parts both devices share (each navigation item and Back, the reader hiding the
+# navigation, saving three words) are written once and run on both.
+#
+# The saved words are made in the flow: a long press opens the word popup, and its "Save" stores
+# the word — on the middle of the first paragraph, the middle of the second, and the middle of
+# the second paragraph's first line (the middle of the third paragraph is "that" on the phone,
+# the same word as the second's). Which words those are depends
+# on where the lines break on the device, so the flow reads each word from the popup
+# (output.w1 … output.w3) and uses those in the Words screen. In the popup the word is the Latin
+# text between "WORD" and "Listen" (the translation is Cyrillic; the popup's "Close" button also
+# answers a text selector, hence the `(?!Close$)`).
+# Each destination is recognised by a text only that screen has: Catalog "Standard Ebooks",
+# Almanac "All time", Words "Search words…", Settings "Preferences", Library "Open book".
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-09.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Phone: a bottom bar with the 5 items Library, Catalog, Almanac, Words, Settings, side by side
+#    in that order (NAV-005)
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible: "Library"
+      - assertVisible:
+          text: "Catalog"
+          rightOf: "Library"
+      - assertVisible:
+          text: "Almanac"
+          rightOf: "Catalog"
+      - assertVisible:
+          text: "Words"
+          rightOf: "Almanac"
+      - assertVisible:
+          text: "Settings"
+          rightOf: "Words"
+      - assertNotVisible: "Sign in"
+      - takeScreenshot: J-RDR-09-step1-bottom-bar
+
+# 9. Tablet: the same five items are on the rail, one under another
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible: "Library"
+      - assertVisible:
+          text: "Catalog"
+          below: "Library"
+      - assertVisible:
+          text: "Almanac"
+          below: "Catalog"
+      - assertVisible:
+          text: "Words"
+          below: "Almanac"
+      - assertVisible:
+          text: "Settings"
+          below: "Words"
+
+# 2 (phone, bottom bar) / 9 (tablet, rail). Tap each item in turn, then system Back -> each
+#   opens its destination, and Back returns to the Library — the same commands and the same
+#   expectations on both devices (NAV-006)
+- tapOn: "Catalog"
+- extendedWaitUntil:
+    visible: "Standard Ebooks"
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- assertNotVisible: "Standard Ebooks"
+- tapOn: "Almanac"
+- extendedWaitUntil:
+    visible: "All time"
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- assertNotVisible: "All time"
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "Search words…"
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- assertNotVisible: "Search words…"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Preferences"
+    timeout: 15000
+- back
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- assertNotVisible: "Preferences"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Preferences"
+    timeout: 15000
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 3. Phone: tap the avatar in the top status strip -> the sign-in screen opens (signed out)
+#    (NAV-007). Back.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn: "\\?"
+      - extendedWaitUntil:
+          visible: "ACCOUNT"
+          timeout: 10000
+      - assertVisible: "Continue with Google"
+      - takeScreenshot: J-RDR-09-step3-auth
+      - back
+      - extendedWaitUntil:
+          visible: "Open book"
+          timeout: 10000
+
+# 4 (phone) / 11 (tablet). Open F-LONG -> the bottom bar / the rail is hidden in the reader
+#   (NAV-017)
+- runFlow:
+    file: ../../subflows/import_book_steady.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- assertNotVisible: "Catalog"
+- assertNotVisible: "Almanac"
+- assertNotVisible: "Words"
+- assertNotVisible: "Sign in"
+- takeScreenshot: J-RDR-09-step4-reader-no-navigation
+#   Precondition for the Words steps: three saved words, from the word popup's "Save".
+#   The bars hide by themselves after 3.5 s and the page then moves up: wait for that first, so
+#   a long press lands where the paragraph is.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    id: "original_0_0"
+- extendedWaitUntil:
+    visible:
+      text: "Save"
+      enabled: true
+    timeout: 60000
+- copyTextFrom:
+    text: "(?!Close$)[A-Za-z'’-]+"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.w1 = maestro.copiedText}
+- tapOn: "Save"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- longPressOn:
+    id: "original_0_1"
+- extendedWaitUntil:
+    visible:
+      text: "Save"
+      enabled: true
+    timeout: 60000
+- copyTextFrom:
+    text: "(?!Close$)[A-Za-z'’-]+"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.w2 = maestro.copiedText}
+- tapOn: "Save"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- longPressOn:
+    id: "original_0_1"
+    point: "50%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "Save"
+      enabled: true
+    timeout: 60000
+- copyTextFrom:
+    text: "(?!Close$)[A-Za-z'’-]+"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.w3 = maestro.copiedText}
+- tapOn: "Save"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- evalScript: ${console.log('SAVED WORDS ' + output.w1 + ' / ' + output.w2 + ' / ' + output.w3)}
+- assertTrue: ${output.w1 != output.w2 && output.w2 != output.w3 && output.w1 != output.w3}
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "3 saved words"
+    timeout: 10000
+- assertVisible: "${output.w1}"
+- assertVisible: "${output.w2}"
+- assertVisible: "${output.w3}"
+
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      # 5. Tap a saved word -> the list is replaced full-screen by its detail (NAV-010)
+      - tapOn: "${output.w1}"
+      - extendedWaitUntil:
+          visible: "Back to word list"
+          timeout: 5000
+      - assertVisible: "context"
+      - assertNotVisible: "3 saved words"
+      - assertNotVisible: "Search words…"
+      - takeScreenshot: J-RDR-09-step5-word-detail
+      # 6. System back -> the list returns; the screen is not left (NAV-011)
+      - back
+      - extendedWaitUntil:
+          visible: "3 saved words"
+          timeout: 5000
+      - assertNotVisible: "Back to word list"
+      - assertVisible: "Search words…"
+      # 7. Tap another word; the back arrow in the detail header -> the list returns (NAV-012)
+      - tapOn: "${output.w2}"
+      - extendedWaitUntil:
+          visible: "Back to word list"
+          timeout: 5000
+      - assertNotVisible: "3 saved words"
+      - tapOn: "Back to word list"
+      - extendedWaitUntil:
+          visible: "3 saved words"
+          timeout: 5000
+      - assertNotVisible: "Back to word list"
+      # 8. Tap a third word; "Delete" in the detail, confirm in the "Delete word" dialog -> the
+      #    list returns without it (NAV-014)
+      - tapOn: "${output.w3}"
+      - extendedWaitUntil:
+          visible: "Back to word list"
+          timeout: 5000
+      - tapOn: "Delete"
+      - extendedWaitUntil:
+          visible: "Delete word"
+          timeout: 5000
+      - tapOn:
+          text: "Delete"
+          rightOf: "Cancel"
+      - extendedWaitUntil:
+          visible: "2 saved words"
+          timeout: 5000
+      - assertNotVisible: "Back to word list"
+      - assertNotVisible: "${output.w3}"
+      - assertVisible: "${output.w1}"
+      - assertVisible: "${output.w2}"
+      - takeScreenshot: J-RDR-09-step8-word-deleted
+
+# 10. Tablet: select a word -> the list and the detail are side by side, no back arrow (NAV-013)
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible: "Select a word"
+      - tapOn: "${output.w1}"
+      - extendedWaitUntil:
+          visible:
+            text: "context"
+            rightOf: "3 saved words"
+          timeout: 5000
+      - assertNotVisible: "Select a word"
+      - assertVisible: "3 saved words"
+      - assertVisible: "Search words…"
+      - assertVisible: "${output.w2}"
+      - assertVisible: "${output.w3}"
+      - assertNotVisible: "Back to word list"
+      - takeScreenshot: J-RDR-09-step10-words-side-by-side
