@@ -1,0 +1,415 @@
+appId: ${APP_ID}
+name: J-RDR-05 Appearance smoke - margins and one shared theme
+tags: [smoke, full, phone, tablet, reading, J-RDR-05]
+# books: en-novel.epub
+---
+# J-RDR-05 — Appearance smoke: margins and one shared theme.
+# Fixture: en-novel.epub (F-LONG, "The River Crossing"). Ids: original_<chapter>_<paragraph> /
+# translation_<chapter>_<paragraph>, 0-based. Runs on the phone and on the tablet; e2e/run.sh
+# passes DEVICE_CLASS, and the numbers that are device pixels sit behind
+# `when: true: ${DEVICE_CLASS == '…'}` (Maestro takes `width:` only as a literal).
+#
+# Margins (APP-001). Maestro cannot read where a node is, only how wide it is, so "the text edge
+# sits N dp in" is asserted through the paragraph's width:
+#   tablet (Tab_35_PixelTablet, 2560 px wide, 2 px per dp), side by side: each pane is 1280 px,
+#     a paragraph = 1280 - 2*N (outer margin) - 24 (the fixed 12 dp gutter at the divider)
+#     -> 32dp 1192 px, 12dp 1232 px, 40dp 1176 px;
+#   phone (Pixel_10_Pro, 1280 px wide, 3 px per dp), stacked: a paragraph = 1280 - 2*3*N
+#     -> 32dp 1088 px, 12dp 1208 px, 40dp 1040 px.
+# The margins slider has no testTag: it is the SeekBar between its label and the next row, picked
+# by its size (the tablet rail's "Sign in" also lies between those two heights). A tap at 20% /
+# 82% of it (21% / 81% on the phone) gives 12dp / 40dp.
+# The reader's Display dialog has NO "Page margins" slider — the margin is set only in
+# Settings — so the journey moves it there and reopens the book.
+#
+# Theme (APP-007, APP-008). A theme is only colours: nothing in the accessibility tree says which
+# one is on (the selected swatch differs by its border alone). It is checked with
+# `assertScreenshot` on a small crop — one fixed text of each screen — against reference crops in
+# e2e/refs/theme/<device class>-<screen>-<paper|night>.png (how to re-record: e2e/refs/README.md).
+# Limits, found by trying: Maestro's comparison tolerates small colour differences, so it tells
+# Night from Paper (1% match) but NOT Sepia from Paper, nor Amoled from Night (100% match). So
+# every check here is "dark" or "light", the journey switches between a light and a dark theme at
+# every step so that each check can fail, and "it is Sepia, not Paper" stays a visual check
+# (screenshot J-RDR-05-step7-sepia-dialog). The references are pixels of the two required AVDs;
+# another device needs its own.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-05.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Settings -> Reading -> "Page margins" shows 32dp (APP-001); a clean install is Paper (light)
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "32dp"
+    below: "Split ratio"
+    above: "Show translation"
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-settings-paper
+    cropOn: "Page margins"
+    thresholdPercentage: 90
+
+# 2. Open F-LONG (importing a book opens it) -> the text edge sits 32dp in from the screen edge
+#    (APP-001); the page is light
+- tapOn: "Library"
+- runFlow:
+    file: ../../subflows/import_book_steady.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1192
+          tolerance: 4
+      - assertVisible:
+          id: "translation_0_0"
+          width: 1192
+          tolerance: 4
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1088
+          tolerance: 4
+      - assertVisible:
+          id: "translation_0_0"
+          width: 1088
+          tolerance: 4
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-reader-paper
+    cropOn: "Chapter 1 — The Ferry"
+    thresholdPercentage: 90
+
+# 3. The reader's Display dialog has no margins slider; Settings -> "Page margins" to 12dp, reopen
+#    the book -> the text edge moved outward; then to 40dp -> it moved inward (APP-001)
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- assertNotVisible: "Page margins"
+- scrollUntilVisible:
+    element: "Word highlight on tap"
+    direction: DOWN
+    timeout: 15000
+- assertNotVisible: "Page margins"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          below: "Page margins"
+          above: "Show translation"
+          width: 2248
+          height: 44
+          tolerance: 10
+          point: "20%, 50%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          below: "Page margins"
+          above: "Show translation"
+          width: 1076
+          height: 66
+          tolerance: 10
+          point: "21%, 50%"
+- assertVisible:
+    text: "12dp"
+    below: "Split ratio"
+    above: "Show translation"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1232
+          tolerance: 4
+      - assertVisible:
+          id: "translation_0_0"
+          width: 1232
+          tolerance: 4
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1208
+          tolerance: 4
+      - assertVisible:
+          id: "translation_0_0"
+          width: 1208
+          tolerance: 4
+- takeScreenshot: J-RDR-05-step3-margins-12
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          below: "Page margins"
+          above: "Show translation"
+          width: 2248
+          height: 44
+          tolerance: 10
+          point: "82%, 50%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          below: "Page margins"
+          above: "Show translation"
+          width: 1076
+          height: 66
+          tolerance: 10
+          point: "81%, 50%"
+- assertVisible:
+    text: "40dp"
+    below: "Split ratio"
+    above: "Show translation"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1176
+          tolerance: 4
+      - assertVisible:
+          id: "translation_0_0"
+          width: 1176
+          tolerance: 4
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1040
+          tolerance: 4
+      - assertVisible:
+          id: "translation_0_0"
+          width: 1040
+          tolerance: 4
+- takeScreenshot: J-RDR-05-step3-margins-40
+
+# 4. Display dialog -> Night -> the dialog and the page turn dark at once (APP-007)
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-display-paper
+    cropOn: "Display"
+    thresholdPercentage: 90
+- tapOn: "NIGHT"
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-display-night
+    cropOn: "Display"
+    thresholdPercentage: 90
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-reader-night
+    cropOn: "Chapter 1 — The Ferry"
+    thresholdPercentage: 90
+- takeScreenshot: J-RDR-05-step4-night
+
+# 5. Kill and relaunch; reopen F-LONG -> still Night (APP-007)
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-reader-night
+    cropOn: "Chapter 1 — The Ferry"
+    thresholdPercentage: 90
+
+# 6. Back to Library, then Almanac, then Words -> all three are dark (APP-008).
+#    The Almanac is cropped on "All time": with less than a minute read it shows its empty
+#    state, which has no "THIS WEEK" (a fast run on a fresh phone failed on that).
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Your shelf"
+    direction: DOWN
+    timeout: 10000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-library-night
+    cropOn: "Your shelf"
+    thresholdPercentage: 90
+- tapOn: "Almanac"
+- extendedWaitUntil:
+    visible: "All time"
+    timeout: 10000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-almanac-night
+    cropOn: "All time"
+    thresholdPercentage: 90
+# Words is opened from the Library, not from the Almanac: Maestro matches text without regard to
+# case, and on the phone the Almanac's "0 words" card answers `tapOn: "Words"` before the bottom
+# bar does.
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Your shelf"
+    timeout: 10000
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "0 saved words"
+    timeout: 10000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-words-night
+    cropOn: "0 saved words"
+    thresholdPercentage: 90
+- takeScreenshot: J-RDR-05-step6-words-night
+
+# 7. Settings -> Theme -> Sepia; reopen F-LONG and its Display dialog -> the dialog is in the
+#    theme chosen in Settings, no restart: light again (APP-007). The reference is a Sepia crop,
+#    but a Paper dialog would match it too: that it is Sepia and not Paper is a visual check
+#    (the screenshot) — see the header.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "SEPIA"
+    direction: UP
+    timeout: 40000
+- tapOn: "SEPIA"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-display-sepia
+    cropOn: "Display"
+    thresholdPercentage: 90
+- takeScreenshot: J-RDR-05-step7-sepia-dialog
+
+# 8. In the Display dialog select Night; go to Settings -> Settings is dark (APP-007)
+- tapOn: "NIGHT"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-settings-night
+    cropOn: "Page margins"
+    thresholdPercentage: 90
+
+# 9. Select Paper in Settings; open Library -> light. Select Night in Settings; open Library ->
+#    dark, the same result as from the reader (APP-008)
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "PAPER"
+    direction: UP
+    timeout: 40000
+- tapOn: "PAPER"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Your shelf"
+    direction: DOWN
+    timeout: 10000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-library-paper
+    cropOn: "Your shelf"
+    thresholdPercentage: 90
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "NIGHT"
+    direction: UP
+    timeout: 40000
+- tapOn: "NIGHT"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Your shelf"
+    direction: DOWN
+    timeout: 10000
+- assertScreenshot:
+    path: ../../refs/theme/${DEVICE_CLASS}-library-night
+    cropOn: "Your shelf"
+    thresholdPercentage: 90
+- takeScreenshot: J-RDR-05-step9-library-night

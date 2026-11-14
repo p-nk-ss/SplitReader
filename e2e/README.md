@@ -102,3 +102,10 @@ Google APIs images (`Tab_35_PixelTablet`, `Pixel_10_Pro`) ship `com.google.andro
 AOSP images (`Tab_26_Nexus9`) ship `com.android.documentsui` instead — never both on the same
 image. Both `clearState` calls are `optional: true` so clearing the one package that isn't
 installed on a given device/image is a harmless no-op rather than a flow-aborting failure.
+
+## Reference screenshots (`e2e/refs/`)
+
+A reader theme is only colours, so `J-RDR-05` checks "dark" / "light" with `assertScreenshot` on
+small crops against `e2e/refs/theme/<device class>-<screen>-<theme>.png`. The crops belong to
+`Tab_35_PixelTablet` and `Pixel_10_Pro`; what the comparison can and cannot tell, and how to
+re-record (`e2e/refs/record_theme_refs.sh SERIAL`), is in `e2e/refs/README.md`.
