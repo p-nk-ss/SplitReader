@@ -1,0 +1,53 @@
+appId: ${APP_ID}
+---
+# watch_translation_banner: reads the reader's translation banner again and again for as long as
+# it is on screen and reports what it saw. The banner (ReaderScreen.kt, TranslationBanner) reads
+#   "Preparing translation…"       an on-device engine is getting its model ready,
+#   "Preparing translation… N%"    a language pack is downloading (an installed pack answers
+#                                  with one "100%"),
+#   "Translating…" / "Translating… N%"   the paragraphs on screen are being translated.
+# One reading takes 0.1–0.2 s while the banner is up (Tab_35_PixelTablet: 33 readings of a 5 s
+# download), so a download is seen as a row of percentages.
+#
+# Results (output.…), for the caller to assert on:
+#   bnSamples      readings taken
+#   bnBelow100     readings "Preparing translation… N%" with N < 100 — a download in progress
+#   bnDistinct     how many times the download percentage was higher than every reading before
+#   bnDecreased    true if a download percentage was ever lower than one read before it
+#   bnMax          the highest download percentage read (-1: none)
+#   bnFirst        the first download percentage read (-1: none) — a download that starts from
+#                  nothing is first read in its first few per cent
+#   bnTranslating  readings of "Translating…"
+# The subflow asserts nothing itself and does not wait for the banner to appear: a caller that
+# requires a banner waits for it first; a caller that requires NO download calls this straight
+# after opening the book and asserts bnBelow100 == 0. It returns a few seconds after the banner
+# has gone (Maestro's answer to "is it still visible" takes that long once it is not).
+# A reading that finds the banner gone (`optional`) leaves the previous text in place; reading
+# the same text twice changes none of the results but bnSamples.
+- evalScript: ${output.bnSamples = 0}
+- evalScript: ${output.bnBelow100 = 0}
+- evalScript: ${output.bnDistinct = 0}
+- evalScript: ${output.bnDecreased = false}
+- evalScript: ${output.bnMax = -1}
+- evalScript: ${output.bnFirst = -1}
+- evalScript: ${output.bnTranslating = 0}
+- evalScript: ${output.bnText = ''}
+- repeat:
+    times: 600
+    while:
+      visible: "(Preparing translation|Translating)….*"
+    commands:
+      - copyTextFrom:
+          text: "(Preparing translation|Translating)….*"
+          optional: true
+      - evalScript: ${output.bnText = maestro.copiedText || ''}
+      - evalScript: "${output.bnPct = output.bnText.indexOf('Preparing translation… ') == 0 && output.bnText.indexOf('%') > 0 ? parseInt(output.bnText.split('… ')[1]) : -1}"
+      - evalScript: ${output.bnSamples = output.bnSamples + 1}
+      - evalScript: "${output.bnFirst = output.bnFirst < 0 ? output.bnPct : output.bnFirst}"
+      - evalScript: "${output.bnBelow100 = output.bnBelow100 + (output.bnPct >= 0 && output.bnPct < 100 ? 1 : 0)}"
+      - evalScript: ${output.bnDecreased = output.bnDecreased || (output.bnPct >= 0 && output.bnPct < output.bnMax)}
+      - evalScript: "${output.bnDistinct = output.bnDistinct + (output.bnPct > output.bnMax ? 1 : 0)}"
+      - evalScript: ${output.bnMax = Math.max(output.bnMax, output.bnPct)}
+      - evalScript: "${output.bnTranslating = output.bnTranslating + (output.bnText.indexOf('Translating') == 0 ? 1 : 0)}"
+      - evalScript: ${console.log('watch_translation_banner - ' + output.bnSamples + ' [' + output.bnText + ']')}
+- evalScript: ${console.log('watch_translation_banner - done, samples ' + output.bnSamples + ', below 100 ' + output.bnBelow100 + ', distinct ' + output.bnDistinct + ', first ' + output.bnFirst + ', max ' + output.bnMax + ', decreased ' + output.bnDecreased + ', translating ' + output.bnTranslating)}

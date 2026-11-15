@@ -1,0 +1,65 @@
+appId: ${APP_ID}
+---
+# show_translation (env STATE: on | off): the reader's Aa (Display) dialog -> the "Show
+# translation" switch, from the other state to ${STATE}. Both states are asserted: the switch must
+# be in the opposite state before the tap and in ${STATE} after it, so a call that changes nothing
+# fails. The switch has no label of its own: it is the checkable node in the "Show translation"
+# row (ToggleRow, SettingsControls.kt).
+# With the translation back on, a tablet's dialog regains its "Split position" row above the
+# switch, which can push the row off screen (seen on Tab_35_PixelTablet): it is scrolled to again.
+# The reader must be open with no dialog over it; ends in the reader with the dialog closed.
+- assertTrue: ${STATE == 'on' || STATE == 'off'}
+- runFlow:
+    file: tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- scrollUntilVisible:
+    element: "Show illustrations"
+    direction: DOWN
+    timeout: 15000
+- runFlow:
+    when:
+      true: ${STATE == 'off'}
+    commands:
+      - assertVisible:
+          checked: true
+          below: "Show translation"
+          above: "Hide to read original only"
+          rightOf: "Show translation"
+      - tapOn:
+          below: "Show translation"
+          above: "Hide to read original only"
+          rightOf: "Show translation"
+      - assertNotVisible:
+          checked: true
+          below: "Show translation"
+          above: "Hide to read original only"
+          rightOf: "Show translation"
+- runFlow:
+    when:
+      true: ${STATE == 'on'}
+    commands:
+      - assertVisible: "Show translation"
+      - assertNotVisible:
+          checked: true
+          below: "Show translation"
+          above: "Hide to read original only"
+          rightOf: "Show translation"
+      - tapOn:
+          below: "Show translation"
+          above: "Hide to read original only"
+          rightOf: "Show translation"
+      - scrollUntilVisible:
+          element: "Show illustrations"
+          direction: DOWN
+          timeout: 15000
+      - assertVisible:
+          checked: true
+          below: "Show translation"
+          above: "Hide to read original only"
+          rightOf: "Show translation"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000

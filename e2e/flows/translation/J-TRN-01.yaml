@@ -1,0 +1,492 @@
+appId: ${APP_ID}
+name: J-TRN-01 First run - Offline HQ by default on an English book
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
+# books: en-novel.epub
+---
+# J-TRN-01 — First run: Offline HQ by default on an English book.
+# Fixture: en-novel.epub (F-LONG, "The River Crossing": chapter 1 has 42 paragraphs ending
+# "(1)" … "(42)", chapter 2 has 8, chapter 3 has 60). Ids: original_<chapter>_<paragraph> and
+# translation_<chapter>_<paragraph>, both 0-based. Runs on the phone and on the tablet; needs
+# the network (the EN→RU Offline HQ pack, ~35 MB, is downloaded in step 2).
+#
+# What "translated" means here. The translation_<c>_<p> node is the paragraph's slot in the
+# translation pane; it is there while the paragraph is still waiting (a grey placeholder). The
+# translated text is a text node INSIDE it. Translation output is model text, so nothing asserts
+# its wording: "paragraph p is translated into Russian" =
+#     a text with at least three Cyrillic letters in a row, childOf translation_<c>_<p>.
+# The original pane has no Cyrillic, so this cannot be satisfied by an untranslated paragraph.
+# subflows/rows_translated.yaml checks every slot on screen that way (output.rows = how many).
+#
+# Work the engine does off screen (look-ahead below the page, a hidden translation pane) cannot
+# be seen in the reader. It is read from Settings -> "Cached translations: N"
+# (subflows/cached_translations.yaml): every translated paragraph is stored there.
+#
+# The bars hide by themselves after 3.5 s: footer/chip checks come straight after
+# subflows/show_bars.yaml, top-bar buttons are tapped through subflows/tap_reader_button.yaml.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-01.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Launch the app (there is no onboarding: the Library is the first screen) and import
+#    en-novel.epub; importing a book opens it.
+#    The pack download of step 2 starts the moment the book opens and takes about 5 s, so this
+#    one import does not go through subflows/pick_file.yaml (its closing "is the picker still
+#    open?" question alone takes longer than that): the file is tapped in the picker's "Recent"
+#    list, which Google's DocumentsUI (API 33+: Tab_35_PixelTablet, Pixel_10_Pro) opens on after
+#    launch_clean has reset it, and the very next command looks at the reader.
+#    On a phone in portrait the "Parallel reading fits landscape better" hint opens over the
+#    reader and hides the banner from Maestro for the seconds it takes to close it. A phone in
+#    landscape reads side by side and shows no hint, so on the phone steps 1–2 are done with
+#    Settings -> Orientation -> LANDSCAPE (the app turns itself; a phone's default keeps it
+#    upright), and step 3 starts by setting PORTRAIT again in the reader's Display dialog.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn: "Settings"
+      - scrollUntilVisible:
+          element: "LANDSCAPE"
+          direction: DOWN
+          timeout: 40000
+      - tapOn: "LANDSCAPE"
+      - extendedWaitUntil:
+          visible: "Settings"
+          timeout: 20000
+      - back
+      - extendedWaitUntil:
+          visible: "Open book"
+          timeout: 20000
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- tapOn: "Open book"
+- extendedWaitUntil:
+    visible: "en-novel.epub"
+    timeout: 15000
+- tapOn:
+    text: "en-novel.epub"
+    waitToSettleTimeoutMs: 100
+
+# 2. The book opens -> the banner reads "Preparing translation… N%" and N only grows (OHQ-004);
+#    the language button reads "EN → RU"; there is no "ML KIT READY" label (OHQ-001).
+#    The banner is watched from its first appearance until it is gone (about 0.15 s a reading):
+#    at least two readings must show a percentage under 100 (a download is really running), the
+#    percentage must have grown at least twice, and no reading may be lower than one before it.
+- extendedWaitUntil:
+    visible: "Preparing translation….*"
+    timeout: 30000
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 >= 2}
+- assertTrue: ${output.bnDistinct >= 3}
+- assertTrue: ${output.bnDecreased == false}
+#    …and after the download the same banner said "Translating…" (TRN-001), then went away
+#    (the watch ends only when the banner is gone). On the tablet, where eight paragraphs are
+#    translated, at least one reading is "Translating…". On the phone (two or three paragraphs
+#    in landscape) the line is up for well under a second and was caught in one run of two:
+#    there it is only written to the log — partial, the rest is manual.
+- evalScript: ${console.log('J-TRN-01 step 2 - readings of "Translating…" ' + output.bnTranslating)}
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertTrue: ${output.bnTranslating >= 1}
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- assertNotVisible: ".*ML KIT READY.*"
+#    The right book opened (the title is in the top bar), "EN → RU" on the language button: its
+#    three texts "EN", "→", "RU" are children of reader:languageChip (the footer repeats
+#    "EN → RU" as one text of its own, which is not what the button shows).
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "EN"
+          childOf:
+            id: "reader:languageChip"
+      - assertVisible:
+          text: "RU"
+          childOf:
+            id: "reader:languageChip"
+      - assertVisible: ".*The River Crossing.*"
+      - assertNotVisible: ".*ML KIT READY.*"
+- takeScreenshot: J-TRN-01-step2-after-download
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - runFlow:
+          file: ../../subflows/tap_reader_button.yaml
+          env:
+            BUTTON: "reader:displaySettingsButton"
+            OPENS: "Display"
+      - scrollUntilVisible:
+          element: "PORTRAIT"
+          direction: DOWN
+          timeout: 15000
+      - tapOn: "PORTRAIT"
+      - extendedWaitUntil:
+          visible: "GOT IT"
+          timeout: 20000
+      - runFlow: ../../subflows/dismiss_portrait_hint.yaml
+      - runFlow: ../../subflows/dismiss_portrait_hint.yaml
+      - assertVisible:
+          id: "reader:verticalBottomPane"
+
+# 3. Nothing is touched -> every paragraph on the first screen gets a translation, not only the
+#    top one (TRN-001). Every translation slot on screen, from the first paragraph down, must
+#    hold Russian text; there are at least two of them (a phone shows three). output.rows = how many.
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_0"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 0
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 120000
+- evalScript: ${console.log('J-TRN-01 first screen - ' + output.rows + ' translated rows')}
+- assertTrue: ${output.rows >= 2}
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- takeScreenshot: J-TRN-01-step3-first-screen-translated
+
+# 4. Translator picker -> Offline HQ is the current translator (OHQ-001); ML Kit, Offline HQ and
+#    Quick Translate are listed ready, with no key line and no key button; LibreTranslate, Google
+#    Cloud, DeepL and Azure each have "TAP TO ADD API KEY" and a key button (SET-002).
+#    The current provider's card is drawn inverted (ink background); no node says "selected". So
+#    the card's name is cropped and e2e/check_colours.py requires its background colour:
+#    PaperInk for Offline HQ, PaperBg2 (an ordinary card) for ML Kit.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- assertVisible: "FREE, NO SETUP"
+- assertVisible: "ML Kit \\(offline\\)"
+- assertVisible: "Offline HQ"
+- assertVisible: "Quick Translate \\(free, online\\)"
+- takeScreenshot:
+    path: colour-check/step4-offline-hq__PaperInk
+    cropOn: "Offline HQ"
+- takeScreenshot:
+    path: colour-check/step4-ml-kit__PaperBg2
+    cropOn: "ML Kit \\(offline\\)"
+- scrollUntilVisible:
+    element: "ADVANCED \\(OWN API KEY\\)"
+    direction: DOWN
+    timeout: 15000
+#    Nothing above the "Advanced" heading — the three free cards — has a key line or a key button.
+- assertNotVisible:
+    text: "TAP TO ADD API KEY|KEY CONFIGURED"
+    above: "ADVANCED \\(OWN API KEY\\)"
+- assertNotVisible:
+    id: "translator_edit_(mlkit|bergamot|quick_translate)"
+
+# 5. The ML Kit, Offline HQ and Quick Translate cards have no usage bar or counter (ONL-016):
+#    a usage bar reads "… THIS MONTH" and has a "Reset counter" button; on this fresh install no
+#    card has one.
+- assertNotVisible: ".*THIS MONTH.*"
+- assertNotVisible: "Reset counter"
+- takeScreenshot: J-TRN-01-step4-picker
+#    4, continued: the four engines with their own key — each card has its key button
+#    (translator_edit_<provider>, the pencil that opens the key field); an engine without a key
+#    says "TAP TO ADD API KEY" (asserted on the first card; the line is the same on all four).
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_libre_translate"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "LibreTranslate"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "LibreTranslate"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Google Cloud Translation"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_deepl"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "DeepL"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Azure Translator"
+- assertNotVisible: ".*THIS MONTH.*"
+
+# 6. Tap Offline HQ (already current) -> no key field or "Configure" prompt opens; the picker
+#    closes and the reader still shows its translation (OHQ-024).
+- scrollUntilVisible:
+    element: "Offline HQ"
+    direction: UP
+    timeout: 15000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertNotVisible: "API key"
+- assertNotVisible: "Paste key…"
+- assertVisible:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_0"
+
+# 7. Wait 10 s without scrolling, then scroll through chapter 1 to its end -> paragraphs further
+#    down already show translations when they come into view (TRN-005).
+#    Maestro has no plain pause; an optional wait for a text that never comes is one.
+#    What "already" rests on: the engine translates 8 paragraphs below the last visible one
+#    (TranslationPlanner.LOOKAHEAD) while nothing is scrolled. After the pause the cache must
+#    hold at least the rows of the first screen + 8 — read in Settings, then the book is reopened
+#    from its card (same place).
+- extendedWaitUntil:
+    visible: "J-TRN-01 ten second pause"
+    timeout: 10000
+    optional: true
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${console.log('J-TRN-01 step 7 - cached ' + output.cached + ', rows on the first screen ' + output.rows)}
+- assertTrue: ${output.cached >= output.rows + 8}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+#    …every third paragraph of chapter 1, down to the last (the 42nd): scrolled to, and its
+#    translation is there within 3 s of coming into view. (MANUAL remainder: "with no Translating
+#    delay" as a reader sees it — Maestro's own look takes about a second, as long as the engine
+#    needs for a paragraph.)
+- evalScript: ${output.k = 3}
+- repeat:
+    while:
+      true: ${output.k <= 41}
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "translation_0_${output.k}"
+          direction: DOWN
+          speed: 30
+          visibilityPercentage: 60
+          timeout: 60000
+      - extendedWaitUntil:
+          visible:
+            text: ".*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_${output.k}"
+          timeout: 3000
+      - evalScript: "${output.k = output.k == 39 ? 41 : output.k + 3}"
+- takeScreenshot: J-TRN-01-step7-end-of-chapter-1
+
+# 8. Aa -> "Show translation" off -> one column of original text.
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "off"
+- assertVisible:
+    id: "original_\\d+_\\d+"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- assertNotVisible:
+    id: "reader:verticalBottomPane"
+- assertNotVisible: ".*[а-яё]{3,}.*"
+- takeScreenshot: J-TRN-01-step8-one-column
+
+# 9. Scroll forward three screens with the pane hidden, then turn "Show translation" back on ->
+#    the screens just scrolled through already have translations: Offline HQ is free, so it was
+#    not paused (OHQ-025).
+#    Proof that it translated while hidden: the cache count before the three screens
+#    (output.before) and after them, read with the pane still off, differ by at least 5 —
+#    paragraphs that were never shown with a translation pane. (Three one-column screens are
+#    15–30 paragraphs; the 8 below the page at the start were cached already.)
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.before = output.cached}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: "30%, 80%"
+          end: "30%, 20%"
+          duration: 1500
+      - extendedWaitUntil:
+          visible: "J-TRN-01 pause between screens"
+          timeout: 3000
+          optional: true
+- extendedWaitUntil:
+    visible: "J-TRN-01 pause before reading the cache"
+    timeout: 8000
+    optional: true
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${console.log('J-TRN-01 step 9 - cached before ' + output.before + ', after three hidden screens ' + output.cached)}
+- assertTrue: ${output.cached >= output.before + 5}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "on"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 10000
+- takeScreenshot: J-TRN-01-step9-pane-back
+
+# 10. "Show translation" off again; long-press a word in the original text -> the popup opens
+#     with the word and its Russian translation although the pane is hidden (POP-002, POP-001).
+#     The word is the Latin text between "WORD" and "Listen" (the "Close" button also answers a
+#     text selector), the translation the Cyrillic text there; with the pane off nothing else on
+#     screen is Cyrillic. The wait is for that text, not for "Save is active": the Save text
+#     node reads enabled=true in every state (its greyed-out look is opacity only). MANUAL: the "Translating…" line in between lasts a fraction of a second
+#     with the pack installed (J-TRN-02 looks at the popup's states).
+#     The bars hide by themselves and the page then moves: wait for that before the long press.
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "off"
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- assertNotVisible: ".*[а-яё]{3,}.*"
+#     A known place: the first line of chapter 3's 41st paragraph ("The old mill still stood…"),
+#     a fifth of the way along — a word, never the paragraph's "(ch3.41)" marker.
+- scrollUntilVisible:
+    element:
+      id: "original_2_40"
+    direction: DOWN
+    timeout: 120000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    id: "original_2_40"
+    point: "20%, 15%"
+- extendedWaitUntil:
+    visible:
+      text: ".*[А-Яа-яЁё].*"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible: "WORD"
+- assertVisible: "Save"
+- copyTextFrom:
+    text: "(?!Close$)[A-Za-z'’-]+"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.word = maestro.copiedText}
+- copyTextFrom:
+    text: ".*[А-Яа-яЁё].*"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.translation = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-01 popup - ' + output.word + ' = ' + output.translation)}
+- takeScreenshot: J-TRN-01-step10-popup-pane-hidden
+
+# 11. Save -> toast "Saved to dictionary" (POP-001, WRD-001).
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 12. "Show translation" back on; close the book. (WRD-001: the word is in Words with the
+#     popup's translation.) Kill and relaunch the app, reopen the book -> no new download
+#     banner; translations appear at once; Offline HQ is still current (OHQ-001, OHQ-004).
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "on"
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "1 saved word"
+    timeout: 10000
+- assertVisible: "${output.word}"
+- assertVisible: "${output.translation}"
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+    waitToSettleTimeoutMs: 100
+#     The banner is watched from the moment the book opens (as in step 2, where the same watch
+#     read the download's percentages): an installed pack answers "100%" at most; no reading may
+#     be under 100.
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 == 0}
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- takeScreenshot:
+    path: colour-check/step12-offline-hq__PaperInk
+    cropOn: "Offline HQ"
+- takeScreenshot: J-TRN-01-step12-after-relaunch
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000

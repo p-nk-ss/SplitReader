@@ -1,0 +1,51 @@
+appId: ${APP_ID}
+---
+# rows_translated (env CHAPTER, FROM, PATTERN, TIMEOUT): every translation slot of chapter
+# ${CHAPTER} that is on screen must hold a translated text matching ${PATTERN} (a full-match
+# regex) — not only the top one.
+#
+# A paragraph's slot in the translation pane is the node translation_<chapter>_<paragraph>; it is
+# there while the paragraph still waits (a grey placeholder). The translated text is a text node
+# INSIDE it, so "translated" = a text matching ${PATTERN} childOf that slot. The walk starts at
+# paragraph ${FROM} (0-based; the caller knows one paragraph that is on screen), goes down while
+# the next slot is on screen, then up from ${FROM} - 1 the same way; each slot gets ${TIMEOUT} ms.
+# The paragraphs on screen are contiguous, so that is all of them (within the chapter).
+# Result: output.rows = how many slots were checked (0 when ${FROM}'s slot is not on screen — the
+# caller asserts a minimum).
+# ${PATTERN} is model text: match a language, not a sentence. Used by the translation journeys:
+#   Russian  ".*[а-яё]{3,}.*"            (the original pane has no Cyrillic)
+#   German   ".*\\b(der|die|das|und)\\b.*"   French  ".*\\b(le|la|les|et|une)\\b.*"
+#   (none of these words is in the English fixtures' text, nor in the other language's list).
+- evalScript: ${output.rows = 0}
+- evalScript: ${output.rowIx = parseInt(FROM)}
+- repeat:
+    times: 40
+    while:
+      visible:
+        id: "translation_${CHAPTER}_${output.rowIx}"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "${PATTERN}"
+            childOf:
+              id: "translation_${CHAPTER}_${output.rowIx}"
+          timeout: ${TIMEOUT}
+      - evalScript: ${output.rowIx = output.rowIx + 1}
+      - evalScript: ${output.rows = output.rows + 1}
+- evalScript: ${output.rowIx = parseInt(FROM) - 1}
+- repeat:
+    times: 40
+    while:
+      true: ${output.rowIx >= 0}
+      visible:
+        id: "translation_${CHAPTER}_${output.rowIx}"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "${PATTERN}"
+            childOf:
+              id: "translation_${CHAPTER}_${output.rowIx}"
+          timeout: ${TIMEOUT}
+      - evalScript: ${output.rowIx = output.rowIx - 1}
+      - evalScript: ${output.rows = output.rows + 1}
+- evalScript: ${console.log('rows_translated - ' + output.rows + ' slots of chapter ' + CHAPTER + ' hold ' + PATTERN)}

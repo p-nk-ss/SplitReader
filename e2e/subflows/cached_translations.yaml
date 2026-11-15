@@ -1,0 +1,33 @@
+appId: ${APP_ID}
+---
+# cached_translations: reads Settings -> Storage -> "Cached translations: N" into output.cached
+# and returns to the Library. Every translated paragraph is stored in the app's cache whether or
+# not it was ever on screen, so the number tells what the reader's engine translated — the only
+# way a flow can see work done off screen (look-ahead below the page, a hidden translation pane).
+#
+# The app is restarted first. Settings reads the number once, when its screen is first opened in
+# a process (SettingsViewModel.init -> refreshCacheCount), and shows that same number on every
+# later visit: without the restart a second call returned the first call's count although 30 more
+# paragraphs had been translated in between (Tab_35_PixelTablet, 2026-11-15 — reported as an app
+# defect in task-9-report.md; not what the calling journeys test).
+# Call it from the Library, after the reader was left (its position is saved by then).
+# Ends on the Library at "Open book".
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Cached translations: \\d+"
+    direction: DOWN
+    timeout: 40000
+- copyTextFrom: "Cached translations: \\d+"
+- evalScript: "${output.cached = parseInt(maestro.copiedText.replace(/[^0-9]/g, ''))}"
+- evalScript: ${console.log('cached_translations - ' + output.cached)}
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000

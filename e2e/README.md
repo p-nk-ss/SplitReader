@@ -102,7 +102,9 @@ two-class flow starts with
 
 ## Shared subflows (`e2e/subflows/`)
 
-One subflow per job; a flow never re-implements one of these inline.
+One subflow per job; a flow never re-implements one of these inline. (One declared exception:
+`J-TRN-01` step 1 taps the file in the picker itself, because the pack download it must watch
+starts when the book opens and is over before `pick_file.yaml` returns.)
 
 | Subflow | Job |
 |---|---|
@@ -117,6 +119,10 @@ One subflow per job; a flow never re-implements one of these inline.
 | `tap_shows_tap_hides.yaml` (SHOW_AT, HIDE_AT) | Prove that a tap at one point shows the bars and a tap at another HIDES them: both seen within 3 s of the first tap, before the bars' own timer could (retried when too slow). |
 | `set_translator.yaml` (NAME) | Open the translator picker (`tap_reader_button`) and choose a provider that needs no key. |
 | `wait_translated.yaml` (TEXT, TIMEOUT) | Wait for a translated text. |
+| `watch_translation_banner.yaml` | Read the reader's banner ("Preparing translation… N%", "Translating…") until it is gone; results in `output.bn…` (readings under 100 = a pack download, whether a percentage ever went down, …). Asserts nothing itself. |
+| `rows_translated.yaml` (CHAPTER, FROM, PATTERN, TIMEOUT) | Every translation slot on screen holds a text matching PATTERN (walks down and up from paragraph FROM); `output.rows` = how many. |
+| `show_translation.yaml` (STATE: on \| off) | The reader's Display dialog -> "Show translation" to STATE; the switch must have been in the other state. |
+| `cached_translations.yaml` | Restart the app, read Settings -> "Cached translations: N" into `output.cached`, back to the Library. |
 | `tap_catalog_search.yaml` | Focus the Catalog's search field. |
 | `dismiss_stylus_popup.yaml` | Close the emulator's stylus-handwriting popup if it is up. |
 | `premium_debug.yaml` | Turn on Settings -> "Premium (debug)". |
@@ -140,6 +146,24 @@ longer than 3.5 s too. So:
 
 The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_catalog.yaml`
 (built on `when: notVisible:`) were removed on 2026-11-14 for this reason.
+
+### Translation: what a flow can and cannot see
+
+- **Translated or not.** `translation_<chapter>_<paragraph>` is the paragraph's slot; it exists
+  while the paragraph still waits. The translated text is a text node inside it: assert
+  `text: <pattern>` with `childOf: {id: translation_…}` (`rows_translated.yaml`), never the slot.
+- **Which language / which engine.** Model text: match a language (Cyrillic letters; `der|die|das|und`;
+  `le|la|les|et|une`), or compare one paragraph's text before and after an engine change.
+- **A pack download** is the banner "Preparing translation… N%" (`watch_translation_banner.yaml`);
+  it lasts about 5 s, so the command before the watch must be the tap that starts it, by point
+  or with `waitToSettleTimeoutMs: 100`.
+- **The word popup.** Wait for the translation's text between "WORD" and "Listen", not for
+  `{text: "Save", enabled: true}`: the Save text node reads enabled in every state.
+- **Off-screen work** (look-ahead, a hidden pane): `cached_translations.yaml`.
+- **Points.** `swipe` and `point:` take literal whole numbers only (`"740, 333"`, `"30%, 60%"`; no
+  decimals, no `${…}`), so a device-specific point is two copies of the command behind
+  `when: true: ${DEVICE_CLASS == '…'}`. A swipe that does not move (`duration: 700`,
+  `waitToSettleTimeoutMs: 100`) is a 0.9 s long press; `longPressOn` holds for 3–4 s.
 
 ### Retries are reported
 
