@@ -9,9 +9,10 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 # last chapter has 8, marked "(ch22.1)" … "(ch22.8)"). Ids: original_<chapter>_<paragraph>,
 # both 0-based. Runs on the phone and on the tablet.
 #
-# The Library shows a percentage as text only on the "Continue reading" card (the book opened
-# last); a shelf card has a progress line and a "✓" badge, no number. So "the card shows the same
-# % as the footer" is checked on the Continue reading card, straight after leaving that book.
+# The Library shows a book's percentage in two places: on the "Continue reading" card (the book
+# opened last: "CH 1 OF 1" and "30%") and on the book's own shelf card ("30% · CH 1/1" under the
+# cover, plus a "✓" badge once the book is finished). "The card shows the same % as the footer"
+# is checked on both, straight after leaving that book.
 #
 # The bars hide by themselves after 3.5 s; every footer check is made straight after
 # subflows/show_bars.yaml (one tap from the settled hidden state), every top-bar button is tapped
@@ -19,10 +20,13 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 # Swipes are at x = 30% (x = 50% is the pane divider on the tablet) and short (6% of the screen),
 # less than one paragraph, so a paragraph cannot be skipped between two looks at the screen.
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-04.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
 
-# Preconditions: F-LONG saved near its end, with one bookmark on its final screen, and NOT yet
-# read to the end. On the tablet the whole last chapter fits on one screen, so opening chapter 22
+# Preconditions: F-LONG saved near its end, with one bookmark near the end, and NOT yet read to
+# the end (a bookmark made at the very end would mean the book is already finished, and step 5
+# would have nothing to prove; the bookmark on the true last screen is made in step 8a). On the tablet the whole last chapter fits on one screen, so opening chapter 22
 # from the chapter picker already is the end of the book; the setup therefore starts in chapter 21
 # there (in chapter 22 on the phone) and scrolls in short steps only until the book's last paragraph STARTS to show (its bottom is
 # still below the screen: the end has not been reached). That page is bookmarked. The bookmark's
@@ -62,6 +66,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 - assertNotVisible:
     id: "original_21_7"
 - repeat:
+    times: 80
     while:
       notVisible:
         id: "original_21_7"
@@ -70,6 +75,8 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
           start: "30%, 40%"
           end: "30%, 34%"
           duration: 800
+- assertVisible:
+    id: "original_21_7"
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -115,6 +122,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 #    Until the 9th paragraph is off screen, and one short swipe more: the gap under a paragraph
 #    that has just left still counts as that paragraph.
 - repeat:
+    times: 80
     while:
       notVisible:
         id: "original_0_9"
@@ -123,7 +131,10 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
           start: "30%, 40%"
           end: "30%, 34%"
           duration: 800
+- assertVisible:
+    id: "original_0_9"
 - repeat:
+    times: 80
     while:
       visible:
         id: "original_0_8"
@@ -132,6 +143,8 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
           start: "30%, 40%"
           end: "30%, 34%"
           duration: 800
+- assertNotVisible:
+    id: "original_0_8"
 - swipe:
     start: "30%, 40%"
     end: "30%, 36%"
@@ -145,8 +158,8 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 - assertTrue: ${output.shortPercent == '30%'}
 - takeScreenshot: J-RDR-04-step2-footer
 
-# 3. Back to Library -> the Continue reading card shows F-SHORT with the same % as the footer
-#    (POS-004)
+# 3. Back to Library -> the Continue reading card shows F-SHORT with the same % as the footer,
+#    and so does F-SHORT's own card on the shelf: "30% · CH 1/1" (POS-004)
 - runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element: "CH 1 OF 1"
@@ -155,10 +168,23 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 - assertVisible: "${output.shortPercent}"
 - assertNotVisible: "9[0-9]%"
 - takeScreenshot: J-RDR-04-step3-library-card
+- scrollUntilVisible:
+    element:
+      id: "book_card_A Short Crossing"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "${output.shortPercent} · CH 1/1"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "${output.shortPercent} · CH 1/1"
+#    …not finished: no "✓" badge on any card yet
+- assertNotVisible: "✓"
+- takeScreenshot: J-RDR-04-step3-shelf-card
 
 # 4. Open F-LONG (it opens where it was left); chapter picker -> chapter 1; Bookmarks -> the
-#    bookmark on the final screen -> one jump lands on exactly that paragraph: it is the top one,
-#    the paragraph before it is off screen (BMK-004)
+#    bookmark near the end -> one jump lands on exactly that paragraph: it is the top one, the
+#    paragraph before it is off screen, and Bookmarks shows this page as bookmarked (BMK-004)
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"
@@ -206,6 +232,22 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
     id: "${output.before}"
 - assertNotVisible: ".*downstream\\. \\(1\\).*"
 - takeScreenshot: J-RDR-04-step4-bookmark-jump
+#    …"Remove bookmark here": the app agrees that this page is the bookmarked one. Removed, so the
+#    bookmark made in step 8a is the only one.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Remove bookmark here"
+- tapOn: "Remove bookmark here"
+- extendedWaitUntil:
+    visible: "Bookmark this page"
+    timeout: 5000
+- assertVisible: "No bookmarks yet.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Bookmark this page"
+    timeout: 5000
 
 # 5. Scroll to the very last paragraph -> the footer shows 100% (POS-005)
 - repeat:
@@ -242,8 +284,9 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
             text: "100%"
           timeout: 3000
 
-# 7. Back to Library -> the Continue reading card shows F-LONG at 100%, the footer's number
-#    (POS-005)
+# 7. Back to Library -> the Continue reading card shows F-LONG at 100%, the footer's number, and
+#    so does F-LONG's own card on the shelf: "100% · CH 22/22" (POS-005) with the "✓" badge of a
+#    finished book (POS-019)
 - runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element: "CH 22 OF 22"
@@ -251,6 +294,13 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
     timeout: 10000
 - assertVisible: "100%"
 - takeScreenshot: J-RDR-04-step7-library-card
+- scrollUntilVisible:
+    element: "100% · CH 22/22"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "100% · CH 22/22"
+- assertVisible: "✓"
+- takeScreenshot: J-RDR-04-step7-shelf-card
 
 # 8. Reopen F-LONG -> it opens at the end (the last paragraph is on screen) and still reads 100%
 #    (POS-019)
@@ -268,6 +318,66 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
 - assertVisible:
     id: "footer_percent"
     text: "100%"
+
+# 8a. The book is at its very end. Bookmark this page — the true last screen; chapter picker ->
+#     chapter 1; Bookmarks -> that bookmark -> one jump ends on the last screen again: the book's
+#     last paragraph is on screen, nothing of chapter 1 is, and Bookmarks shows this page as
+#     bookmarked (BMK-004, the "bookmark on the very last screen" case — the list cannot scroll
+#     past its end, and the rows near the end are laid out only as the jump arrives)
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- assertVisible: "No bookmarks yet.*"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Chapter 2[12] · ¶ \\d+"
+    timeout: 5000
+- assertVisible: "Remove bookmark here"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- scrollUntilVisible:
+    element:
+      id: "reader:chapterRow:0"
+    direction: UP
+    timeout: 20000
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 15000
+- assertNotVisible: ".*\\(ch22\\.\\d+\\).*"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Chapter 2[12] · ¶ \\d+"
+- extendedWaitUntil:
+    visible: ".*\\(ch22\\.8\\).*"
+    timeout: 15000
+- assertNotVisible: ".*downstream\\. \\(1\\).*"
+- takeScreenshot: J-RDR-04-step8a-last-screen-bookmark-jump
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Remove bookmark here"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
 
 # 9. Scroll back up two screens; show the bar -> the real, lower percentage, not stuck at 100%
 #    (POS-006)
