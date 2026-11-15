@@ -1,0 +1,618 @@
+appId: ${APP_ID}
+name: J-TRN-02 Word popup - select, drag, save, and the Words list
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
+# books: en-novel.epub
+---
+# J-TRN-02 — Word popup: select, drag, save, and the Words list.
+# Fixture: en-novel.epub (F-LONG, "The River Crossing"). Its first paragraph is
+#   "The old mill still stood at the bend of the river, though its wheel had not turned since the
+#    summer the millpond ran dry and the fish went with it downstream. (1)"
+# Ids: original_<chapter>_<paragraph>, translation_<chapter>_<paragraph>, 0-based. Runs on the
+# phone and on the tablet; needs the network (the EN→RU pack on import).
+#
+# The popup (TranslationBubble, ReaderPane.kt): "WORD" or "SENTENCE", a Close button, the selected
+# text, one line of state — "Release to translate" (a handle is being dragged), "Translating…" /
+# "Downloading language model… N%", the translation, or an error — then "Listen" and, for a WORD
+# only, "Save" (enabled once the translation is there). The selected text and its translation are
+# read as the texts between the popup's heading and "Listen".
+#
+# Where the gestures go. A long press selects the word under the finger. The selection has a
+# handle under its first and under its last letter (not drawn — those two letters are underlined;
+# the handle is a 28dp touch radius around a point 12dp under the line), and a handle is dragged
+# by a swipe that STARTS on it. Maestro presses and swipes at screen points and takes them only
+# as literal whole numbers, so every such command is written twice, behind
+# `when: DEVICE_CLASS`, with the pixels of the two AVDs this suite runs on — default font, bars
+# hidden, chapter 1 at the top:
+#                                               Tab_35_PixelTablet   Pixel_10_Pro (portrait)
+#                                               2560 x 1600          1280 x 2856
+#   "river", as a place inside original_0_0     57%, 16%             93%, 12%
+#   "river" on screen (quick press)             740, 333             1112, 577
+#   the end handle of the selection "river"     765, 379             1166, 649
+#   the middle of "its" (step 4's drag ends)    900, 333             315, 649
+#   the end handle of "river, though its"       919, 379             342, 721
+#   the margin under paragraph 1 (step 6)       26, 464              20, 850
+#   paragraph 2, at "river"'s place in 1        740, 503             1108, 919
+#   text of paragraph 3 (a tap dismisses)       512, 704             400, 1300
+# Each is checked by what the popup then says — the exact word "river", the exact phrase — so a
+# point that misses fails its step.
+# A "quick press" is a swipe that does not move (0.7 s): Maestro's longPressOn holds for 3–4 s.
+#
+# Request counts (POP-004 … POP-007, "exactly one request"): the app writes no log line per
+# selection request and Maestro reads only the screen — MANUAL. What is asserted is the end
+# state after each gesture. See each step.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-02.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Words from the home screen -> the empty-state hint "Long-press any word in the reader to
+#    save it to your words." (WRD-009)
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "No saved words yet"
+    timeout: 15000
+- assertVisible: "Long-press any word in the reader\\s+to save it to your words\\."
+- takeScreenshot: J-TRN-02-step1-words-empty
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# Precondition: Offline HQ current (the default on a fresh install), the EN→RU pack installed —
+# importing the book downloads it; the first paragraph is translated before the popup is used.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 240000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+
+# 2. Long-press the word "river" -> the popup opens on that word and ends with its Russian
+#    translation (POP-016 Ready, POP-001). output.riverRu = that translation.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible: "WORD"
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- assertVisible: "Listen"
+- assertVisible: "Save"
+- assertNotVisible: "Translating…"
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.riverRu = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-02 river = ' + output.riverRu)}
+- takeScreenshot: J-TRN-02-step2-popup-ready
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+#    MANUAL — "while it shows Translating, Save is greyed out and does nothing when tapped"
+#    (POP-010) and the Translating state itself (POP-016): with the pack installed a word is
+#    translated in a fraction of a second, less than one Maestro command; and the greyed-out
+#    Save differs from the active one only in opacity — its text node reads enabled=true in
+#    both states (checked in the hierarchy), so "is Save active" cannot be asked either. Every
+#    step below therefore waits for the translation's text, not for Save. (The popup's
+#    "Downloading language model… N%" line is read in J-TRN-03 step 5.)
+
+# 3. While a handle is being dragged the popup reads "Release to translate", with no spinner and
+#    no result (POP-003, POP-016 Pending).
+#    MANUAL: a Maestro swipe is one command — nothing can look at the screen while the finger is
+#    down. (In the app a handle is dragged by a new touch that starts on it, after the long press
+#    was released: ReaderPane.kt, ParagraphItem.)
+
+# 4. Select "river", drag its end handle to the right and release once -> the popup shows the
+#    phrase the handle was released on, "river, though its", as a SENTENCE with one translation
+#    (POP-004, POP-005 — end state only).
+#    MANUAL: "exactly one request" (no request log, see the header) and the out-back-out-back
+#    path of the finger (a Maestro swipe is one straight line).
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "765, 379"
+          end: "900, 333"
+          duration: 1500
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1166, 649"
+          end: "315, 649"
+          duration: 1500
+- extendedWaitUntil:
+    visible: "SENTENCE"
+    timeout: 5000
+- assertVisible:
+    text: "river, though its"
+    below: "SENTENCE"
+    above: "Listen"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
+      below: "SENTENCE"
+      above: "Listen"
+    timeout: 30000
+- assertNotVisible: "Release to translate"
+- assertNotVisible: "Translating…"
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
+    below: "SENTENCE"
+    above: "Listen"
+- evalScript: ${output.phraseRu = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-02 phrase = ' + output.phraseRu)}
+- assertTrue: ${output.phraseRu != output.riverRu}
+- takeScreenshot: J-TRN-02-step4-phrase
+
+# 5. With the phrase translated, look at Save -> a multi-word selection cannot be saved: the
+#    popup of a SENTENCE has no Save button at all, only Listen (POP-011).
+- assertNotVisible: "Save"
+- assertVisible: "Listen"
+
+# 6. Drag the end handle past the paragraph's last line into the page margin and release there
+#    -> the selection runs on to the paragraph's last line (to "downstream." on the tablet, to
+#    "…the fish went" on the phone, where the last line begins with "with") and is translated:
+#    a new translation, no error (POP-006 — end state; "exactly one request" MANUAL).
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "919, 379"
+          end: "26, 464"
+          duration: 1500
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "342, 721"
+          end: "20, 850"
+          duration: 1500
+- extendedWaitUntil:
+    visible:
+      text: "river, though its wheel had not turned since the summer.*"
+      below: "SENTENCE"
+      above: "Listen"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
+      below: "SENTENCE"
+      above: "Listen"
+    timeout: 30000
+- assertNotVisible: "Release to translate"
+- copyTextFrom:
+    text: "river, though its wheel.*"
+    below: "SENTENCE"
+    above: "Listen"
+- evalScript: ${output.longPhrase = maestro.copiedText}
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
+    below: "SENTENCE"
+    above: "Listen"
+- evalScript: ${output.longRu = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-02 long phrase = ' + output.longPhrase + ' = ' + output.longRu)}
+- assertTrue: ${output.longRu != output.phraseRu}
+- assertNotVisible: "Save"
+- takeScreenshot: J-TRN-02-step6-to-the-margin
+
+# 7. Touch the end handle and release it without moving -> the same selection and the same
+#    translation stay (POP-007).
+#    APP BUG (2026-11-15, both device classes, versionCode 28): NOT ASSERTED — the popup closes.
+#    A touch on a handle that is released without moving is also taken as a tap on the
+#    paragraph, and a tap on the paragraph dismisses the selection. Seen with "river" selected:
+#    a tap at the very point the drag of step 4 starts from (the end handle) closed the popup
+#    (e2e/reports/t9a-probe-h). Cause as read in ReaderPane.kt, ParagraphItem: the handle's
+#    pointerInput consumes the touch, but the paragraph's detectTapGestures is the inner modifier
+#    and sees the same down and up first, unconsumed -> onTap -> onDismiss.
+#    When it is fixed, this step is: tap the end handle (output.lastEnd), then the popup still
+#    shows "SENTENCE", output.longPhrase and output.longRu, and no "Translating…".
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "SENTENCE"
+    timeout: 5000
+
+# 8. Long-press a word in paragraph 1 ("river"), then — the popup still open — the word at the
+#    same place in paragraph 2 -> the popup shows paragraph 2's own word and translation, nothing
+#    left over from the first (POP-019). output.word2 / output.word2Ru = that word.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "${output.riverRu}"
+    below: "WORD"
+    above: "Listen"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_1"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_1"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    notVisible:
+      text: "river"
+      below: "WORD"
+      above: "Listen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- copyTextFrom:
+    text: "(?!Close$)[A-Za-z'’-]+"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.word2 = maestro.copiedText}
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.word2Ru = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-02 second word = ' + output.word2 + ' = ' + output.word2Ru)}
+- assertTrue: ${output.word2 != 'river' && output.word2Ru != output.riverRu}
+- assertNotVisible:
+    text: "${output.riverRu}"
+    below: "WORD"
+    above: "Listen"
+- takeScreenshot: J-TRN-02-step8-second-paragraph
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 9. Press "river" and, straight after, the word in paragraph 2 -> only the second word's result
+#    is shown; the first word's answer never appears (POP-021).
+#    Two quick presses back to back. Partial: with the pack installed a word is translated in a
+#    fraction of a second, so the first request may already have been answered when the second
+#    press lands — "before it reaches Ready" needs a slow engine (MANUAL). Asserted: the popup
+#    ends on the second word with exactly the translation step 8 read for it.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 333"
+          end: "740, 333"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1112, 577"
+          end: "1112, 577"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 503"
+          end: "740, 503"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1108, 919"
+          end: "1108, 919"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      text: "${output.word2}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "${output.word2Ru}"
+    below: "WORD"
+    above: "Listen"
+- assertNotVisible:
+    text: "${output.riverRu}"
+    below: "WORD"
+    above: "Listen"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 10. Press "river" and at once tap elsewhere in the text -> the popup is dismissed (and the tap
+#     did not bring up the bars: an open selection is dismissed first, LAY-030); then press the
+#     word in paragraph 2 -> its popup shows only its own word and translation; the app answers
+#     (POP-022). Partial, as in step 9: whether the first request was still in flight when it
+#     was dismissed cannot be arranged.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 333"
+          end: "740, 333"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1112, 577"
+          end: "1112, 577"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          point: "512, 704"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          point: "400, 1300"
+          waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 3000
+- assertNotVisible:
+    id: "reader:languageChip"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 503"
+          end: "740, 503"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1108, 919"
+          end: "1108, 919"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "${output.word2}"
+    below: "WORD"
+    above: "Listen"
+- assertVisible:
+    text: "${output.word2Ru}"
+    below: "WORD"
+    above: "Listen"
+- assertNotVisible:
+    text: "${output.riverRu}"
+    below: "WORD"
+    above: "Listen"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 11. "Nothing to save" for a punctuation-only token (POP-014).
+#     MANUAL / not reachable in this book: a long press keeps only the letters and digits of the
+#     token under the finger and opens no popup when none are left (ReaderPane.kt, onLongPress),
+#     and en-novel.epub has no token without a letter or digit. The toast exists
+#     (R.string.nothing_to_save) for a selection that normalizes to nothing.
+
+# 12. Long-press "river", wait for the translation, Save -> toast "Saved to dictionary"
+#     (POP-001, WRD-001).
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- assertVisible:
+    text: "${output.riverRu}"
+    below: "WORD"
+    above: "Listen"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 13. Long-press "river" again, Save -> "Already in your dictionary", not a translation failure
+#     (POP-013, WRD-008).
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Already in your dictionary"
+    timeout: 5000
+- assertNotVisible: "Saved to dictionary"
+- assertNotVisible: ".*(failed|interrupted|Nothing to save).*"
+- assertVisible:
+    text: "${output.riverRu}"
+    below: "WORD"
+    above: "Listen"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 14. Back; Words -> "1 saved word"; the entry "river" shows exactly the translation the popup
+#     showed (WRD-002, WRD-007). One entry: neither the greyed-out Save of step 2 nor the second
+#     Save of step 13 stored anything.
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "1 saved word"
+    timeout: 10000
+- assertVisible: "river"
+- assertVisible: "${output.riverRu}"
+- assertNotVisible: "${output.word2}"
+- takeScreenshot: J-TRN-02-step14-words
+
+# 15. Return to the reader -> the book reopens at the same place with its translation.
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 30000
