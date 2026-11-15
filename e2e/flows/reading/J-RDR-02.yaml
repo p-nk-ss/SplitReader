@@ -130,6 +130,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 #    (chapter 1 is 42 of the book's 262 paragraphs) (POS-003)
 #    …the 4th paragraph on top
 - repeat:
+    times: 80
     while:
       notVisible:
         id: "original_0_3"
@@ -138,7 +139,10 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertVisible:
+    id: "original_0_3"
 - repeat:
+    times: 80
     while:
       visible:
         id: "original_0_2"
@@ -147,6 +151,8 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertNotVisible:
+    id: "original_0_2"
 - swipe:
     start: "50%, 40%"
     end: "50%, 36%"
@@ -159,6 +165,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     text: "1%"
 #    …the 7th paragraph on top
 - repeat:
+    times: 80
     while:
       notVisible:
         id: "original_0_6"
@@ -167,7 +174,10 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertVisible:
+    id: "original_0_6"
 - repeat:
+    times: 80
     while:
       visible:
         id: "original_0_5"
@@ -176,6 +186,8 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertNotVisible:
+    id: "original_0_5"
 - swipe:
     start: "50%, 40%"
     end: "50%, 36%"
@@ -188,6 +200,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
     text: "2%"
 #    …the 10th paragraph on top
 - repeat:
+    times: 80
     while:
       notVisible:
         id: "original_0_9"
@@ -196,7 +209,10 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertVisible:
+    id: "original_0_9"
 - repeat:
+    times: 80
     while:
       visible:
         id: "original_0_8"
@@ -205,6 +221,8 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertNotVisible:
+    id: "original_0_8"
 - swipe:
     start: "50%, 40%"
     end: "50%, 36%"
@@ -284,6 +302,7 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 # 8. Scroll so the 5th paragraph of chapter 3 is the top paragraph; Bookmarks -> "Bookmark this
 #    page" -> the button turns into "Remove bookmark here" (BMK-001)
 - repeat:
+    times: 80
     while:
       notVisible:
         id: "original_2_4"
@@ -292,7 +311,10 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertVisible:
+    id: "original_2_4"
 - repeat:
+    times: 80
     while:
       visible:
         id: "original_2_3"
@@ -301,6 +323,8 @@ tags: [smoke, full, phone, reading, J-RDR-02]
           start: "50%, 40%"
           end: "50%, 35%"
           duration: 800
+- assertNotVisible:
+    id: "original_2_3"
 - swipe:
     start: "50%, 40%"
     end: "50%, 36%"
