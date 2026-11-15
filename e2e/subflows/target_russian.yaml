@@ -1,0 +1,37 @@
+appId: ${APP_ID}
+---
+# target_russian: sets the default translation language to Russian in Settings — the "target
+# Russian" precondition of the journeys that open a book which is not English.
+#
+# On a clean install the default target is English (ReadingProgressManager.getTargetLanguage).
+# Opening an ENGLISH book switches it to Russian by itself (ReaderViewModel.targetFor: a book is
+# never translated into its own language), which is why the journeys on en-novel.epub read
+# "EN → RU" without this. A Japanese or Spanish book on a clean install reads "JA → EN" /
+# "ES → EN" until the target is chosen.
+#
+# Start: any screen with the app's navigation (Library, Words, …). End: Settings, the row under
+# "Default translation language" reading "Русский". The caller goes where it needs next.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Default translation language"
+    direction: DOWN
+    timeout: 40000
+- scrollUntilVisible:
+    element:
+      text: "Change"
+      below: "Default translation language"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: "Change"
+    below: "Default translation language"
+- extendedWaitUntil:
+    visible: "Default language"
+    timeout: 10000
+- tapOn: "RU"
+- extendedWaitUntil:
+    notVisible: "Default language"
+    timeout: 10000
+- assertVisible:
+    text: "Русский"
+    below: "Default translation language"

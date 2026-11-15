@@ -1,0 +1,59 @@
+appId: ${APP_ID}
+---
+# language_chip_reads (env SOURCE, TARGET — e.g. "JA", "RU"; "FI", "—"; "\\?", "—"): the reader's
+# language button reads "SOURCE → TARGET".
+#
+# The button's three texts — source, "→", target — are children of reader:languageChip; the
+# footer repeats "EN → RU" as one text of its own, which is not what the button shows, so the
+# two sides are asserted as texts `childOf` the chip. SOURCE and TARGET are full-match regexes:
+# "\\?" for the literal question mark of a book whose language was not detected.
+#
+# The chip is on the top bar, which hides by itself after 3.5 s, and ONE look at the screen can
+# take 2–3 s while a big book is being translated (rashomon-ja.epub on the tablet: 2.4 s). So
+# each side gets its own showing of the bars, and the look for the text is the very first one
+# after the tap — not show_bars.yaml (its own "are the bars up?" look would use up the time):
+#   wait until the bars are hidden (nothing is counting down), one point tap that does not wait
+#   for the screen to settle, then wait up to 3 s for the text inside the chip.
+# A tap on a paragraph, a title, a picture or empty page space toggles the bars; "30%, 30%" is on
+# the page in both layouts and never on the tablet's divider. Each side is tried up to five
+# times; a chip that reads something else fails all five. Attempts are logged
+# ("language_chip_reads source ES - attempt N") and listed under "Retries" in summary.md.
+# The reader must be open with no dialog over it. Ends with the bars up (they hide by themselves).
+- evalScript: ${output.chipAttempt = 0}
+- retry:
+    maxRetries: 4
+    commands:
+      - evalScript: ${output.chipAttempt = output.chipAttempt + 1}
+      - evalScript: ${console.log('language_chip_reads source ' + SOURCE + ' - attempt ' + output.chipAttempt)}
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 10000
+      - tapOn:
+          point: "30%, 30%"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          visible:
+            text: "${SOURCE}"
+            childOf:
+              id: "reader:languageChip"
+          timeout: 3000
+- evalScript: ${output.chipAttempt = 0}
+- retry:
+    maxRetries: 4
+    commands:
+      - evalScript: ${output.chipAttempt = output.chipAttempt + 1}
+      - evalScript: ${console.log('language_chip_reads target ' + TARGET + ' - attempt ' + output.chipAttempt)}
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 10000
+      - tapOn:
+          point: "30%, 30%"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          visible:
+            text: "${TARGET}"
+            childOf:
+              id: "reader:languageChip"
+          timeout: 3000

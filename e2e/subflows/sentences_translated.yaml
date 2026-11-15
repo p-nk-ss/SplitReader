@@ -1,0 +1,45 @@
+appId: ${APP_ID}
+---
+# sentences_translated (env SLOT_C, SLOT_P — chapter and paragraph, 0-based; MARK — the source's
+# full stop, "。"; TIMEOUT ms): proves that paragraph SLOT_C/SLOT_P of ja-novel.epub or
+# zh-novel.epub was translated ONE SENTENCE AT A TIME, and that the sentences are not run
+# together.
+#
+# Those fixtures are built for this check (e2e/books/build_fixtures.py, _repeat_to_weighted):
+# every paragraph is ONE sentence written N times in a row with nothing between the copies
+# (Japanese and Chinese have no spaces). The on-device engines get such a paragraph a sentence
+# at a time and the pieces are joined with single spaces (domain/translator/Sentences.kt). The
+# models are deterministic, so the translation must then be
+#     one Russian sentence, N times, single spaces between the copies
+# — exactly as many copies as the original has "。". An engine given the paragraph whole does not
+# answer a 700-character input with N identical sentences; and "упал.Тот" — two sentences with
+# no space between — breaks the pattern too.
+#
+# How it is checked, without assuming the translation's wording:
+#   N    = number of MARK in the original paragraph (must be >= 5);
+#   unit = the first (length + 1) / N - 1 characters of the translation — one copy, if the
+#          translation really is N copies joined by spaces (the length must divide exactly);
+#   the translation, with every `unit` removed, is nothing but N - 1 single spaces.
+# output.stN, output.stUnit, output.stOk; the result is asserted here.
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_${SLOT_C}_${SLOT_P}"
+    timeout: ${TIMEOUT}
+- copyTextFrom:
+    text: "(?s).*${MARK}.*"
+    childOf:
+      id: "original_${SLOT_C}_${SLOT_P}"
+- evalScript: ${output.stN = maestro.copiedText.split(MARK).length - 1}
+- copyTextFrom:
+    text: "(?s).*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_${SLOT_C}_${SLOT_P}"
+- evalScript: ${output.stText = maestro.copiedText}
+- evalScript: ${output.stUnitLen = (output.stText.length + 1) / output.stN - 1}
+- evalScript: ${output.stUnit = output.stText.substring(0, Math.max(1, Math.floor(output.stUnitLen)))}
+- evalScript: ${output.stRest = output.stText.split(output.stUnit).join('')}
+- evalScript: ${output.stOk = output.stN >= 5 && output.stUnitLen == Math.floor(output.stUnitLen) && output.stUnit.length >= 20 && output.stRest.length == output.stN - 1 && output.stRest.trim() == ''}
+- evalScript: ${console.log('sentences_translated ' + SLOT_C + '_' + SLOT_P + ' - ' + output.stN + ' sentences, translation ' + output.stText.length + ' chars, one copy [' + output.stUnit + '], left over [' + output.stRest + '], ok ' + output.stOk)}
+- assertTrue: ${output.stOk}

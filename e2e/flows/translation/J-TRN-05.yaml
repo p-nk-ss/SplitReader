@@ -1,0 +1,437 @@
+appId: ${APP_ID}
+name: J-TRN-05 Chinese and Japanese - books, sentences, both on-device engines
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-05]
+# books: ja-poems.epub, ja-novel.epub, zh-novel.epub
+---
+# J-TRN-05 — Chinese and Japanese: books, sentences, both on-device engines.
+# Fixtures (ids original_<chapter>_<paragraph> / translation_<chapter>_<paragraph>, 0-based):
+#   ja-poems.epub  "Short Autumn Poems": chapter 1 "Preface" — two long ENGLISH paragraphs;
+#                  chapters 2–5 "Poems I" … "Poems IV" — forty Japanese poems each, 10–13
+#                  characters a poem (short lines: under the app's 40- and 60-"letter" gates)
+#   ja-novel.epub  "長い章のテスト小説": two chapters of three paragraphs; every paragraph is ONE
+#                  Japanese sentence written about twelve times in a row (700+ characters)
+#   zh-novel.epub  "长章节测试小说": the same in Chinese
+# Runs on the phone and on the tablet; needs the network (Offline HQ packs JA→EN, EN→RU, ZH→EN;
+# ML Kit's Japanese, Chinese and Russian models).
+#
+# "A sentence at a time" (TRN-014, MLK-002) is proved by subflows/sentences_translated.yaml: a
+# paragraph that is one sentence N times must come back as one Russian sentence N times, single
+# spaces between — see that file. "No hang on Preparing translation…" (TRN-013) = the paragraph
+# on screen holds Russian within the step's time limit and the banner is gone.
+# Which engine translated a paragraph is read from its text: output.jaHq / output.zhHq are
+# Offline HQ's translations, ML Kit's must differ (and Offline HQ's must be back in step 12).
+# ML Kit's models are sometimes already on an emulator after the app's data was cleared, so no
+# step assumes that a model download is seen; each waits for the translation itself.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-05.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# Preconditions: Offline HQ current (the default on a clean install); target Russian — chosen
+# in Settings, because the default target is English and only an English book switches it to
+# Russian by itself (subflows/target_russian.yaml).
+- runFlow: ../../subflows/target_russian.yaml
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 1. Import and open ja-poems.epub (short Japanese poems, long English preface) -> the language
+#    button reads "JA → RU", not "EN → RU" (LNG-003).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "ja-poems.epub"
+      TITLE: "Short Autumn Poems"
+      FIRST_TEXT: "This collection gathers a handful of short poems"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "JA"
+      TARGET: "RU"
+- takeScreenshot: J-TRN-05-step1-ja-poems
+
+# 2. The English preface is handled as embedded English: translated from English under the
+#    label "EN · from English" (the EN→RU pack is part of JA→RU, so nothing has to be asked
+#    for)…
+- extendedWaitUntil:
+    visible:
+      text: "EN · from English"
+      childOf:
+        id: "translation_0_0"
+    timeout: 240000
+- assertVisible:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_0"
+#    …scroll past the preface to the poems -> the short poems are the book's own Japanese:
+#    every poem on screen is translated (Russian in its slot, at least five of them) and none
+#    carries a language label (LNG-003).
+- scrollUntilVisible:
+    element:
+      id: "translation_1_4"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_1_4"
+    timeout: 240000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 1
+      FROM: 4
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 120000
+- assertTrue: ${output.rows >= 5}
+- assertNotVisible:
+    id: "paragraph_note"
+    childOf:
+      id: "translation_1_.*"
+- assertNotVisible: ".*not translated"
+- takeScreenshot: J-TRN-05-step2-poems
+#    Back to the first poem (on the phone the top pane has moved past it).
+- scrollUntilVisible:
+    element:
+      text: "古池や蛙飛びこむ水の音"
+      childOf:
+        id: "original_1_0"
+    direction: UP
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_1_0"
+    timeout: 60000
+
+# 3. Long-press inside a poem -> the popup translates it from Japanese into Russian (POP-001).
+#    A Japanese line has no spaces, so the "word" under the finger is the whole poem. Other
+#    lines of the page lie between the popup's heading and its buttons too, so the popup is not
+#    read by position: the poem is saved and read back in Words — the entry is the poem, tagged
+#    JA, with a Russian translation, the same one the page shows for that poem.
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_1_0"
+- evalScript: ${output.poemRu = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-05 step 3 - poem 1 on the page = ' + output.poemRu)}
+- longPressOn:
+    id: "original_1_0"
+    point: "10%, 50%"
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "${output.poemRu}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- takeScreenshot: J-TRN-05-step3-poem-popup
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 10000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "古池や蛙飛びこむ水の音"
+    timeout: 15000
+- assertVisible: "1 saved word"
+- assertVisible: "${output.poemRu}"
+- assertVisible:
+    text: "JA"
+    rightOf: "${output.poemRu}"
+- assertNotVisible: "EN"
+- takeScreenshot: J-TRN-05-step3-words-ja
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 4. Open ja-novel.epub at its long chapter -> translation starts within ~30 s; the banner does
+#    not sit on "Preparing translation…" (TRN-013). The JA→EN and EN→RU packs are installed by
+#    now (step 1), so the 30 s are the translation alone.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "ja-novel.epub"
+      TITLE: "長い章のテスト小説"
+      FIRST_TEXT: "その夜、町の上には長いあいだ暖かい霧が"
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 30000
+- assertNotVisible: "Preparing translation….*"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "JA"
+      TARGET: "RU"
+
+# 5. Three translated paragraphs that hold several Japanese sentences each -> the sentences are
+#    separated, one translation per sentence; no run-together like "упал.Тот" (TRN-014).
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 0
+      MARK: "。"
+      TIMEOUT: 60000
+- evalScript: ${output.jaHq = output.stText}
+- scrollUntilVisible:
+    element:
+      id: "translation_0_1"
+    direction: DOWN
+    speed: 30
+    timeout: 90000
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 1
+      MARK: "。"
+      TIMEOUT: 60000
+- scrollUntilVisible:
+    element:
+      id: "translation_0_2"
+    direction: DOWN
+    speed: 30
+    timeout: 90000
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 2
+      MARK: "。"
+      TIMEOUT: 60000
+- takeScreenshot: J-TRN-05-step5-ja-sentences
+
+# 6. Scroll forward through the next chapter -> each paragraph that comes on screen is
+#    translated within a minute, no stall on "Preparing translation…" (TRN-013).
+- scrollUntilVisible:
+    element:
+      id: "translation_1_0"
+    direction: DOWN
+    speed: 30
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_1_0"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: "translation_1_2"
+    direction: DOWN
+    speed: 30
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_1_2"
+    timeout: 60000
+- assertNotVisible: "Preparing translation….*"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 7. Open zh-novel.epub at its long chapter -> "ZH → RU"; translation starts promptly, no hang
+#    on "Preparing translation…" (TRN-013). This import downloads the ZH→EN pack: 180 s.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "zh-novel.epub"
+      TITLE: "长章节测试小说"
+      FIRST_TEXT: "那天晚上，温暖的雾气在城市上空久久不散"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "ZH"
+      TARGET: "RU"
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 0
+      MARK: "。"
+      TIMEOUT: 180000
+- evalScript: ${output.zhHq = output.stText}
+- assertNotVisible: "Preparing translation….*"
+
+# 8. Translator picker -> ML Kit -> the visible Chinese paragraph is retranslated by ML Kit —
+#    another Russian text than Offline HQ's — sentence by sentence; no hang (MLK-002, MLK-001).
+- runFlow:
+    file: ../../subflows/set_translator.yaml
+    env:
+      NAME: "ML Kit \\(offline\\)"
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_0"
+          timeout: 180000
+      - copyTextFrom:
+          text: "(?s).*[а-яё]{3,}.*"
+          childOf:
+            id: "translation_0_0"
+      - assertTrue: ${maestro.copiedText != output.zhHq}
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 0
+      MARK: "。"
+      TIMEOUT: 60000
+- evalScript: ${console.log('J-TRN-05 step 8 - ML Kit zh differs from Offline HQ ' + (output.stText != output.zhHq))}
+- assertTrue: ${output.stText != output.zhHq}
+- assertNotVisible: "Preparing translation….*"
+- takeScreenshot: J-TRN-05-step8-zh-mlkit
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 9. Open ja-novel.epub on ML Kit (chapter picker -> the first chapter); wait for the first
+#    paragraph -> translation proceeds, by ML Kit (not Offline HQ's text of step 5), a sentence
+#    at a time; no "Preparing translation…" hang (MLK-002, TRN-014).
+- scrollUntilVisible:
+    element:
+      id: "book_card_長い章のテスト小説.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_長い章のテスト小説.*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn: "第一章"
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_0"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 0
+      MARK: "。"
+      TIMEOUT: 180000
+- assertTrue: ${output.stText != output.jaHq}
+- assertNotVisible: "Preparing translation….*"
+- takeScreenshot: J-TRN-05-step9-ja-mlkit
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 10. Back in the Library, reopen ja-poems.epub -> still "JA → RU" (LNG-003).
+- scrollUntilVisible:
+    element:
+      id: "book_card_Short Autumn Poems.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Short Autumn Poems.*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "JA"
+      TARGET: "RU"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 11. In ja-novel.epub on ML Kit scroll forward through both chapters -> every paragraph
+#     translates, a sentence at a time; no hang, no run-together sentences (MLK-002).
+- scrollUntilVisible:
+    element:
+      id: "book_card_長い章のテスト小説.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_長い章のテスト小説.*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- scrollUntilVisible:
+    element:
+      id: "translation_0_1"
+    direction: DOWN
+    speed: 30
+    timeout: 90000
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 1
+      MARK: "。"
+      TIMEOUT: 120000
+- scrollUntilVisible:
+    element:
+      id: "translation_0_2"
+    direction: DOWN
+    speed: 30
+    timeout: 90000
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 0
+      SLOT_P: 2
+      MARK: "。"
+      TIMEOUT: 120000
+- scrollUntilVisible:
+    element:
+      id: "translation_1_1"
+    direction: DOWN
+    speed: 30
+    timeout: 90000
+- runFlow:
+    file: ../../subflows/sentences_translated.yaml
+    env:
+      SLOT_C: 1
+      SLOT_P: 1
+      MARK: "。"
+      TIMEOUT: 120000
+- assertNotVisible: "Preparing translation….*"
+
+# 12. Translator picker -> Offline HQ again (the default for later journeys): the first
+#     paragraph of the first chapter reads exactly what Offline HQ gave in step 5.
+- runFlow:
+    file: ../../subflows/set_translator.yaml
+    env:
+      NAME: "Offline HQ"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn: "第一章"
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_0"
+          timeout: 60000
+      - copyTextFrom:
+          text: "(?s).*[а-яё]{3,}.*"
+          childOf:
+            id: "translation_0_0"
+      - assertTrue: ${maestro.copiedText == output.jaHq}
