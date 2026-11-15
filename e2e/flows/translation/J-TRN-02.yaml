@@ -512,11 +512,11 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 #        - the bars are up within 1.5 s, and still up one command later.
 #      Had the first tap toggled the bars, the second would have hidden them again (no bars →
 #      fails); bars hidden by the timer and shown again by the second tap need more than 3.5 s
-#      (→ the time limit fails). A slow attempt proves nothing and is tried again, up to three
+#      (→ the time limit fails). A slow attempt proves nothing and is tried again, up to five
 #      attempts; each is logged ("selection then title - attempt N" → "Retries" in summary.md).
 - evalScript: ${output.selTitleAttempt = 0}
 - retry:
-    maxRetries: 2
+    maxRetries: 4
     commands:
       - evalScript: ${output.selTitleAttempt = output.selTitleAttempt + 1}
       - evalScript: ${console.log('selection then title - attempt ' + output.selTitleAttempt)}

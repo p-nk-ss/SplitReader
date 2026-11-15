@@ -151,12 +151,33 @@ tags: [smoke, full, library, J-LIB-03]
 # - this edition's chapter 1 is unusually front-matter-heavy (cover/frontispiece/title page/spine
 # art/list of illustrations) before the narrative; see J-LIB-01.yaml step 6 for the full on-device
 # reasoning (same fixture, same fix).
+# Not import_book.yaml for this one: that subflow looks for the phone's portrait hint twice, 3 s
+# each, straight after the pick. Here the 1.4 MB book is opened right after eleven failed imports
+# (one of them a 335 MB file) and once needed longer than those 6 s (Pixel_10_Pro,
+# e2e/reports/20261115T142045Z: the hint came after both looks and covered the reader, so the
+# scroll to the first text found nothing). So the flow first waits until the book is open — its
+# first chapter number, or the hint over it — and only then dismisses the hint; the rest is
+# import_book.yaml's own sequence.
 - runFlow:
-    file: ../../subflows/import_book.yaml
+    file: ../../subflows/pick_file.yaml
     env:
       FILE: "alice-illustrated.epub"
-      TITLE: "Alice.s Adventures in Wonderland"
-      FIRST_TEXT: "So she was considering in her own mind"
+- extendedWaitUntil:
+    visible: "— 1 —|GOT IT"
+    timeout: 120000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- scrollUntilVisible:
+    element: ".*So she was considering in her own mind.*"
+    direction: DOWN
+    timeout: 120000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - extendedWaitUntil:
+          visible: ".*Alice.s Adventures in Wonderland.*"
+          timeout: 3000
 - assertNotVisible: "Library is full"
 - runFlow: ../../subflows/leave_reader.yaml
 - runFlow:

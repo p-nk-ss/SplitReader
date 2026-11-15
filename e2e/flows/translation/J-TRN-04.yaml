@@ -581,9 +581,27 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
     element: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
     direction: DOWN
     timeout: 40000
-- assertVisible: "EN → RU · \\d+ MB"
-- assertVisible: "FR → EN · \\d+ MB"
-- assertVisible: "DE → EN · \\d+ MB"
-- assertVisible: "ZH → EN · \\d+ MB"
-- assertVisible: "JA → EN · \\d+ MB"
+#     (Five rows and the total do not fit a phone's screen together. The list is DE, EN, FR,
+#     JA, ZH, total: each row is scrolled to, from the total upwards; a row that is not in the
+#     list fails its scroll.)
+- scrollUntilVisible:
+    element: "ZH → EN · \\d+ MB"
+    direction: UP
+    timeout: 20000
+- scrollUntilVisible:
+    element: "JA → EN · \\d+ MB"
+    direction: UP
+    timeout: 20000
+- scrollUntilVisible:
+    element: "FR → EN · \\d+ MB"
+    direction: UP
+    timeout: 20000
+- scrollUntilVisible:
+    element: "EN → RU · \\d+ MB"
+    direction: UP
+    timeout: 20000
+- scrollUntilVisible:
+    element: "DE → EN · \\d+ MB"
+    direction: UP
+    timeout: 20000
 - takeScreenshot: J-TRN-04-step12-packs
