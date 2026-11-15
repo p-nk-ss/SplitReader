@@ -71,6 +71,14 @@ since flows run one file at a time. A single flow's own id is always one of its 
 `skipping <file> (tags don't include any of: <TAGLIST>)` for every flow it excludes — that line
 is the proof a non-matching flow was actually skipped, not silently run anyway.
 
+The tags line must be an inline list on one line, `tags: [a, b]` (quotes around a tag are fine).
+A flow without one, or with a YAML block list, stops the run before anything is built: it would
+have no tags for the runner, run on every device and match no `--tags`.
+
+A run that selects **no flow** is an error, never a green run of nothing: `run.sh` exits 1 with
+`no flow selected …` — before the build when no flow has any of the tags, right after boot (the
+emulator it started is killed first) when the device rule below skipped them all.
+
 ### Device class (`tablet` / `phone` tags)
 
 Independently of `--tags`, `run.sh` reads the device's class from `wm size` / `wm density`
@@ -78,12 +86,19 @@ Independently of `--tags`, `run.sh` reads the device's class from `wm size` / `w
 and a flow tagged `phone` but not `tablet` on a tablet — logging
 `skipping <file> (not tagged for a phone)`. A flow with both tags, or neither (all the library
 journeys), runs everywhere. The rule also applies when the flow is named explicitly
-(`--tags J-RDR-01` on a phone runs nothing). The rules live in `e2e/flow_select.sh`; check them
-with `bash e2e/test_flow_select.sh`.
+(`--tags J-RDR-01` on a phone selects nothing, which is an error — see above). The flows skipped
+this way are listed in `summary.md` ("Not run on this phone …"). The rules live in
+`e2e/flow_select.sh`; check them with `bash e2e/test_flow_select.sh`, and what `run.sh` does with
+them (nothing selected, unreadable class, unreadable tags — the real script against fake tools)
+with `bash e2e/test_run_select.sh`.
 
-`run.sh` also passes the class to every flow as `-e DEVICE_CLASS=tablet|phone|unknown`, so a flow
-tagged for both can keep a phone-only step behind `when: true: ${DEVICE_CLASS == 'phone'}`
-(`J-RDR-03`). Running such a flow with `maestro test` directly needs the same `-e`.
+`run.sh` also passes the class to every flow as `-e DEVICE_CLASS=tablet|phone`, so a flow tagged
+for both can keep a phone-only step behind `when: true: ${DEVICE_CLASS == 'phone'}` (`J-RDR-03`).
+If the class cannot be read from the device, `run.sh` stops before any flow runs: with an unknown
+class every such step would be skipped and the flow would still pass. For the same reason each
+two-class flow starts with
+`- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}`; running one with
+`maestro test` directly needs the same `-e DEVICE_CLASS=…`.
 
 ## Shared subflows (`e2e/subflows/`)
 
@@ -99,6 +114,7 @@ One subflow per job; a flow never re-implements one of these inline.
 | `tap_reader_button.yaml` (BUTTON, OPENS) | `show_bars` + tap a top-bar button by id + wait for its dialog's text (retried). |
 | `leave_reader.yaml` | `show_bars` + Back (retried), ends on the Library scrolled up to "Open book". |
 | `leave_reader_from_catalog.yaml` | The same for a reader opened from the Catalog (Back lands there): then taps "Library". |
+| `tap_shows_tap_hides.yaml` (SHOW_AT, HIDE_AT) | Prove that a tap at one point shows the bars and a tap at another HIDES them: both seen within 3 s of the first tap, before the bars' own timer could (retried when too slow). |
 | `set_translator.yaml` (NAME) | Open the translator picker (`tap_reader_button`) and choose a provider that needs no key. |
 | `wait_translated.yaml` (TEXT, TIMEOUT) | Wait for a translated text. |
 | `tap_catalog_search.yaml` | Focus the Catalog's search field. |
@@ -117,11 +133,21 @@ longer than 3.5 s too. So:
 - to tap a top-bar button: `tap_reader_button.yaml` — never `show_bars` + `tapOn: id:`, never a
   bare `tapOn: id: reader:…Button` even "right after" something that showed the bars;
 - to leave the reader: `leave_reader.yaml` / `leave_reader_from_catalog.yaml`;
+- to assert "a tap hides the bars": `tap_shows_tap_hides.yaml` — a bare "tap, then the bars are
+  gone" passes with a dead tap as soon as the check comes 3.5 s after the bars appeared;
 - before any of them the reader must be open: wait for something that does not depend on the
   bars (a paragraph id `original_<ch>_<p>`, a text, the navigation's "Catalog" gone).
 
 The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_catalog.yaml`
 (built on `when: notVisible:`) were removed on 2026-11-14 for this reason.
+
+### Retries are reported
+
+`show_bars`, `tap_reader_button`, `leave_reader`, `leave_reader_from_catalog` and
+`tap_shows_tap_hides` retry, and a retry can hide a tap that did nothing. Each of them logs
+`<name> … - attempt N` before every attempt; `e2e/report.py` reads the flows' `maestro.log` and
+adds a "Retries" table to `summary.md` for every step that needed more than one attempt (none:
+no table). A step that shows up there run after run is a finding, even though its flow passed.
 
 ## Picker reset (`launch_clean.yaml`)
 
@@ -141,9 +167,28 @@ AOSP images (`Tab_26_Nexus9`) ship `com.android.documentsui` instead — never b
 image. Both `clearState` calls are `optional: true` so clearing the one package that isn't
 installed on a given device/image is a harmless no-op rather than a flow-aborting failure.
 
-## Reference screenshots (`e2e/refs/`)
+## Exact colours (`colour-check/` crops, `e2e/check_colours.py`)
 
-A reader theme is only colours, so `J-RDR-05` checks "dark" / "light" with `assertScreenshot` on
-small crops against `e2e/refs/theme/<device class>-<screen>-<theme>.png`. The crops belong to
-`Tab_35_PixelTablet` and `Pixel_10_Pro`; what the comparison can and cannot tell, and how to
-re-record (`e2e/refs/record_theme_refs.sh SERIAL`), is in `e2e/refs/README.md`.
+A reader theme is only colours: no node says which theme is on, and Maestro's `assertScreenshot`
+tolerates small colour differences (it passes Paper for Sepia and AMOLED for Night). A flow that
+has to prove a theme (`J-RDR-05`) takes a small crop instead — one short text on its background —
+and names the palette colour the background must have:
+
+```yaml
+- takeScreenshot:
+    path: colour-check/step7-display__SepiaBg    # colour-check/<label>__<constant in Color.kt>
+    cropOn: "Display"
+```
+
+After such a flow `run.sh` runs `e2e/check_colours.py`: it reads the list of crops from the flow
+file, requires every one to have been taken, and requires its most frequent pixel to be exactly
+that constant of `app/…/presentation/theme/Color.kt` (and at least half of the crop). The result
+is its own row in `summary.md`, `<flow> colours`, and a wrong colour fails the run. The colour
+does not depend on the crop's size, so there are no per-device reference images. A flow run by
+hand with `maestro test` takes the crops but does not check them:
+
+```
+python3 e2e/check_colours.py e2e/flows/reading/J-RDR-05.yaml <test-output-dir> /tmp/colours.xml
+```
+
+Tests: `python3 e2e/test_check_colours.py`.

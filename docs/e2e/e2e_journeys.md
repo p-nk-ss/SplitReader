@@ -605,15 +605,15 @@ translation works without network keys.
 2. Look at the reader → ✓ the navigation rail is hidden inside the reader (NAV-017); no "ML KIT READY" label anywhere, with the bars hidden or shown (LAY-022).
 3. Check the first screen → ✓ the pictures placed before and right after the book's first heading (endpapers, frontispiece, title page) render under the first chapter title, none dropped (ILL-011), at full size — one image pixel per dp, not a thumbnail (ILL-006); the 350×500 cover is not repeated as a page of the first chapter (ILL-003).
 4. Back to Library without scrolling → ✓ the "Continue reading" card shows the book at "CH 1 OF 14", 0% (the app has no imported-but-never-opened state; the card's excerpt is the book's opening text). Open the book again from its card → ✓ still the very start, no false "continue reading" jump (POS-011).
-4a. Chapter picker → the second chapter ("— 2 —", text starts right under the title) → ✓ no picture stands between the chapter title and "CHAPTER I" — the cover is not repeated as this chapter's first page (ILL-003). Wait for translation → ✓ original left, translation right, one row per paragraph (LAY-001). *Manual:* while "Preparing translation…" is shown the banner does not cover the chapter number (LAY-023) — the banner is too short-lived for Maestro and the overlap is a visual judgement.
+4a. Chapter picker → the second chapter ("— 2 —", text starts right under the title) → ✓ no picture stands between the chapter title and "CHAPTER I" — the cover is not repeated as this chapter's first page (ILL-003). Wait for translation → ✓ original left, translation right, one row per paragraph (LAY-001). *Manual:* while "Preparing translation…" is shown the banner does not cover the chapter number (LAY-023) — at the book's start the first screen is pictures only, so nothing is translated and the banner never comes; in the second chapter it is up for less time than one Maestro check takes.
 5. Chapter picker → the first chapter; scroll down → ✓ the frontispiece and the title page each fit on one screen at full size (ILL-011, ILL-006, ILL-007).
 6. Scroll on to the first text ("Printed in England") and two paragraphs further → ✓ each original has its translation beside it; the panes scroll together (LAY-001).
 7. Chapter picker → the third chapter; scroll to its first picture → ✓ it sits inside the chapter at its anchor, between the 9th and 10th paragraphs (ILL-001), inline as its own row (ILL-015), rendered at full size, not a thumbnail (ILL-006).
 8. *Manual:* scroll so the picture / a chapter title sits under the divider handle → ✓ the handle fades out instead of covering it (ILL-008) — the handle has no node Maestro can see.
 9. Scroll to the tall plate ("The Pool of Tears") → ✓ it fits within one screen height at full size (ILL-007, ILL-006).
-10. With the bars hidden, tap directly on the plate → ✓ bars appear (ILL-009); the picture is not resized (ILL-007).
-11. Tap on plain text → ✓ bars hide — the same toggle as on the picture; tap the text again → ✓ bars appear (NAV-003).
-12. Tap twice more (text, then the plate) → ✓ bars hide and show; each time the plate keeps its size and the footer percentage leaves and returns with the bars — no stale padding (SYS-012; the exact pixel position is a visual check).
+10. With the bars hidden, tap directly on the plate — beside its centre line: the pane divider's strip lies over the middle of a centred picture and would answer the tap itself → ✓ bars appear (ILL-009); the picture is not resized (ILL-007).
+11. Tap on plain text → ✓ bars hide — the same toggle as on the picture; tap the text again → ✓ bars appear, tap the plate → ✓ they hide (NAV-003). Each show-then-hide is done within 3 s, so the bars' own 3.5 s timer cannot be what hid them.
+12. Tap the plate once more and let the bars leave → ✓ each time the plate keeps its size and the footer percentage leaves and returns with the bars — no stale padding (SYS-012; the exact pixel position is a visual check). Drag sideways from the spot that was tapped → ✓ the split does not move: the taps were on the plate, not on the divider.
 13. Open the reader's Display dialog (Aa); move the "Split position" slider from 50 / 50 to about 35 / 65 → ✓ the value changes live (LAY-004).
 14. Close the dialog, Back to Library, reopen F-ALICE → ✓ Display still shows the new split (LAY-004).
 
@@ -624,13 +624,13 @@ translation works without network keys.
 
 1. On the empty Library tap "Open book" and pick F-LONG (importing a book opens it) → ✓ the "parallel reading" hint appears with "Got it" and a "Don't show again" checkbox (APP-026).
 2. Tap "Got it" without ticking the box → ✓ the bottom bar is hidden in the reader (NAV-008); original on top, translation below, a horizontal divider between (LAY-002).
-3. With the bars hidden, tap the empty space next to the chapter title (no text, no picture under the finger) → ✓ the bars appear; tap the same spot again → ✓ they hide (LAY-029).
+3. With the bars hidden, tap empty page space — the margin beside a paragraph, where no text, title or picture is under the finger — in the top pane → ✓ the bars appear; tap the same spot again → ✓ they hide; the same in the bottom pane (LAY-029). (The space beside the chapter title belongs to the title's row and is step 4.) Each show-then-hide is done within 3 s, so the bars' own 3.5 s timer cannot be what hid them.
 4. Tap the chapter title itself → ✓ the bars appear; tap it again → ✓ they hide (LAY-030).
 5. Tap the page → ✓ the footer shows a percentage on the phone, 0% at the start (POS-008).
 6. Scroll forward three paragraphs at a time (the 4th, 7th, 10th paragraph on top), revealing the bar each time → ✓ the percentage grows inside the chapter — 1%, 2%, 3% — not only at chapter boundaries (POS-003).
-7. Open the chapter picker; select chapter 3 → ✓ the view lands on chapter 3's start (NAV-009): the chapter title (masthead) is at the top of the top pane with its first paragraph under it, and it stays there while the translation arrives (NAV-018).
+7. Open the chapter picker; select chapter 3 → ✓ the view lands on chapter 3's start (NAV-009): the chapter title (masthead) is the first row of the top pane — nothing of chapter 2 above it — with its first paragraph under it, and it stays there while the translation arrives (NAV-018); a bookmark made here reads "Chapter 3 — The Long Crossing · ¶ 1" (removed again).
 8. Scroll so the 5th paragraph of chapter 3 is the top paragraph; open Bookmarks (the bookmark icon opens the Bookmarks dialog) and tap "Bookmark this page" → ✓ the button turns into "Remove bookmark here" (BMK-001).
-9. Look at the list in the same dialog → ✓ the entry is "Chapter 3 — The Long Crossing · ¶ 5" — the real paragraph number, not shifted by the masthead (BMK-003, BMK-001); its preview text is that paragraph's own text (BMK-002).
+9. Look at the list in the same dialog → ✓ the entry is "Chapter 3 — The Long Crossing · ¶ 5" — the real paragraph number, not shifted by the masthead (BMK-003, BMK-001); its preview text is that paragraph's own text — exactly its first 80 characters (BMK-002).
 10. Tap "Remove bookmark here" → ✓ the bookmark is removed at once: the list is empty and the button reads "Bookmark this page" (BMK-005); tap it to re-add the bookmark; Close.
 11. Open the chapter picker, go to chapter 1; open Bookmarks, tap the chapter-3 bookmark → ✓ one jump lands exactly on that paragraph (the 5th on top, the 4th off screen); Bookmarks shows "Remove bookmark here" for this page (BMK-004).
 12. Back to Library, reopen F-LONG → ✓ the hint shows again because the box was not ticked (APP-028).
@@ -645,45 +645,46 @@ translation works without network keys.
 2. *Phone:* select LANDSCAPE without restarting → ✓ the app turns to landscape immediately — the navigation becomes the side rail instead of the bottom bar (APP-022). (On a tablet Landscape is the default and nothing turns; manual, J-RDR-12.)
 3. *Phone:* kill the app and relaunch → ✓ still landscape, not reset to Portrait (APP-023). Select AUTO (both devices).
 4. On the Library, tap "Continue reading" for F-LONG → ✓ opens at the saved paragraph, same as reopening from the Library (POS-016).
-5. Note the top paragraph; turn the device → ✓ the same paragraph is on top (NAV-001).
+5. Note the top paragraph; turn the device → ✓ the same paragraph is on top (NAV-001), and the screen did turn (the paragraph has the turned layout's width).
 6. Turn it back; repeat three more times → ✓ the same paragraph stays on top every time, never back to the start (NAV-001); on the phone the layout is side-by-side when landscape and stacked when portrait.
 6a. Aa → **Show translation** off; turn the device and turn it back → ✓ one original-only column in both orientations, the same paragraph on top; Aa still shows "Show translation" off (LAY-028). Turn it back on.
 7. Back to Library; reopen F-LONG → ✓ it reopens on that same paragraph (NAV-002).
 8. Chapter picker → chapter 10, so the first visible row is a chapter masthead; Back; reopen → ✓ the position resolves to the first paragraph below the masthead, offset 0: that paragraph is on top, the masthead is above the screen (POS-013).
 9. Bookmarks → the chapter 8 bookmark, then scroll a little so the paragraph's first lines are off-screen; Back; reopen → ✓ same paragraph on top (POS-013; the same pixel offset is a visual check — see the screenshots).
-10. Kill the app; relaunch; open F-LONG → ✓ same chapter and paragraph after a full restart (POS-013).
+10. Scroll partway into another paragraph (chapter picker → chapter 12, then on past its first paragraph) without leaving the reader; kill the app; relaunch; open F-LONG → ✓ same chapter and paragraph after a full restart (POS-013) — a place that only the scrolling has saved: the "Continue reading" card already says chapter 12, and the page that opens is the one bookmarked just before the kill.
 
 **Covers:** APP-024, APP-022, APP-023, POS-016, NAV-001, NAV-002, POS-013, LAY-028
 
 ### J-RDR-04 — Reading to the end: 0% to 100% and back
-**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** tablet API 35 and phone emulator · **Fixtures** F-SHORT, F-LONG · **Preconditions** F-SHORT never opened; F-LONG saved near its end, not yet read to the end, with one bookmark on its final screen (the flow sets it up: from chapter 21 it scrolls until the book's last paragraph starts to show and bookmarks that page — on the tablet the whole last chapter fits on one screen, so opening chapter 22 from the chapter picker already is the end of the book; the "Continue reading" card must then read 9x%, not 100%).
+**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** tablet API 35 and phone emulator · **Fixtures** F-SHORT, F-LONG · **Preconditions** F-SHORT never opened; F-LONG saved near its end, not yet read to the end, with one bookmark near the end (the flow sets it up: from chapter 21 it scrolls until the book's last paragraph starts to show and bookmarks that page — on the tablet the whole last chapter fits on one screen, so opening chapter 22 from the chapter picker already is the end of the book; the "Continue reading" card must then read 9x%, not 100%). A bookmark on the true last screen would mean the book is already finished, so that one is made in step 8a.
 
 1. Open F-SHORT (importing a book opens it); tap to show the bar → ✓ footer shows 0% (POS-004).
 2. Read on until the 10th paragraph is the top one; show the bar → ✓ the percentage has grown to 30% — 9 of 30 paragraphs are behind (POS-004).
-3. Back to Library → ✓ the "Continue reading" card shows F-SHORT with the same % as the footer (POS-004). (A percentage is text only on that card; a shelf card has a progress line and a "✓" badge, no number.)
-4. Open F-LONG; open the chapter picker, go to chapter 1; open Bookmarks and tap the bookmark on the final screen → ✓ it lands on exactly that paragraph, one scroll: it is the top one, the paragraph before it is off screen (BMK-004).
+3. Back to Library → ✓ the "Continue reading" card shows F-SHORT with the same % as the footer, and so does F-SHORT's shelf card: "30% · CH 1/1", no "✓" badge (POS-004).
+4. Open F-LONG; open the chapter picker, go to chapter 1; open Bookmarks and tap the bookmark near the end → ✓ it lands on exactly that paragraph, one scroll: it is the top one, the paragraph before it is off screen; Bookmarks shows "Remove bookmark here" (BMK-004). Remove the bookmark.
 5. Scroll to the very last paragraph → ✓ the footer shows 100% (POS-005).
 6. Hide and show the bars five times → ✓ the footer is at 100% every time (POS-007).
-7. Back to Library → ✓ the "Continue reading" card shows F-LONG at 100%, matching the footer (POS-005).
+7. Back to Library → ✓ the "Continue reading" card shows F-LONG at 100%, matching the footer, and so does its shelf card: "100% · CH 22/22" (POS-005) with the "✓" finished badge (POS-019).
 8. Reopen F-LONG → ✓ opened at the end (the last paragraph is on screen), still 100% (POS-019).
+8a. Bookmark this page — the book's true last screen; chapter picker → chapter 1; Bookmarks → that bookmark → ✓ one jump ends on the last screen again (the book's last paragraph is on screen) and Bookmarks shows "Remove bookmark here" (BMK-004, the "very last screen" case).
 9. Scroll back up two screens; show the bar → ✓ the real, lower percentage is shown, not stuck at 100% (POS-006).
 
 **Covers:** POS-004, BMK-004, POS-005, POS-007, POS-019, POS-006
 
 ### J-RDR-05 — Appearance smoke: margins and one shared theme
-**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** tablet API 35 (`Tab_35_PixelTablet`) and phone emulator (`Pixel_10_Pro`) — the theme checks compare against reference crops of exactly these two, see `e2e/refs/README.md` · **Fixtures** F-LONG · **Preconditions** clean install (`pm clear`); Paper theme.
+**Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** tablet API 35 (`Tab_35_PixelTablet`) and phone emulator (`Pixel_10_Pro`) · **Fixtures** F-LONG · **Preconditions** clean install (`pm clear`); Paper theme.
 
-Maestro can tell a dark screen from a light one (reference crops), not Sepia from Paper nor Amoled from Night, so the theme is switched between a light and a dark one at every step — each check can then fail. "It is Sepia, not Paper" in step 7 is a visual check of the screenshot.
+"The screen is in theme X" is checked exactly: the flow takes a small crop of each screen and `e2e/run.sh` then requires its background to be precisely that theme's colour from the app's palette (`e2e/check_colours.py`; the row "J-RDR-05 colours" of the summary). Paper is told from Sepia and Night from AMOLED. *Manual:* which swatch the Theme row shows as selected — the selection is drawn as a border only and Maestro cannot read it.
 
-1. Settings → Reading → ✓ "Page margins" shows 32dp (APP-001); the screen is light.
-2. Open F-LONG (importing a book opens it) → ✓ the text edge sits 32dp in from the screen edge — asserted through the paragraph's width (APP-001).
+1. Settings → Reading → ✓ "Page margins" shows 32dp (APP-001); the screen is Paper.
+2. Open F-LONG (importing a book opens it) → ✓ the text edge sits 32dp in from the screen edge — asserted through the paragraph's width (APP-001); the page is Paper.
 3. The reader's Display dialog has no "Page margins" slider (the margin is set only in Settings). Settings → Page margins to 12dp, reopen F-LONG → ✓ the text edge moved outward; then to 40dp, reopen → ✓ it moved inward (APP-001).
-4. In the reader's Display dialog select Night → ✓ the dialog and the page turn dark at once (APP-007).
-5. Kill and relaunch; reopen F-LONG → ✓ still dark (APP-007).
-6. Back to Library, then Almanac, then Words → ✓ all three are dark (APP-008).
-7. Settings → Theme → select Sepia; reopen F-LONG and its Display dialog → ✓ the dialog is light again, no restart needed (APP-007). *Visual:* it is Sepia, not Paper.
-8. In the Display dialog select Night; go to Settings → ✓ Settings is dark (APP-007).
-9. Select Paper in Settings; open Library → ✓ light. Select Night in Settings; open Library → ✓ dark, the same result as from the reader (APP-008).
+4. In the reader's Display dialog select Night → ✓ the dialog and the page turn to Night at once (APP-007).
+5. Kill and relaunch; reopen F-LONG → ✓ still Night (APP-007).
+6. Back to Library, then Almanac, then Words → ✓ all three are Night (APP-008).
+7. Settings → Theme → select Sepia; reopen F-LONG and its Display dialog → ✓ the page and the dialog are Sepia, no restart needed (APP-007). *Manual:* the dialog shows the Sepia swatch selected.
+8. In the Display dialog select Paper → ✓ the dialog is Paper; go to Settings → ✓ Settings is Paper (APP-007). *Manual:* Settings shows the Paper swatch selected.
+9. Select Night from Settings; open Library → ✓ the Library is Night, same result as from the reader (APP-008).
 
 **Covers:** APP-001, APP-007, APP-008
 
