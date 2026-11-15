@@ -20,18 +20,28 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 # (subflows/watch_translation_banner.yaml reads it until it is gone). An installed pack answers
 # with "100%" at most, so "no download" = no reading under 100.
 #
-# Step 5 has three gestures that must be quick, made at screen points. Maestro takes points only
-# as literal whole numbers, so each is written twice, behind `when: DEVICE_CLASS`, with the
+# Steps 5 and 13 have gestures that must be quick, made at screen points. Maestro takes points
+# only as literal whole numbers, so each is written twice, behind `when: DEVICE_CLASS`, with the
 # pixels of the two AVDs this suite runs on (default font, chapter 1 at the top):
 #                                            Tab_35_PixelTablet   Pixel_10_Pro (portrait)
 #   the "Français" tile of the dialog        993, 796             323, 1271
+#   the "Español" tile                       1280, 796            640, 1271
+#   the "Italiano" tile                      1566, 796            957, 1271
 #   "river" in paragraph 1, the bars up      740, 429             1112, 721
 #   a short scroll                           30%,60% -> 30%,45%   30%,40% -> 30%,28%
+#   paragraph 2 at "river"'s place, bars up  740, 599             1108, 1063
+#     … the bars hidden                      740, 503             1108, 919
+#   a place in the text (a tap dismisses)    512, 800             408, 1120
+#   the popup's Save button, the bars up     1512, 1288           916, 2436
 # What the popup then says ("river", a download line) checks them. Elsewhere "river" is pressed
 # by its place inside original_0_0 (57%, 16% on the tablet, 93%, 12% on the phone).
-# The popup has no readable "ready" flag (its Save text node reads enabled in every state): the
-# flow waits for the translation's text between "WORD" and "Listen".
+# The popup's Save TEXT node reads enabled in every state (the disabled flag is on its parent,
+# the button: step 13a reads it there): the flow waits for the translation's text between
+# "WORD" and "Listen".
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-03.
+# The tags say phone and tablet; the pixel points are those of Tab_35_PixelTablet and
+# Pixel_10_Pro — on another tablet (Tab_26_Nexus9) the point gestures miss and the flow fails
+# at the word it then reads (not run there).
 # No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
 - assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
@@ -56,7 +66,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       FROM: 0
       PATTERN: ".*[а-яё]{3,}.*"
       TIMEOUT: 240000
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 - extendedWaitUntil:
     notVisible:
       id: "reader:languageChip"
@@ -68,14 +78,38 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 #    up without closing it by a tap on the divider between the panes (the strip down the middle
 #    on a tablet, reader:verticalDivider on a phone) — shown first, on its own: after that tap
 #    the language button AND the popup are on screen.
-- longPressOn:
-    id: "original_0_0"
+#    The word is "river" (as in steps 3 and 5): its Russian is kept (output.riverRu) so that the
+#    German and the French popups can be told from it and from each other.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
       below: "WORD"
       above: "Listen"
     timeout: 60000
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.riverRu = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 river in Russian = ' + output.riverRu)}
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
@@ -161,7 +195,10 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 #    The journey's "long-press AND scroll during the download, one shared download" (OHQ-012) is
 #    done in step 5 with the French pack: a pack downloads in about 5 s, and step 2's look at
 #    the closed popup already takes 2 of them.
+#    (At least one reading under 100: without one "never decreased" would be said of nothing.
+#    Seen: 9–22 readings; step 2's look at the closed popup takes about 2 s of the 5.)
 - runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 >= 1}
 - assertTrue: ${output.bnDecreased == false}
 - assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
 - extendedWaitUntil:
@@ -193,10 +230,22 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     below: "WORD"
     above: "Listen"
 #    …a short text that is not Cyrillic, between the word and "Listen": the German for it.
+#    "Short Latin text" alone would also be an error line or a leftover of another language, so
+#    the text is kept (output.riverDe): it must not read like one of the popup's error lines
+#    (asked AFTER the popup wait — a Failed popup shows its message in the same place), and
+#    it is not step 2's Russian (no Cyrillic), and step 5 requires the French to differ from it.
 - assertNotVisible:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
     below: "WORD"
     above: "Listen"
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- copyTextFrom:
+    text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.riverDe = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 river in German = ' + output.riverDe)}
+- assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.riverDe)}
 - takeScreenshot: J-TRN-03-step3-german-popup
 - tapOn: "Close"
 - extendedWaitUntil:
@@ -212,7 +261,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       FROM: 0
       PATTERN: ".*\\b(der|die|das|und)\\b.*"
       TIMEOUT: 120000
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 - assertNotVisible:
     text: ".*[а-яё]{3,}.*"
     childOf:
@@ -231,10 +280,11 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 #    one top bar lower than in J-TRN-02), a short scroll. Then the popup's and the banner's
 #    percentages are read in turn until the popup's download line is gone (output.dl…: popup
 #    readings, banner readings, the highest so far, whether one was lower than one before).
-#    Two separate downloads would run at two speeds and the readings, taken in turn, would go
-#    down; one shared download can only go up. Both must have been read at least once.
-#    Partial: "exactly one download" is not counted (the app logs none); step 10 finds one
-#    EN → FR pack. TRN-004's "while paragraphs still show Translating" cannot be arranged.
+#    Both must have been read at least once, and no reading may be lower than one before it.
+#    Partial: "exactly one download" is NOT proven by that — two downloads at the same speed
+#    read as one rising row, and the app logs no download count. What does fail with the
+#    pre-fix bug (two downloads into one file): the "corrupted" error and no French after it.
+#    Step 10 finds one EN → FR pack. TRN-004's "while paragraphs still show Translating" cannot be arranged.
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -337,6 +387,18 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
     below: "WORD"
     above: "Listen"
+#    …and it is French, not the German of step 3 left over (a selection made right after the
+#    target change that still used the old target would read output.riverDe) and not an error
+#    line (asked after the popup wait).
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- copyTextFrom:
+    text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.riverFr = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 river in French = ' + output.riverFr + ' (German was ' + output.riverDe + ')')}
+- assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.riverFr)}
+- assertTrue: ${output.riverFr != output.riverDe && output.riverFr != output.riverRu && output.riverDe != output.riverRu}
 - takeScreenshot: J-TRN-03-step5-french-popup
 - tapOn: "Close"
 - extendedWaitUntil:
@@ -350,7 +412,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       FROM: 2
       PATTERN: ".*\\b(le|la|les|et|une)\\b.*"
       TIMEOUT: 120000
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 - assertNotVisible:
     text: ".*\\b(der|die|das|und)\\b.*"
     childOf:
@@ -359,9 +421,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     text: ".*[а-яё]{3,}.*"
     childOf:
       id: "translation_\\d+_\\d+"
+- evalScript: ${output.frAttempt = 0}
 - retry:
     maxRetries: 2
     commands:
+      - evalScript: ${output.frAttempt = output.frAttempt + 1}
+      - evalScript: ${console.log('J-TRN-03 language button reads FR - attempt ' + output.frAttempt)}
       - runFlow: ../../subflows/show_bars.yaml
       - assertVisible:
           text: "FR"
@@ -380,7 +445,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       FROM: 11
       PATTERN: ".*\\b(le|la|les|et|une)\\b.*"
       TIMEOUT: 120000
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 - assertNotVisible:
     text: ".*\\b(der|die|das|und)\\b.*"
     childOf:
@@ -410,7 +475,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       FROM: 11
       PATTERN: ".*[а-яё]{3,}.*"
       TIMEOUT: 30000
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 - assertNotVisible:
     text: ".*\\b(le|la|les|et|une)\\b.*"
     childOf:
@@ -435,9 +500,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     env:
       NAME: "ML Kit \\(offline\\)"
 - runFlow: ../../subflows/watch_translation_banner.yaml
+- evalScript: ${output.look = 0}
 - retry:
     maxRetries: 12
     commands:
+      - evalScript: ${output.look = output.look + 1}
+      - evalScript: ${console.log('J-TRN-03 step 7, ML Kit text - look ' + output.look)}
       - extendedWaitUntil:
           visible:
             text: ".*[а-яё]{3,}.*"
@@ -458,7 +526,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       FROM: 11
       PATTERN: ".*[а-яё]{3,}.*"
       TIMEOUT: 120000
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 #    …and the picker shows ML Kit as the current provider (its card is the inverted one).
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
@@ -480,9 +548,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     timeout: 5000
 - runFlow: ../../subflows/watch_translation_banner.yaml
 - assertTrue: ${output.bnBelow100 == 0}
+- evalScript: ${output.look = 0}
 - retry:
     maxRetries: 12
     commands:
+      - evalScript: ${output.look = output.look + 1}
+      - evalScript: ${console.log('J-TRN-03 step 8, Offline HQ text - look ' + output.look)}
       - extendedWaitUntil:
           visible:
             text: ".*[а-яё]{3,}.*"
@@ -523,6 +594,39 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - assertVisible:
     text: "ML Kit \\(offline\\)"
     above: "Manage providers, API keys, server URL and monthly usage\\."
+#    Open the book in the SAME process: the engine chosen in Settings is the one the reader
+#    uses at once (SET-001) — paragraph 12 in ML Kit's wording (output.mlkit, step 7).
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_11"
+    timeout: 30000
+- evalScript: ${output.look = 0}
+- retry:
+    maxRetries: 12
+    commands:
+      - evalScript: ${output.look = output.look + 1}
+      - evalScript: ${console.log('J-TRN-03 step 9, same process, ML Kit text - look ' + output.look)}
+      - extendedWaitUntil:
+          visible:
+            text: ".*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_11"
+          timeout: 120000
+      - copyTextFrom:
+          text: ".*[а-яё]{3,}.*"
+          childOf:
+            id: "translation_0_11"
+      - assertTrue: ${maestro.copiedText == output.mlkit}
+- runFlow: ../../subflows/leave_reader.yaml
+#    …and after a restart of the app (MLK-010).
 - stopApp
 - launchApp:
     stopApp: false
@@ -553,9 +657,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     visible:
       id: "translation_0_11"
     timeout: 30000
+- evalScript: ${output.look = 0}
 - retry:
     maxRetries: 12
     commands:
+      - evalScript: ${output.look = output.look + 1}
+      - evalScript: ${console.log('J-TRN-03 step 9, after the restart, ML Kit text - look ' + output.look)}
       - extendedWaitUntil:
           visible:
             text: ".*[а-яё]{3,}.*"
@@ -598,9 +705,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     waitToSettleTimeoutMs: 100
 - runFlow: ../../subflows/watch_translation_banner.yaml
 - assertTrue: ${output.bnBelow100 == 0}
+- evalScript: ${output.look = 0}
 - retry:
     maxRetries: 12
     commands:
+      - evalScript: ${output.look = output.look + 1}
+      - evalScript: ${console.log('J-TRN-03 step 9, Offline HQ text - look ' + output.look)}
       - extendedWaitUntil:
           visible:
             text: ".*[а-яё]{3,}.*"
@@ -704,9 +814,416 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       FROM: 11
       PATTERN: ".*\\b(der|die|das|und)\\b.*"
       TIMEOUT: 120000
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 - assertNotVisible:
     text: ".*[а-яё]{3,}.*"
     childOf:
       id: "translation_\\d+_\\d+"
 - takeScreenshot: J-TRN-03-step12-german-again
+
+# 13. The popup while its translation is still on the way (POP-010, POP-022, POP-021).
+#     With an installed pack a word is translated in less than one Maestro command. A pack that
+#     is not installed gives a window: for the 4–5 s of its download the popup of a pressed word
+#     reads "Downloading language model… N%" — the Translating state. Two more targets are
+#     chosen here for that, Spanish and Italian (neither pack is installed: step 10 listed RU,
+#     DE and FR only). Everything inside a window is a point gesture (see the header; the bars
+#     are up after the dialog, so the points are step 5's: "river" in paragraph 1, the word at
+#     the same place in paragraph 2 — "the" on the tablet, "before" on the phone — a place in
+#     the text of paragraph 3, and the popup's Save button, which with the bars up sits one
+#     footer higher).
+#     "Still on the way" is asked right after the gesture it is about: the popup must STILL
+#     read "Downloading language model… N%". On a slow device or a fast network that line
+#     fails — then nothing was proven and the step fails; it never passes by being late.
+#     Back to chapter 1's top first, where the points are.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn: ".*The Ferry"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      text: ".*\\b(der|die|das|und)\\b.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 120000
+- assertVisible: "— 1 —"
+#     13a. Spanish. Press "river"; while its popup still translates tap Save -> nothing happens:
+#     the popup goes on translating (asked right after the tap), there is no "Saved to
+#     dictionary" toast, and Words is still empty at the end of the journey (POP-010 "does
+#     nothing when tapped"). "Greyed out": the Save text node reads enabled in every state, but
+#     its parent — the button — reads enabled=false while there is no translation; that is
+#     asserted here, and the opposite once "river" is translated (below). Then, the request
+#     still in flight, tap elsewhere in the text -> the popup is dismissed; press the word in
+#     paragraph 2 -> the popup is that word's and ends with that word's translation, not
+#     "river"'s, with no error (POP-022).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- assertVisible: "Español"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          point: "1280, 796"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          point: "640, 1271"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 429"
+          end: "740, 429"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1112, 721"
+          end: "1112, 721"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          point: "1512, 1288"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          point: "916, 2436"
+          waitToSettleTimeoutMs: 100
+- assertVisible:
+    enabled: false
+    containsChild:
+      text: "Save"
+- assertVisible: "Downloading language model… \\d+%"
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          point: "512, 800"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          point: "408, 1120"
+          waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 3000
+- assertNotVisible: "Saved to dictionary"
+- assertNotVisible: "Already in your dictionary"
+#     (No hurry from here on. The bars leave by their own timer and the page moves up with
+#     them: wait for that, then press the word in paragraph 2 where it is with the bars hidden.)
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 10000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 503"
+          end: "740, 503"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1108, 919"
+          end: "1108, 919"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 5000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          text: "the"
+          below: "WORD"
+          above: "Listen"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          text: "before"
+          below: "WORD"
+          above: "Listen"
+- assertNotVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- extendedWaitUntil:
+    visible:
+      text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- copyTextFrom:
+    text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.w2Es = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 step 13 - second word in Spanish = ' + output.w2Es)}
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          text: "the"
+          below: "WORD"
+          above: "Listen"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          text: "before"
+          below: "WORD"
+          above: "Listen"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 10000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- copyTextFrom:
+    text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.riverEs = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 step 13 - river in Spanish = ' + output.riverEs)}
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- assertTrue: ${output.w2Es != output.riverEs}
+- assertNotVisible:
+    enabled: false
+    containsChild:
+      text: "Save"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+#     13b. Italian. Press "river" and, before it reaches its translation, the word in
+#     paragraph 2 -> the popup is the second word's, still downloading (asked right after the
+#     second press: the first request had not been answered); it ends with the second word's
+#     translation — "river"'s late answer never shows (POP-021).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- assertVisible: "Italiano"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          point: "1566, 796"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          point: "957, 1271"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 429"
+          end: "740, 429"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1112, 721"
+          end: "1112, 721"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 599"
+          end: "740, 599"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1108, 1063"
+          end: "1108, 1063"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- assertVisible: "Downloading language model… \\d+%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          text: "the"
+          below: "WORD"
+          above: "Listen"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          text: "before"
+          below: "WORD"
+          above: "Listen"
+- assertNotVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- extendedWaitUntil:
+    visible:
+      text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- copyTextFrom:
+    text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.w2It = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 step 13 - second word in Italian = ' + output.w2It)}
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          text: "the"
+          below: "WORD"
+          above: "Listen"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          text: "before"
+          below: "WORD"
+          above: "Listen"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 10000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- copyTextFrom:
+    text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.riverIt = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 step 13 - river in Italian = ' + output.riverIt)}
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- assertTrue: ${output.w2It != output.riverIt && output.riverIt != output.riverEs}
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+#     Nothing was saved in this journey: the Save tapped in 13a stored nothing (POP-010).
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "No saved words yet"
+    timeout: 15000
+- takeScreenshot: J-TRN-03-step13-words-still-empty
