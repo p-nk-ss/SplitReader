@@ -21,6 +21,8 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
 # Each destination is recognised by a text only that screen has: Catalog "Standard Ebooks",
 # Almanac "All time", Words "Search words…", Settings "Preferences", Library "Open book".
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-09.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
 
 # 1. Phone: a bottom bar with the 5 items Library, Catalog, Almanac, Words, Settings, side by side
