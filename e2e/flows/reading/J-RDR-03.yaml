@@ -21,7 +21,18 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
 # setOrientation names are relative to the device's natural orientation, which is portrait on the
 # phone and landscape on the tablet: LANDSCAPE_LEFT is "the other way up" on both, PORTRAIT is
 # "the way it started".
+# That the screen really turned is asserted through the paragraph's width (Maestro takes `width:`
+# only as a literal, hence the two `when:` blocks per check; device px of Pixel_10_Pro and
+# Tab_35_PixelTablet at the default 32 dp margin):
+#                          natural            turned (LANDSCAPE_LEFT)
+#   phone,  two panes      1088 (stacked)     1218 (side by side)
+#   phone,  one column     1088               2508
+#   tablet, two panes      1192               712
+#   tablet, one column     2432               1472
+# A turn that did not happen leaves the other column's number on screen and fails the check.
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-03.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
 
 # Preconditions: F-LONG with saved progress in the middle of chapter 8; the portrait hint
@@ -53,6 +64,7 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
 # paragraph that has just left still counts as that paragraph). Chapter 8 has 8 paragraphs, so
 # this stops well inside it.
 - repeat:
+    times: 40
     while:
       visible:
         id: "original_7_0"
@@ -65,6 +77,8 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     start: "30%, 40%"
     end: "30%, 30%"
     duration: 800
+- assertNotVisible:
+    id: "original_7_0"
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -178,6 +192,23 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
       - assertNotVisible:
           id: "original_7_${output.prev}"
       - assertNotVisible: ".*downstream\\. \\(1\\).*"
+      # …and the screen did turn: the paragraph has the turned layout's width.
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - assertVisible:
+                id: "original_7_${output.p}"
+                width: 1218
+                tolerance: 6
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'tablet'}
+          commands:
+            - assertVisible:
+                id: "original_7_${output.p}"
+                width: 712
+                tolerance: 6
       - runFlow:
           when:
             true: ${DEVICE_CLASS == 'phone'}
@@ -192,6 +223,23 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
       - assertNotVisible:
           id: "original_7_${output.prev}"
       - assertNotVisible: ".*downstream\\. \\(1\\).*"
+      # …and it turned back.
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - assertVisible:
+                id: "original_7_${output.p}"
+                width: 1088
+                tolerance: 6
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'tablet'}
+          commands:
+            - assertVisible:
+                id: "original_7_${output.p}"
+                width: 1192
+                tolerance: 6
       - runFlow:
           when:
             true: ${DEVICE_CLASS == 'phone'}
@@ -246,6 +294,23 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     id: "translation_7_.*"
 - assertNotVisible:
     id: "reader:verticalBottomPane"
+#     …turned, and one column: the paragraph spans the turned screen.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "original_7_${output.p}"
+          width: 2508
+          tolerance: 6
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "original_7_${output.p}"
+          width: 1472
+          tolerance: 6
 - takeScreenshot: J-RDR-03-step6a-turned-one-column
 - setOrientation: PORTRAIT
 - extendedWaitUntil:
@@ -258,6 +323,23 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     id: "translation_7_.*"
 - assertNotVisible:
     id: "reader:verticalBottomPane"
+#     …turned back, still one column.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "original_7_${output.p}"
+          width: 1088
+          tolerance: 6
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "original_7_${output.p}"
+          width: 2432
+          tolerance: 6
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -277,6 +359,12 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     below: "Show translation"
     above: "Hide to read original only"
     rightOf: "Show translation"
+# With the translation back, the tablet's dialog gets its "Split position" row again, above this
+# one: the row moves down and can leave the screen (seen on Tab_35_PixelTablet). Scroll to it.
+- scrollUntilVisible:
+    element: "Show illustrations"
+    direction: DOWN
+    timeout: 15000
 - assertVisible:
     checked: true
     below: "Show translation"
@@ -352,6 +440,9 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     timeout: 15000
 - assertNotVisible:
     id: "original_7_${output.prev}"
+# 3% of the screen (48 px on the tablet, 85 px on the phone) is past the touch slop, so the page
+# does move; Maestro cannot read by how much, so that it moved is NOT asserted — the two
+# screenshots of this step show it, and the pixel offset is the manual J-RDR-11.
 - swipe:
     start: "30%, 40%"
     end: "30%, 37%"
@@ -375,13 +466,70 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     id: "original_7_${output.prev}"
 - takeScreenshot: J-RDR-03-step9-partway-reopened
 
-# 10. Kill the app; relaunch; open the book -> the same chapter and paragraph after a full
-#     restart (POS-013)
+# 10. Scroll to a NEW place without leaving the reader — chapter 12, on past its first paragraph —
+#     then kill the app; relaunch; open the book -> that new place after a full restart (POS-013).
+#     Nothing but the scroll itself has saved this position: the reader is not left with Back
+#     (steps 7–9 do that), and `stopApp` is a force-stop, which gives the app no chance to save on
+#     the way out. The page is bookmarked before the kill only to name it: the label says which
+#     paragraph the app counts as the top one ("Chapter 12 · ¶ N"), and after the restart
+#     "Remove bookmark here" says the reopened page is that same paragraph.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:11"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch12\\.1\\).*"
+    timeout: 15000
+- repeat:
+    times: 40
+    while:
+      visible:
+        id: "original_11_0"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 30%"
+          duration: 800
+- swipe:
+    start: "30%, 40%"
+    end: "30%, 30%"
+    duration: 800
+- assertNotVisible:
+    id: "original_11_0"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Chapter 12 · ¶ \\d+"
+    timeout: 5000
+- copyTextFrom: "Chapter 12 · ¶ \\d+"
+- evalScript: ${output.killLabel = maestro.copiedText}
+# Past the chapter's first paragraph: a place no chapter jump and no Back has saved.
+- assertTrue: ${parseInt(output.killLabel.split('¶ ')[1]) >= 2}
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- takeScreenshot: J-RDR-03-step10-before-kill
 - stopApp
 - launchApp
 - extendedWaitUntil:
     visible: "Open book"
     timeout: 45000
+#     The Library already knows the new place: the Continue reading card is in chapter 12, not 8.
+- scrollUntilVisible:
+    element: "CH 12 OF 22"
+    direction: DOWN
+    timeout: 10000
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"
@@ -391,8 +539,18 @@ tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
     id: "book_card_The River Crossing"
 - extendedWaitUntil:
     visible:
-      id: "original_7_${output.p}"
+      id: "original_11_.*"
     timeout: 20000
 - assertNotVisible:
-    id: "original_7_${output.prev}"
+    id: "original_11_0"
+- assertNotVisible:
+    id: "original_7_.*"
 - assertNotVisible: ".*downstream\\. \\(1\\).*"
+- takeScreenshot: J-RDR-03-step10-after-restart
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Remove bookmark here"
+- assertVisible: "${output.killLabel}"
+- tapOn: "Close"
