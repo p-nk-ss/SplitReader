@@ -16,7 +16,14 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 # reports only the on-screen part of a node, so a picture matching its FULL size is a picture
 # that is entirely on screen — that is how "fits within one screen" is asserted below.
 # Scrolling is done with slow fixed swipes at x=30% (never x=50%: that is the pane divider),
-# short enough that a 1000 px plate cannot be skipped between two stops.
+# short enough that a 1000 px plate cannot be skipped between two stops. Every scroll loop has a
+# `times:` limit and is followed by an assertion of what it was looking for, so a picture that
+# never comes fails as that assertion, not as the runner's 20-minute watchdog.
+# The divider: a 24 dp (48 px) wide strip over the whole height of the page, centred on the split
+# (x 1256–1304 at 50 / 50 on the 2560 px screen). It lies ON TOP of everything, full-width
+# pictures included, toggles the bars on a tap and moves the split on a drag. A centred picture's
+# middle column is under it, so a tap "on the picture" is never at x = 50% nor at the picture's
+# centre: it is at x = 45% (1152 px: inside the 746 px plate, 907–1653, and outside the strip).
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-01.
 - runFlow: ../../subflows/launch_clean.yaml
 
@@ -86,11 +93,16 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 # 4a. Chapter picker -> the second chapter, whose text starts right under its title: no picture
 #     stands between the chapter title and "CHAPTER I" — the cover is not repeated as this
 #     chapter's first page (ILL-003)
-# MANUAL: LAY-023 — "Preparing translation…" not covering the chapter number. The banner is on
-#     screen only while the Offline HQ pack downloads; on the emulator's network that is shorter
-#     than one Maestro check takes (observed: a 30 s wait started right after the chapter tap never
-#     saw it, the translation was already there), and whether it overlaps the number is a visual
-#     judgement Maestro cannot make.
+# MANUAL: LAY-023 — "Preparing translation…" not covering the chapter number. The flow cannot
+#     get the banner and a chapter number on screen together for long enough to look:
+#     - at the book's start (step 1, the place the case names) the first screen of this book is
+#       pictures only — no paragraph is on screen, nothing is sent to the translator, and the
+#       banner never comes (tablet probe, 30 s after the import: not seen);
+#     - here, where text is on screen, the banner is up only while the Offline HQ pack downloads,
+#       which on the emulator's network is shorter than one Maestro check (a 30 s wait started
+#       right after the chapter tap never saw it; the translation was already there).
+#     Were it on screen, the check would be a colour crop of "— N —" (the page is PaperBg, the
+#     banner PaperBg2); Maestro's `below:` compares top edges only and cannot say "not covered".
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -131,8 +143,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     timeout: 15000
 
 # 5. Scroll down the first chapter -> the frontispiece (256x500) and the title page (373x500)
-#    each fit on one screen at full size (ILL-011, ILL-006, ILL-007), then the first text
+#    each fit on one screen at full size (ILL-011, ILL-006, ILL-007), then the first text; at no
+#    stop on the way is there a 700 px wide picture — the 350x500 cover is not a page of this
+#    chapter (ILL-003)
 - repeat:
+    times: 40
     while:
       notVisible:
         id: "illustration"
@@ -144,7 +159,17 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
           start: "30%, 70%"
           end: "30%, 45%"
           duration: 1200
+      - assertNotVisible:
+          id: "illustration"
+          width: 700
+          tolerance: 6
+- assertVisible:
+    id: "illustration"
+    width: 512
+    height: 1000
+    tolerance: 6
 - repeat:
+    times: 40
     while:
       notVisible:
         id: "illustration"
@@ -156,7 +181,17 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
           start: "30%, 70%"
           end: "30%, 45%"
           duration: 1200
+      - assertNotVisible:
+          id: "illustration"
+          width: 700
+          tolerance: 6
+- assertVisible:
+    id: "illustration"
+    width: 746
+    height: 1000
+    tolerance: 6
 - repeat:
+    times: 40
     while:
       notVisible: "Printed in England"
     commands:
@@ -164,6 +199,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
           start: "30%, 70%"
           end: "30%, 45%"
           duration: 1200
+      - assertNotVisible:
+          id: "illustration"
+          width: 700
+          tolerance: 6
+- assertVisible: "Printed in England"
 
 # 6. The first text of the book is translated beside it (LAY-001)
 - extendedWaitUntil:
@@ -177,6 +217,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 #    …and the panes scroll together: two paragraphs further each original still has its
 #    translation beside it (LAY-001)
 - repeat:
+    times: 40
     while:
       notVisible: "AUSTIN DOBSON\\."
     commands:
@@ -184,6 +225,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
           start: "30%, 70%"
           end: "30%, 45%"
           duration: 1200
+- assertVisible: "AUSTIN DOBSON\\."
 - extendedWaitUntil:
     visible:
       id: "translation_0_2"
@@ -211,6 +253,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     timeout: 15000
 - assertVisible: "— 3 —"
 - repeat:
+    times: 40
     while:
       notVisible:
         id: "illustration"
@@ -234,6 +277,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     below:
       id: "original_2_8"
 - repeat:
+    times: 40
     while:
       notVisible:
         id: "original_2_9"
@@ -254,6 +298,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 # 9. Scroll to the tall plate "The Pool of Tears" (373x500) -> it is whole on one screen at its
 #    full 746x1000 px (ILL-007, ILL-006)
 - repeat:
+    times: 40
     while:
       notVisible:
         id: "illustration"
@@ -265,64 +310,66 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
           start: "30%, 70%"
           end: "30%, 45%"
           duration: 1200
+- assertVisible:
+    id: "illustration"
+    width: 746
+    height: 1000
+    tolerance: 6
 - takeScreenshot: J-RDR-01-step9-plate
-# Let the bars' auto-hide (3.5 s after the last scroll) finish, so "hidden" is a settled state.
+# Let the bars' auto-hide finish (they leave 3.5 s after they appeared), so "hidden" is a settled
+# state.
 - extendedWaitUntil:
     notVisible:
       id: "reader:languageChip"
     timeout: 8000
 
-# Steps 10–12 tap by point, without waiting for the screen to settle: the bars hide by themselves
-# 3.5 s after they appear, and a tap by id can take longer than that on a freshly booted
-# emulator. The plate was found scrolling down in 400 px steps, so (bars hidden) its top is
-# 300–700 px down the 1600 px screen: x 50%, y 62% is always on the plate, x 25%, y 12% is
-# always the original's text above it.
-# "A tap hides the bars" cannot be told from the 3.5 s timer by looking at the screen, so it is
-# checked as two taps back to back from the settled hidden state: the first shows the bars (that
-# same tap is proven to show them just before), and they must be gone straight after the second.
+# Steps 10–12. The plate was found scrolling down in 400 px steps, so (bars hidden) its top is
+# 300–700 px down the 1600 px screen: the point x 45%, y 62% is always on the plate (and never
+# under the divider strip, see the header — step 12a proves that), x 25%, y 12% is always the
+# original's text above it.
+# "A tap hides the bars" cannot be told from the bars' own 3.5 s timer by looking at the screen,
+# so every show-then-hide is one timed exchange, subflows/tap_shows_tap_hides.yaml: tap, see the
+# bars, tap, see them gone, all within 3 s of the first tap.
 
 # 10. Tap directly on the plate -> the bars appear (ILL-009); the picture keeps its width — it is
-#     not resized (ILL-007)
-- tapOn:
-    point: "50%, 62%"
-    waitToSettleTimeoutMs: 100
-- extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 3000
+#     not resized (ILL-007). The tap is aimed at the plate itself, a third of the way across it
+#     (the bars are hidden and nothing is counting down, so the element can be looked up first).
+- retry:
+    maxRetries: 2
+    commands:
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 10000
+      - tapOn:
+          id: "illustration"
+          width: 746
+          height: 1000
+          tolerance: 6
+          point: "32%, 50%"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          visible:
+            id: "reader:languageChip"
+          timeout: 3000
 - assertVisible:
     id: "illustration"
     width: 746
     tolerance: 6
 
-# 11. From the hidden state a tap on plain text shows the bars too (NAV-003)…
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 8000
-- tapOn:
-    point: "25%, 12%"
-    waitToSettleTimeoutMs: 100
-- extendedWaitUntil:
-    visible:
-      id: "reader:languageChip"
-    timeout: 3000
-#     …and with the bars shown by a tap on the plate, a tap on plain text hides them — the same
-#     toggle as on the picture (NAV-003)
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 8000
-- tapOn:
-    point: "50%, 62%"
-    waitToSettleTimeoutMs: 100
-- tapOn:
-    point: "25%, 12%"
-    waitToSettleTimeoutMs: 100
-- extendedWaitUntil:
-    notVisible:
-      id: "reader:languageChip"
-    timeout: 1500
+# 11. The plate and plain text are the same toggle (NAV-003): a tap on the plate shows the bars
+#     and a tap on plain text hides them…
+- runFlow:
+    file: ../../subflows/tap_shows_tap_hides.yaml
+    env:
+      SHOW_AT: "45%, 62%"
+      HIDE_AT: "25%, 12%"
+#     …and a tap on plain text shows them and a tap on the plate hides them.
+- runFlow:
+    file: ../../subflows/tap_shows_tap_hides.yaml
+    env:
+      SHOW_AT: "25%, 12%"
+      HIDE_AT: "45%, 62%"
 
 # 12. Two more taps -> each time the page is laid out against the bars again: hidden, the footer
 #     percentage is gone and the plate is whole at its full size; shown, the footer is back and
@@ -335,7 +382,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     height: 1000
     tolerance: 6
 - tapOn:
-    point: "50%, 62%"
+    point: "45%, 62%"
     waitToSettleTimeoutMs: 100
 - extendedWaitUntil:
     visible:
@@ -355,6 +402,15 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     height: 1000
     tolerance: 6
 
+# 12a. The point the plate was tapped at is not the divider: a sideways drag that starts there
+#      does not move the split — step 13 finds "50 / 50" untouched. (The same drag started at
+#      x = 50% does move it: that is the strip, and a tap there would toggle the bars whatever
+#      the picture under it does.)
+- swipe:
+    start: "45%, 62%"
+    end: "30%, 62%"
+    duration: 600
+
 # 13. Display (Aa) -> "Split position" 50 / 50 -> move the slider to about 35 / 65 -> the value
 #     changes live (LAY-004). The pane widths themselves are not asserted: they are device pixels
 #     that differ between the two required tablets; the screenshot after Close shows them.
@@ -368,6 +424,7 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
     direction: DOWN
     timeout: 15000
 - assertVisible: "Split position"
+# Still 50 / 50 after the sideways drag of step 12a.
 - assertVisible: "50 / 50"
 # The split slider has no testTag; it is the 22 dp high bar between its label and the next row.
 - tapOn:
