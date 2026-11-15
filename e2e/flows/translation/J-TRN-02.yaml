@@ -412,11 +412,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
     notVisible: "WORD"
     timeout: 5000
 
-# 10. Press "river" and at once tap elsewhere in the text -> the popup is dismissed (and the tap
-#     did not bring up the bars: an open selection is dismissed first, LAY-030); then press the
-#     word in paragraph 2 -> its popup shows only its own word and translation; the app answers
-#     (POP-022). Partial, as in step 9: whether the first request was still in flight when it
-#     was dismissed cannot be arranged.
+# 10. Press "river" and at once tap elsewhere in the text -> the popup is dismissed; then press
+#     the word in paragraph 2 -> its popup shows only its own word and translation; the app
+#     answers (POP-022). Partial, as in step 9: whether the first request was still in flight
+#     when it was dismissed cannot be arranged.
+#     (That the dismissing tap does not also bring up the bars is step 10a: asked here with an
+#     `assertNotVisible` it would pass by the bars' own 3.5 s timer.)
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
@@ -452,8 +453,6 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     notVisible: "WORD"
     timeout: 3000
-- assertNotVisible:
-    id: "reader:languageChip"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
@@ -494,6 +493,113 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     notVisible: "WORD"
     timeout: 5000
+
+# 10a. With a word selected, tap the chapter title: the FIRST tap only dismisses the selection,
+#      the bars stay hidden; the NEXT tap on the title brings the bars up (LAY-030: "an open
+#      word selection is dismissed first instead of toggling").
+#      The title row (ChapterMasthead, ReaderChrome.kt) takes taps over the page's whole width
+#      and calls `if (wordSelection != null) onDismiss() else onToggleBars()`. The points: on the
+#      phone the top pane's title, x 50%, y 16% (as in J-RDR-02 step 4); on the tablet x 40%,
+#      y 15% — the title's row left of the divider strip (the strip, x 49–51%, lies on top of the
+#      row and toggles the bars without dismissing, which is another rule: J-TRN-03 step 2). The
+#      popup is at the bottom of the screen and covers neither point.
+#      "The first tap did not show the bars" cannot be asked by looking: bars that did come up
+#      leave by their own timer 3.5 s later, about as long as Maestro waits before it answers
+#      "not visible". So it is asked through the second tap, and timed:
+#        - the bars are hidden and nothing is counting down; press "river", see the popup;
+#        - note the time; tap the title; the popup is gone;
+#        - tap the title again; less than 3 s have passed since before the first tap;
+#        - the bars are up within 1.5 s, and still up one command later.
+#      Had the first tap toggled the bars, the second would have hidden them again (no bars →
+#      fails); bars hidden by the timer and shown again by the second tap need more than 3.5 s
+#      (→ the time limit fails). A slow attempt proves nothing and is tried again, up to three
+#      attempts; each is logged ("selection then title - attempt N" → "Retries" in summary.md).
+- evalScript: ${output.selTitleAttempt = 0}
+- retry:
+    maxRetries: 2
+    commands:
+      - evalScript: ${output.selTitleAttempt = output.selTitleAttempt + 1}
+      - evalScript: ${console.log('selection then title - attempt ' + output.selTitleAttempt)}
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 10000
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'tablet'}
+          commands:
+            - swipe:
+                start: "740, 333"
+                end: "740, 333"
+                duration: 700
+                waitToSettleTimeoutMs: 100
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - swipe:
+                start: "1112, 577"
+                end: "1112, 577"
+                duration: 700
+                waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          visible: "WORD"
+          timeout: 10000
+      - assertVisible:
+          text: "river"
+          below: "WORD"
+          above: "Listen"
+      - evalScript: ${output.selTitleStart = Date.now()}
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'tablet'}
+          commands:
+            - tapOn:
+                point: "40%, 15%"
+                waitToSettleTimeoutMs: 100
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - tapOn:
+                point: "50%, 16%"
+                waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          notVisible: "WORD"
+          timeout: 1500
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'tablet'}
+          commands:
+            - tapOn:
+                point: "40%, 15%"
+                waitToSettleTimeoutMs: 100
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - tapOn:
+                point: "50%, 16%"
+                waitToSettleTimeoutMs: 100
+      - evalScript: ${output.selTitleTook = Date.now() - output.selTitleStart}
+      - extendedWaitUntil:
+          visible:
+            id: "reader:languageChip"
+          timeout: 1500
+      # …and they are still up one command later. Bars that the second tap has just HIDDEN are
+      # still in the tree for a moment while they fade out (seen: a broken copy without the
+      # selection passed the line above 0.13 s after the hiding tap).
+      - assertNotVisible: "WORD"
+      - assertVisible:
+          id: "reader:languageChip"
+      - evalScript: ${console.log('selection then title - dismissed, second tap sent after ' + output.selTitleTook + ' ms (limit 3000)')}
+      - assertTrue: ${output.selTitleTook < 3000}
+- assertNotVisible: "WORD"
+#      Leave with the bars hidden (their own timer), as the next step expects.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 10000
 
 # 11. "Nothing to save" for a punctuation-only token (POP-014).
 #     MANUAL / not reachable in this book: a long press keeps only the letters and digits of the

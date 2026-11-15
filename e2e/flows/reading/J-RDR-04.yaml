@@ -238,7 +238,10 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
     file: ../../subflows/tap_reader_button.yaml
     env:
       BUTTON: "reader:bookmarksButton"
-      OPENS: "Remove bookmark here"
+      OPENS: "Bookmark this page|Remove bookmark here"
+# Asserted here, outside the subflow's retry: a retry that waited for "Remove bookmark here" on a
+# page that is not the bookmarked one would tap the page again with the dialog open.
+- assertVisible: "Remove bookmark here"
 - tapOn: "Remove bookmark here"
 - extendedWaitUntil:
     visible: "Bookmark this page"
@@ -373,7 +376,10 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-04]
     file: ../../subflows/tap_reader_button.yaml
     env:
       BUTTON: "reader:bookmarksButton"
-      OPENS: "Remove bookmark here"
+      OPENS: "Bookmark this page|Remove bookmark here"
+# Asserted here, outside the subflow's retry: a retry that waited for "Remove bookmark here" on a
+# page that is not the bookmarked one would tap the page again with the dialog open.
+- assertVisible: "Remove bookmark here"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "Remove bookmark here"

@@ -77,6 +77,14 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 - extendedWaitUntil:
     visible: "Preparing translation….*"
     timeout: 30000
+#    While the banner is up it does not cover the chapter number (LAY-023): the page is PaperBg,
+#    the banner PaperBg2, so a crop of "— 1 —" taken now must be on PaperBg (e2e/check_colours.py,
+#    the row "J-TRN-01 colours"; a crop of the banner itself is 89% PaperBg2 and fails that
+#    check). The banner must still be up after the crop — otherwise the crop proved nothing.
+- takeScreenshot:
+    path: colour-check/step2-chapter-number-under-banner__PaperBg
+    cropOn: "— 1 —"
+- assertVisible: "Preparing translation….*"
 - runFlow: ../../subflows/watch_translation_banner.yaml
 - assertTrue: ${output.bnBelow100 >= 2}
 - assertTrue: ${output.bnDistinct >= 3}

@@ -74,6 +74,15 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 - assertVisible: "CONTINUE READING"
 - assertVisible: "CH 1 OF 14"
 - assertVisible: "0%"
+#    …and the card's passage is the book's opening text — the first lines of the proem, which the
+#    app shows while nothing has been read (HomeSections.kt HeroExcerpt: `excerpt ?: synopsis`; no
+#    excerpt is saved at the very start, ReaderViewModel.onReadingPositionChanged) — not a
+#    paragraph from further in. (After six swipes into the book the same card says "Who stole
+#    the Tarts?": that is how this line was seen failing.)
+- assertVisible:
+    text: "'Tis two score years since Carroll's art[\\s\\S]*"
+    below: "by Lewis Carroll"
+    above: "CH 1 OF 14"
 - scrollUntilVisible:
     element:
       id: "book_card_Alice's Adventures in Wonderland.*"
@@ -93,16 +102,11 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 # 4a. Chapter picker -> the second chapter, whose text starts right under its title: no picture
 #     stands between the chapter title and "CHAPTER I" — the cover is not repeated as this
 #     chapter's first page (ILL-003)
-# MANUAL: LAY-023 — "Preparing translation…" not covering the chapter number. The flow cannot
-#     get the banner and a chapter number on screen together for long enough to look:
-#     - at the book's start (step 1, the place the case names) the first screen of this book is
-#       pictures only — no paragraph is on screen, nothing is sent to the translator, and the
-#       banner never comes (tablet probe, 30 s after the import: not seen);
-#     - here, where text is on screen, the banner is up only while the Offline HQ pack downloads,
-#       which on the emulator's network is shorter than one Maestro check (a 30 s wait started
-#       right after the chapter tap never saw it; the translation was already there).
-#     Were it on screen, the check would be a colour crop of "— N —" (the page is PaperBg, the
-#     banner PaperBg2); Maestro's `below:` compares top edges only and cannot say "not covered".
+# LAY-023 ("Preparing translation…" does not cover the chapter number) is not checked in this
+#     journey: this book's first screen is pictures only — no paragraph is on screen, nothing is
+#     sent to the translator and the banner never comes. It is automated where a book with text
+#     on its first screen is imported on a fresh install: J-TRN-01 step 2 (a colour crop of
+#     "— 1 —" taken while the banner is up).
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -334,9 +338,14 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
 # 10. Tap directly on the plate -> the bars appear (ILL-009); the picture keeps its width — it is
 #     not resized (ILL-007). The tap is aimed at the plate itself, a third of the way across it
 #     (the bars are hidden and nothing is counting down, so the element can be looked up first).
+#     Every attempt is logged, so a plate that needs a second tap is listed under "Retries" in
+#     summary.md instead of hiding behind the retry.
+- evalScript: ${output.plateTapAttempt = 0}
 - retry:
     maxRetries: 2
     commands:
+      - evalScript: ${output.plateTapAttempt = output.plateTapAttempt + 1}
+      - evalScript: ${console.log('plate tap (ILL-009) - attempt ' + output.plateTapAttempt)}
       - extendedWaitUntil:
           notVisible:
             id: "reader:languageChip"

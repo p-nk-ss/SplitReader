@@ -31,7 +31,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-LIB-17 | Release artifact audit before a Play upload | P0 | manual | 9 | 9 |
 | J-LIB-18 | Odd files that need a human eye | P1 | manual, tablet | 4 | 4 |
 | J-LIB-19 | Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them | P0 | smoke, full, tablet, phone | 10 | 6 |
-| J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 15 | 17 |
+| J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 15 | 16 |
 | J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 13 | 17 |
 | J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone, tablet | 11 | 8 |
 | J-RDR-04 | Reading to the end: 0% to 100% and back | P0 | smoke, full, phone, tablet | 9 | 6 |
@@ -51,8 +51,8 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-RDR-18 | Paid engine: hiding the translation stops metered requests | P0 | manual, network | 6 | 2 |
 | J-RDR-19 | Release visual regression pass (goldens) | P1 | manual | 3 | 2 |
 | J-RDR-20 | Known-bug probe: bookmarks, margins, rail, re-added books | P2 | manual, known-bug, tablet | 6 | 6 |
-| J-TRN-01 | First run: Offline HQ by default on an English book | P0 | smoke, full, network, phone, tablet | 12 | 11 |
-| J-TRN-02 | Word popup: select, drag, save, and the Words list | P0 | smoke, full, network, phone, tablet | 15 | 19 |
+| J-TRN-01 | First run: Offline HQ by default on an English book | P0 | smoke, full, network, phone, tablet | 12 | 12 |
+| J-TRN-02 | Word popup: select, drag, save, and the Words list | P0 | smoke, full, network, phone, tablet | 16 | 20 |
 | J-TRN-03 | Changing the target language mid-read; packs and engine switches | P0 | smoke, full, network, phone, tablet | 13 | 11 |
 | J-TRN-04 | A mixed-language book: every passage in its own language | P0 | smoke, full, network, phone, tablet | 12 | 8 |
 | J-TRN-05 | Chinese and Japanese: books, sentences, both on-device engines | P0 | smoke, full, network, tablet, phone | 12 | 6 |
@@ -604,8 +604,8 @@ translation works without network keys.
 1. On the empty Library tap "Open book" and pick F-ALICE (importing a book opens it) → ✓ the reader shows the very start — the first chapter's number "— 1 —" and title — no jump (POS-023, POS-011).
 2. Look at the reader → ✓ the navigation rail is hidden inside the reader (NAV-017); no "ML KIT READY" label anywhere, with the bars hidden or shown (LAY-022).
 3. Check the first screen → ✓ the pictures placed before and right after the book's first heading (endpapers, frontispiece, title page) render under the first chapter title, none dropped (ILL-011), at full size — one image pixel per dp, not a thumbnail (ILL-006); the 350×500 cover is not repeated as a page of the first chapter (ILL-003).
-4. Back to Library without scrolling → ✓ the "Continue reading" card shows the book at "CH 1 OF 14", 0% (the app has no imported-but-never-opened state; the card's excerpt is the book's opening text). Open the book again from its card → ✓ still the very start, no false "continue reading" jump (POS-011).
-4a. Chapter picker → the second chapter ("— 2 —", text starts right under the title) → ✓ no picture stands between the chapter title and "CHAPTER I" — the cover is not repeated as this chapter's first page (ILL-003). Wait for translation → ✓ original left, translation right, one row per paragraph (LAY-001). *Manual:* while "Preparing translation…" is shown the banner does not cover the chapter number (LAY-023) — at the book's start the first screen is pictures only, so nothing is translated and the banner never comes; in the second chapter it is up for less time than one Maestro check takes.
+4. Back to Library without scrolling → ✓ the "Continue reading" card shows the book at "CH 1 OF 14", 0% (the app has no imported-but-never-opened state); the card's passage is the book's opening text — the proem's first lines, "'Tis two score years since Carroll's art…" — not a paragraph from further in. Open the book again from its card → ✓ still the very start, no false "continue reading" jump (POS-011).
+4a. Chapter picker → the second chapter ("— 2 —", text starts right under the title) → ✓ no picture stands between the chapter title and "CHAPTER I" — the cover is not repeated as this chapter's first page (ILL-003). Wait for translation → ✓ original left, translation right, one row per paragraph (LAY-001). (LAY-023 — the "Preparing translation…" banner does not cover the chapter number — is checked in J-TRN-01 step 2: this book's first screen is pictures only, so the banner never comes here.)
 5. Chapter picker → the first chapter; scroll down → ✓ the frontispiece and the title page each fit on one screen at full size (ILL-011, ILL-006, ILL-007).
 6. Scroll on to the first text ("Printed in England") and two paragraphs further → ✓ each original has its translation beside it; the panes scroll together (LAY-001).
 7. Chapter picker → the third chapter; scroll to its first picture → ✓ it sits inside the chapter at its anchor, between the 9th and 10th paragraphs (ILL-001), inline as its own row (ILL-015), rendered at full size, not a thumbnail (ILL-006).
@@ -617,7 +617,7 @@ translation works without network keys.
 13. Open the reader's Display dialog (Aa); move the "Split position" slider from 50 / 50 to about 35 / 65 → ✓ the value changes live (LAY-004).
 14. Close the dialog, Back to Library, reopen F-ALICE → ✓ Display still shows the new split (LAY-004).
 
-**Covers:** POS-011, NAV-017, LAY-022, LAY-023, POS-023, ILL-003, LAY-001, ILL-011, ILL-001, ILL-015, ILL-006, ILL-008, ILL-007, ILL-009, NAV-003, SYS-012, LAY-004
+**Covers:** POS-011, NAV-017, LAY-022, POS-023, ILL-003, LAY-001, ILL-011, ILL-001, ILL-015, ILL-006, ILL-008, ILL-007, ILL-009, NAV-003, SYS-012, LAY-004
 
 ### J-RDR-02 — Phone: stacked reading, progress and bookmarks
 **Priority** P0 · **Tags** smoke, full, phone · **Devices** phone emulator API 35, portrait (default) · **Fixtures** F-LONG · **Preconditions** clean install; portrait hint never dismissed with "Don't show again"; translation on (default).
@@ -919,7 +919,7 @@ Expected to fail until fixed; report, never block. Run as one probing session.
 
 | Journey | Kind | Priority | IDs |
 |---|---|---|---|
-| J-RDR-01 | smoke · tablet | P0 | 17 |
+| J-RDR-01 | smoke · tablet | P0 | 16 |
 | J-RDR-02 | smoke · phone | P0 | 17 |
 | J-RDR-03 | smoke · rotation | P0 | 8 |
 | J-RDR-04 | smoke | P0 | 6 |
@@ -1016,7 +1016,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 
 **Steps**
 1. Launch the app (there is no onboarding: the Library is the first screen) and import `en-novel.epub` from the Library; importing a book opens it.
-2. The book opens. → ✓ language button reads "EN → RU"; the banner reads "Preparing translation… N%" and N only grows (the popup, not the banner, says "Downloading language model… N%"); there is no "ML KIT READY" label in the top-right corner or anywhere else (OHQ-001, OHQ-004). On a phone this step is done in landscape: in portrait the "Parallel reading fits landscape better" hint covers the reader for the ~5 s the download takes.
+2. The book opens. → ✓ language button reads "EN → RU"; the banner reads "Preparing translation… N%" and N only grows (the popup, not the banner, says "Downloading language model… N%"); there is no "ML KIT READY" label in the top-right corner or anywhere else (OHQ-001, OHQ-004); while the banner is up it does not cover the chapter number "— 1 —" (LAY-023, a colour crop). On a phone this step is done in landscape: in portrait the "Parallel reading fits landscape better" hint covers the reader for the ~5 s the download takes.
 3. Wait for the download to finish without touching the screen. → ✓ every paragraph on the first screen gets a translation, not only the top one; the banner shows "Translating…" and then goes idle (TRN-001, OHQ-004). (The "Translating…" line is asserted on the tablet; on the phone it is up for well under a second and is only logged.)
 4. Open the Translator picker from the reader. → ✓ Offline HQ is the current translator (its card is the inverted one — checked by colour); the list shows ML Kit and Offline HQ ready with no key line, Quick Translate ready (online, no key), and DeepL, Google Cloud, Azure and LibreTranslate each with a key button ("TAP TO ADD API KEY") (OHQ-001, SET-002).
 5. In the picker, look at the ML Kit, Offline HQ and Quick Translate rows. → ✓ none has a usage bar or counter (ONL-016).
@@ -1028,7 +1028,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 11. Tap Save. → ✓ toast "Saved to dictionary" (POP-001, WRD-001).
 12. Turn **Show translation** back on and close the book. Kill and relaunch the app, reopen the book. → ✓ no new download banner; translations appear at once; Offline HQ is still current (OHQ-001, OHQ-004).
 
-**Covers:** OHQ-001, OHQ-004, OHQ-024, OHQ-025, TRN-001, TRN-005, POP-001, POP-002, SET-002, ONL-016 (also WRD-001)
+**Covers:** OHQ-001, OHQ-004, OHQ-024, OHQ-025, TRN-001, TRN-005, POP-001, POP-002, SET-002, ONL-016, LAY-023 (also WRD-001)
 
 ### J-TRN-02 — Word popup: select, drag, save, and the Words list
 
@@ -1046,14 +1046,15 @@ Translating → Ready transition, no intermediate results) until one is added; t
 7. Touch the end handle and release it without moving. → ✓ no new request; the same Ready result stays (POP-007). **App bug, 2026-11-15 (versionCode 28): the popup closes** — the touch is also taken as a tap on the paragraph, which dismisses the selection. Not asserted until fixed.
 8. Long-press a single word in paragraph A, note the popup; then long-press the word at the same offset in paragraph B. → ✓ the popup shows paragraph B's own word and translation, nothing left over from A (POP-019).
 9. Long-press word A and, before it reaches Ready, long-press word B in another paragraph. → ✓ only word B's result is shown; A's late answer never appears (POP-021). Automated as two quick presses back to back and the end state; whether A was still in flight cannot be arranged with an installed pack (manual).
-10. Long-press a word and, while it is still Translating, tap elsewhere in the text to dismiss; then long-press a different word. → ✓ the tap closes the popup without bringing up the bars; the dismissed request never shows up in the new popup; the app stays responsive (POP-022). Partial as in step 9.
+10. Long-press a word and, while it is still Translating, tap elsewhere in the text to dismiss; then long-press a different word. → ✓ the tap closes the popup; the dismissed request never shows up in the new popup; the app stays responsive (POP-022). Partial as in step 9.
+10a. Long-press "river", then tap the chapter title; tap the title again. → ✓ the first tap only dismisses the selection and the bars stay hidden; the second tap brings the bars up (LAY-030, "an open word selection is dismissed first"). Timed, because bars that did come up would leave by their own 3.5 s timer.
 11. Long-press a punctuation-only token (e.g. an em dash "—" between words) and tap Save if offered. → ✓ "Nothing to save"; no entry is created (POP-014). **Manual / not reachable here:** a long press keeps only the letters and digits of the token under the finger and opens no popup when none are left (`ReaderPane.kt`, `onLongPress`); `en-novel.epub` has no such token.
 12. Long-press the single word "river", wait for Ready, tap Save. → ✓ toast "Saved to dictionary" (POP-001, WRD-001).
 13. Long-press "river" again, wait for Ready, tap Save. → ✓ a duplicate / "already in your dictionary" message, no translation-failure message (POP-013, WRD-008).
 14. Go back and open Words. → ✓ "1 saved word"; the entry "river" shows exactly the translation the popup showed (WRD-002, WRD-007).
 15. Return to the reader. → ✓ the reader reopens at the same place with translations shown.
 
-**Covers:** POP-001, POP-003, POP-004, POP-005, POP-006, POP-007, POP-010, POP-011, POP-013, POP-014, POP-016, POP-019, POP-021, POP-022 (also WRD-001, WRD-002, WRD-007, WRD-008, WRD-009)
+**Covers:** POP-001, POP-003, POP-004, POP-005, POP-006, POP-007, POP-010, POP-011, POP-013, POP-014, POP-016, POP-019, POP-021, POP-022, LAY-030 (also WRD-001, WRD-002, WRD-007, WRD-008, WRD-009)
 
 ### J-TRN-03 — Changing the target language mid-read; packs and engine switches
 
