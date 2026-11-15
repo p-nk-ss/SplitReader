@@ -979,8 +979,9 @@ Default device setup unless a journey says otherwise: arm64 device, app target l
 button reads "EN → RU" on an English book), translation pane visible.
 
 **Request counting (POP-004/005/006/007).** Maestro checks "exactly one request" by counting the selection
-translator's debug log line in `adb logcat` between drag start and settle. If the debug build has no such line,
-that checkpoint is observed manually (one Translating → Ready transition, no intermediate results) until one is added.
+translator's debug log line in `adb logcat` between drag start and settle. The debug build has no such line
+(`SelectionTranslator.kt` logs nothing, checked 2026-11-15), so that checkpoint is observed manually (one
+Translating → Ready transition, no intermediate results) until one is added; the flows assert the end state only.
 
 ## Journey index
 
@@ -1014,16 +1015,16 @@ that checkpoint is observed manually (one Translating → Ready transition, no i
 **Preconditions:** Fresh install (or cleared app data); no translator ever chosen; no Offline HQ packs on the device; target language Russian; online.
 
 **Steps**
-1. Launch the app, finish onboarding, import `en-novel.epub` from the Library.
-2. Open the book. → ✓ language button reads "EN → RU"; the banner reads "Downloading language model… N%" and N only grows; there is no "ML KIT READY" label in the top-right corner or anywhere else (OHQ-001, OHQ-004).
-3. Wait for the download to finish without touching the screen. → ✓ every paragraph on the first screen gets a translation, not only the top one; the banner shows "Translating" and then goes idle (TRN-001, OHQ-004).
-4. Open the Translator picker from the reader. → ✓ Offline HQ is the current translator; the list shows ML Kit and Offline HQ ready with no key field, Quick Translate ready (online, no key), and DeepL, Google Cloud, Azure and LibreTranslate each with a way to enter a key (OHQ-001, SET-002).
+1. Launch the app (there is no onboarding: the Library is the first screen) and import `en-novel.epub` from the Library; importing a book opens it.
+2. The book opens. → ✓ language button reads "EN → RU"; the banner reads "Preparing translation… N%" and N only grows (the popup, not the banner, says "Downloading language model… N%"); there is no "ML KIT READY" label in the top-right corner or anywhere else (OHQ-001, OHQ-004). On a phone this step is done in landscape: in portrait the "Parallel reading fits landscape better" hint covers the reader for the ~5 s the download takes.
+3. Wait for the download to finish without touching the screen. → ✓ every paragraph on the first screen gets a translation, not only the top one; the banner shows "Translating…" and then goes idle (TRN-001, OHQ-004). (The "Translating…" line is asserted on the tablet; on the phone it is up for well under a second and is only logged.)
+4. Open the Translator picker from the reader. → ✓ Offline HQ is the current translator (its card is the inverted one — checked by colour); the list shows ML Kit and Offline HQ ready with no key line, Quick Translate ready (online, no key), and DeepL, Google Cloud, Azure and LibreTranslate each with a key button ("TAP TO ADD API KEY") (OHQ-001, SET-002).
 5. In the picker, look at the ML Kit, Offline HQ and Quick Translate rows. → ✓ none has a usage bar or counter (ONL-016).
 6. Tap Offline HQ (already current). → ✓ no key field or "Configure" prompt opens; the picker closes and the reader keeps translating (OHQ-024).
-7. Back in the reader, wait 10 s without scrolling, then scroll paragraph by paragraph to the end of chapter 1. → ✓ paragraphs further down already show translations when they come into view, with no "Translating" delay (TRN-005).
+7. Back in the reader, wait 10 s without scrolling, then scroll paragraph by paragraph to the end of chapter 1. → ✓ paragraphs further down already show translations when they come into view (TRN-005). Automated as: after the 10 s the translation cache (Settings → "Cached translations: N", read after an app restart) holds the first screen's paragraphs plus the 8 below it, and every third paragraph down to the chapter's last has its translation within 3 s of being scrolled to; "no Translating delay" as the eye sees it is manual.
 8. Open Aa (Appearance) and turn **Show translation** off. → ✓ the reader shows one column of original text.
-9. Scroll forward three screens, then turn **Show translation** back on. → ✓ the screens just scrolled through already have translations; Offline HQ is free, so it was not paused (OHQ-025).
-10. Turn **Show translation** off again, then long-press a word in the original text. → ✓ the popup opens with the word, shows Translating, then the Russian translation (POP-002, POP-001).
+9. Scroll forward three screens, then turn **Show translation** back on. → ✓ the screens just scrolled through already have translations; Offline HQ is free, so it was not paused (OHQ-025). Automated as: the cache count read before and after the three hidden screens grows.
+10. Turn **Show translation** off again, then long-press a word in the original text. → ✓ the popup opens with the word and its Russian translation (POP-002, POP-001); the "Translating…" line in between lasts a fraction of a second (manual).
 11. Tap Save. → ✓ toast "Saved to dictionary" (POP-001, WRD-001).
 12. Turn **Show translation** back on and close the book. Kill and relaunch the app, reopen the book. → ✓ no new download banner; translations appear at once; Offline HQ is still current (OHQ-001, OHQ-004).
 
@@ -1033,20 +1034,20 @@ that checkpoint is observed manually (one Translating → Ready transition, no i
 
 **Priority:** P0 · **Tags:** smoke, full, network, phone, tablet · **Devices:** tablet API 35, phone emulator
 **Fixtures:** `en-novel.epub`
-**Preconditions:** Offline HQ current; the EN→RU pack installed (run after J-TRN-01 or pre-install it); Words list empty; online.
+**Preconditions:** Offline HQ current; the EN→RU pack installed (the flow starts from a clean install and imports the book, which installs it); Words list empty; online.
 
 **Steps**
 1. Open Words from the home screen. → ✓ empty-state hint "Long-press any word in the reader to save it to your words." (WRD-009)
-2. Open `en-novel.epub`; long-press the word "river" (any single word). → ✓ the popup opens; while it shows Translating, Save is greyed out and does nothing when tapped (POP-010); it then shows the translation — the popup goes Pending → Translating → Ready (POP-016).
-3. Without releasing the finger after a new long-press, start dragging the end handle to the right. → ✓ the popup shows a muted "Release to translate" line and no spinner or result while the finger is down (POP-003, POP-016).
-4. Drag the handle out two words, back one, out three, back two — then release once. → ✓ exactly one translation request for the final selection (logcat count); no flicker of intermediate results (POP-004, POP-005).
-5. With the phrase showing Ready, look at Save. → ✓ Save stays disabled for a multi-word selection (POP-011).
-6. Drag the end handle past the paragraph's last line into the margin and release there. → ✓ exactly one request again, no duplicate (POP-006).
-7. Touch the end handle and release it without moving. → ✓ no new request; the same Ready result stays (POP-007).
+2. Open `en-novel.epub`; long-press the word "river" (any single word). → ✓ the popup opens on that word and shows its translation (POP-016 Ready). **Manual:** while it shows Translating, Save is greyed out and does nothing when tapped (POP-010), and the Translating state itself (POP-016) — with the pack installed the state lasts a fraction of a second, and the greyed-out Save differs only in opacity (its node reads enabled in both states).
+3. Touch the end handle (a new touch that starts on the handle, after the long press was released — `ReaderPane.kt`, `ParagraphItem`; the handles are touch zones under the first and last selected letter, which are underlined) and start dragging it to the right. → ✓ the popup shows a muted "Release to translate" line and no spinner or result while the finger is down (POP-003, POP-016). **Manual:** nothing can look at the screen during a Maestro swipe.
+4. Drag the handle out two words, back one, out three, back two — then release once. → ✓ exactly one translation request for the final selection; no flicker of intermediate results (POP-004, POP-005). Automated as one straight drag from "river" to "its": the popup shows "river, though its" as a SENTENCE with one translation; the request count and the out-and-back path are manual.
+5. With the phrase showing Ready, look at Save. → ✓ a multi-word selection cannot be saved: its popup has no Save button at all, only Listen (POP-011; `ReaderPane.kt`, `TranslationBubble`).
+6. Drag the end handle past the paragraph's last line into the margin and release there. → ✓ the selection runs to the end of the paragraph's text and gets a new translation, no error (POP-006); "exactly one request" is manual.
+7. Touch the end handle and release it without moving. → ✓ no new request; the same Ready result stays (POP-007). **App bug, 2026-11-15 (versionCode 28): the popup closes** — the touch is also taken as a tap on the paragraph, which dismisses the selection. Not asserted until fixed.
 8. Long-press a single word in paragraph A, note the popup; then long-press the word at the same offset in paragraph B. → ✓ the popup shows paragraph B's own word and translation, nothing left over from A (POP-019).
-9. Long-press word A and, before it reaches Ready, long-press word B in another paragraph. → ✓ only word B's result is shown; A's late answer never appears (POP-021).
-10. Long-press a word and, while it is still Translating, tap elsewhere in the text to dismiss; then long-press a different word. → ✓ the dismissed request never shows up in the new popup; the app stays responsive (POP-022).
-11. Long-press a punctuation-only token (e.g. an em dash "—" between words) and tap Save if offered. → ✓ "Nothing to save"; no entry is created (POP-014).
+9. Long-press word A and, before it reaches Ready, long-press word B in another paragraph. → ✓ only word B's result is shown; A's late answer never appears (POP-021). Automated as two quick presses back to back and the end state; whether A was still in flight cannot be arranged with an installed pack (manual).
+10. Long-press a word and, while it is still Translating, tap elsewhere in the text to dismiss; then long-press a different word. → ✓ the tap closes the popup without bringing up the bars; the dismissed request never shows up in the new popup; the app stays responsive (POP-022). Partial as in step 9.
+11. Long-press a punctuation-only token (e.g. an em dash "—" between words) and tap Save if offered. → ✓ "Nothing to save"; no entry is created (POP-014). **Manual / not reachable here:** a long press keeps only the letters and digits of the token under the finger and opens no popup when none are left (`ReaderPane.kt`, `onLongPress`); `en-novel.epub` has no such token.
 12. Long-press the single word "river", wait for Ready, tap Save. → ✓ toast "Saved to dictionary" (POP-001, WRD-001).
 13. Long-press "river" again, wait for Ready, tap Save. → ✓ a duplicate / "already in your dictionary" message, no translation-failure message (POP-013, WRD-008).
 14. Go back and open Words. → ✓ "1 saved word"; the entry "river" shows exactly the translation the popup showed (WRD-002, WRD-007).
@@ -1062,14 +1063,14 @@ that checkpoint is observed manually (one Translating → Ready transition, no i
 
 **Steps**
 1. Open `en-novel.epub` at chapter 1; wait until the screen is translated into Russian.
-2. Long-press a word so a Ready popup is open; tap the language button "EN → RU", open the "To" tab and pick German. → ✓ the popup closes at once, so a Russian result can no longer be saved (POP-020).
-3. Immediately after confirming German, long-press a word AND scroll to an untranslated paragraph, without waiting. → ✓ exactly one EN→DE download runs: the popup and the banner show the same "Downloading language model… N%", which never goes down; translation follows with no "corrupted" error (OHQ-012).
+2. Long-press a word so a Ready popup is open; bring up the bars with a tap on the divider between the panes (a tap on the page would close the popup instead), tap the language button "EN → RU", open the "To" tab and pick German. → ✓ the popup closes at once, so a Russian result can no longer be saved (POP-020).
+3. The EN→DE pack downloads; long-press a word. → ✓ its popup shows a German translation, with no "corrupted" error.
 4. Wait for the screen to settle without scrolling. → ✓ every paragraph that was on screen is now German, not only the one at the top (TRN-002).
-5. Scroll to the next screen and, while paragraphs still show "Translating", switch the target to French ("EN → DE" → To → French). → ✓ once the screen settles, no paragraph shows German; only French (TRN-004).
+5. Switch the target to French ("EN → DE" → To → French) and, immediately after confirming it, long-press a word AND scroll to paragraphs not yet translated, without waiting. → ✓ one EN→FR download runs: the popup ("Downloading language model… N%") and the banner ("Preparing translation… N%") show the same download, which never goes down; translation follows with no "corrupted" error (OHQ-012). Once the screen settles — and on the next screen — no paragraph shows German; only French (TRN-004). (The shared-download check was written for the German download of step 3; it is done with the French one because a pack downloads in about 5 s and step 2's look at the closed popup takes 2 of them. "Exactly one" download is not counted: the app logs none. TRN-004's "while paragraphs still show Translating" cannot be arranged with a fast pack.)
 6. Switch the target back to Russian. → ✓ Russian appears quickly with no download banner (pack already installed).
-7. Open the Translator picker and select ML Kit; return to the reader. → ✓ visible paragraphs are retranslated by ML Kit (wording differs where the engines differ) (TRN-003, MLK-010).
+7. Open the Translator picker and select ML Kit; return to the reader. → ✓ visible paragraphs are retranslated by ML Kit (wording differs where the engines differ: the 12th paragraph's text changes) and the picker shows ML Kit as current (TRN-003, MLK-010). ML Kit's models do download on the suite's emulators (API 35 tablet, Pixel_10_Pro; checked 2026-11-15).
 8. Open the Translator picker and select Offline HQ again. → ✓ no download banner; translations appear immediately (OHQ-005, TRN-003).
-9. Open Settings → Translation → Change and pick ML Kit there; open the book. → ✓ ML Kit is used (SET-001). Then Settings → Translation → Change → Offline HQ; open the book. → ✓ Offline HQ is used, no download (SET-001, OHQ-005).
+9. Open Settings → Translation → Change and pick ML Kit there; restart the app (Settings still names ML Kit — MLK-010); open the book. → ✓ ML Kit is used (SET-001). Then Settings → Translation → Change → Offline HQ; open the book. → ✓ Offline HQ is used, no download (SET-001, OHQ-005).
 10. Open Settings → Language packs. → ✓ rows "EN → RU · N MB", "EN → DE · N MB", "EN → FR · N MB", each with Delete; footer "Total <sum> MB · Models by Mozilla (MPL-2.0)" (OHQ-009).
 11. Tap Delete on "EN → DE". → ✓ the row disappears and the total drops at once (OHQ-011).
 12. Back in the reader, switch the target to German. → ✓ a fresh download starts from 0 % with no leftover/corrupted state, and German translation appears when it finishes (OHQ-011, OHQ-004).

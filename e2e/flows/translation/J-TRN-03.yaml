@@ -1,0 +1,712 @@
+appId: ${APP_ID}
+name: J-TRN-03 Changing the target language mid-read - packs and engine switches
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
+# books: en-novel.epub
+---
+# J-TRN-03 — Changing the target language mid-read; packs and engine switches.
+# Fixture: en-novel.epub (F-LONG, "The River Crossing"; chapter 1 has 42 paragraphs). Ids:
+# original_<chapter>_<paragraph>, translation_<chapter>_<paragraph>, 0-based. Runs on the phone
+# and on the tablet; needs the network (the EN→RU, EN→DE and EN→FR Offline HQ packs, EN→DE
+# twice).
+#
+# Which language a paragraph is translated into is read from the text inside its translation
+# slot (subflows/rows_translated.yaml), by words the pinned models always produce for this book
+# and that are neither in the English original nor in the other languages' lists:
+#   Russian  three Cyrillic letters in a row
+#   German   one of the words der / die / das / und
+#   French   one of the words le / la / les / et / une
+#
+# A pack download is seen on the reader's banner, "Preparing translation… N%"
+# (subflows/watch_translation_banner.yaml reads it until it is gone). An installed pack answers
+# with "100%" at most, so "no download" = no reading under 100.
+#
+# Step 5 has three gestures that must be quick, made at screen points. Maestro takes points only
+# as literal whole numbers, so each is written twice, behind `when: DEVICE_CLASS`, with the
+# pixels of the two AVDs this suite runs on (default font, chapter 1 at the top):
+#                                            Tab_35_PixelTablet   Pixel_10_Pro (portrait)
+#   the "Français" tile of the dialog        993, 796             323, 1271
+#   "river" in paragraph 1, the bars up      740, 429             1112, 721
+#   a short scroll                           30%,60% -> 30%,45%   30%,40% -> 30%,28%
+# What the popup then says ("river", a download line) checks them. Elsewhere "river" is pressed
+# by its place inside original_0_0 (57%, 16% on the tablet, 93%, 12% on the phone).
+# The popup has no readable "ready" flag (its Save text node reads enabled in every state): the
+# flow waits for the translation's text between "WORD" and "Listen".
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-03.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open en-novel.epub at chapter 1; wait until the screen is translated into Russian.
+#    (Preconditions: Offline HQ is the default; this import installs the EN→RU pack; EN→DE and
+#    EN→FR are not installed on a clean install.)
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_0"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 0
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 240000
+- assertTrue: ${output.rows >= 2}
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+
+# 2. A translated popup is open; tap the language button "EN → RU", "To", pick German -> the
+#    popup closes at once, so a Russian result can no longer be saved (POP-020).
+#    With a popup open, a tap on the page closes it instead of showing the bars. The bars come
+#    up without closing it by a tap on the divider between the panes (the strip down the middle
+#    on a tablet, reader:verticalDivider on a phone) — shown first, on its own: after that tap
+#    the language button AND the popup are on screen.
+- longPressOn:
+    id: "original_0_0"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          point: "50%, 30%"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          id: "reader:verticalDivider"
+          waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible:
+      id: "reader:languageChip"
+    timeout: 4000
+- assertVisible: "WORD"
+- assertVisible:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+#    Now for real. The language button must be tapped within the 3.5 s the bars stay, so the
+#    attempt is retried, each time from a freshly opened, translated popup: a tap that comes too
+#    late lands on the page and closes the popup, and the next attempt opens it again. Between
+#    "the popup shows its translation" and the language dialog there are only the divider tap (which keeps the
+#    popup, see above) and the tap on the language button — the popup is open when the dialog
+#    opens.
+- evalScript: ${output.langAttempt = 0}
+- retry:
+    maxRetries: 3
+    commands:
+      - evalScript: ${output.langAttempt = output.langAttempt + 1}
+      - evalScript: ${console.log('J-TRN-03 language button with the popup open - attempt ' + output.langAttempt)}
+      - tapOn:
+          text: "Close"
+          optional: true
+      - extendedWaitUntil:
+          notVisible:
+            id: "reader:languageChip"
+          timeout: 10000
+      - longPressOn:
+          id: "original_0_0"
+      - extendedWaitUntil:
+          visible:
+            text: "(?=.*[А-Яа-яЁё]).{1,40}"
+            below: "WORD"
+            above: "Listen"
+          timeout: 60000
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'tablet'}
+          commands:
+            - tapOn:
+                point: "50%, 30%"
+                waitToSettleTimeoutMs: 100
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - tapOn:
+                id: "reader:verticalDivider"
+                waitToSettleTimeoutMs: 100
+      - tapOn:
+          id: "reader:languageChip"
+          waitToSettleTimeoutMs: 100
+      - extendedWaitUntil:
+          visible: "Translate into"
+          timeout: 4000
+- tapOn:
+    id: "language_tab_target"
+- assertVisible: "Translate into"
+- takeScreenshot: J-TRN-03-step2-language-dialog-over-popup
+- tapOn:
+    text: "Deutsch"
+    waitToSettleTimeoutMs: 100
+- assertNotVisible: "WORD"
+- assertNotVisible: "Save"
+
+# 3. German was confirmed -> its pack downloads (the banner is watched until it is gone) and a
+#    newly pressed word is translated into German, with no "corrupted" error.
+#    The journey's "long-press AND scroll during the download, one shared download" (OHQ-012) is
+#    done in step 5 with the French pack: a pack downloads in about 5 s, and step 2's look at
+#    the closed popup already takes 2 of them.
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnDecreased == false}
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "57%, 16%"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - longPressOn:
+          id: "original_0_0"
+          point: "93%, 12%"
+- extendedWaitUntil:
+    visible:
+      text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+#    …a short text that is not Cyrillic, between the word and "Listen": the German for it.
+- assertNotVisible:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- takeScreenshot: J-TRN-03-step3-german-popup
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 4. Nothing is scrolled -> every paragraph on screen is German, not only the top one, and none
+#    is still Russian (TRN-002).
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 0
+      PATTERN: ".*\\b(der|die|das|und)\\b.*"
+      TIMEOUT: 120000
+- assertTrue: ${output.rows >= 2}
+- assertNotVisible:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_\\d+_\\d+"
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- takeScreenshot: J-TRN-03-step4-german
+
+# 5. Switch the target to French and, immediately after confirming it, long-press a word AND
+#    scroll to paragraphs not yet translated, without waiting -> one EN→FR download: the popup
+#    ("Downloading language model… N%") and the banner ("Preparing translation… N%") show the
+#    same download, which never goes down; the translation follows with no "corrupted" error
+#    (OHQ-012). Once the screen settles no paragraph shows German, only French (TRN-004).
+#    Everything between the language tile and the first reading is a point gesture (a look-up
+#    by text takes 2 s of the download's 5): the tile "Français" by its place in the dialog, a
+#    quick press on "river" (a swipe that does not move; the bars are still up, so the word is
+#    one top bar lower than in J-TRN-02), a short scroll. Then the popup's and the banner's
+#    percentages are read in turn until the popup's download line is gone (output.dl…: popup
+#    readings, banner readings, the highest so far, whether one was lower than one before).
+#    Two separate downloads would run at two speeds and the readings, taken in turn, would go
+#    down; one shared download can only go up. Both must have been read at least once.
+#    Partial: "exactly one download" is not counted (the app logs none); step 10 finds one
+#    EN → FR pack. TRN-004's "while paragraphs still show Translating" cannot be arranged.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- assertVisible: "Français"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          point: "993, 796"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          point: "323, 1271"
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "740, 429"
+          end: "740, 429"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "1112, 721"
+          end: "1112, 721"
+          duration: 700
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - swipe:
+          start: "30%, 60%"
+          end: "30%, 45%"
+          duration: 300
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 28%"
+          duration: 300
+          waitToSettleTimeoutMs: 100
+- evalScript: ${output.dlPopup = 0}
+- evalScript: ${output.dlBanner = 0}
+- evalScript: ${output.dlMax = -1}
+- evalScript: ${output.dlDecreased = false}
+- repeat:
+    times: 300
+    while:
+      visible: "Downloading language model… \\d+%"
+    commands:
+      - copyTextFrom:
+          text: "Downloading language model… \\d+%"
+          optional: true
+      - evalScript: ${output.dlText = maestro.copiedText || ''}
+      - evalScript: "${output.dlPct = output.dlText.indexOf('Downloading language model… ') == 0 ? parseInt(output.dlText.split('… ')[1]) : -1}"
+      - evalScript: "${output.dlPopup = output.dlPopup + (output.dlPct >= 0 ? 1 : 0)}"
+      - evalScript: ${output.dlDecreased = output.dlDecreased || (output.dlPct >= 0 && output.dlPct < output.dlMax)}
+      - evalScript: ${output.dlMax = Math.max(output.dlMax, output.dlPct)}
+      - evalScript: ${console.log('J-TRN-03 download - popup [' + output.dlText + ']')}
+      - copyTextFrom:
+          text: "Preparing translation… \\d+%"
+          optional: true
+      - evalScript: ${output.dlText = maestro.copiedText || ''}
+      - evalScript: "${output.dlPct = output.dlText.indexOf('Preparing translation… ') == 0 ? parseInt(output.dlText.split('… ')[1]) : -1}"
+      - evalScript: "${output.dlBanner = output.dlBanner + (output.dlPct >= 0 ? 1 : 0)}"
+      - evalScript: ${output.dlDecreased = output.dlDecreased || (output.dlPct >= 0 && output.dlPct < output.dlMax)}
+      - evalScript: ${output.dlMax = Math.max(output.dlMax, output.dlPct)}
+      - evalScript: ${console.log('J-TRN-03 download - banner [' + output.dlText + ']')}
+- evalScript: ${console.log('J-TRN-03 download - popup readings ' + output.dlPopup + ', banner readings ' + output.dlBanner + ', max ' + output.dlMax + ', decreased ' + output.dlDecreased)}
+- assertTrue: ${output.dlPopup >= 1}
+- assertTrue: ${output.dlBanner >= 1}
+- assertTrue: ${output.dlDecreased == false}
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- extendedWaitUntil:
+    visible:
+      text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- assertNotVisible:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- takeScreenshot: J-TRN-03-step5-french-popup
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 2
+      PATTERN: ".*\\b(le|la|les|et|une)\\b.*"
+      TIMEOUT: 120000
+- assertTrue: ${output.rows >= 2}
+- assertNotVisible:
+    text: ".*\\b(der|die|das|und)\\b.*"
+    childOf:
+      id: "translation_\\d+_\\d+"
+- assertNotVisible:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_\\d+_\\d+"
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "FR"
+          childOf:
+            id: "reader:languageChip"
+#    …and on the next screen, scrolled to now: French, no German.
+- scrollUntilVisible:
+    element:
+      id: "translation_0_11"
+    direction: DOWN
+    timeout: 60000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 11
+      PATTERN: ".*\\b(le|la|les|et|une)\\b.*"
+      TIMEOUT: 120000
+- assertTrue: ${output.rows >= 2}
+- assertNotVisible:
+    text: ".*\\b(der|die|das|und)\\b.*"
+    childOf:
+      id: "translation_\\d+_\\d+"
+- takeScreenshot: J-TRN-03-step5-french
+
+# 6. Switch the target back to Russian -> Russian appears with no download banner: the pack is
+#    installed (no reading under 100).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- scrollUntilVisible:
+    element: "Русский"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    text: "Русский"
+    waitToSettleTimeoutMs: 100
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 == 0}
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 11
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 30000
+- assertTrue: ${output.rows >= 2}
+- assertNotVisible:
+    text: ".*\\b(le|la|les|et|une)\\b.*"
+    childOf:
+      id: "translation_\\d+_\\d+"
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_11"
+- evalScript: ${output.hq = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 Offline HQ, paragraph 12 = ' + output.hq)}
+
+# 7. Translator picker -> ML Kit; back in the reader the visible paragraphs are retranslated by
+#    ML Kit: still Russian, but worded differently (TRN-003, MLK-010).
+#    ML Kit's models do download on these emulators (checked 2026-11-15: about 20 s, the banner
+#    reads "Preparing translation…" without a percentage). Which engine made a translation is
+#    read from the 12th paragraph ("Every morning the ferryman crossed…"): output.hq is Offline
+#    HQ's text for it, read above; ML Kit's is another text (it says "паромчик" where Offline HQ
+#    says "паромник"). The text is looked at again until it differs — up to 12 looks after the
+#    banner has gone; an engine that never retranslated leaves output.hq there and fails.
+- runFlow:
+    file: ../../subflows/set_translator.yaml
+    env:
+      NAME: "ML Kit \\(offline\\)"
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ".*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_11"
+          timeout: 120000
+      - copyTextFrom:
+          text: ".*[а-яё]{3,}.*"
+          childOf:
+            id: "translation_0_11"
+      - assertTrue: ${maestro.copiedText != output.hq}
+- evalScript: ${output.mlkit = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-03 ML Kit, paragraph 12 = ' + output.mlkit)}
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 11
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 120000
+- assertTrue: ${output.rows >= 2}
+#    …and the picker shows ML Kit as the current provider (its card is the inverted one).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- takeScreenshot:
+    path: colour-check/step7-ml-kit__PaperInk
+    cropOn: "ML Kit \\(offline\\)"
+- takeScreenshot:
+    path: colour-check/step7-offline-hq__PaperBg2
+    cropOn: "Offline HQ"
+
+# 8. …select Offline HQ again -> no download banner; its translations are back at once: the
+#    12th paragraph reads exactly what Offline HQ gave before (OHQ-005, TRN-003).
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 == 0}
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ".*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_11"
+          timeout: 60000
+      - copyTextFrom:
+          text: ".*[а-яё]{3,}.*"
+          childOf:
+            id: "translation_0_11"
+      - assertTrue: ${maestro.copiedText == output.hq}
+
+# 9. Settings -> Translation -> Change -> ML Kit; open the book -> ML Kit is used (SET-001);
+#    the choice survives a restart of the app (MLK-010). Then Settings -> Translation -> Change
+#    -> Offline HQ; open the book -> Offline HQ is used, no download (SET-001, OHQ-005).
+#    The Translation section's row names the current engine; its "Change" is the one below the
+#    section title "Translation" (the "Change" of "Default translation language" is above it).
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, server URL and monthly usage\\."
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "Offline HQ"
+    above: "Manage providers, API keys, server URL and monthly usage\\."
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers, API keys, server URL and monthly usage\\."
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 5000
+- tapOn: "ML Kit \\(offline\\)"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "ML Kit \\(offline\\)"
+    above: "Manage providers, API keys, server URL and monthly usage\\."
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, server URL and monthly usage\\."
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "ML Kit \\(offline\\)"
+    above: "Manage providers, API keys, server URL and monthly usage\\."
+- assertNotVisible:
+    text: "Offline HQ"
+    above: "Manage providers, API keys, server URL and monthly usage\\."
+- takeScreenshot: J-TRN-03-step9-settings-ml-kit
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_11"
+    timeout: 30000
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ".*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_11"
+          timeout: 120000
+      - copyTextFrom:
+          text: ".*[а-яё]{3,}.*"
+          childOf:
+            id: "translation_0_11"
+      - assertTrue: ${maestro.copiedText == output.mlkit}
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, server URL and monthly usage\\."
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers, API keys, server URL and monthly usage\\."
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 5000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "Offline HQ"
+    above: "Manage providers, API keys, server URL and monthly usage\\."
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+    waitToSettleTimeoutMs: 100
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 == 0}
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ".*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_0_11"
+          timeout: 60000
+      - copyTextFrom:
+          text: ".*[а-яё]{3,}.*"
+          childOf:
+            id: "translation_0_11"
+      - assertTrue: ${maestro.copiedText == output.hq}
+
+# 10. Settings -> Language packs -> rows "EN → RU · N MB", "EN → DE · N MB", "EN → FR · N MB",
+#     each with Delete; footer "Total <sum> MB · Models by Mozilla (MPL-2.0)" (OHQ-009).
+#     Each row is its pack's bytes in whole MB, the total is the bytes' sum in whole MB: the
+#     total is the three rows' sum, or up to 2 more (the rows' dropped fractions).
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "Language packs"
+- copyTextFrom: "EN → RU · \\d+ MB"
+- evalScript: ${output.ru = parseInt(maestro.copiedText.split('· ')[1])}
+- copyTextFrom: "EN → DE · \\d+ MB"
+- evalScript: ${output.de = parseInt(maestro.copiedText.split('· ')[1])}
+- copyTextFrom: "EN → FR · \\d+ MB"
+- evalScript: ${output.fr = parseInt(maestro.copiedText.split('· ')[1])}
+- copyTextFrom: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- evalScript: ${output.total = parseInt(maestro.copiedText.split(' ')[1])}
+- evalScript: ${console.log('J-TRN-03 packs - RU ' + output.ru + ', DE ' + output.de + ', FR ' + output.fr + ', total ' + output.total)}
+- assertTrue: ${output.ru >= 10 && output.de >= 10 && output.fr >= 10}
+- assertTrue: ${output.total >= output.ru + output.de + output.fr && output.total <= output.ru + output.de + output.fr + 2}
+- assertVisible:
+    text: "Delete"
+    rightOf: "EN → RU · \\d+ MB"
+- assertVisible:
+    text: "Delete"
+    rightOf: "EN → DE · \\d+ MB"
+- assertVisible:
+    text: "Delete"
+    rightOf: "EN → FR · \\d+ MB"
+- takeScreenshot: J-TRN-03-step10-language-packs
+
+# 11. Delete on "EN → DE" -> that row disappears and the total drops at once, by that pack
+#     (OHQ-011). The other two rows stay — the Delete that was tapped was EN → DE's.
+- tapOn:
+    text: "Delete"
+    rightOf: "EN → DE · \\d+ MB"
+- extendedWaitUntil:
+    notVisible: "EN → DE · \\d+ MB"
+    timeout: 5000
+- assertVisible: "EN → RU · ${output.ru} MB"
+- assertVisible: "EN → FR · ${output.fr} MB"
+- copyTextFrom: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- evalScript: ${output.total2 = parseInt(maestro.copiedText.split(' ')[1])}
+- evalScript: ${console.log('J-TRN-03 packs - total after deleting DE ' + output.total2)}
+- assertTrue: ${output.total2 >= output.ru + output.fr && output.total2 <= output.ru + output.fr + 1}
+- assertTrue: ${output.total2 < output.total}
+- takeScreenshot: J-TRN-03-step11-de-deleted
+
+# 12. Back in the reader, switch the target to German -> a fresh download starts from the
+#     beginning, with no leftover or corrupted state, and German appears when it finishes
+#     (OHQ-011, OHQ-004). The banner is watched from its first appearance: its first percentage
+#     is in the first quarter (a download resumed from a leftover would start high — the same
+#     watch reads 0–7% first on a clean install), at least two readings are under 100, and
+#     none is lower than one before it.
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_11"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- tapOn:
+    text: "Deutsch"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible: "Preparing translation….*"
+    timeout: 30000
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 >= 2}
+- assertTrue: ${output.bnFirst >= 0 && output.bnFirst <= 25}
+- assertTrue: ${output.bnDecreased == false}
+- assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 11
+      PATTERN: ".*\\b(der|die|das|und)\\b.*"
+      TIMEOUT: 120000
+- assertTrue: ${output.rows >= 2}
+- assertNotVisible:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_\\d+_\\d+"
+- takeScreenshot: J-TRN-03-step12-german-again
