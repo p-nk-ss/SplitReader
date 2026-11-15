@@ -153,11 +153,16 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
     timeout: 8000
 - longPressOn:
     id: "original_0_0"
+#   The popup is ready when its translation is there: a short Cyrillic text between "WORD" and
+#   "Listen" (the first one also waits out the EN→RU pack download). `text: "Save", enabled: true`
+#   is no wait — the Save text node reads enabled in every state (the greyed-out look is opacity
+#   on its parent), and a Save tapped before the translation stores nothing.
 - extendedWaitUntil:
     visible:
-      text: "Save"
-      enabled: true
-    timeout: 60000
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
     below: "WORD"
@@ -172,9 +177,10 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
     id: "original_0_1"
 - extendedWaitUntil:
     visible:
-      text: "Save"
-      enabled: true
-    timeout: 60000
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
     below: "WORD"
@@ -190,9 +196,10 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
     point: "50%, 12%"
 - extendedWaitUntil:
     visible:
-      text: "Save"
-      enabled: true
-    timeout: 60000
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 240000
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
     below: "WORD"
