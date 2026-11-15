@@ -41,6 +41,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 # selection request and Maestro reads only the screen — MANUAL. What is asserted is the end
 # state after each gesture. See each step.
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-02.
+# The tags say phone and tablet; the pixel points are those of Tab_35_PixelTablet and
+# Pixel_10_Pro — on another tablet (Tab_26_Nexus9) a point misses and its step fails (not run there).
 # No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
 - assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
@@ -118,13 +120,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     notVisible: "WORD"
     timeout: 5000
-#    MANUAL — "while it shows Translating, Save is greyed out and does nothing when tapped"
-#    (POP-010) and the Translating state itself (POP-016): with the pack installed a word is
-#    translated in a fraction of a second, less than one Maestro command; and the greyed-out
-#    Save differs from the active one only in opacity — its text node reads enabled=true in
-#    both states (checked in the hierarchy), so "is Save active" cannot be asked either. Every
-#    step below therefore waits for the translation's text, not for Save. (The popup's
-#    "Downloading language model… N%" line is read in J-TRN-03 step 5.)
+#    "While it shows Translating, Save is greyed out and does nothing when tapped" (POP-010)
+#    is NOT done here: with the pack installed a word is translated in a fraction of a second,
+#    less than one Maestro command. It is J-TRN-03 step 13a, inside a pack download, where the
+#    popup stays in that state for seconds. MANUAL: the plain "Translating…" line (POP-016).
+#    The Save TEXT node reads enabled=true in every state (the flag is on its parent), so
+#    every step below waits for the translation's text, not for Save.
 
 # 3. While a handle is being dragged the popup reads "Release to translate", with no spinner and
 #    no result (POP-003, POP-016 Pending).
@@ -263,8 +264,97 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 #    (e2e/reports/t9a-probe-h). Cause as read in ReaderPane.kt, ParagraphItem: the handle's
 #    pointerInput consumes the touch, but the paragraph's detectTapGestures is the inner modifier
 #    and sees the same down and up first, unconsumed -> onTap -> onDismiss.
-#    When it is fixed, this step is: tap the end handle (output.lastEnd), then the popup still
-#    shows "SENTENCE", output.longPhrase and output.longRu, and no "Translating…".
+#    APP BUG, second form (2026-11-15, seen on both device classes): a touch that stays on the
+#    handle without moving for the long-press time (~0.4 s) is taken as a long press on the
+#    paragraph — the selection is REPLACED by the one word under the handle's touch point (12dp
+#    under the line, so a word of the next line) and a new request goes out. Seen with "river"
+#    selected: a 0.7 s still press on its end handle left a WORD popup for "the", the word under
+#    it on the next line (probe t9f-p1-tab / t9f-p1-ph, screenshot
+#    p1-2-after-still-press-on-handle). Same cause, the other callback of the same
+#    detectTapGestures: onLongPress -> onWordSelected (ReaderPane.kt, ParagraphItem).
+#    The step as it must pass once the app is fixed — DISABLED until then (seen failing today
+#    at its first assertion: probe t9f-m1-block-*). Un-comment it with the fix, in place of the
+#    two lines that follow it; it covers both forms:
+#
+#    # # APP BUG — POP-007: a touch on a handle that does not move changes nothing. With "river"
+#    # # selected (its end handle is the point step 4's drag starts from): a tap on the handle, then
+#    # # a still press of 0.7 s on it — after each, the same WORD popup with the same translation.
+#    # - tapOn: "Close"
+#    # - extendedWaitUntil:
+#    #     notVisible: "SENTENCE"
+#    #     timeout: 5000
+#    # - runFlow:
+#    #     when:
+#    #       true: ${DEVICE_CLASS == 'tablet'}
+#    #     commands:
+#    #       - longPressOn:
+#    #           id: "original_0_0"
+#    #           point: "57%, 16%"
+#    # - runFlow:
+#    #     when:
+#    #       true: ${DEVICE_CLASS == 'phone'}
+#    #     commands:
+#    #       - longPressOn:
+#    #           id: "original_0_0"
+#    #           point: "93%, 12%"
+#    # - extendedWaitUntil:
+#    #     visible:
+#    #       text: "(?=.*[А-Яа-яЁё]).{1,40}"
+#    #       below: "WORD"
+#    #       above: "Listen"
+#    #     timeout: 60000
+#    # - runFlow:
+#    #     when:
+#    #       true: ${DEVICE_CLASS == 'tablet'}
+#    #     commands:
+#    #       - tapOn:
+#    #           point: "765, 379"
+#    #           waitToSettleTimeoutMs: 100
+#    # - runFlow:
+#    #     when:
+#    #       true: ${DEVICE_CLASS == 'phone'}
+#    #     commands:
+#    #       - tapOn:
+#    #           point: "1166, 649"
+#    #           waitToSettleTimeoutMs: 100
+#    # - assertVisible: "WORD"
+#    # - assertVisible:
+#    #     text: "river"
+#    #     below: "WORD"
+#    #     above: "Listen"
+#    # - assertVisible:
+#    #     text: "${output.riverRu}"
+#    #     below: "WORD"
+#    #     above: "Listen"
+#    # - assertNotVisible: "Translating…"
+#    # - runFlow:
+#    #     when:
+#    #       true: ${DEVICE_CLASS == 'tablet'}
+#    #     commands:
+#    #       - swipe:
+#    #           start: "765, 379"
+#    #           end: "765, 379"
+#    #           duration: 700
+#    #           waitToSettleTimeoutMs: 100
+#    # - runFlow:
+#    #     when:
+#    #       true: ${DEVICE_CLASS == 'phone'}
+#    #     commands:
+#    #       - swipe:
+#    #           start: "1166, 649"
+#    #           end: "1166, 649"
+#    #           duration: 700
+#    #           waitToSettleTimeoutMs: 100
+#    # - assertVisible: "WORD"
+#    # - assertVisible:
+#    #     text: "river"
+#    #     below: "WORD"
+#    #     above: "Listen"
+#    # - assertVisible:
+#    #     text: "${output.riverRu}"
+#    #     below: "WORD"
+#    #     above: "Listen"
+#    # - assertNotVisible: "Translating…"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "SENTENCE"
@@ -347,10 +437,11 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 
 # 9. Press "river" and, straight after, the word in paragraph 2 -> only the second word's result
 #    is shown; the first word's answer never appears (POP-021).
-#    Two quick presses back to back. Partial: with the pack installed a word is translated in a
-#    fraction of a second, so the first request may already have been answered when the second
-#    press lands — "before it reaches Ready" needs a slow engine (MANUAL). Asserted: the popup
-#    ends on the second word with exactly the translation step 8 read for it.
+#    Two quick presses back to back. With the pack installed a word is translated in a
+#    fraction of a second, so here the first request may already have been answered when the
+#    second press lands; "before it reaches Ready" for certain is J-TRN-03 step 13b (inside a
+#    pack download). Asserted here: the popup ends on the second word with exactly the
+#    translation step 8 read for it.
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
@@ -414,8 +505,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 
 # 10. Press "river" and at once tap elsewhere in the text -> the popup is dismissed; then press
 #     the word in paragraph 2 -> its popup shows only its own word and translation; the app
-#     answers (POP-022). Partial, as in step 9: whether the first request was still in flight
-#     when it was dismissed cannot be arranged.
+#     answers (POP-022). As in step 9, the first request may already have been answered here;
+#     dismissed while certainly still in flight: J-TRN-03 step 13a.
 #     (That the dismissing tap does not also bring up the bars is step 10a: asked here with an
 #     `assertNotVisible` it would pass by the bars' own 3.5 s timer.)
 - runFlow:
@@ -688,8 +779,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
     timeout: 5000
 
 # 14. Back; Words -> "1 saved word"; the entry "river" shows exactly the translation the popup
-#     showed (WRD-002, WRD-007). One entry: neither the greyed-out Save of step 2 nor the second
-#     Save of step 13 stored anything.
+#     showed (WRD-002, WRD-007). One entry: the second Save of step 13 stored nothing. (A Save
+#     tapped while the popup is still translating is J-TRN-03 step 13.)
 - runFlow: ../../subflows/leave_reader.yaml
 - tapOn: "Words"
 - extendedWaitUntil:
