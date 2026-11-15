@@ -5,6 +5,7 @@
 #
 # Usage:
 #   e2e/run.sh (--avd NAME | --serial SERIAL) [--build debug|release] [--tags TAGLIST] [--keep-emulator]
+#              [--headless] [--flow-timeout-min N]
 #
 #   --avd NAME        Boot this AVD (emulator -avd NAME -memory 4096 -partition-size 8192
 #                      -no-snapshot-save), wait for it to finish booting, run against it, then
@@ -36,6 +37,13 @@
 #                      from `wm size` / `wm density`: no flow runs on a device of unknown class.
 #   --keep-emulator    Don't kill the emulator this run started (--avd only; ignored with
 #                      --serial, since that emulator wasn't started by this script).
+#   --headless         Boot the AVD without a window (adds -no-window to the emulator command line;
+#                      --avd only, ignored with --serial — that emulator is already running).
+#                      Nothing else changes: same emulator-only guard, same flows, same kill at
+#                      the end, same summary. Use it for every unattended run: a WINDOWED emulator
+#                      behind a locked Mac screen runs 2.3-3x slower (2026-11-15: J-LIB-19 612 s
+#                      instead of 278 s, timing checks failing), a headless one does not. Screenshots
+#                      and Maestro work the same without a window.
 #   --flow-timeout-min N  Per-flow wall-clock watchdog, in minutes (default 20). If a single
 #                      flow's `maestro test` invocation runs longer than this, run.sh kills it
 #                      (SIGTERM, then SIGKILL after a 5s grace period if still alive), records
@@ -95,6 +103,7 @@ SERIAL=""
 BUILD_TYPE="debug"
 TAGS=""
 KEEP_EMULATOR=0
+HEADLESS=0
 FLOW_TIMEOUT_MIN=20
 
 while [ $# -gt 0 ]; do
@@ -104,6 +113,7 @@ while [ $# -gt 0 ]; do
     --build) BUILD_TYPE="$2"; shift 2 ;;
     --tags) TAGS="$2"; shift 2 ;;
     --keep-emulator) KEEP_EMULATOR=1; shift ;;
+    --headless) HEADLESS=1; shift ;;
     --flow-timeout-min) FLOW_TIMEOUT_MIN="$2"; shift 2 ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown argument: $1" ;;
@@ -225,6 +235,7 @@ if [ -n "$SERIAL" ]; then
   qemu="$("$ADB" -s "$SERIAL" shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r\n')"
   [ "$qemu" = "1" ] || die "--serial $SERIAL is not an emulator (ro.kernel.qemu != 1) — this runner is emulator-only and refuses to touch a real device"
   log "attached to existing emulator $SERIAL"
+  [ "$HEADLESS" != "1" ] || log "--headless is ignored with --serial: this run starts no emulator"
 else
   # BEFORE_SERIALS below is only a convenience filter (skip devices we already know about faster
   # while polling) — it is NOT the safety guarantee. The real guard is the simultaneous
@@ -235,8 +246,13 @@ else
   log "restarting adb (adb kill-server && adb start-server) before starting a new AVD"
   "$ADB" kill-server
   "$ADB" start-server
-  log "booting AVD $AVD"
-  nohup "$EMULATOR_BIN" -avd "$AVD" -memory 4096 -partition-size 8192 -no-snapshot-save \
+  # A plain string, not an array: "${ARR[@]}" of an empty array is an error under `set -u` in
+  # bash 3.2 (the macOS /bin/bash). Unquoted on purpose below — it is empty or one word.
+  WINDOW_ARG=""
+  [ "$HEADLESS" != "1" ] || WINDOW_ARG="-no-window"
+  log "booting AVD $AVD${WINDOW_ARG:+ (headless: $WINDOW_ARG)}"
+  # shellcheck disable=SC2086
+  nohup "$EMULATOR_BIN" -avd "$AVD" -memory 4096 -partition-size 8192 -no-snapshot-save $WINDOW_ARG \
     >/tmp/run.sh.emulator.$$.log 2>&1 &
   EMULATOR_PID=$!
   STARTED_EMULATOR=1

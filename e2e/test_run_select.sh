@@ -223,6 +223,46 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "the emulator process it started is gone"    process_gone "$BOX/fake/emulator.pid"
   check "maestro never ran"                          no_file "$BOX/fake/maestro.log"
   [ -f "$BOX/fake/emulator.pid" ] && kill "$(cat "$BOX/fake/emulator.pid")" 2>/dev/null
+
+  # J. --headless: the AVD is booted with -no-window, and nothing else about the run changes
+  #    (same other emulator arguments, same flows, class, kill at the end, summary).
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+  LABEL="bash $version, --headless on a tablet"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --headless --tags smoke
+  check "exit code is zero"                          passed
+  check "the emulator is started without a window"   logged "$BOX/fake/emulator.log" '^-avd Fake_Tablet -memory 4096 -partition-size 8192 -no-snapshot-save -no-window$'
+  check "the tablet-only flow ran"                   logged "$BOX/fake/maestro.log" 'J-TAB.yaml'
+  check "the two-class flow ran"                     logged "$BOX/fake/maestro.log" 'J-BOTH.yaml'
+  check "flows are told the class"                   logged "$BOX/fake/maestro.log" 'DEVICE_CLASS=tablet'
+  check "the emulator is killed at the end"          logged "$BOX/fake/adb.log" 'emu kill'
+  check "a summary was written"                      says 'summary:'
+
+  # K. without --headless the emulator command line is what it always was (a window).
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+  LABEL="bash $version, no --headless"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags smoke
+  check "exit code is zero"                          passed
+  check "the emulator command line is unchanged"     logged "$BOX/fake/emulator.log" '^-avd Fake_Tablet -memory 4096 -partition-size 8192 -no-snapshot-save$'
+  check "no -no-window"                              never_logged "$BOX/fake/emulator.log" 'no-window'
+
+  # L. --headless with --keep-emulator: both hold (headless boot, emulator left running).
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+  LABEL="bash $version, --headless --keep-emulator"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --keep-emulator --headless --tags smoke
+  check "exit code is zero"                          passed
+  check "the emulator is started without a window"   logged "$BOX/fake/emulator.log" '-no-window$'
+  check "the emulator is not killed"                 never_logged "$BOX/fake/adb.log" 'emu kill'
+
+  # M. --headless with --serial: this run starts no emulator, so there is nothing to make
+  #    headless — it says so, starts none, and still refuses nothing it ran before.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet; : > "$BOX/fake/always-up"
+  LABEL="bash $version, --headless with --serial"
+  run_box "$BASH_BIN" "$BOX" --serial emulator-5554 --headless --tags J-TAB
+  check "exit code is zero"                          passed
+  check "says --headless is ignored"                 says '--headless.*ignored'
+  check "no emulator was started"                    no_file "$BOX/fake/emulator.log"
+  check "an emulator it did not start is not killed" never_logged "$BOX/fake/adb.log" 'emu kill'
+  check "the flow ran"                               logged "$BOX/fake/maestro.log" 'J-TAB.yaml'
 done
 
 if [ "$FAILS" -gt 0 ]; then

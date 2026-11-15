@@ -217,9 +217,17 @@ screen locked every flow took 2.3–3 times its usual time (J-LIB-19 on the tabl
 the popup's download window) — with no other load on the host. The same AVD booted with the
 same command line plus `-no-window` ran J-LIB-19 in 278 s, screen still locked.
 `caffeinate -i -s` keeps the Mac awake but does not keep the screen unlocked.
-`run.sh --avd` starts a windowed emulator; for an unattended run boot the AVD yourself
-(`emulator -avd <NAME> -memory 4096 -partition-size 8192 -no-snapshot-save -no-window`) and
-pass `--serial emulator-XXXX`. A run with durations at twice the usual is void, not a result.
+`run.sh --avd <NAME>` starts a windowed emulator; **`--headless` boots the same AVD with
+`-no-window`** and changes nothing else (same flows, same emulator-only guard, the emulator this
+run started is still the only one it kills, same summary; with `--serial` the flag is ignored and
+the run says so). Every unattended run:
+
+```
+caffeinate -i -s e2e/run.sh --avd Tab_35_PixelTablet --headless --tags J-TRN-07
+```
+
+A run with durations at twice the usual is void, not a result. The option's parsing and the
+emulator command line are checked by `bash e2e/test_run_select.sh` (scenarios J–M).
 
 ## One file, two uris (`pick_file.yaml` vs `pick_file_in_downloads.yaml`)
 
