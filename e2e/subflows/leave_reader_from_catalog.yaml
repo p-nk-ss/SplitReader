@@ -6,15 +6,22 @@ appId: ${APP_ID}
 # leave_reader.yaml's final "Open book" does not exist. This one leaves the reader the same way
 # (show_bars.yaml + Back in a `retry`, "Catalog" in the navigation = the reader is gone), then
 # taps "Library" and ends, like leave_reader.yaml, on the Library scrolled to "Open book".
+# Every attempt is written to the log ("leave_reader_from_catalog - attempt N"); e2e/report.py lists
+# the attempts after the first under "Retries" in summary.md.
+# The wait after Back is 15 s: with 5 s a slow but successful Back was followed by a second attempt,
+# whose show_bars tap then landed on the screen behind the reader.
+- evalScript: ${output.leaveAttempt = 0}
 - retry:
     maxRetries: 3
     commands:
+      - evalScript: ${output.leaveAttempt = output.leaveAttempt + 1}
+      - evalScript: ${console.log('leave_reader_from_catalog - attempt ' + output.leaveAttempt)}
       - runFlow: show_bars.yaml
       - tapOn:
           id: "reader:backButton"
       - extendedWaitUntil:
           visible: "Catalog"
-          timeout: 5000
+          timeout: 15000
 - tapOn: "Library"
 - scrollUntilVisible:
     element: "Open book"

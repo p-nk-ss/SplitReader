@@ -239,6 +239,43 @@ class PerFlowBooksReportTest(unittest.TestCase):
         text = out_path.read_text(encoding="utf-8")
         self.assertIn("step-002-assertVisible.png", text)
 
+    # A subflow that retries (tap_reader_button, leave_reader, show_bars, tap_shows_tap_hides)
+    # logs "<what> - attempt N" on every attempt; Maestro writes it to the flow's maestro.log as
+    # a "JsConsole:" line. An attempt after the first must reach summary.md, or a button that
+    # regularly needs two taps stays hidden behind the retry.
+    MAESTRO_LOG = (
+        "09:06:13.203 [ INFO] maestro.orchestra.Orchestra.x: JsConsole: tap_reader_button reader:chaptersButton - attempt 1\n"
+        "09:06:13.300 [ INFO] maestro.cli.runner.X.onCommandStart: Run ${console.log('show_bars - attempt ' + output.showBarsAttempt)} RUNNING\n"
+        "09:06:18.903 [ INFO] maestro.orchestra.Orchestra.x: JsConsole: tap_reader_button reader:chaptersButton - attempt 2\n"
+        "09:06:19.903 [ INFO] maestro.orchestra.Orchestra.x: JsConsole: leave_reader - attempt 1\n"
+        "09:06:20.903 [ INFO] maestro.orchestra.Orchestra.x: JsConsole: tap_reader_button reader:chaptersButton - attempt 2\n"
+        "09:06:21.903 [ INFO] maestro.orchestra.Orchestra.x: JsConsole: tap_reader_button reader:chaptersButton - attempt 3\n"
+    )
+
+    def _write_log(self, stem, text):
+        logs = self.run_dir / stem / "2026-11-15_090000" / "some flow name" / "logs"
+        logs.mkdir(parents=True)
+        (logs / "maestro.log").write_text(text, encoding="utf-8")
+
+    def test_find_retries_lists_only_attempts_after_the_first(self):
+        self._write_log("J-LIB-02", self.MAESTRO_LOG)
+        self._write_log("J-LIB-01", "09:06:19.903 [ INFO] x: JsConsole: leave_reader - attempt 1\n")
+        self.assertEqual(
+            report.find_retries(self.run_dir),
+            [("J-LIB-02", "tap_reader_button reader:chaptersButton", 3, 2)],
+        )
+
+    def test_write_summary_lists_retries(self):
+        self._write_log("J-LIB-02", self.MAESTRO_LOG)
+        text = report.write_summary(self.run_dir, report.load_meta(self.run_dir)).read_text(encoding="utf-8")
+        self.assertIn("## Retries", text)
+        self.assertIn("| J-LIB-02 | tap_reader_button reader:chaptersButton | 2 | 3 |", text)
+
+    def test_write_summary_without_retries_has_no_retries_section(self):
+        self._write_log("J-LIB-02", "09:06:19.903 [ INFO] x: JsConsole: leave_reader - attempt 1\n")
+        text = report.write_summary(self.run_dir, report.load_meta(self.run_dir)).read_text(encoding="utf-8")
+        self.assertNotIn("Retries", text)
+
 
 if __name__ == "__main__":
     unittest.main()

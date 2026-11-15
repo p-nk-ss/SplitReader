@@ -13,9 +13,15 @@ appId: ${APP_ID}
 # instead and no dialog opened. So the attempt is a `retry`, up to three more times, each from a
 # fresh show_bars.yaml (which starts from the bars hidden, so a stray tap of the attempt before
 # cannot confuse it).
+# Every attempt is written to the log ("tap_reader_button <id> - attempt N"); e2e/report.py lists the
+# attempts after the first under "Retries" in summary.md, so a button that regularly needs two taps
+# does not stay hidden behind the retry.
+- evalScript: ${output.tapButtonAttempt = 0}
 - retry:
     maxRetries: 3
     commands:
+      - evalScript: ${output.tapButtonAttempt = output.tapButtonAttempt + 1}
+      - evalScript: ${console.log('tap_reader_button ' + BUTTON + ' - attempt ' + output.tapButtonAttempt)}
       - runFlow: show_bars.yaml
       - tapOn:
           id: "${BUTTON}"

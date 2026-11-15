@@ -29,9 +29,12 @@ appId: ${APP_ID}
 # The reader must already be open (the tap would otherwise land on whatever screen is there), and
 # no dialog may cover it (dismiss_portrait_hint.yaml first on a path that can show the hint).
 # The caller has about 3 s after this returns: do the footer or title check next.
+- evalScript: ${output.showBarsAttempt = 0}
 - retry:
     maxRetries: 2
     commands:
+      - evalScript: ${output.showBarsAttempt = output.showBarsAttempt + 1}
+      - evalScript: ${console.log('show_bars - attempt ' + output.showBarsAttempt)}
       - extendedWaitUntil:
           notVisible:
             id: "reader:languageChip"

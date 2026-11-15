@@ -31,7 +31,8 @@ RUN_DIR must contain:
 
 Writes RUN_DIR/summary.md: a metadata header, a
 `| Journey | Result | Duration | Failing step | Screenshot |` table (one row per Maestro
-testcase), and a totals line. When meta.json has "copy_to", the same file is also copied there
+testcase), a totals line and — only when a retried step needed more than one attempt — a
+"Retries" table (see find_retries()). When meta.json has "copy_to", the same file is also copied there
 (run.sh resolves that path the same way app/build.gradle.kts resolves `releaseDir`: the
 `mirrolit.releaseDir` key in local.properties, else `<repo root>/releases`).
 
@@ -49,6 +50,7 @@ maestro/cli/report/JUnitTestSuiteReporter$TestSuite / $TestCase):
     </testsuites>
 """
 import json
+import re
 import shutil
 import sys
 import xml.etree.ElementTree as ET
@@ -163,6 +165,40 @@ def collect_cases(run_dir):
     return cases
 
 
+# A subflow that retries (tap_reader_button, leave_reader, show_bars, tap_shows_tap_hides) logs
+# "<what> - attempt N" before every attempt; Maestro writes console.log output to the flow's
+# maestro.log as "JsConsole: …". (The same log also holds the script's source text,
+# "…console.log('show_bars - attempt ' + …", which has no "JsConsole:" and is not matched.)
+_ATTEMPT_RE = re.compile(r"JsConsole: (.+) - attempt (\d+)\s*$")
+
+
+def find_retries(run_dir):
+    """[(flow stem, what, most attempts one call needed, calls that needed more than one)] for
+    every retried step of every flow under RUN_DIR/<flow-stem>/ that did not succeed first time.
+
+    A retry hides a tap that did nothing; a step that regularly needs a second attempt is worth
+    knowing about even though its flow passed.
+    """
+    run_dir = Path(run_dir)
+    found = []
+    for flow_dir in sorted(p for p in run_dir.iterdir() if p.is_dir()):
+        most, retried = {}, {}
+        for log in sorted(flow_dir.glob("**/maestro.log")):
+            for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+                m = _ATTEMPT_RE.search(line)
+                if not m:
+                    continue
+                what, attempt = m.group(1), int(m.group(2))
+                if attempt < 2:
+                    continue
+                most[what] = max(most.get(what, 0), attempt)
+                if attempt == 2:
+                    retried[what] = retried.get(what, 0) + 1
+        for what in sorted(most):
+            found.append((flow_dir.name, what, most[what], retried.get(what, 0)))
+    return found
+
+
 def load_meta(run_dir):
     meta_path = Path(run_dir) / "meta.json"
     if not meta_path.exists():
@@ -231,6 +267,17 @@ def render_summary(run_dir, meta, cases):
     lines.append("")
     lines.append(f"**Totals: {passed} passed, {failed} failed, {total} total**")
     lines.append("")
+    retries = find_retries(run_dir)
+    if retries:
+        lines.append("## Retries")
+        lines.append("")
+        lines.append("Steps that did not succeed at the first attempt (the flow went on after a retry).")
+        lines.append("")
+        lines.append("| Flow | Step | Calls retried | Most attempts |")
+        lines.append("|---|---|---|---|")
+        for stem, what, most, calls in retries:
+            lines.append(f"| {stem} | {_escape_cell(what)} | {calls} | {most} |")
+        lines.append("")
     return "\n".join(lines)
 
 
