@@ -14,12 +14,30 @@ tags: [smoke, full, library, J-LIB-19]
 
 # 1. Open book -> en-novel.epub; Chapter Picker -> "Chapter 3 — The Long Crossing" -> the reader
 #    lands on that chapter's masthead: its title and its first paragraph are on screen (NAV-018)
+#
+# Every pick of en-novel.epub in this journey goes through pick_file_in_downloads.yaml: the
+# picker's "Recent" and "Downloads" roots hand out DIFFERENT uris for one file, the app keys a
+# book by its uri, and steps 6, 8 and 10 are about the app knowing this file again. With
+# pick_file.yaml the root depends on the picks before it (run 20261115T174915Z: the first pick
+# came from Recent, the re-add from Downloads -> a new book at chapter 1, step 8 failed). The
+# lines after the pick are import_book.yaml's own.
 - runFlow:
-    file: ../../subflows/import_book.yaml
+    file: ../../subflows/pick_file_in_downloads.yaml
     env:
       FILE: "en-novel.epub"
-      TITLE: "The River Crossing"
-      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- scrollUntilVisible:
+    element: ".*The old mill still stood at the bend of the river.*"
+    direction: DOWN
+    timeout: 120000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - extendedWaitUntil:
+          visible: ".*The River Crossing.*"
+          timeout: 3000
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -152,7 +170,7 @@ tags: [smoke, full, library, J-LIB-19]
 # 6. Open book -> en-novel.epub (the removed book) with the library full again -> the limit
 #    dialog; after Got it still 3 volumes, no card for it (LIB-025)
 - runFlow:
-    file: ../../subflows/pick_file.yaml
+    file: ../../subflows/pick_file_in_downloads.yaml
     env:
       FILE: "en-novel.epub"
 - extendedWaitUntil:
@@ -195,7 +213,7 @@ tags: [smoke, full, library, J-LIB-19]
 # 8. Open book -> en-novel.epub -> it opens in chapter 3 where it was left, not at the start,
 #    and Bookmarks still lists the chapter 3 bookmark (LIB-023). Back -> "3 VOLUMES".
 - runFlow:
-    file: ../../subflows/pick_file.yaml
+    file: ../../subflows/pick_file_in_downloads.yaml
     env:
       FILE: "en-novel.epub"
 - extendedWaitUntil:
@@ -262,7 +280,7 @@ tags: [smoke, full, library, J-LIB-19]
 # 10. Open book -> en-novel.epub -> it opens at the start of chapter 1 and Bookmarks is empty
 #     (LIB-026)
 - runFlow:
-    file: ../../subflows/pick_file.yaml
+    file: ../../subflows/pick_file_in_downloads.yaml
     env:
       FILE: "en-novel.epub"
 - extendedWaitUntil:

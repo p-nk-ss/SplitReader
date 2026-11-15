@@ -1,0 +1,62 @@
+appId: ${APP_ID}
+---
+# pick_file_in_downloads (env FILE): taps "Open book" and selects ${FILE} in the system picker,
+# ALWAYS from the "Downloads" root - never from "Recent".
+#
+# Why it exists: the picker hands out a different uri for the same file depending on the root it
+# was picked from, and the app keys a book by its uri (run 20261115T174915Z/J-LIB-19, logcat
+# `PickerActionHandler: onFinished()`):
+#   Recent     -> content://com.android.providers.media.documents/document/document%3A<id>
+#   Downloads  -> content://com.android.providers.downloads.documents/document/msf%3A<id>
+# pick_file.yaml taps ${FILE} wherever the picker opens and falls back to Downloads only when
+# the file is not on that first screen; DocumentsUI then remembers Downloads for every later
+# pick. So with pick_file.yaml the route of a pick depends on what else lies in
+# /sdcard/Download (leftovers of earlier runs fill "Recent") and on the picks before it. A
+# journey that picks the SAME file twice and expects the app to know it again (a removed book
+# added again: J-LIB-19) must use this subflow for every pick of that file.
+#
+# "Files in Downloads" is the picker's own header of that root (see pick_file.yaml, fix round 6);
+# when the picker already opens on Downloads the drawer is not touched (a tap on the selected
+# root leaves the drawer open over the list - pick_file.yaml, fix round 2).
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- tapOn: "Open book"
+- extendedWaitUntil:
+    visible: "Show roots"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Files in Downloads"
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      notVisible: "Files in Downloads"
+    commands:
+      - tapOn: "Show roots"
+      - extendedWaitUntil:
+          visible: "Downloads"
+          timeout: 5000
+      - tapOn: "Downloads"
+      - extendedWaitUntil:
+          visible: "Files in Downloads"
+          timeout: 5000
+          optional: true
+      - runFlow:
+          when:
+            notVisible: "Files in Downloads"
+          commands:
+            - tapOn: "Show roots"
+            - extendedWaitUntil:
+                visible: "Downloads"
+                timeout: 5000
+            - tapOn: "Downloads"
+- extendedWaitUntil:
+    visible: "Files in Downloads"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "${FILE}"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "${FILE}"
