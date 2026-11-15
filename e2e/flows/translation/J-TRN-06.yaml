@@ -1,0 +1,442 @@
+appId: ${APP_ID}
+name: J-TRN-06 Book language detection and the From override
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-06]
+# books: don-quixote-es.epub, rashomon-ja.epub, es-book.epub, de-book.epub, ja-novel.epub, zh-novel.epub, rur-cs.epub, fi-book.epub, und-book.epub
+---
+# J-TRN-06 — Book language detection and the "From" override.
+# Fixtures (nine books, so the debug Premium switch is turned on first — the free tier is 3):
+#   don-quixote-es.epub  Gutenberg 2000, Spanish; front matter is not Spanish
+#   rashomon-ja.epub     Gutenberg 1982, Japanese; opens with an English digitizer's note
+#   es-book / de-book / ja-novel / zh-novel   synthetic, one language each
+#   rur-cs.epub          Gutenberg 13083, Czech (R.U.R.)
+#   fi-book.epub         synthetic Finnish — a language the app does not translate from
+#   und-book.epub        synthetic: digits and symbols only, no language to detect
+# Runs on the phone and on the tablet; needs the network (Offline HQ packs for each book's
+# language; nothing waits for them except in steps 4 and 5).
+#
+# The language button (reader:languageChip) shows two texts around "→":
+#   a translatable book          "ES" "RU"     (detected, or chosen in the dialog's "From" tab)
+#   an untranslatable language   "FI" "—"      and the book reads in ONE column
+#   nothing detected             "?"  "—"      (ReaderChrome.kt, sourceBadge / targetBadge)
+# subflows/language_chip_reads.yaml asserts the two sides as texts inside the chip.
+# "One column" = no translation slot anywhere (no id translation_<c>_<p>) and, on the tablet,
+# the paragraph as wide as the page; with the bars up the note "NOT TRANSLATED" explains why.
+# The dialog (LanguagePickerDialog, ReaderDialogs.kt): tabs "FROM" (id language_tab_source) and
+# "TO"; in FROM the tile "Automatic" (id language_auto, subtitle "Detected: …") and the 18
+# languages, each tile with its badge ("PL") — the badge is tapped: a tile shows the language's
+# name twice.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-06.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# Preconditions: Offline HQ current (the default on a clean install); no limit on the library:
+# Settings -> "Premium (debug)"; target Russian: chosen in Settings (the default target is
+# English, and only an English book switches it to Russian by itself — target_russian.yaml).
+- runFlow: ../../subflows/target_russian.yaml
+- runFlow: ../../subflows/premium_debug.yaml
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 1. Open don-quixote-es.epub (non-Spanish front matter) -> the language button reads
+#    "ES → RU" — detected from the whole book, not the first lines (LNG-002).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "don-quixote-es.epub"
+- extendedWaitUntil:
+    visible: "— \\d+ —|GOT IT"
+    timeout: 120000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "ES"
+      TARGET: "RU"
+- takeScreenshot: J-TRN-06-step1-don-quixote
+#    Left with the system Back key: while this book's first long paragraphs are being translated
+#    one look at the screen takes 2–3 s, and the top bar's Back button (leave_reader.yaml) is
+#    gone before a tap by id reaches it.
+- back
+- extendedWaitUntil:
+    visible: "Catalog"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+
+# 2. Open rashomon-ja.epub -> "JA → RU" (LNG-002).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "rashomon-ja.epub"
+- extendedWaitUntil:
+    visible: "— \\d+ —|GOT IT"
+    timeout: 120000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "JA"
+      TARGET: "RU"
+#    Left with the system Back key: while this book's first long paragraphs are being translated
+#    one look at the screen takes 2–3 s, and the top bar's Back button (leave_reader.yaml) is
+#    gone before a tap by id reaches it.
+- back
+- extendedWaitUntil:
+    visible: "Catalog"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+
+# 3. Open es-book, de-book, ja-novel, zh-novel in turn -> "ES → RU", "DE → RU", "JA → RU",
+#    "ZH → RU" (LNG-001).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "es-book.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- assertVisible: "Aquella tarde una niebla cálida.*"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "ES"
+      TARGET: "RU"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "de-book.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- assertVisible: "An jenem Abend hing lange ein warmer Nebel.*"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "DE"
+      TARGET: "RU"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "ja-novel.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- assertVisible: "その夜、町の上には長いあいだ暖かい霧が.*"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "JA"
+      TARGET: "RU"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "zh-novel.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- assertVisible: "那天晚上，温暖的雾气在城市上空久久不散.*"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "ZH"
+      TARGET: "RU"
+- takeScreenshot: J-TRN-06-step3-zh
+- runFlow: ../../subflows/leave_reader.yaml
+
+# The paragraph steps 4, 5 and 7 read: the 4th of R.U.R.'s first chapter, "Kolektivní drama o
+# vstupní komedii a třech dějstvích" — Czech words, on the first screen of both device classes
+# (the three paragraphs above it are names, which every model gives back the same).
+- evalScript: ${output.rurSlot = 'translation_0_3'}
+# 4. Open rur-cs.epub -> "CS → RU"; Czech text translates (LNG-001): a paragraph on screen
+#    holds Russian (the CS→EN pack is downloaded on this import: 240 s).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "rur-cs.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "CS"
+      TARGET: "RU"
+- assertVisible:
+    text: "Kolektivní drama o vstupní komedii a třech dějstvích"
+    childOf:
+      id: "original_0_3"
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*[а-яё]{3,}.*"
+      childOf:
+        id: "${output.rurSlot}"
+    timeout: 240000
+- copyTextFrom:
+    text: "(?s).*[а-яё]{3,}.*"
+    childOf:
+      id: "${output.rurSlot}"
+- evalScript: ${output.fromCzech = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-06 step 4 - from Czech = ' + output.fromCzech)}
+- takeScreenshot: J-TRN-06-step4-rur-cs
+
+# 5. Tap the language button, open the "From" tab and pick Polish -> the button reads
+#    "PL → RU" and the screen is retranslated from Polish: the same paragraph gets another
+#    Russian text (LNG-004). The dialog says what was detected: "Detected: Čeština".
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- tapOn:
+    id: "language_tab_source"
+- extendedWaitUntil:
+    visible: "Book's language"
+    timeout: 5000
+- assertVisible: "Automatic"
+- assertVisible: "Detected: Čeština"
+- takeScreenshot: J-TRN-06-step5-from-tab
+- tapOn: "PL"
+- extendedWaitUntil:
+    notVisible: "Book's language"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "PL"
+      TARGET: "RU"
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*[а-яё]{3,}.*"
+            childOf:
+              id: "${output.rurSlot}"
+          timeout: 240000
+      - copyTextFrom:
+          text: "(?s).*[а-яё]{3,}.*"
+          childOf:
+            id: "${output.rurSlot}"
+      - assertTrue: ${maestro.copiedText != output.fromCzech}
+- evalScript: ${output.fromPolish = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-06 step 5 - from Polish = ' + output.fromPolish)}
+- takeScreenshot: J-TRN-06-step5-rur-pl
+
+# 6. Back to the Library, open another book, then reopen rur-cs.epub -> still "PL → RU": the
+#    override is remembered for this book only — es-book.epub still reads "ES → RU" (LNG-004).
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_Una tarde de otoño en Madrid.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "book_card_Una tarde de otoño en Madrid.*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- assertVisible: "Aquella tarde una niebla cálida.*"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "ES"
+      TARGET: "RU"
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_R\\.U\\.R\\..*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "book_card_R\\.U\\.R\\..*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "PL"
+      TARGET: "RU"
+
+# 7. In rur-cs.epub: language button -> "From" -> "Automatic" -> back to "CS → RU" (LNG-005),
+#    and the paragraph reads its translation from Czech again.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- tapOn:
+    id: "language_tab_source"
+- extendedWaitUntil:
+    visible: "Book's language"
+    timeout: 5000
+- tapOn:
+    id: "language_auto"
+- extendedWaitUntil:
+    notVisible: "Book's language"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "CS"
+      TARGET: "RU"
+- retry:
+    maxRetries: 12
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*[а-яё]{3,}.*"
+            childOf:
+              id: "${output.rurSlot}"
+          timeout: 120000
+      - copyTextFrom:
+          text: "(?s).*[а-яё]{3,}.*"
+          childOf:
+            id: "${output.rurSlot}"
+      - assertTrue: ${maestro.copiedText == output.fromCzech}
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 8. Open fi-book.epub -> one column of Finnish text: the button reads "FI → —", there is no
+#    translation slot at all (so no garbled translation), and with the bars up the note
+#    "NOT TRANSLATED — This book looks like Finnish, which can't be translated yet…" (LNG-006).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "fi-book.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: "Syksyinen sumu lepäsi pitkään kaupungin yllä.*"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "FI"
+      TARGET: "—"
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "Not translated"
+          childOf:
+            id: "untranslated_banner"
+      - assertVisible:
+          text: "This book looks like Finnish, which can't be translated yet.*"
+          childOf:
+            id: "untranslated_banner"
+- takeScreenshot: J-TRN-06-step8-finnish
+- assertVisible:
+    id: "original_0_0"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- assertNotVisible:
+    id: "reader:verticalBottomPane"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      # One column: the paragraph is as wide as the page (2560 px minus the two 64 px margins),
+      # not half of it (1192 px in two columns).
+      - assertVisible:
+          id: "original_0_0"
+          width: 2432
+          tolerance: 8
+
+# 9. Translator picker -> ML Kit; back in fi-book.epub -> still one column with the same note
+#    under ML Kit; then Offline HQ again (LNG-006).
+- runFlow:
+    file: ../../subflows/set_translator.yaml
+    env:
+      NAME: "ML Kit \\(offline\\)"
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "FI"
+      TARGET: "—"
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "Not translated"
+          childOf:
+            id: "untranslated_banner"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- runFlow:
+    file: ../../subflows/set_translator.yaml
+    env:
+      NAME: "Offline HQ"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 10. Open und-book.epub -> the language button shows "? → —" — not "UND", not blank — and the
+#     note says the language could not be detected (LNG-009).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "und-book.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: "1234567890 -- 2026/11/07.*"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "\\?"
+      TARGET: "—"
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "The book's language couldn't be detected\\. Choose it to translate the book\\."
+          childOf:
+            id: "untranslated_banner"
+      - assertNotVisible: "UND"
+      - assertNotVisible: ".*\\bUND\\b.*"
+- takeScreenshot: J-TRN-06-step10-unknown
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+#     The dialog's "From" tab says "Not detected".
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into|Book's language"
+- tapOn:
+    id: "language_tab_source"
+- extendedWaitUntil:
+    visible: "Not detected"
+    timeout: 5000
+- assertNotVisible: ".*\\bUND\\b.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Not detected"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 11. Almanac -> the LANGUAGES card lists the time read in und-book under "UNKNOWN", never
+#     "UND" (LNG-009). (A reading session counts from 15 s; step 10 keeps the book open longer.)
+- tapOn: "Almanac"
+- scrollUntilVisible:
+    element: "LANGUAGES"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element: "UNKNOWN"
+    direction: DOWN
+    timeout: 20000
+- assertNotVisible: "UND"
+- takeScreenshot: J-TRN-06-step11-almanac
