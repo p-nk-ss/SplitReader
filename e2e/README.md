@@ -110,6 +110,7 @@ starts when the book opens and is over before `pick_file.yaml` returns.)
 |---|---|
 | `launch_clean.yaml` | Clear Mirrolit's and the system picker's state, launch, wait for "Open book". |
 | `pick_file.yaml` (FILE) | "Open book" -> pick the file in the system picker (per API level). Asserts nothing about the result. |
+| `pick_file_in_downloads.yaml` (FILE) | The same, but ALWAYS from the picker's "Downloads" root. For a journey that picks one file more than once and needs the app to know it again (see "One file, two uris" below). |
 | `import_book.yaml` (FILE, TITLE, FIRST_TEXT) | `pick_file` + dismiss the portrait hint + prove the right book opened (first text, then title in the top bar). |
 | `dismiss_portrait_hint.yaml` | Phone only: tick "Don't show again" and close the "Parallel reading…" hint if it is up. |
 | `show_bars.yaml` | Show the reader's bars: wait until hidden, one tap, wait for the language chip (retried). |
@@ -163,6 +164,20 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
   or with `waitToSettleTimeoutMs: 100`.
 - **The word popup.** Wait for the translation's text between "WORD" and "Listen", not for
   `{text: "Save", enabled: true}`: the Save text node reads enabled in every state.
+- **The popup while it still translates.** With an installed pack that state is shorter than one
+  command. A pack that is NOT installed holds it for the ~5 s of its download (the popup reads
+  "Downloading language model… N%"): choose a new target by a point tap on its tile, then point
+  gestures only, and after each gesture assert that the download line is STILL there — otherwise
+  the gesture came too late and proved nothing (`J-TRN-03` step 13). With the bars up the popup
+  sits one footer higher than with the bars hidden.
+- **Who translated.** The picker's inverted card is the CHOICE. When the chosen engine cannot
+  serve, ML Kit does and a strip under the top bar says "… — translated by ML Kit" (only while
+  the bars are up): `show_bars`, then `assertNotVisible: ".*translated by.*"`. The strip can be
+  produced on an emulator with DeepL + any made-up key + target Hindi (DeepL has no Hindi). `assertNotVisible` waits for a text to go, and the strip goes with the bars: assert the language button right after it, or a strip that was there passes.
+- **A percentage that goes down** (`bnDecreased`, `dlDecreased`, `pdDecreased`): the app clamps
+  each caller's progress so it never decreases within one download attempt; a lower number can
+  only show after an error banner and a new attempt. The checks are right but have never been
+  seen true.
 - **Off-screen work** (look-ahead, a hidden pane): `cached_translations.yaml`.
 - **A paragraph in another language than the book's** has a note line inside its translation
   slot ("FR · French, not translated" + the button "Download and translate", "FR · from French",
@@ -192,6 +207,43 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
 `<name> … - attempt N` before every attempt; `e2e/report.py` reads the flows' `maestro.log` and
 adds a "Retries" table to `summary.md` for every step that needed more than one attempt (none:
 no table). A step that shows up there run after run is a finding, even though its flow passed.
+
+## A slow run: is the Mac's screen locked?
+
+With the Mac's screen locked (or the display asleep) a WINDOWED emulator runs 2–3 times slower:
+its frames are drawn through a window nobody composes. Seen 2026-11-15: from the minute the
+screen locked every flow took 2.3–3 times its usual time (J-LIB-19 on the tablet 612 s and
+647 s instead of 270 s) and the timing-bound checks failed (banner readings, the 3 s tap pairs,
+the popup's download window) — with no other load on the host. The same AVD booted with the
+same command line plus `-no-window` ran J-LIB-19 in 278 s, screen still locked.
+`caffeinate -i -s` keeps the Mac awake but does not keep the screen unlocked.
+`run.sh --avd` starts a windowed emulator; for an unattended run boot the AVD yourself
+(`emulator -avd <NAME> -memory 4096 -partition-size 8192 -no-snapshot-save -no-window`) and
+pass `--serial emulator-XXXX`. A run with durations at twice the usual is void, not a result.
+
+## One file, two uris (`pick_file.yaml` vs `pick_file_in_downloads.yaml`)
+
+The system picker hands the app a different uri for the same file depending on the root it is
+picked from, and Mirrolit keys a book by its uri:
+
+```
+Recent     content://com.android.providers.media.documents/document/document%3A<id>
+Downloads  content://com.android.providers.downloads.documents/document/msf%3A<id>
+```
+
+`pick_file.yaml` taps the file wherever the picker opens ("Recent" after `launch_clean`) and
+goes to "Downloads" only when the file is not on that first screen — and DocumentsUI then
+remembers "Downloads" for every later pick of the run. So the root of a pick depends on what
+else is in `/sdcard/Download` (files left by an earlier run or a probe fill "Recent": `run.sh`
+removes only what it pushed itself) and on the picks before it. For most journeys that does
+not matter. For one that picks the SAME file again and expects the app to recognise it — a
+removed book added again, `J-LIB-19` — it decides the result: a second pick from another root
+is a new book to the app (chapter 1, no bookmarks). Such a journey uses
+`pick_file_in_downloads.yaml` for every pick of that file.
+
+Which uri a pick returned is in the flow's `logs/device-logcat.txt`:
+`grep 'PickerActionHandler.*onFinished' …` — one line per pick. Look there first when a
+re-opened book is "not the same book".
 
 ## Picker reset (`launch_clean.yaml`)
 
