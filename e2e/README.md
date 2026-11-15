@@ -123,6 +123,10 @@ starts when the book opens and is over before `pick_file.yaml` returns.)
 | `rows_translated.yaml` (CHAPTER, FROM, PATTERN, TIMEOUT) | Every translation slot on screen holds a text matching PATTERN (walks down and up from paragraph FROM); `output.rows` = how many. |
 | `show_translation.yaml` (STATE: on \| off) | The reader's Display dialog -> "Show translation" to STATE; the switch must have been in the other state. |
 | `cached_translations.yaml` | Restart the app, read Settings -> "Cached translations: N" into `output.cached`, back to the Library. |
+| `language_chip_reads.yaml` (SOURCE, TARGET) | The reader's language button reads "SOURCE → TARGET" (`"JA"`, `"RU"`; `"FI"`, `"—"`; `"\\?"`, `"—"`). One showing of the bars and one look per side, up to five attempts each, logged. |
+| `target_russian.yaml` | Settings -> Default translation language -> Russian. Needed before a book that is not English: the default target is English, and only an English book switches it to Russian by itself. Ends on Settings. |
+| `watch_paragraph_download.yaml` (SLOT) | Read "Downloading… N%" on the "Download and translate" button of a paragraph in another language (inside translation slot SLOT) until it is gone; results in `output.pd…`. Asserts nothing itself. |
+| `sentences_translated.yaml` (SLOT_C, SLOT_P, MARK, TIMEOUT) | A paragraph of `ja-novel.epub` / `zh-novel.epub` (one sentence written N times) is translated as one Russian sentence N times, single spaces between: translated a sentence at a time, none run together. |
 | `tap_catalog_search.yaml` | Focus the Catalog's search field. |
 | `dismiss_stylus_popup.yaml` | Close the emulator's stylus-handwriting popup if it is up. |
 | `premium_debug.yaml` | Turn on Settings -> "Premium (debug)". |
@@ -160,6 +164,22 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
 - **The word popup.** Wait for the translation's text between "WORD" and "Listen", not for
   `{text: "Save", enabled: true}`: the Save text node reads enabled in every state.
 - **Off-screen work** (look-ahead, a hidden pane): `cached_translations.yaml`.
+- **A paragraph in another language than the book's** has a note line inside its translation
+  slot ("FR · French, not translated" + the button "Download and translate", "FR · from French",
+  "LA · Latin, not translated", "RU · original"): assert the note `childOf` that slot. Its model
+  download shows on the button ("Downloading… N%", `watch_paragraph_download.yaml`), never on
+  the banner; "nothing was downloaded on its own" is read from Settings -> Language packs (the
+  rows "FR → EN · N MB" and the total), which must also be seen to change once a button is tapped.
+- **Button texts are reported in capitals** ("DOWNLOAD AND TRANSLATE", "DOWNLOADING… 20%").
+  Maestro's text match ignores case; JavaScript on `maestro.copiedText` does not.
+- **The popup by position.** `below: "WORD"` / `above: "Listen"` are vertical bands: a page text
+  in that band matches too. Bound the length, or read the result back another way (J-TRN-05
+  saves the poem and reads it in Words).
+- **The default target is English.** A clean install translates a Japanese book into English
+  ("JA → EN"); `target_russian.yaml` first.
+- **A heavy book** (a 6,000-character paragraph being translated: `rashomon-ja.epub`): one look
+  at the screen takes 2–3 s of the bars' 3.5 s. Read the chip with `language_chip_reads.yaml`,
+  leave with the system `back` key.
 - **Points.** `swipe` and `point:` take literal whole numbers only (`"740, 333"`, `"30%, 60%"`; no
   decimals, no `${…}`), so a device-specific point is two copies of the command behind
   `when: true: ${DEVICE_CLASS == '…'}`. A swipe that does not move (`duration: 700`,
@@ -200,14 +220,21 @@ and names the palette colour the background must have:
 
 ```yaml
 - takeScreenshot:
-    path: colour-check/step7-display__SepiaBg    # colour-check/<label>__<constant in Color.kt>
+    path: colour-check/step7-display__SepiaBg
     cropOn: "Display"
 ```
+
+The name is `colour-check/<label>__<constant in Color.kt>`; the label is letters, digits and `-`,
+and nothing may follow the name on its line (no comment). A crop line the checker cannot read
+that way is not skipped: it fails the row.
 
 After such a flow `run.sh` runs `e2e/check_colours.py`: it reads the list of crops from the flow
 file, requires every one to have been taken, and requires its most frequent pixel to be exactly
 that constant of `app/…/presentation/theme/Color.kt` (and at least half of the crop). The result
-is its own row in `summary.md`, `<flow> colours`, and a wrong colour fails the run. The colour
+is its own row in `summary.md`, `<flow> colours`, and a wrong colour fails the run — as does a
+crop that was not taken, a flow in which no crop is found, and any error of the checker itself
+(an unreadable PNG, a missing `Color.kt`; if the script dies without a result, `run.sh` writes
+the FAIL row). The colour
 does not depend on the crop's size, so there are no per-device reference images. A flow run by
 hand with `maestro test` takes the crops but does not check them:
 

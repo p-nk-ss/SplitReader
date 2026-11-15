@@ -963,7 +963,7 @@ failure injection, two Play builds, special devices, or human judgement.
 |---|---|---|
 | `en-novel.epub` | English novel; chapter 1 has 40+ paragraphs, chapter 3 is 3+ screens long, one bookmarkable later chapter | J-01, J-02, J-03, J-07, J-09, J-10, J-11, J-12, J-13 |
 | `mixed-lang.epub` | English main text with embedded paragraphs (each ≥ 60 chars unless noted): a German paragraph, a French letter, a Latin epigraph, a Russian paragraph, a short (< 20 chars) Chinese quote, a short Japanese line, and a one-line (< 60 chars) Latin fragment | J-04, J-10, J-16 |
-| `ja-poems.epub` | Short Japanese poems with a long English preface | J-05 |
+| `ja-poems.epub` | A collection of short Japanese poems (160 lines of 10–13 characters) with a long English preface | J-05 |
 | `ja-novel.epub` / `zh-novel.epub` | Long Japanese chapter (multi-sentence paragraphs) / long Chinese chapter (2,000+ chars) | J-05 |
 | `fi-book.epub` | Finnish book (untranslatable language) | J-06 |
 | `rur-cs.epub` | Čapek, R.U.R. (Czech) | J-06 |
@@ -1083,43 +1083,43 @@ Translating → Ready transition, no intermediate results) until one is added; t
 
 **Priority:** P0 · **Tags:** smoke, full, network, phone, tablet · **Devices:** tablet API 35, phone emulator
 **Fixtures:** `mixed-lang.epub`
-**Preconditions:** Offline HQ current; target Russian; only the EN→RU pack installed (no DE/FR/ZH/JA→EN packs; no Latin pack exists); Words list empty; online.
+**Preconditions:** a clean install — Offline HQ current, no pack installed (the flow asserts that Settings → Language packs is empty), Words list empty; online. Opening this English book makes the target Russian and installs EN→RU.
 
 **Steps**
 1. Open `mixed-lang.epub`. → ✓ language button reads "EN → RU"; English paragraphs translate as usual.
-2. Scroll to the French letter. → ✓ instead of a translation it offers "Download and translate"; Settings → Language packs (opened and closed) shows no new pack, and no download banner appears while you wait 30 s (TRN-026).
-3. Tap "Download and translate". → ✓ the FR→EN pack downloads with a growing percent, then the letter is translated from French — the Russian reads as a translation of the French text, not a garble of "English" (TRN-026, TRN-011).
-4. Scroll to the German paragraph and tap "Download and translate"; wait. → ✓ it is translated from German (TRN-011).
-5. Long-press a German word inside that paragraph. → ✓ the popup translates it from German, not English (POP-024).
-6. Tap Save, then open Words. → ✓ the entry is tagged DE as its source language, not EN (POP-025, WRD-003). Go back to the reader.
-7. Scroll to the Latin epigraph. → ✓ the passage is shown unmodified with a small label above it: "LA · Latin, not translated" (TRN-015).
-8. Long-press a word inside the Latin epigraph. → ✓ the popup explains why this paragraph isn't translated, instead of a blank or a wrong result (POP-023).
-9. Scroll to the short Chinese quote. → ✓ it is recognised as Chinese — labelled ZH and offered "Download and translate" — not translated as English into garbage (TRN-012).
+2. Scroll to the French letter. → ✓ instead of a translation its slot shows the French text under the label "FR · French, not translated" and a button "Download and translate"; after 30 s without a tap it is still so, and Settings → Language packs lists EN → RU only, the total being that pack's size — nothing was downloaded on its own for the French, German, Chinese or Japanese paragraph (TRN-026). (A paragraph's download is not shown on the reader's banner, so the pack list is the evidence.)
+3. Tap "Download and translate". → ✓ the FR→EN pack downloads with a growing percent on that button ("Downloading… N%"), then the letter is translated from French — label "FR · from French", and the Russian reads as a translation of the French text ("…книг…" for *livre*), not a garble of "English" (TRN-026, TRN-011).
+4. Scroll to the German paragraph → ✓ still "DE · German, not translated" (the French download did not bring German). Tap "Download and translate"; wait. → ✓ "DE · from German"; the Russian has "снег…" for *Schnee* (TRN-011).
+5. Long-press a German word inside that paragraph (its first word, "Lieber"). → ✓ the popup translates it from German ("Дорог…"), not English (POP-024).
+6. Tap Save, then open Words. → ✓ the entry is tagged DE as its source language, not EN (POP-025, WRD-003). Go back to the reader → ✓ the German paragraph is translated from German at once, no button.
+7. Scroll to the Latin epigraph. → ✓ the passage is shown unmodified with a small label above it: "LA · Latin, not translated", and no download is offered (TRN-015).
+8. Long-press a word inside the Latin epigraph. → ✓ the popup explains why this paragraph isn't translated — "Latin isn't supported for translation" — instead of a blank or a wrong result (POP-023). (On the way down: the Russian paragraph is shown as it is under "RU · original".)
+9. Scroll to the short Chinese quote (27 characters: under the 60-character line but over it when a Han character counts as three letters). → ✓ it is recognised as Chinese — labelled "ZH · Chinese, not translated" and offered "Download and translate" — not translated as English into garbage; Settings → Language packs lists EN → RU, FR → EN and DE → EN only (TRN-012, TRN-026).
 10. Tap "Download and translate". → ✓ the ZH→EN pack downloads and the quote is translated from Chinese (TRN-012, TRN-026).
 11. Scroll to the short Japanese line. → ✓ recognised as Japanese (JA label / "Download and translate"), not as English or Chinese; after tapping it, translated from Japanese (TRN-012).
-12. Scroll back to an English paragraph and long-press a word. → ✓ the popup translates from English again (POP-024).
+12. Scroll back to an English paragraph and long-press a word ("And"). → ✓ the popup translates from English again (POP-024). Settings → Language packs now lists the five packs: EN → RU and the four whose buttons were tapped.
 
 **Covers:** TRN-011, TRN-012, TRN-015, TRN-026, POP-023, POP-024, POP-025 (also WRD-003)
 
 ### J-TRN-05 — Chinese and Japanese: books, sentences, both on-device engines
 
-**Priority:** P0 · **Tags:** smoke, full, network, tablet, phone · **Devices:** tablet API 35, phone emulator (ML Kit part: tablet API 35 only; see MLK-009 for API 30)
+**Priority:** P0 · **Tags:** smoke, full, network, tablet, phone · **Devices:** tablet API 35, phone emulator (see MLK-009 for API 30)
 **Fixtures:** `ja-poems.epub`, `ja-novel.epub`, `zh-novel.epub`
-**Preconditions:** Offline HQ current; target Russian; online. JA→EN/ZH→EN packs may or may not be installed (J-TRN-04 installs them).
+**Preconditions:** a clean install — Offline HQ current; target Russian, chosen in Settings → Default translation language (the default target is English; only an English book switches it to Russian by itself); online.
 
 **Steps**
-1. Import and open `ja-poems.epub` (short Japanese poems, long English preface). → ✓ the language button reads "JA → RU", not "EN → RU" (LNG-003).
-2. Scroll past the preface to the poems. → ✓ the short poems are treated as the book's own Japanese and translated, not each labelled as a foreign passage (LNG-003); the English preface is handled as embedded English.
-3. Long-press a word inside a poem. → ✓ the popup translates it from Japanese into Russian (POP-001).
-4. Open `ja-novel.epub` at its long chapter. → ✓ translation starts within ~30 s (including any pack download); the banner never sits on "Preparing translation…" (TRN-013).
-5. Read three translated paragraphs that hold several Japanese sentences each. → ✓ the sentences are separated; no run-together like "упал.Тот" (TRN-014).
-6. Scroll forward five screens. → ✓ each screen translates without a stall on "Preparing translation…" (TRN-013).
+1. Import and open `ja-poems.epub` (a collection of short Japanese poems — 160 lines of 10–13 characters — with a long English preface). → ✓ the language button reads "JA → RU", not "EN → RU" (LNG-003).
+2. → ✓ the English preface is handled as embedded English: translated under "EN · from English". Scroll past the preface to the poems. → ✓ the short poems are treated as the book's own Japanese and translated, none labelled as a foreign passage (LNG-003).
+3. Long-press inside a poem (a Japanese line has no spaces: the selection is the whole poem). → ✓ the popup translates it from Japanese into Russian — the same Russian the page shows for that poem; Save, then Words → the entry is tagged JA (POP-001).
+4. Open `ja-novel.epub` at its long chapter. → ✓ translation starts within ~30 s (the packs are installed since step 1); the banner never sits on "Preparing translation…" (TRN-013).
+5. Read three translated paragraphs that hold several Japanese sentences each. → ✓ the sentences are separated; no run-together like "упал.Тот" (TRN-014). Each fixture paragraph is one sentence written 12–17 times, so its translation must be one Russian sentence that many times with single spaces between — a sentence at a time.
+6. Scroll forward through the next chapter. → ✓ each paragraph that comes on screen translates without a stall on "Preparing translation…" (TRN-013).
 7. Open `zh-novel.epub` at its long chapter. → ✓ "ZH → RU"; translation starts promptly, no hang on "Preparing translation…" (TRN-013).
-8. Open the Translator picker and select ML Kit. → ✓ the visible Chinese paragraphs are retranslated by ML Kit, sentence by sentence; no hang (MLK-002, MLK-001).
+8. Open the Translator picker and select ML Kit. → ✓ the visible Chinese paragraph is retranslated by ML Kit (another Russian text than Offline HQ's), sentence by sentence; no hang (MLK-002, MLK-001).
 9. Go back and open `ja-novel.epub` on ML Kit; wait for the model download and the first screen. → ✓ translation proceeds; sentences are not run together; no "Preparing translation…" hang (MLK-002, TRN-014).
 10. Go back to the Library and reopen `ja-poems.epub`. → ✓ still "JA → RU" (LNG-003).
-11. Scroll forward ten screens in the Japanese chapter on ML Kit. → ✓ every screen translates; no hang, no run-together sentences (MLK-002).
-12. Open the Translator picker and select Offline HQ again (restores the default for later journeys).
+11. In `ja-novel.epub` on ML Kit scroll forward through both chapters. → ✓ every paragraph translates, a sentence at a time; no hang, no run-together sentences (MLK-002).
+12. Open the Translator picker and select Offline HQ again. → ✓ the first paragraph reads Offline HQ's translation of step 5 again.
 
 **Covers:** LNG-003, TRN-013, TRN-014, MLK-001, MLK-002, POP-001
 
@@ -1127,20 +1127,20 @@ Translating → Ready transition, no intermediate results) until one is added; t
 
 **Priority:** P0 · **Tags:** smoke, full, network, phone, tablet · **Devices:** tablet API 35, phone emulator
 **Fixtures:** `es-book.epub`, `de-book.epub`, `ja-novel.epub`, `zh-novel.epub`, `don-quixote-es.epub`, `rashomon-ja.epub`, `rur-cs.epub`, `fi-book.epub`, `und-book.epub` (Premium or a test build without the 3-book limit, see LIB-001)
-**Preconditions:** Offline HQ current; target Russian; all fixtures imported; online.
+**Preconditions:** a clean install — Offline HQ current; target Russian, chosen in Settings → Default translation language (the default target is English); the debug Premium switch on (nine books); online. Each book is imported in the step that opens it.
 
 **Steps**
 1. Open `don-quixote-es.epub` (non-Spanish front matter). → ✓ the language button reads "ES → RU" — detected from the whole book, not the first lines (LNG-002).
 2. Open `rashomon-ja.epub`. → ✓ "JA → RU" (LNG-002).
 3. Open `es-book.epub`, `de-book.epub`, `ja-novel.epub`, `zh-novel.epub` in turn. → ✓ the button reads "ES → RU", "DE → RU", "JA → RU", "ZH → RU" respectively (LNG-001).
 4. Open `rur-cs.epub`. → ✓ "CS → RU"; Czech text translates (LNG-001).
-5. Tap the language button, open the "From" tab and pick Slovak. → ✓ the button reads "SK → RU" and the screen is retranslated from Slovak (LNG-004).
-6. Go back to the Library, open another book, then reopen `rur-cs.epub`. → ✓ still "SK → RU" — the override is remembered for this book only; `es-book.epub` still reads "ES → RU" (LNG-004).
-7. In `rur-cs.epub` tap the language button → "From" → "Automatic". → ✓ back to "CS → RU" (LNG-005).
-8. Open `fi-book.epub`. → ✓ one column of Finnish text with a "Not translated" / "FI → —" note; no garbled translation (LNG-006).
+5. Tap the language button, open the "From" tab (it says "Detected: Čeština") and pick Polish. → ✓ the button reads "PL → RU" and the screen is retranslated from Polish — the same paragraph gets another Russian text (LNG-004). (The "From" tab offers the app's 18 languages; Slovak is not one of them.)
+6. Go back to the Library, open `es-book.epub`, then reopen `rur-cs.epub`. → ✓ still "PL → RU" — the override is remembered for this book only; `es-book.epub` still reads "ES → RU" (LNG-004).
+7. In `rur-cs.epub` tap the language button → "From" → "Automatic". → ✓ back to "CS → RU"; the paragraph reads its translation from Czech again (LNG-005).
+8. Open `fi-book.epub`. → ✓ one column of Finnish text; the language button reads "FI → —"; with the bars up a note "NOT TRANSLATED — This book looks like Finnish, which can't be translated yet…"; no translation pane, no garbled translation (LNG-006).
 9. Open the Translator picker, select ML Kit, return to `fi-book.epub`. → ✓ still one column with the same note under ML Kit; then switch back to Offline HQ (LNG-006).
-10. Open `und-book.epub`. → ✓ the language button shows "Unknown" / "UNKNOWN", not "UND" or blank (LNG-009).
-11. Open Almanac and find `und-book`'s entry. → ✓ its language field reads "Unknown", never "UND" (LNG-009).
+10. Open `und-book.epub`. → ✓ the language button shows "? → —", not "UND" or blank; the note says "The book's language couldn't be detected. Choose it to translate the book."; the "From" tab says "Not detected" (LNG-009).
+11. Open Almanac → ✓ the LANGUAGES card lists the time read in `und-book` under "UNKNOWN", never "UND" (LNG-009).
 
 **Covers:** LNG-001, LNG-002, LNG-004, LNG-005, LNG-006, LNG-009
 

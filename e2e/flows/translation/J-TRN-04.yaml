@@ -1,0 +1,589 @@
+appId: ${APP_ID}
+name: J-TRN-04 A mixed-language book - every passage in its own language
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
+# books: mixed-lang.epub
+---
+# J-TRN-04 — A mixed-language book: every passage in its own language.
+# Fixture: mixed-lang.epub ("Letters in Many Tongues", one chapter, 15 paragraphs, English with
+# letters in other languages). Ids original_0_<p> / translation_0_<p>, 0-based:
+#    0, 1  English                          8   Russian ("Дорогой друг, пишу тебе из Москвы…")
+#    2     German ("Lieber Freund, …")      10  Chinese, 27 characters ("我今天早上在图书馆看书…")
+#    4     French ("Mon cher ami, …")       12  Japanese, 31 characters ("わたしは毎朝こうえんを…")
+#    6     Latin ("Arma virumque cano, …")  14  Latin, 13 characters ("Et sic finis.")
+#    3, 5, 7, 9, 11, 13  English
+# Runs on the phone and on the tablet; needs the network (Offline HQ packs EN→RU on import, then
+# FR→EN, DE→EN, ZH→EN, JA→EN — each only from its paragraph's button; Offline HQ goes through
+# English, so "from French into Russian" is the FR→EN pack plus EN→RU).
+#
+# What the app shows for a paragraph in another language than the book's (ParagraphNoteLine.kt):
+# one line above the paragraph's translation, inside its translation slot,
+#     "FR · French, not translated" + a button "Download and translate"   the model is missing
+#     "Downloading… N%" on that button                                     while it downloads
+#     "FR · from French"                                                   translated from it
+#     "LA · Latin, not translated" (no button)                             cannot be translated
+#     "RU · original"                                                      already in the target
+# and, until it is translated, the slot holds the paragraph's own text. So every check below is
+# a text `childOf` that paragraph's slot: a note of a neighbouring paragraph cannot satisfy it.
+#
+# "Nothing is downloaded behind the reader's back" (TRN-026). A download started by anything but
+# the button would show nowhere in the reader — it is read from Settings -> Language packs, which
+# lists every installed pack ("FR → EN · N MB") and their total. That list is asserted to hold
+# only EN → RU after every paragraph of the book has been on screen or in the look-ahead for
+# 30 s (step 2), and again before the Chinese button is tapped (step 9); the same rows ARE there
+# once their buttons were tapped (steps 9 and 12), so the check can fail.
+#
+# "Translated from its own language, not as English" is read from the translation's words: the
+# pinned Offline HQ models give the same text on both device classes, and each paragraph is
+# asserted by a Russian word that only its real meaning yields (see each step).
+#
+# The word popup (steps 5, 8, 12): a long press at a place inside the paragraph, per device
+# class (default font); the popup's own word line says which word was hit.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-04.
+# No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# Preconditions: a clean install — Offline HQ is the default, no pack is installed, Words is
+# empty. Asserted, not assumed: Settings -> Language packs has no row at all.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Language packs"
+    direction: DOWN
+    timeout: 40000
+- assertNotVisible: "[A-Z]{2} → [A-Z]{2} · \\d+ MB"
+- assertNotVisible: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 1. Open mixed-lang.epub -> the language button reads "EN → RU"; English paragraphs translate
+#    as usual (the first one holds Russian).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "mixed-lang.epub"
+      TITLE: "Letters in Many Tongues"
+      FIRST_TEXT: "It was late in the autumn when the letter finally arrived"
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "EN"
+          childOf:
+            id: "reader:languageChip"
+      - assertVisible:
+          text: "RU"
+          childOf:
+            id: "reader:languageChip"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 240000
+- assertNotVisible:
+    id: "paragraph_note"
+    childOf:
+      id: "translation_0_0"
+
+# 2. Scroll to the French letter -> instead of a translation it offers "Download and translate"
+#    under the label "FR · French, not translated", and its slot holds the French text itself,
+#    no Russian (TRN-026, TRN-011).
+- scrollUntilVisible:
+    element:
+      text: "Download and translate"
+      childOf:
+        id: "translation_0_4"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- assertVisible:
+    text: "FR · French, not translated"
+    childOf:
+      id: "translation_0_4"
+- assertVisible:
+    text: "Mon cher ami, je vous écris de Paris.*"
+    childOf:
+      id: "translation_0_4"
+- assertNotVisible:
+    text: ".*[А-Яа-яЁё]{3,}.*"
+    childOf:
+      id: "translation_0_4"
+#    Wait 30 s without touching the button: the letter stays as it is — the label does not turn
+#    into "FR · from French" (the optional wait is the 30 s; had the label come, the next line
+#    fails) and the button is still there.
+- extendedWaitUntil:
+    visible:
+      text: "FR · from French"
+      childOf:
+        id: "translation_0_4"
+    timeout: 30000
+    optional: true
+- assertNotVisible:
+    text: "FR · from French"
+    childOf:
+      id: "translation_0_4"
+- assertVisible:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_4"
+- assertNotVisible:
+    text: "Downloading….*"
+    childOf:
+      id: "translation_0_4"
+- takeScreenshot: J-TRN-04-step2-french-offered
+#    …and nothing was downloaded meanwhile: Settings -> Language packs lists EN → RU only, and
+#    the total is that pack's size. (By now the whole book has been in the engine's window: the
+#    French letter is paragraph 5 of 15 and the look-ahead is 8 paragraphs, so a silent download
+#    for the German, Chinese or Japanese paragraph would show here too.)
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "Language packs"
+- copyTextFrom: "EN → RU · \\d+ MB"
+- evalScript: ${output.ru = parseInt(maestro.copiedText.split('· ')[1])}
+- assertNotVisible: "FR → EN · \\d+ MB"
+- assertNotVisible: "DE → EN · \\d+ MB"
+- assertNotVisible: "ZH → EN · \\d+ MB"
+- assertNotVisible: "JA → EN · \\d+ MB"
+- assertVisible: "Total ${output.ru} MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- takeScreenshot: J-TRN-04-step2-packs-only-en-ru
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Letters in Many Tongues.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Letters in Many Tongues.*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+
+# 3. Tap "Download and translate" on the French letter -> the FR→EN pack downloads with a
+#    growing percent on that button, then the letter is translated from French: the label is
+#    "FR · from French" and the Russian is a translation of the French text — it has the word
+#    "книг…" (livre), which French read as English does not give (TRN-026, TRN-011).
+- scrollUntilVisible:
+    element:
+      text: "Download and translate"
+      childOf:
+        id: "translation_0_4"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- tapOn:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_4"
+    waitToSettleTimeoutMs: 100
+- runFlow:
+    file: ../../subflows/watch_paragraph_download.yaml
+    env:
+      SLOT: "translation_0_4"
+- assertTrue: ${output.pdBelow100 >= 2}
+- assertTrue: ${output.pdDistinct >= 2}
+- assertTrue: ${output.pdDecreased == false}
+- extendedWaitUntil:
+    visible:
+      text: "FR · from French"
+      childOf:
+        id: "translation_0_4"
+    timeout: 180000
+- assertVisible:
+    text: "(?i).*книг.*"
+    childOf:
+      id: "translation_0_4"
+- assertNotVisible:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_4"
+- assertNotVisible:
+    text: "Mon cher ami.*"
+    childOf:
+      id: "translation_0_4"
+- takeScreenshot: J-TRN-04-step3-from-french
+
+# 4. Scroll to the German paragraph -> it too is offered, not translated ("DE · German, not
+#    translated": the French download did not bring German with it); tap "Download and
+#    translate"; wait -> "DE · from German", and the Russian has "снег…" (Schnee) (TRN-011).
+- scrollUntilVisible:
+    element:
+      text: "Download and translate"
+      childOf:
+        id: "translation_0_2"
+    direction: UP
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- assertVisible:
+    text: "DE · German, not translated"
+    childOf:
+      id: "translation_0_2"
+- assertNotVisible:
+    text: "DE · from German"
+    childOf:
+      id: "translation_0_2"
+- tapOn:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_2"
+    waitToSettleTimeoutMs: 100
+- runFlow:
+    file: ../../subflows/watch_paragraph_download.yaml
+    env:
+      SLOT: "translation_0_2"
+- assertTrue: ${output.pdBelow100 >= 2}
+- assertTrue: ${output.pdDecreased == false}
+- extendedWaitUntil:
+    visible:
+      text: "DE · from German"
+      childOf:
+        id: "translation_0_2"
+    timeout: 180000
+- assertVisible:
+    text: "(?i).*снег.*"
+    childOf:
+      id: "translation_0_2"
+- takeScreenshot: J-TRN-04-step4-from-german
+
+# 5. Long-press a German word inside that paragraph -> the popup translates it from German, not
+#    English (POP-024): the paragraph's first word, "Lieber" — from German "Дорогой…" (dear);
+#    read as English it is not a word at all.
+- longPressOn:
+    id: "original_0_2"
+    point: "6%, 6%"
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 10000
+- assertVisible:
+    text: "Lieber"
+    below: "WORD"
+    above: "Listen"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.lieberRu = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-04 step 5 - Lieber = ' + output.lieberRu)}
+- assertTrue: ${output.lieberRu.toLowerCase().indexOf('дорог') == 0}
+- assertVisible:
+    text: "(?i)дорог.*"
+    below: "WORD"
+    above: "Listen"
+- takeScreenshot: J-TRN-04-step5-german-word
+
+# 6. Save, then Words -> the entry is tagged DE as its source language, not EN (POP-025,
+#    WRD-003). Back to the reader.
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 10000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 10000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "Lieber"
+    timeout: 15000
+- assertVisible: "1 saved word"
+- assertVisible: "${output.lieberRu}"
+- assertVisible:
+    text: "DE"
+    rightOf: "${output.lieberRu}"
+- assertNotVisible: "EN"
+- takeScreenshot: J-TRN-04-step6-words-de
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Letters in Many Tongues.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Letters in Many Tongues.*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+#    Reopened with both packs installed: the German paragraph is translated from German again
+#    without any button.
+- scrollUntilVisible:
+    element:
+      text: "DE · from German"
+      childOf:
+        id: "translation_0_2"
+    direction: UP
+    speed: 20
+    timeout: 60000
+
+# 7. Scroll to the Latin epigraph -> the passage is shown unmodified with a small label above
+#    it, "LA · Latin, not translated", and no download is offered for it (TRN-015).
+- scrollUntilVisible:
+    element:
+      text: "Arma virumque cano, Troiae qui primus ab oris.*"
+      childOf:
+        id: "translation_0_6"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- assertVisible:
+    text: "LA · Latin, not translated"
+    childOf:
+      id: "translation_0_6"
+- assertNotVisible:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_6"
+- assertNotVisible:
+    text: ".*[А-Яа-яЁё]{3,}.*"
+    childOf:
+      id: "translation_0_6"
+- takeScreenshot: J-TRN-04-step7-latin
+
+# 8. Long-press a word inside the Latin epigraph ("Arma") -> the popup says why this paragraph
+#    is not translated — "Latin isn't supported for translation" — instead of a blank or a
+#    wrong result: no Russian in the popup (POP-023).
+- longPressOn:
+    id: "original_0_6"
+    point: "5%, 6%"
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 10000
+- assertVisible:
+    text: "Arma"
+    below: "WORD"
+    above: "Listen"
+- extendedWaitUntil:
+    visible:
+      text: "Latin isn't supported for translation"
+      below: "WORD"
+      above: "Listen"
+    timeout: 10000
+- assertNotVisible:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- takeScreenshot: J-TRN-04-step8-latin-word
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+#    (On the way: the Russian paragraph is already in the target language — shown as it is
+#    under "RU · original", TRN-011's "or shown as-is with a label".)
+- scrollUntilVisible:
+    element:
+      text: "RU · original"
+      childOf:
+        id: "translation_0_8"
+    direction: DOWN
+    speed: 20
+    timeout: 60000
+- assertVisible:
+    text: "Дорогой друг, пишу тебе из Москвы.*"
+    childOf:
+      id: "translation_0_8"
+
+# 9. Scroll to the short Chinese quote -> it is recognised as Chinese — labelled ZH and offered
+#    "Download and translate" — not translated as English into garbage: its slot holds the
+#    Chinese text and no Russian (TRN-012).
+- scrollUntilVisible:
+    element:
+      text: "Download and translate"
+      childOf:
+        id: "translation_0_10"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- assertVisible:
+    text: "ZH · Chinese, not translated"
+    childOf:
+      id: "translation_0_10"
+- assertVisible:
+    text: "我今天早上在图书馆看书.*"
+    childOf:
+      id: "translation_0_10"
+- assertNotVisible:
+    text: ".*[А-Яа-яЁё]{3,}.*"
+    childOf:
+      id: "translation_0_10"
+- takeScreenshot: J-TRN-04-step9-chinese-offered
+#    Still nothing downloaded on its own: the packs are EN → RU and the two whose buttons were
+#    tapped, FR → EN and DE → EN — no ZH → EN, no JA → EN — and the total is their sum (each row
+#    is whole MB, so the total may be up to 2 more).
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "EN → RU · ${output.ru} MB"
+- copyTextFrom: "FR → EN · \\d+ MB"
+- evalScript: ${output.fr = parseInt(maestro.copiedText.split('· ')[1])}
+- copyTextFrom: "DE → EN · \\d+ MB"
+- evalScript: ${output.de = parseInt(maestro.copiedText.split('· ')[1])}
+- assertNotVisible: "ZH → EN · \\d+ MB"
+- assertNotVisible: "JA → EN · \\d+ MB"
+- copyTextFrom: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- evalScript: ${output.total = parseInt(maestro.copiedText.split(' ')[1])}
+- evalScript: ${console.log('J-TRN-04 step 9 - packs RU ' + output.ru + ' FR ' + output.fr + ' DE ' + output.de + ' total ' + output.total)}
+- assertTrue: ${output.total >= output.ru + output.fr + output.de && output.total <= output.ru + output.fr + output.de + 2}
+- takeScreenshot: J-TRN-04-step9-packs
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Letters in Many Tongues.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Letters in Many Tongues.*"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+
+# 10. Tap "Download and translate" on the Chinese quote -> the ZH→EN pack downloads and the
+#     quote is translated from Chinese: "ZH · from Chinese", and the Russian has "библиотек…"
+#     (图书馆, library) (TRN-012, TRN-026).
+- scrollUntilVisible:
+    element:
+      text: "Download and translate"
+      childOf:
+        id: "translation_0_10"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- tapOn:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_10"
+    waitToSettleTimeoutMs: 100
+- runFlow:
+    file: ../../subflows/watch_paragraph_download.yaml
+    env:
+      SLOT: "translation_0_10"
+- assertTrue: ${output.pdBelow100 >= 2}
+- assertTrue: ${output.pdDecreased == false}
+- extendedWaitUntil:
+    visible:
+      text: "ZH · from Chinese"
+      childOf:
+        id: "translation_0_10"
+    timeout: 180000
+- assertVisible:
+    text: "(?i).*библиотек.*"
+    childOf:
+      id: "translation_0_10"
+- takeScreenshot: J-TRN-04-step10-from-chinese
+
+# 11. Scroll to the short Japanese line -> recognised as Japanese, not as English or Chinese:
+#     "JA · Japanese, not translated" with its own button (the Chinese pack just installed does
+#     not serve it); after tapping it, translated from Japanese — "JA · from Japanese", and the
+#     Russian has "библиотек…" (図書館) (TRN-012).
+- scrollUntilVisible:
+    element:
+      text: "Download and translate"
+      childOf:
+        id: "translation_0_12"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- assertVisible:
+    text: "JA · Japanese, not translated"
+    childOf:
+      id: "translation_0_12"
+- assertVisible:
+    text: "わたしは毎朝こうえんを散歩して.*"
+    childOf:
+      id: "translation_0_12"
+- tapOn:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_12"
+    waitToSettleTimeoutMs: 100
+- runFlow:
+    file: ../../subflows/watch_paragraph_download.yaml
+    env:
+      SLOT: "translation_0_12"
+- assertTrue: ${output.pdBelow100 >= 2}
+- assertTrue: ${output.pdDecreased == false}
+- extendedWaitUntil:
+    visible:
+      text: "JA · from Japanese"
+      childOf:
+        id: "translation_0_12"
+    timeout: 180000
+- assertVisible:
+    text: "(?i).*библиотек.*"
+    childOf:
+      id: "translation_0_12"
+- takeScreenshot: J-TRN-04-step11-from-japanese
+
+# 12. Back at an English paragraph, long-press a word -> the popup translates from English
+#     again (POP-024): "And", the first word of paragraph 8 — "И…".
+- scrollUntilVisible:
+    element:
+      id: "original_0_7"
+    direction: UP
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 60000
+- longPressOn:
+    id: "original_0_7"
+    point: "3%, 6%"
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 10000
+- assertVisible:
+    text: "And"
+    below: "WORD"
+    above: "Listen"
+- extendedWaitUntil:
+    visible:
+      text: "(?i)и.{0,10}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- takeScreenshot: J-TRN-04-step12-english-word
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+#     The packs now on the device are exactly those whose buttons were tapped, plus EN → RU:
+#     the rows asserted absent in steps 2 and 9 are there (so those checks could fail).
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "EN → RU · \\d+ MB"
+- assertVisible: "FR → EN · \\d+ MB"
+- assertVisible: "DE → EN · \\d+ MB"
+- assertVisible: "ZH → EN · \\d+ MB"
+- assertVisible: "JA → EN · \\d+ MB"
+- takeScreenshot: J-TRN-04-step12-packs

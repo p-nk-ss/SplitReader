@@ -1,0 +1,49 @@
+appId: ${APP_ID}
+---
+# watch_paragraph_download (env SLOT — a translation slot id, e.g. "translation_0_4"): reads the
+# download line of a paragraph in another language than the book's, from the moment its
+# "Download and translate" button was tapped until the line is gone.
+#
+# Such a paragraph's on-device model is downloaded only from that button (ParagraphNoteLine.kt);
+# while it downloads the button's text is "Downloading…" / "Downloading… N%" (drawn and reported
+# in capitals: "DOWNLOADING… 20%"; Maestro's text match ignores case) — this download is NOT
+# shown on the reader's banner (watch_translation_banner.yaml is for the book's own pack).
+# One reading takes about 0.15–0.3 s.
+#
+# output.pdSamples     readings taken
+# output.pdBelow100    readings "Downloading… N%" with N < 100 (a download was really running)
+# output.pdDistinct    how many times N grew
+# output.pdDecreased   true if a reading was lower than one before it
+# output.pdMax         the highest N read (-1: no percentage was read)
+#
+# The tap that starts the download must not wait for the screen to settle
+# (`waitToSettleTimeoutMs: 100`), and this subflow must be the very next command: a pack is
+# 20–40 MB and downloads in about 5 s on the emulators.
+- evalScript: ${output.pdSamples = 0}
+- evalScript: ${output.pdBelow100 = 0}
+- evalScript: ${output.pdDistinct = 0}
+- evalScript: ${output.pdDecreased = false}
+- evalScript: ${output.pdMax = -1}
+- evalScript: ${output.pdText = ''}
+- repeat:
+    times: 600
+    while:
+      visible:
+        text: "Downloading….*"
+        childOf:
+          id: "${SLOT}"
+    commands:
+      - copyTextFrom:
+          text: "Downloading….*"
+          childOf:
+            id: "${SLOT}"
+          optional: true
+      - evalScript: ${output.pdText = maestro.copiedText || ''}
+      - evalScript: "${output.pdPct = output.pdText.toLowerCase().indexOf('downloading… ') == 0 && output.pdText.indexOf('%') > 0 ? parseInt(output.pdText.split('… ')[1]) : -1}"
+      - evalScript: ${output.pdSamples = output.pdSamples + 1}
+      - evalScript: "${output.pdBelow100 = output.pdBelow100 + (output.pdPct >= 0 && output.pdPct < 100 ? 1 : 0)}"
+      - evalScript: ${output.pdDecreased = output.pdDecreased || (output.pdPct >= 0 && output.pdPct < output.pdMax)}
+      - evalScript: "${output.pdDistinct = output.pdDistinct + (output.pdPct > output.pdMax ? 1 : 0)}"
+      - evalScript: ${output.pdMax = Math.max(output.pdMax, output.pdPct)}
+      - evalScript: ${console.log('watch_paragraph_download ' + SLOT + ' - ' + output.pdSamples + ' [' + output.pdText + ']')}
+- evalScript: ${console.log('watch_paragraph_download ' + SLOT + ' - done, samples ' + output.pdSamples + ', below 100 ' + output.pdBelow100 + ', distinct ' + output.pdDistinct + ', max ' + output.pdMax + ', decreased ' + output.pdDecreased)}

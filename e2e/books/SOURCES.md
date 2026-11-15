@@ -1,6 +1,6 @@
 # Fixture books — sources, hashes, and journey coverage
 
-Built by `build_fixtures.py` (synthetic, committed — total ≈ 96.4 KB, well under the 200 KB
+Built by `build_fixtures.py` (synthetic, committed — total ≈ 98.4 KB, well under the 200 KB
 budget) and `fetch_fixtures.sh` (real Gutenberg books, downloaded on demand into `fetched/`,
 **gitignored, never committed**). Two large pathological fixtures (`zipbomb.epub`, `oversized.fb2`)
 are also generated locally, never committed — see the `--large` flag and the note under "Large,
@@ -33,7 +33,7 @@ point).
 | `no-description.epub` | 2560 | `c510d2c9ed95ccee1403e2ad5f505dc0c6fd053c3a21aa647281b7830e27d987` | No Description Here | "The old mill still stood at the bend of the river…" | F-NODESC (J-LIB-01, J-LIB-08) |
 | `tiny.epub` | 1578 | `5a4844c2350426897edf58092a7501bcf637e729a26f0ca2d683cd0569bc3a91` | Tiny Book | "A very short first line." (24 chars) | F-TINY (J-LIB-04, J-LIB-08) |
 | `english-with-french.epub` | 2734 | `aa89e5bea460fcaed41a3da51e8994bae7072a575323a9fe0e8ca493f453bc9d` | An English Novel | "The old mill still stood at the bend of the river…" | F-FOREIGN (J-LIB-10) |
-| `mixed-lang.epub` | 2495 | `4db5e574cb18277f85513d9ecf229feaabe6e17b68ec61a7c0d09f89a916940d` | Letters in Many Tongues | "It was late in the autumn when the letter finally…" | `mixed-lang.epub` (J-TRN-04, J-TRN-10, J-LIB-10, J-RDR-??) |
+| `mixed-lang.epub` | 2636 | `6055a63a9dd22fad3be1e0c1837c63d67053bbc812ca94543e19816e4666e1d4` | Letters in Many Tongues | "It was late in the autumn when the letter finally…" | `mixed-lang.epub` (J-TRN-04, J-TRN-10, J-LIB-10, J-RDR-??) |
 | `letter-prague.epub` | 2272 | `e8780b63471d7bd068bd16eef57018ae7ab3f1d5fa5348b5de94b3702b24c0c5` | A Letter from Prague | "It was late in the autumn when the letter finally…" | Czech-paragraph book (brief) |
 | `fi-book.epub` | 2584 | `853965ca61a41f8eaf239ff453beb7b40a36233226c30b06f24914a839c31381` | Syksyn ilta Helsingissä | "Syksyinen sumu lepäsi pitkään kaupungin yllä…" | `fi-book.epub` (J-TRN-06) |
 | `de-book.epub` | 2558 | `fa0944e7180641dcb4162aaab442a4c22feb221b11905e1fa0715a90738cd632` | Ein Herbstabend in Berlin | "An jenem Abend hing lange ein warmer Nebel…" | `de-book.epub` (J-TRN-06) |
@@ -41,7 +41,7 @@ point).
 | `ru-book.epub` | 2832 | `fea3ee03a08f711c81790d14c18a05ae35d56f90c5fdb76a60498179f7504ce7` | Осенний вечер в Москве | "В тот вечер над городом долго висел тёплый…" | `ru-book.epub` (J-TRN-09, J-TRN-10, J-TRN-16, J-LIB-10) |
 | `no-book.epub` | 2472 | `68155d5bac719a0722fd41bc46ef775cb956699a5435568133ed1696adc62743` | En høstkveld i Oslo | "Den kvelden lå en varm tåke lenge over byen…" | `no-book.epub` (J-TRN-16; known-bug LNG-008, detected as Danish) |
 | `und-book.epub` | 2088 | `7f0720acabecbac6d51c17985feb1c7fe72ce9226ddba7baca46c1ebd4ae22e3` | Undetectable Text Sample | "1234567890 -- 2026/11/07 §¶ 42 100% 3.14159…" | `und-book.epub` (J-TRN-06, J-TRN-16) |
-| `ja-poems.epub` | 2241 | `0dab9a48903201000e7ba7ce55b8ee3567955c70c97001daeb223dfa6628837b` | Short Autumn Poems | preface: "This collection gathers a handful of short…" | `ja-poems.epub` (J-TRN-05) |
+| `ja-poems.epub` | 4168 | `2d4b87c650413844aaaa7fb9c3d3f2f69822c09c908695279941fef500b0e2d4` | Short Autumn Poems | preface: "This collection gathers a handful of short…" | `ja-poems.epub` (J-TRN-05) |
 | `ja-novel.epub` | 2561 | `73c70fed880337c9f748a3fb14bdffe0e72c52cb3a3c3cc82e4bd416ade69a94` | 長い章のテスト小説 | "その夜、町の上には長いあいだ暖かい霧が垂れ込めていて…" | `ja-novel.epub` (J-TRN-05, J-TRN-16) |
 | `zh-novel.epub` | 2471 | `2d9b3786fc789b8e648f778fedde39cf88625803caa2681520d23b4f3bc23c5b` | 长章节测试小说 | "那天晚上，温暖的雾气在城市上空久久不散…" | `zh-novel.epub` (J-TRN-05, J-TRN-06) |
 | `en-novel.epub` | 18304 | `0bceaefcc69ad3f82a6a9e00220269e78190fe66a1789e5a7347a09336dc825e` | The River Crossing | "The old mill still stood at the bend of the river…" | `en-novel.epub` / **F-LONG** (J-TRN-01/02/03/07/09/10, J-RDR-02/03/04/05/08/09/16/17) |

@@ -263,13 +263,28 @@ def build_und_book(out_dir: str) -> str:
 
 # ─────────────────────────────── CJK fixtures ───────────────────────────────
 
+# Classic haiku (Bashō, Buson, Shiki, Chiyo-ni, Ransetsu — all public domain), each at most 13
+# characters: 13 x 3 = 39 weighted "letters", under both gates (MIN_PARAGRAPH = 40, MIN_CHARS = 60),
+# so every line is a SHORT line to the app — the case of LNG-003.
 JA_POEM_LINES = [
     "古池や蛙飛びこむ水の音",
     "秋深き隣は何をする人ぞ",
     "夏草や兵どもが夢の跡",
     "閑さや岩にしみ入る蝉の声",
-    "旅に病んで夢は枯野をかけ廻る",
+    "菜の花や月は東に日は西に",
+    "柿くへば鐘が鳴るなり法隆寺",
+    "五月雨をあつめて早し最上川",
+    "荒海や佐渡によこたふ天河",
+    "朝顔に釣瓶とられてもらひ水",
+    "梅一輪一輪ほどの暖かさ",
 ]
+assert all(len(line) <= 13 for line in JA_POEM_LINES)
+# The collection: four parts of forty lines (the ten poems, four times each). The book is then
+# mostly Japanese by any count — about 1,900 characters of poems against 700 of English preface —
+# which is what "a collection of short Japanese poems with a long English preface" is. (With only
+# five poems, as this fixture first had, the book IS English: 62 Japanese characters in 760.)
+JA_POEM_PARTS = ["Poems I", "Poems II", "Poems III", "Poems IV"]
+JA_POEMS_PER_PART = 40
 
 JA_PREFACE_PARAGRAPHS = [
     "This collection gathers a handful of short poems written in the autumn months, each no more than a single breath long, "
@@ -284,20 +299,27 @@ JA_PREFACE_PARAGRAPHS = [
 def build_ja_poems(out_dir: str) -> str:
     name = "ja-poems.epub"
     preface_html = "".join(f"<p>{p}</p>" for p in JA_PREFACE_PARAGRAPHS)
-    poems_html = "".join(f"<p>{html.escape(p)}</p>" for p in JA_POEM_LINES)
     files = {
         "c1.xhtml": (
             '<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml">'
             f'<head><title>Preface</title></head><body><h1>Preface</h1>{preface_html}</body></html>'
         ),
-        "c2.xhtml": (
-            '<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">'
-            f'<head><title>Poems</title></head><body><h1>Poems</h1>{poems_html}</body></html>'
-        ),
     }
-    the_opf = opf("mirrolit-e2e-ja-poems", "Short Autumn Poems", "Test Author", "en", ["c1", "c2"], ["c1", "c2"],
+    ids = ["c1"]
+    nav = [("c1", "Preface")]
+    for n, part in enumerate(JA_POEM_PARTS):
+        cid = f"c{n + 2}"
+        lines = [JA_POEM_LINES[(n + k) % len(JA_POEM_LINES)] for k in range(JA_POEMS_PER_PART)]
+        poems_html = "".join(f"<p>{html.escape(p)}</p>" for p in lines)
+        files[f"{cid}.xhtml"] = (
+            '<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">'
+            f'<head><title>{part}</title></head><body><h1>{part}</h1>{poems_html}</body></html>'
+        )
+        ids.append(cid)
+        nav.append((cid, part))
+    the_opf = opf("mirrolit-e2e-ja-poems", "Short Autumn Poems", "Test Author", "en", ids, ids,
                   description="A long English preface followed by short Japanese poems.")
-    the_nav = nav_xhtml([("c1", "Preface"), ("c2", "Poems")])
+    the_nav = nav_xhtml(nav)
     write_zip(os.path.join(out_dir, name), epub_entries(the_opf, the_nav, files))
     return name
 
@@ -348,8 +370,9 @@ def build_zh_novel(out_dir: str) -> str:
 # ─────────────────────────────── mixed-language "letters" books ───────────────────────────────
 # Ported from the scratchpad's mixed_epub.py / mixed_epub2.py (en narrative + embedded foreign
 # letters), extended per docs/e2e/e2e_journeys.md's `mixed-lang.epub` spec: a German paragraph, a
-# French letter, a Latin epigraph, a Russian paragraph, a short (<20 char) Chinese quote, a short
-# Japanese line, and a one-line (<60 char) Latin fragment.
+# French letter, a Latin epigraph, a Russian paragraph, a short Chinese quote and a short Japanese
+# line (each under 60 characters but over 60 weighted "letters", so each is told apart — J-TRN-04),
+# and a one-line (<60 char) Latin fragment (the book's language by design, LNG-007).
 
 def build_mixed_lang(out_dir: str) -> str:
     name = "mixed-lang.epub"
@@ -375,11 +398,14 @@ def build_mixed_lang(out_dir: str) -> str:
         "всё по-прежнему, только "
         "зима в этом году пришла "
         "раньше обычного.",
-        "Tucked inside that last letter was a single small card bearing only four characters, "
+        "Tucked inside that last letter was a single small card bearing one short line, "
         "clipped from somewhere else entirely:",
-        "你好啊！",  # short (<20 char) Chinese quote
+        # A short Chinese quote: under 60 characters (27), but 24 Han characters x 3 = 72 "letters",
+        # so ParagraphLanguage tells it apart (TRN-012). Four characters would be the book's (LNG-007).
+        "我今天早上在图书馆看书，下午去公园散步，晚上回家吃饭。",
         "And under it, in a different hand, a short line that was not translated either:",
-        "こんにちは",  # short Japanese line
+        # A short Japanese line, mostly kana (31 characters, 29 kana/kanji).
+        "わたしは毎朝こうえんを散歩して、それから図書館で本を読みます。",
         "He put the letters away and went to make tea, while the rain began again outside and the "
         "river rose a little higher against the stones.",
         "Et sic finis.",  # one-line Latin fragment, < 60 chars
