@@ -158,6 +158,89 @@ class CheckColoursTest(unittest.TestCase):
         cases = report.collect_cases(self.tmp / "run")
         self.assertEqual(report.result_label(cases[0]), "PASS")
 
+    # --- a checker that cannot check must say FAIL in the report, not only exit 1 ---------------
+
+    def main_row(self):
+        """Runs main(); returns (exit code, the one row report.py reads from its junit)."""
+        junit = self.tmp / "run" / "J-X-colours" / "junit.xml"
+        code = check_colours.main([str(self.flow), str(self.run), str(junit), "--color-kt", str(self.color_kt)])
+        cases = report.collect_cases(self.tmp / "run")
+        self.assertEqual(len(cases), 1, "no junit row was written")
+        return code, cases[0]
+
+    def test_a_png_with_too_few_pixel_rows_is_a_fail_row(self):
+        png(self.crops / "step9-library__NightBg.png", 20, 10, mostly(NIGHT))
+        # IHDR says 20x10, the data holds 3 rows.
+        good = self.tmp / "short.png"
+        png(good, 20, 3, mostly(SEPIA))
+        data = bytearray(good.read_bytes())
+        at = data.index(b"IHDR") + 4
+        data[at:at + 8] = struct.pack(">II", 20, 10)
+        (self.crops / "step7-display__SepiaBg.png").write_bytes(bytes(data))
+        code, row = self.main_row()
+        self.assertEqual(code, 1)
+        self.assertEqual(report.result_label(row), "FAIL")
+        self.assertIn("step7-display", row["failure_message"])
+
+    def test_a_png_without_a_header_is_a_fail_row(self):
+        png(self.crops / "step9-library__NightBg.png", 20, 10, mostly(NIGHT))
+        (self.crops / "step7-display__SepiaBg.png").write_bytes(b"\x89PNG\r\n\x1a\n" + struct.pack(">I4sI", 0, b"IEND", 0))
+        code, row = self.main_row()
+        self.assertEqual(code, 1)
+        self.assertEqual(report.result_label(row), "FAIL")
+        self.assertIn("step7-display", row["failure_message"])
+
+    def test_a_missing_color_kt_is_a_fail_row(self):
+        png(self.crops / "step7-display__SepiaBg.png", 20, 10, mostly(SEPIA))
+        png(self.crops / "step9-library__NightBg.png", 20, 10, mostly(NIGHT))
+        self.color_kt.unlink()
+        code, row = self.main_row()
+        self.assertEqual(code, 1)
+        self.assertEqual(report.result_label(row), "FAIL")
+        self.assertIn("checker failed", row["failure_message"])
+
+    def test_a_missing_flow_file_is_a_fail_row(self):
+        self.flow.unlink()
+        code, row = self.main_row()
+        self.assertEqual(code, 1)
+        self.assertEqual(report.result_label(row), "FAIL")
+
+    # --- a crop the name pattern does not read must not go unchecked ---------------------------
+
+    def test_a_crop_name_the_pattern_does_not_match_fails(self):
+        self.flow.write_text(
+            FLOW + "- takeScreenshot:\n    path: colour-check/step2_y__PaperBg   # an underscore, a comment\n",
+            encoding="utf-8")
+        png(self.crops / "step7-display__SepiaBg.png", 20, 10, mostly(SEPIA))
+        png(self.crops / "step9-library__NightBg.png", 20, 10, mostly(NIGHT))
+        code, row = self.main_row()
+        self.assertEqual(code, 1)
+        self.assertEqual(report.result_label(row), "FAIL")
+        self.assertIn("step2_y__PaperBg", row["failure_message"])
+
+    def test_a_flow_whose_every_crop_name_is_unreadable_fails(self):
+        self.flow.write_text(
+            "appId: x\n---\n- takeScreenshot:\n    path: colour-check/step2_y__PaperBg\n", encoding="utf-8")
+        code, row = self.main_row()
+        self.assertEqual(code, 1)
+        self.assertEqual(report.result_label(row), "FAIL")
+
+    def test_no_crops_at_all_is_a_fail_when_the_checker_is_run(self):
+        # run.sh runs the checker only for a flow it saw crops in: none found = nothing was checked.
+        self.flow.write_text("appId: x\n---\n- launchApp\n", encoding="utf-8")
+        code, row = self.main_row()
+        self.assertEqual(code, 1)
+        self.assertEqual(report.result_label(row), "FAIL")
+        self.assertIn("no colour crop", row["failure_message"])
+
+    def test_a_comment_that_mentions_the_crop_folder_is_not_a_crop(self):
+        self.flow.write_text(FLOW + "# crops are named `colour-check/<step>__<Constant>`\n", encoding="utf-8")
+        png(self.crops / "step7-display__SepiaBg.png", 20, 10, mostly(SEPIA))
+        png(self.crops / "step9-library__NightBg.png", 20, 10, mostly(NIGHT))
+        code, row = self.main_row()
+        self.assertEqual(code, 0)
+        self.assertEqual(report.result_label(row), "PASS")
+
     def test_flow_without_colour_crops_has_nothing_to_check(self):
         self.flow.write_text("appId: x\n---\n- launchApp\n", encoding="utf-8")
         self.assertEqual(check_colours.expected_crops(self.flow), [])

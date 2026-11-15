@@ -66,7 +66,9 @@
 # Colour checks: a flow that takes crops named `colour-check/<label>__<Constant>` (J-RDR-05's
 # themes) has them checked by e2e/check_colours.py right after it ran — each crop's dominant
 # pixel must be exactly that constant of the app's Color.kt. The result is its own row,
-# "<flow> colours", in summary.md, and a wrong colour fails the run like a failed flow.
+# "<flow> colours", in summary.md, and a wrong colour fails the run like a failed flow. So does a
+# crop that was not taken, a crop name the checker cannot read, and any error of the checker
+# itself: each is a FAIL row, never only an exit code.
 #
 # Exit code is non-zero if ANY selected flow failed (0 = every selected flow passed), so this
 # script is CI-usable as a gate. Report generation and cleanup (pushed fixtures removed, emulator
@@ -239,9 +241,11 @@ else
   EMULATOR_PID=$!
   STARTED_EMULATOR=1
 
+  # 120 tries x 5 s = 10 minutes. E2E_BOOT_WAIT_TRIES exists for e2e/test_run_select.sh only.
+  BOOT_WAIT_TRIES="${E2E_BOOT_WAIT_TRIES:-120}"
   SERIAL=""
   tries=0
-  while [ $tries -lt 120 ]; do
+  while [ $tries -lt "$BOOT_WAIT_TRIES" ]; do
     for s in $(emulator_serials); do
       case " $BEFORE_SERIALS " in
         *" $s "*) continue ;; # was already connected before we started this AVD — never touch it
@@ -257,7 +261,16 @@ else
     tries=$((tries + 1))
     sleep 5
   done
-  [ -n "$SERIAL" ] || die "AVD $AVD did not finish booting in time"
+  if [ -z "$SERIAL" ]; then
+    # No serial to send `emu kill` to (kill_emulator below needs one), so the process itself is
+    # ended — otherwise a half-booted emulator stays and takes the next run's RAM and port.
+    if [ "$KEEP_EMULATOR" != "1" ]; then
+      log "killing the emulator process this run started (pid $EMULATOR_PID): it never booted"
+      pkill -P "$EMULATOR_PID" 2>/dev/null || true
+      kill "$EMULATOR_PID" 2>/dev/null || true
+    fi
+    die "AVD $AVD did not finish booting in time"
+  fi
   log "AVD $AVD booted as $SERIAL"
 fi
 
@@ -452,6 +465,25 @@ write_timeout_junit() {
 XML
 }
 
+# The same for the colour check: a FAIL row for a checker that ended without writing its own
+# junit (python missing, a syntax error, a crash before the first line). Without a row the summary
+# would have no "<flow> colours" line and read "all passed" next to a non-zero exit code.
+write_checker_failed_junit() {
+  local out_path="$1" name="$2" code="$3"
+  local now; now="$(date -u +%Y-%m-%dT%H:%M:%S)"
+  mkdir -p "$(dirname "$out_path")"
+  cat > "$out_path" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="$name" tests="1" failures="1" time="0" timestamp="$now">
+    <testcase id="$name" name="$name" classname="$name" time="0" timestamp="$now" status="ERROR">
+      <failure message="e2e/check_colours.py ended with exit code $code and wrote no result: no colour crop of this flow was checked">e2e/check_colours.py ended with exit code $code and wrote no result: no colour crop of this flow was checked. Its output is in the run's console log.</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
+XML
+}
+
 OVERALL_EXIT=0
 for flow in "${SELECTED_FLOWS[@]}"; do
   stem="$(basename "$flow" .yaml)"
@@ -523,10 +555,15 @@ for flow in "${SELECTED_FLOWS[@]}"; do
   # Colour crops (see the header): checked here, reported as the row "<stem> colours". Its junit
   # goes into its own subdirectory of $RUN, which is where report.py looks for rows.
   if grep -q 'path:.*colour-check/' "$flow"; then
-    if "$PYTHON3" "$REPO_ROOT/e2e/check_colours.py" "$flow" "$FLOW_RUN" "$RUN/$stem-colours/junit.xml" >&2; then
+    COLOURS_JUNIT="$RUN/$stem-colours/junit.xml"
+    rm -f "$COLOURS_JUNIT"
+    "$PYTHON3" "$REPO_ROOT/e2e/check_colours.py" "$flow" "$FLOW_RUN" "$COLOURS_JUNIT" >&2
+    colours_exit=$?
+    if [ "$colours_exit" -eq 0 ] && [ -s "$COLOURS_JUNIT" ]; then
       log "$stem: colour crops OK"
     else
-      log "$stem: colour crops WRONG (or not taken) — recording as FAIL"
+      log "$stem: colour crops WRONG, not taken, or not checked (checker exit $colours_exit) — recording as FAIL"
+      [ -s "$COLOURS_JUNIT" ] || write_checker_failed_junit "$COLOURS_JUNIT" "$stem colours" "$colours_exit"
       OVERALL_EXIT=1
     fi
   fi

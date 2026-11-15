@@ -52,6 +52,8 @@ SH
 #!/bin/sh
 box="$(cd "$(dirname "$0")/../../../../.." && pwd)"
 echo "$*" >> "$box/fake/emulator.log"
+# An AVD that never finishes booting: the process stays, adb never lists it (see the fake adb).
+if [ -f "$box/fake/never-boots" ]; then echo $$ > "$box/fake/emulator.pid"; exec sleep 3600; fi
 exit 0
 SH
   cat > "$box/home/Library/Android/sdk/platform-tools/adb" <<'SH'
@@ -63,7 +65,8 @@ case "$*" in
   devices)
     echo "List of devices attached"
     # The emulator is "up" once run.sh has restarted the adb server for it (or always, for --serial).
-    if [ -f "$box/fake/always-up" ] || grep -q '^start-server$' "$box/fake/adb.log"; then printf 'emulator-5554\tdevice\n'; fi ;;
+    if [ -f "$box/fake/never-boots" ]; then :
+    elif [ -f "$box/fake/always-up" ] || grep -q '^start-server$' "$box/fake/adb.log"; then printf 'emulator-5554\tdevice\n'; fi ;;
   "shell getprop sys.boot_completed"|"shell getprop ro.kernel.qemu") echo 1 ;;
   "shell getprop ro.build.version.sdk") echo 35 ;;
   "shell wm size") cat "$box/fake/wm_size" ;;
@@ -118,6 +121,8 @@ never_says()    { ! says "$1"; }
 logged()        { [ -f "$1" ] && grep -q -- "$2" "$1"; }
 never_logged()  { ! logged "$1" "$2"; }
 no_file()       { [ ! -e "$1" ]; }
+process_gone()  { [ -f "$1" ] && ! kill -0 "$(cat "$1")" 2>/dev/null; }
+summary_row()   { grep -q -- "$1" "$(find "$BOX/e2e/reports" -name summary.md 2>/dev/null | head -1)" 2>/dev/null; }
 
 N=0
 for BASH_BIN in "${BASHES[@]}"; do
@@ -188,6 +193,36 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "exit code is non-zero"                      failed
   check "names the flow"                             says 'J-BLOCK.yaml'
   check "nothing was built"                          no_file "$BOX/fake/gradle.log"
+
+  # G. the colour checker itself breaks (here: it dies before writing anything). The run fails AND
+  #    the summary says so — a summary without the colours row reads "all passed".
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+  printf 'appId: ${APP_ID}\nname: J-COL\ntags: [smoke, tablet, J-COL]\n---\n- takeScreenshot:\n    path: colour-check/step1-x__PaperBg\n' > "$BOX/e2e/flows/reading/J-COL.yaml"
+  printf 'raise SystemExit("boom")\n' > "$BOX/e2e/check_colours.py"
+  LABEL="bash $version, the colour checker crashes without a junit"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags J-COL
+  check "exit code is non-zero"                      failed
+  check "the summary has the colours row"            summary_row 'J-COL colours'
+  check "the colours row is a FAIL"                  summary_row 'J-COL colours.*FAIL'
+  check "the summary does not read all passed"       summary_row '1 failed'
+
+  # H. the same with the real checker and no Color.kt in the tree (the app moved or renamed it).
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+  printf 'appId: ${APP_ID}\nname: J-COL\ntags: [smoke, tablet, J-COL]\n---\n- takeScreenshot:\n    path: colour-check/step1-x__PaperBg\n' > "$BOX/e2e/flows/reading/J-COL.yaml"
+  LABEL="bash $version, the colour checker finds no Color.kt"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags J-COL
+  check "exit code is non-zero"                      failed
+  check "the colours row is a FAIL"                  summary_row 'J-COL colours.*FAIL'
+
+  # I. the AVD never finishes booting: the emulator process this run started must not stay.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet; : > "$BOX/fake/never-boots"
+  LABEL="bash $version, the AVD never boots"
+  E2E_BOOT_WAIT_TRIES=1 run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags smoke
+  check "exit code is non-zero"                      failed
+  check "says the AVD did not boot"                  says 'did not finish booting'
+  check "the emulator process it started is gone"    process_gone "$BOX/fake/emulator.pid"
+  check "maestro never ran"                          no_file "$BOX/fake/maestro.log"
+  [ -f "$BOX/fake/emulator.pid" ] && kill "$(cat "$BOX/fake/emulator.pid")" 2>/dev/null
 done
 
 if [ "$FAILS" -gt 0 ]; then
