@@ -24,6 +24,9 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 # The bars hide by themselves after 3.5 s: footer/chip checks come straight after
 # subflows/show_bars.yaml, top-bar buttons are tapped through subflows/tap_reader_button.yaml.
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-01.
+# The tags say phone and tablet; the inline file pick of step 1 is for the API 33+ picker
+# (Tab_35_PixelTablet, Pixel_10_Pro) and the hint's GOT IT point is Pixel_10_Pro's — on
+# Tab_26_Nexus9 it fails at step 1 (not run there).
 # No step may be skipped for a device class this flow does not know (run.sh passes phone | tablet).
 - assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
@@ -35,28 +38,15 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 #    open?" question alone takes longer than that): the file is tapped in the picker's "Recent"
 #    list, which Google's DocumentsUI (API 33+: Tab_35_PixelTablet, Pixel_10_Pro) opens on after
 #    launch_clean has reset it, and the very next command looks at the reader.
-#    On a phone in portrait the "Parallel reading fits landscape better" hint opens over the
-#    reader and hides the banner from Maestro for the seconds it takes to close it. A phone in
-#    landscape reads side by side and shows no hint, so on the phone steps 1–2 are done with
-#    Settings -> Orientation -> LANDSCAPE (the app turns itself; a phone's default keeps it
-#    upright), and step 3 starts by setting PORTRAIT again in the reader's Display dialog.
-- runFlow:
-    when:
-      true: ${DEVICE_CLASS == 'phone'}
-    commands:
-      - tapOn: "Settings"
-      - scrollUntilVisible:
-          element: "LANDSCAPE"
-          direction: DOWN
-          timeout: 40000
-      - tapOn: "LANDSCAPE"
-      - extendedWaitUntil:
-          visible: "Settings"
-          timeout: 20000
-      - back
-      - extendedWaitUntil:
-          visible: "Open book"
-          timeout: 20000
+#    On a phone the book opens in portrait, the two panes stacked — the layout every phone
+#    reader sees first — and the "Parallel reading fits landscape better" hint opens over it,
+#    hiding the banner from Maestro. The hint cannot be closed beforehand (it shows only over a
+#    book that is translated: a Finnish book, read in one column, opens without it — tried,
+#    run 20261115T203833Z), so it is closed fast: the moment it is up, one point tap on GOT IT
+#    (Pixel_10_Pro: 988,1927; a tap by text takes 2 s of the download's 5). The download is
+#    then watched in portrait from its first seconds on. "Don't show again" is not ticked here (one
+#    more tap, one more second): the hint comes back when the book is opened again in step 7,
+#    and is closed for good there.
 - scrollUntilVisible:
     element: "Open book"
     direction: UP
@@ -68,6 +58,16 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 - tapOn:
     text: "en-novel.epub"
     waitToSettleTimeoutMs: 100
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - extendedWaitUntil:
+          visible: "GOT IT"
+          timeout: 30000
+      - tapOn:
+          point: "988, 1927"
+          waitToSettleTimeoutMs: 100
 
 # 2. The book opens -> the banner reads "Preparing translation… N%" and N only grows (OHQ-004);
 #    the language button reads "EN → RU"; there is no "ML KIT READY" label (OHQ-001).
@@ -86,13 +86,15 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
     cropOn: "— 1 —"
 - assertVisible: "Preparing translation….*"
 - runFlow: ../../subflows/watch_translation_banner.yaml
+#    The phone starts watching a little later (the hint, above): seen 7–17 readings under 100
+#    (from 55% and from 8% on), against 29 from 0% on the tablet. The limits are the same.
 - assertTrue: ${output.bnBelow100 >= 2}
 - assertTrue: ${output.bnDistinct >= 3}
 - assertTrue: ${output.bnDecreased == false}
 #    …and after the download the same banner said "Translating…" (TRN-001), then went away
 #    (the watch ends only when the banner is gone). On the tablet, where eight paragraphs are
-#    translated, at least one reading is "Translating…". On the phone (two or three paragraphs
-#    in landscape) the line is up for well under a second and was caught in one run of two:
+#    translated, at least one reading is "Translating…". On the phone (three paragraphs) the
+#    line is up for well under a second and is not caught in every run:
 #    there it is only written to the log — partial, the rest is manual.
 - evalScript: ${console.log('J-TRN-01 step 2 - readings of "Translating…" ' + output.bnTranslating)}
 - runFlow:
@@ -101,13 +103,19 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
     commands:
       - assertTrue: ${output.bnTranslating >= 1}
 - assertNotVisible: "(Preparing translation|Translating)….*"
-- assertNotVisible: ".*ML KIT READY.*"
+- assertNotVisible: ".*ML KIT.*"
 #    The right book opened (the title is in the top bar), "EN → RU" on the language button: its
 #    three texts "EN", "→", "RU" are children of reader:languageChip (the footer repeats
 #    "EN → RU" as one text of its own, which is not what the button shows).
+#    (OHQ-001's "no ML KIT label": the reader has none. The language dialog's "To" tab does say
+#    "ML KIT · DOWNLOADED" whatever the engine — app defect, ReaderDialogs.kt LanguagePickerDialog;
+#    not asserted there until it is fixed.)
+- evalScript: ${output.chipAttempt = 0}
 - retry:
     maxRetries: 2
     commands:
+      - evalScript: ${output.chipAttempt = output.chipAttempt + 1}
+      - evalScript: ${console.log('J-TRN-01 language button after the download - attempt ' + output.chipAttempt)}
       - runFlow: ../../subflows/show_bars.yaml
       - assertVisible:
           text: "EN"
@@ -118,33 +126,32 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
           childOf:
             id: "reader:languageChip"
       - assertVisible: ".*The River Crossing.*"
-      - assertNotVisible: ".*ML KIT READY.*"
+      - assertNotVisible: ".*ML KIT.*"
+      #    Offline HQ itself translated: when the chosen engine cannot serve (its native engine
+      #    failed, or it has no such pair) the app lets ML Kit translate and says so in a strip
+      #    under the top bar, shown only while the bars are up — "Offline HQ isn't available on
+      #    this device — translated by ML Kit" (ReaderChrome.kt, fallbackNoticeText). The picker
+      #    card of step 4 proves the CHOICE; no strip proves the choice is what served.
+      #    The bars must still be up after that look: `assertNotVisible` waits for a text to
+      #    go, and a strip that IS there goes with the bars 3.5 s later — then the language
+      #    button is gone too and the next line fails (seen: probe t9f-m3-fail2-*).
+      - assertNotVisible: ".*translated by.*"
+      - assertVisible:
+          id: "reader:languageChip"
 - takeScreenshot: J-TRN-01-step2-after-download
+#    The phone read all of this in portrait, its two panes stacked; the hint is gone.
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'phone'}
     commands:
-      - runFlow:
-          file: ../../subflows/tap_reader_button.yaml
-          env:
-            BUTTON: "reader:displaySettingsButton"
-            OPENS: "Display"
-      - scrollUntilVisible:
-          element: "PORTRAIT"
-          direction: DOWN
-          timeout: 15000
-      - tapOn: "PORTRAIT"
-      - extendedWaitUntil:
-          visible: "GOT IT"
-          timeout: 20000
-      - runFlow: ../../subflows/dismiss_portrait_hint.yaml
-      - runFlow: ../../subflows/dismiss_portrait_hint.yaml
+      - assertNotVisible: "GOT IT"
       - assertVisible:
           id: "reader:verticalBottomPane"
 
 # 3. Nothing is touched -> every paragraph on the first screen gets a translation, not only the
 #    top one (TRN-001). Every translation slot on screen, from the first paragraph down, must
-#    hold Russian text; there are at least two of them (a phone shows three). output.rows = how many.
+#    hold Russian text; a phone shows three of them, the tablet eight — fewer than three / six
+#    means the walk stopped early, and fails. output.rows = how many.
 - extendedWaitUntil:
     visible:
       id: "translation_0_0"
@@ -157,7 +164,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
       PATTERN: ".*[а-яё]{3,}.*"
       TIMEOUT: 120000
 - evalScript: ${console.log('J-TRN-01 first screen - ' + output.rows + ' translated rows')}
-- assertTrue: ${output.rows >= 2}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 6 : 3)}"
 - assertNotVisible: "(Preparing translation|Translating)….*"
 - takeScreenshot: J-TRN-01-step3-first-screen-translated
 
@@ -270,6 +277,20 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
     timeout: 10000
 - tapOn:
     id: "book_card_The River Crossing"
+#    (Phone: the hint of step 1 was closed without "Don't show again", so it is back on this
+#    next opening of the book; now it is closed for good.)
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - extendedWaitUntil:
+          visible: "GOT IT"
+          timeout: 20000
+      - tapOn: "Don't show again"
+      - tapOn: "GOT IT"
+      - extendedWaitUntil:
+          notVisible: "GOT IT"
+          timeout: 5000
 - extendedWaitUntil:
     visible:
       id: "original_0_0"
@@ -296,6 +317,26 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
             childOf:
               id: "translation_0_${output.k}"
           timeout: 3000
+      #    On the way: the 12th paragraph ("Every morning the ferryman crossed…") is in Offline
+      #    HQ's wording — the pinned EN→RU pack says "паромник" there, ML Kit says "паромчик"
+      #    (J-TRN-03 steps 6–7 read both). With ML Kit serving, this line fails.
+      - runFlow:
+          when:
+            true: ${output.k == 12}
+          commands:
+            - scrollUntilVisible:
+                element:
+                  id: "translation_0_11"
+                direction: UP
+                speed: 30
+                timeout: 30000
+            - extendedWaitUntil:
+                visible:
+                  text: ".*паромник.*"
+                  childOf:
+                    id: "translation_0_11"
+                timeout: 10000
+            - evalScript: ${console.log('J-TRN-01 step 7 - paragraph 12 is in Offline HQ wording')}
       - evalScript: "${output.k = output.k == 39 ? 41 : output.k + 3}"
 - takeScreenshot: J-TRN-01-step7-end-of-chapter-1
 
@@ -466,6 +507,18 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 - extendedWaitUntil:
     visible: "Open book"
     timeout: 45000
+#     Before the reopen, Settings -> Language packs lists the EN → RU pack: the watch below sees
+#     a download only if the banner comes up within Maestro's wait after the tap (its log line
+#     gives the number of readings), so "nothing to download" is also read from the pack list.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "EN → RU · \\d+ MB"
+    direction: DOWN
+    timeout: 40000
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
 - scrollUntilVisible:
     element:
       id: "book_card_The River Crossing"
@@ -485,6 +538,18 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
       childOf:
         id: "translation_\\d+_\\d+"
     timeout: 10000
+#     …and Offline HQ served them: no "… translated by ML Kit" strip with the bars up (step 2).
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "RU"
+          childOf:
+            id: "reader:languageChip"
+      - assertNotVisible: ".*translated by.*"
+      - assertVisible:
+          id: "reader:languageChip"
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
