@@ -142,7 +142,9 @@ class SameBookTest {
 
         assertEquals(AddResult.Added, add.add(book(downloads)))
 
-        assertEquals(listOf(downloads, "/b/3", "/b/2"), library.getAllBooks().first().map { it.uri })
+        // A set: books saved within one millisecond have no defined order.
+        assertEquals(setOf(downloads, "/b/3", "/b/2"), library.getAllBooks().first().map { it.uri }.toSet())
+        assertEquals(3, library.bookCount())
         assertReadingDataUnder(downloads)
         // The old uri's cover and pictures are named after it: they go, and its read grant with them.
         assertEquals(listOf(recent), files.deleted)
@@ -184,7 +186,7 @@ class SameBookTest {
 
         assertEquals(AddResult.Added, add.add(book("/b/other")))
 
-        assertEquals(listOf("/b/other", recent), library.getAllBooks().first().map { it.uri })
+        assertEquals(setOf("/b/other", recent), library.getAllBooks().first().map { it.uri }.toSet())
         assertEquals(1, bookmarks.listForBook(recent).size)
         assertEquals(emptyList<Any>(), bookmarks.listForBook("/b/other"))
         assertEquals(listOf<String?>("dick"), rows("SELECT contentKey FROM books WHERE uri = '/b/other'"))
@@ -197,7 +199,7 @@ class SameBookTest {
 
         assertEquals(AddResult.Added, add.add(book(downloads)))
 
-        assertEquals(listOf(downloads, recent), library.getAllBooks().first().map { it.uri })
+        assertEquals(setOf(downloads, recent), library.getAllBooks().first().map { it.uri }.toSet())
         assertEquals(listOf<String?>(null), rows("SELECT contentKey FROM books WHERE uri = '$downloads'"))
         assertEquals(1, bookmarks.listForBook(recent).size)
     }
@@ -267,7 +269,7 @@ class SameBookTest {
 
         assertEquals(AddResult.Added, add.add(book(downloads)))
 
-        assertEquals(listOf(downloads, recent), library.getAllBooks().first().map { it.uri })
+        assertEquals(setOf(downloads, recent), library.getAllBooks().first().map { it.uri }.toSet())
         assertEquals(1, bookmarks.listForBook(recent).size)
         assertEquals(emptyList<Any>(), bookmarks.listForBook(downloads))
         assertEquals(listOf<String?>("other"), rows("SELECT contentKey FROM books WHERE uri = '$recent'"))
