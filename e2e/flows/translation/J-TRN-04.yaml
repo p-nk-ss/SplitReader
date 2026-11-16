@@ -216,9 +216,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
 # 4. Scroll to the German paragraph -> it too is offered, not translated ("DE · German, not
 #    translated": the French download did not bring German with it); tap "Download and
 #    translate"; wait -> "DE · from German", and the Russian has "снег…" (Schnee) (TRN-011).
+#    Scrolled to the note, not the button: scrolling up, the button (below the note) comes into
+#    view first, and on the phone the scroll stopped with the note just above the stacked bottom
+#    pane's edge (run 20261116T085744Z, step 4 failed on the note).
 - scrollUntilVisible:
     element:
-      text: "Download and translate"
+      text: "DE · German, not translated"
       childOf:
         id: "translation_0_2"
     direction: UP
@@ -226,7 +229,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
     visibilityPercentage: 100
     timeout: 60000
 - assertVisible:
-    text: "DE · German, not translated"
+    text: "Download and translate"
     childOf:
       id: "translation_0_2"
 - assertNotVisible:
@@ -333,6 +336,10 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
     direction: UP
     speed: 20
     timeout: 60000
+- assertNotVisible:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_2"
 
 # 7. Scroll to the Latin epigraph -> the passage is shown unmodified with a small label above
 #    it, "LA · Latin, not translated", and no download is offered for it (TRN-015).
@@ -543,7 +550,9 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
 - takeScreenshot: J-TRN-04-step11-from-japanese
 
 # 12. Back at an English paragraph, long-press a word -> the popup translates from English
-#     again (POP-024): "And", the first word of paragraph 8 — "И…".
+#     again (POP-024): "And", the first word of paragraph 8 — "И…". Partial: the check sees a
+#     Russian word for "And"; that it came FROM ENGLISH is not visible ("And" through the
+#     Japanese or Chinese model of the step before would read the same). MANUAL for that half.
 - scrollUntilVisible:
     element:
       id: "original_0_7"

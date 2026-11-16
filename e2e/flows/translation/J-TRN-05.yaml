@@ -108,19 +108,29 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-05]
 #    ends the moment the poem is in the top pane, at its lower edge, and its translation can
 #    then still be just under the bottom pane's edge (seen 2026-11-16, run 20261116T002150Z:
 #    the wait below ran out with "— 2 — Poems I" as the bottom pane's last line). Short swipes
-#    in the top pane bring it up; the poem stays in the top pane (asserted).
-- repeat:
-    times: 6
-    while:
-      notVisible:
-        text: ".*[а-яё]{3,}.*"
-        childOf:
-          id: "translation_1_0"
+#    in the top pane bring it up; the poem stays in the top pane (asserted). Phone only: on the
+#    tablet the panes are side by side (x = 50 % is the divider) and a late translation is not
+#    under an edge — the wait below is the whole check there. The swipes made are logged
+#    (seen bringing the translation up: probe t9f2-trn05-loop-ph, task-9-fix-report.md).
+- evalScript: ${output.poemSwipes = 0}
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
     commands:
-      - swipe:
-          start: "50%, 30%"
-          end: "50%, 22%"
-          duration: 800
+      - repeat:
+          times: 6
+          while:
+            notVisible:
+              text: ".*[а-яё]{3,}.*"
+              childOf:
+                id: "translation_1_0"
+          commands:
+            - swipe:
+                start: "50%, 30%"
+                end: "50%, 22%"
+                duration: 800
+            - evalScript: ${output.poemSwipes = output.poemSwipes + 1}
+- evalScript: ${console.log('J-TRN-05 step 2 - swipes to bring the first poem translation up - ' + output.poemSwipes)}
 - extendedWaitUntil:
     visible:
       text: ".*[а-яё]{3,}.*"

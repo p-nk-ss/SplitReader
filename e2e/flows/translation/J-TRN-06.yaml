@@ -400,12 +400,16 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-06]
     maxRetries: 2
     commands:
       - runFlow: ../../subflows/show_bars.yaml
+#        The two "not UND" looks first: a positive look must come after them, or they pass
+#        once the bars have hidden themselves (README, "The reader's bars").
+      - assertNotVisible: "UND"
+      - assertNotVisible: ".*\\bUND\\b.*"
       - assertVisible:
           text: "The book's language couldn't be detected\\. Choose it to translate the book\\."
           childOf:
             id: "untranslated_banner"
-      - assertNotVisible: "UND"
-      - assertNotVisible: ".*\\bUND\\b.*"
+      - assertVisible:
+          id: "reader:languageChip"
 - takeScreenshot: J-TRN-06-step10-unknown
 - assertNotVisible:
     id: "translation_\\d+_\\d+"

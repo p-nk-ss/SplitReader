@@ -199,6 +199,15 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
   decimals, no `${…}`), so a device-specific point is two copies of the command behind
   `when: true: ${DEVICE_CLASS == '…'}`. A swipe that does not move (`duration: 700`,
   `waitToSettleTimeoutMs: 100`) is a 0.9 s long press; `longPressOn` holds for 3–4 s.
+- **Widths and pixel points are per AVD.** The `phone` / `tablet` numbers (paragraph widths in
+  `J-RDR-03`, `J-TRN-08` step 12, the 2432 of `J-TRN-06`, every literal point) are those of
+  Pixel_10_Pro and Tab_35_PixelTablet. Another AVD of the same class (Tab_26_Nexus9) is selected
+  by the tags and fails those checks: run the suite on those two AVDs.
+- **A flow that turns the device or switches aeroplane mode** declares `onFlowComplete:`
+  (`setAirplaneMode: disabled`, `setOrientation: PORTRAIT`) in its header, so a failure in
+  between does not leave the emulator offline or turned for the flows after it (`J-LIB-02`,
+  `J-RDR-03`, `J-TRN-08`). On the tablet PORTRAIT is the natural (landscape) orientation and
+  LANDSCAPE_LEFT the turn to portrait.
 
 ### Retries are reported
 
@@ -237,6 +246,11 @@ current only while it points at `libretranslate.example.com` (reserved, does not
 address is set to `https://libretranslate.com` in Settings with no book open, so nothing is
 sent there. Quick Translate needs no key and really translates.
 
+Who gets what: the made-up key really reaches DeepL (about a dozen requests in `J-TRN-07`) and
+Google Cloud (up to three) — that is the journey's design, not a breach: they answer with an auth
+error and charge nothing. Quick Translate (an unofficial endpoint) gets about a hundred fixture
+paragraphs (`J-TRN-08`). Nothing is sent to libretranslate.com or to Azure.
+
 What a flow can see:
 
 - **Current provider.** Settings: the Translation row's label (`text: "DeepL"`,
@@ -256,7 +270,11 @@ What a flow can see:
   before and after reading with the pane hidden must give the same number. Offline HQ adds
   13–23 over the same screens — the check's observed failure.
 - **No new request on rotation**: the device is turned in aeroplane mode (`setAirplaneMode`),
-  where a request for a shown paragraph could only end in the "No internet" banner.
+  where a request for a shown paragraph could only end in the "No internet" banner. The command
+  returns in ~30 ms, long before the radios are down: wait 10 s after it, and look 5 s after each
+  turn (first "Translating…" absent, then the error banner absent) — `assertNotVisible` waits for
+  a "Translating…" to go, so a look right after the turn passes on a request still in flight.
+  A placeholder that a cache hit shows for under a second is not seen: that half is MANUAL.
 - **A provider or key change closes an open word popup**; re-selecting the current provider
   does not. That is how "re-selecting is a no-op" is seen.
 

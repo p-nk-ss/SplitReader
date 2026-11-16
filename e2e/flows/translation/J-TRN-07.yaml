@@ -429,6 +429,24 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
     visible: "Invalid DeepL API key — tap Switch translator to update it"
     timeout: 60000
 - assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+#    What "no banner = no request" above rests on: the banner is drawn with the pane hidden.
+#    The pane off again, the banner (an error that stays until the next request) is still there;
+#    then on again for step 10.
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "off"
+- assertVisible: "Invalid DeepL API key — tap Switch translator to update it"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- takeScreenshot: J-TRN-07-step9a-banner-with-pane-hidden
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "on"
+- extendedWaitUntil:
+    visible: "Invalid DeepL API key — tap Switch translator to update it"
+    timeout: 60000
 
 # 10. In the reader, tap "Switch translator" on the banner -> the Translator picker opens,
 #     showing DeepL as the current, failing provider (SET-008) — and, step 9, the same lines
