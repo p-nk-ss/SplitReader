@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The language picker's strip said "On-device translation · no cloud calls" whatever the translator
- * was — a false privacy claim with DeepL, Google, Azure, LibreTranslate or Quick Translate. It now
+ * was — a false privacy claim with DeepL, Google, Azure or Quick Translate. It now
  * says so only for an on-device translator, and names where the text goes otherwise.
  * (assertExists: the strip sits below the fold of the dialog's scrolled body.)
  */

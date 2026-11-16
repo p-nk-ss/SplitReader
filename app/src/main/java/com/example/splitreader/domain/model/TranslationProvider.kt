@@ -11,7 +11,6 @@ enum class TranslationProvider(
     val tracksUsage: Boolean,
     val secondaryLabel: String? = null,
     val secondaryPlaceholder: String? = null,
-    val secondaryIsUrl: Boolean = false,
     val helpUrl: String? = null,
     val stabilityNote: String? = null,
     /** Who receives the text an online translator translates (honest privacy line); null = on-device. */
@@ -44,19 +43,6 @@ enum class TranslationProvider(
         stabilityNote = "Unofficial endpoint — may be rate-limited or break without notice.",
         sendsTextTo = "Google",
     ),
-    LIBRE_TRANSLATE(
-        displayName = "LibreTranslate",
-        requiresApiKey = true,
-        requiresNetwork = true,
-        category = TranslationProviderCategory.ADVANCED,
-        description = "Open-source engine (Argos). Get a free-tier key at portal.libretranslate.com, or point to a self-hosted instance.",
-        tracksUsage = true,
-        secondaryLabel = "Server URL",
-        secondaryPlaceholder = "https://…",
-        secondaryIsUrl = true,
-        helpUrl = null,
-        sendsTextTo = "LibreTranslate",
-    ),
     GOOGLE_CLOUD(
         displayName = "Google Cloud Translation",
         requiresApiKey = true,
@@ -86,7 +72,6 @@ enum class TranslationProvider(
         tracksUsage = true,
         secondaryLabel = "Region",
         secondaryPlaceholder = "global",
-        secondaryIsUrl = false,
         helpUrl = "portal.azure.com → Translator resource → Keys and Endpoint",
         sendsTextTo = "Microsoft Azure",
     );

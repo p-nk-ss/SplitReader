@@ -7,7 +7,6 @@ import com.example.splitreader.domain.model.TranslationProvider.AZURE
 import com.example.splitreader.domain.model.TranslationProvider.BERGAMOT
 import com.example.splitreader.domain.model.TranslationProvider.DEEPL
 import com.example.splitreader.domain.model.TranslationProvider.GOOGLE_CLOUD
-import com.example.splitreader.domain.model.TranslationProvider.LIBRE_TRANSLATE
 import com.example.splitreader.domain.model.TranslationProvider.MLKIT
 import com.example.splitreader.domain.model.TranslationUsage
 import com.example.splitreader.domain.repository.TranslationUsageStats
@@ -48,7 +47,6 @@ class TranslatorSettingsImplTest {
         val values = ConcurrentHashMap<TranslationProvider, String>()
         /** Like [com.example.splitreader.data.local.TranslatorEndpoints]: unset → the provider's default. */
         override fun getSecondary(provider: TranslationProvider): String = values[provider] ?: when (provider) {
-            LIBRE_TRANSLATE -> TranslatorEndpoints.DEFAULT_LIBRE_URL
             AZURE -> TranslatorEndpoints.DEFAULT_AZURE_REGION
             else -> ""
         }
@@ -159,38 +157,6 @@ class TranslatorSettingsImplTest {
         assertFalse(settings.config.value.configs[AZURE]!!.configured)
     }
 
-    /** Like [LibreTranslateProvider]: a key or a server other than the public one configures it. */
-    private inner class LibreLike : TranslationProviderApi {
-        override val id = LIBRE_TRANSLATE
-        override fun isConfigured() = keys.getKey(LIBRE_TRANSLATE) != null ||
-            endpoints.getSecondary(LIBRE_TRANSLATE) != TranslatorEndpoints.DEFAULT_LIBRE_URL
-        override suspend fun translate(text: String, source: Language, target: Language) = text
-    }
-
-    private fun TestScope.libreSettings(current: TranslationProvider) = TranslatorSettingsImpl(
-        keys, endpoints, usage, FakeReadingPreferences(provider = current, log = log),
-        TranslationProvider.entries.associateWith { if (it == LIBRE_TRANSLATE) LibreLike() else FakeProvider(it, keys) },
-        StandardTestDispatcher(testScheduler),
-    )
-
-    /**
-     * LibreTranslate with its own server and a key: Clear removed only the key, and the card still
-     * read "KEY CONFIGURED" (the custom server alone keeps it configured). Clear forgets the whole
-     * setup — key and server — so the card visibly goes back to "add a key".
-     */
-    @Test
-    fun `clearing LibreTranslate forgets its key and its server`() = runTest {
-        keys.keys[LIBRE_TRANSLATE] = "k"
-        endpoints.values[LIBRE_TRANSLATE] = "https://libre.example.org"
-        val settings = libreSettings(LIBRE_TRANSLATE)
-
-        settings.clear(LIBRE_TRANSLATE)
-
-        assertFalse(settings.config.value.configs[LIBRE_TRANSLATE]!!.configured)
-        assertEquals("back to the public server", TranslatorEndpoints.DEFAULT_LIBRE_URL, settings.config.value.configs[LIBRE_TRANSLATE]!!.secondaryValue)
-        assertEquals(MLKIT, settings.config.value.current)
-    }
-
     /**
      * Azure's region is not what makes it configured (its key is), and a reader re-entering a key
      * for a `westeurope` resource must not find the region silently back at "global" (v29 review 4.1).
@@ -199,28 +165,12 @@ class TranslatorSettingsImplTest {
     fun `clearing Azure keeps its region`() = runTest {
         keys.keys[AZURE] = "a"
         endpoints.values[AZURE] = "westeurope"
-        val settings = libreSettings(MLKIT)
+        val (_, settings) = newSettings(MLKIT)
 
         settings.clear(AZURE)
 
         assertFalse(settings.config.value.configs[AZURE]!!.configured)
         assertEquals("westeurope", settings.config.value.configs[AZURE]!!.secondaryValue)
-    }
-
-    /** A self-hosted server needs no key: the config says whether a key is stored, so the card doesn't claim one. */
-    @Test
-    fun `a LibreTranslate server without a key is configured but has no key`() = runTest {
-        endpoints.values[LIBRE_TRANSLATE] = "https://libre.example.org"
-        val settings = libreSettings(MLKIT)
-        settings.refresh()
-
-        val libre = settings.config.value.configs[LIBRE_TRANSLATE]!!
-        assertTrue(libre.configured)
-        assertFalse(libre.keyStored)
-
-        keys.keys[LIBRE_TRANSLATE] = "k"
-        settings.refresh()
-        assertTrue(settings.config.value.configs[LIBRE_TRANSLATE]!!.keyStored)
     }
 
     @Test

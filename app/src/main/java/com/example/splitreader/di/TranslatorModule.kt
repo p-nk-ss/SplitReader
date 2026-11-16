@@ -12,13 +12,11 @@ import com.example.splitreader.data.translator.AzureTranslationProvider
 import com.example.splitreader.data.translator.BergamotTranslationProvider
 import com.example.splitreader.data.translator.DeepLTranslationProvider
 import com.example.splitreader.data.translator.GoogleCloudTranslationProvider
-import com.example.splitreader.data.translator.LibreTranslateProvider
 import com.example.splitreader.data.translator.MLKitTranslationProvider
 import com.example.splitreader.data.translator.QuickTranslateProvider
 import com.example.splitreader.data.translator.api.AzureTranslatorApi
 import com.example.splitreader.data.translator.api.DeepLApi
 import com.example.splitreader.data.translator.api.GoogleCloudApi
-import com.example.splitreader.data.translator.api.LibreTranslateApi
 import com.example.splitreader.data.translator.api.QuickTranslateApi
 import com.example.splitreader.domain.CrashReporter
 import com.example.splitreader.domain.IoDispatcher
@@ -48,7 +46,6 @@ import javax.inject.Singleton
 
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class QuickTranslateRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class GoogleCloudRetrofit
-@Qualifier @Retention(AnnotationRetention.BINARY) annotation class LibreRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class DeepLRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class AzureRetrofit
 
@@ -93,10 +90,6 @@ object TranslatorNetworkModule {
     fun provideGoogleCloudRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit("https://translation.googleapis.com/", client)
 
-    @Provides @Singleton @LibreRetrofit
-    fun provideLibreRetrofit(client: OkHttpClient): Retrofit =
-        buildRetrofit("https://libretranslate.com/", client)
-
     @Provides @Singleton @DeepLRetrofit
     fun provideDeepLRetrofit(client: OkHttpClient): Retrofit =
         buildRetrofit("https://api-free.deepl.com/", client)
@@ -112,10 +105,6 @@ object TranslatorNetworkModule {
     @Provides @Singleton
     fun provideGoogleCloudApi(@GoogleCloudRetrofit retrofit: Retrofit): GoogleCloudApi =
         retrofit.create(GoogleCloudApi::class.java)
-
-    @Provides @Singleton
-    fun provideLibreTranslateApi(@LibreRetrofit retrofit: Retrofit): LibreTranslateApi =
-        retrofit.create(LibreTranslateApi::class.java)
 
     @Provides @Singleton
     fun provideDeepLApi(@DeepLRetrofit retrofit: Retrofit): DeepLApi =
@@ -180,11 +169,6 @@ abstract class TranslatorBindingsModule {
     @IntoMap
     @TranslationProviderKey(TranslationProvider.QUICK_TRANSLATE)
     abstract fun bindQuickTranslate(impl: QuickTranslateProvider): TranslationProviderApi
-
-    @Binds
-    @IntoMap
-    @TranslationProviderKey(TranslationProvider.LIBRE_TRANSLATE)
-    abstract fun bindLibre(impl: LibreTranslateProvider): TranslationProviderApi
 
     @Binds
     @IntoMap

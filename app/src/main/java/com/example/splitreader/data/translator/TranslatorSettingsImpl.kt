@@ -47,13 +47,11 @@ class TranslatorSettingsImpl @Inject constructor(
     }
 
     /**
-     * Forgets the provider's key. For LibreTranslate also its server: a custom server alone keeps it
-     * configured, so clearing only the key left the card unchanged after Clear. Azure's region stays
-     * (its key alone configures it; a reset region would fail the next key with 401/403).
+     * Forgets the provider's key. Azure's region stays (its key alone configures it; a reset region
+     * would fail the next key with 401/403).
      */
     override suspend fun clear(provider: TranslationProvider) = command {
         keys.setKey(provider, null)
-        if (provider == TranslationProvider.LIBRE_TRANSLATE) endpoints.setSecondary(provider, null)
         if (current() == provider) prefs.setTranslatorProvider(TranslationProvider.MLKIT)
     }
 
@@ -78,17 +76,12 @@ class TranslatorSettingsImpl @Inject constructor(
         }
     }
 
-    /**
-     * Built from the DI provider registry + persisted stores. `configured` comes from each provider's
-     * own isConfigured() so LibreTranslate's URL-based configured logic is preserved.
-     */
+    /** Built from the DI provider registry + persisted stores; `configured` is each provider's own isConfigured(). */
     private fun build(current: TranslationProvider): TranslatorConfigState {
         val configs = TranslationProvider.entries.associateWith { p ->
-            val configured = providers[p]?.isConfigured() ?: (p.category == TranslationProviderCategory.FREE)
             ProviderConfig(
-                configured = configured,
+                configured = providers[p]?.isConfigured() ?: (p.category == TranslationProviderCategory.FREE),
                 secondaryValue = endpoints.getSecondary(p),
-                keyStored = if (p.requiresApiKey) keys.getKey(p) != null else configured,
             )
         }
         return TranslatorConfigState(
