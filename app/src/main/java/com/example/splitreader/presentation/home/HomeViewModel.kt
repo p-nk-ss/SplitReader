@@ -189,6 +189,8 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             bookLibraryRepository.touchBook(uri)
             _navigationEvent.trySend(uri)
+            // After the navigation: a book from before v29 reads its file once, never delaying the open.
+            addBookToLibraryUseCase.rememberContent(uri)
         }
     }
 

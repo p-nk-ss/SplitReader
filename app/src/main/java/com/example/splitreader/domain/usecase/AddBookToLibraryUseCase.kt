@@ -53,6 +53,13 @@ class AddBookToLibraryUseCase @Inject constructor(
         return library.bookCount() < FREE_BOOK_LIMIT
     }
 
+    /**
+     * Call when a library book is opened: a book added before v29 gets its content key, so it is
+     * recognised as the Same book when it is next added from elsewhere. Reads the file only then;
+     * never fails (an unreadable file just stays without a key).
+     */
+    suspend fun rememberContent(uri: String) = sameBook.rememberContent(uri)
+
     companion object {
         const val FREE_BOOK_LIMIT = 3
     }

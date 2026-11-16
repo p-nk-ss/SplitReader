@@ -91,8 +91,14 @@ class SameBook @Inject constructor(
      * leaves the book as it was.
      */
     suspend fun rememberContent(uri: String) {
-        val stored = library.stored(uri) ?: return
-        if (stored.contentKey != null) return
-        keys.keyOf(uri)?.let { library.setContentKey(uri, it) }
+        try {
+            val stored = library.stored(uri) ?: return
+            if (stored.contentKey != null) return
+            keys.keyOf(uri)?.let { library.setContentKey(uri, it) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Best-effort: the book opens either way and tries again on its next open.
+        }
     }
 }
