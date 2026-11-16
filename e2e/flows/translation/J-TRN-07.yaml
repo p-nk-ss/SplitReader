@@ -1,0 +1,829 @@
+appId: ${APP_ID}
+name: J-TRN-07 Online-engine keys without spending money - errors, Switch translator, clearing
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
+# books: en-novel.epub
+---
+# J-TRN-07 — Online-engine keys without spending money: errors, Switch translator, clearing.
+# Fixture: en-novel.epub ("The River Crossing"; chapter 1 = 42 paragraphs, five sentences in
+# turn: paragraphs 22 and 37 start "Every morning the ferryman…", paragraph 28 "Nobody…").
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-07.
+#
+# MONEY: the only keys typed are the made-up "fake-key-e2e-000" (DeepL, Google Cloud). Nothing
+# can be billed. What goes out to third parties, in the whole flow: DeepL — at most 3 requests
+# per failed screen (TranslateTextUseCase.MAX_CONSECUTIVE_FAILURES; an invalid-key error is
+# persistent and is not re-sent on scrolling) for the first open, the Retry and the reopen, plus
+# one per word popup (3); Google Cloud — at most 3 (step 15). No loop sends requests.
+#
+# How things are told:
+# - "Current provider": in Settings the Translation row's label is its name. In a picker the
+#   current card is drawn inverted and no node says so: its name is cropped and
+#   e2e/check_colours.py requires PaperInk (current) / PaperBg2 (not current) — the row
+#   "J-TRN-07 colours" of the summary.
+# - "Configured": the card's line "KEY CONFIGURED" / "TAP TO ADD API KEY", looked for between
+#   the card's name and the next card's name (the cards are stacked; `below`/`above` are
+#   vertical).
+# - "Who translated": paragraph 22 of chapter 1 reads "…паромник…" from Offline HQ and
+#   "…паромчик…" from ML Kit (the pinned models; J-TRN-01/03 use the same pair).
+# - The error banner is drawn whether or not the bars are up (ReaderScreen.kt); the "translated
+#   by …" strip only with the bars up and only when there is no error.
+#
+# MANUAL / partial, declared here and in the journey text:
+# - ONL-002 / SET-007 "no new request": the debug build has no request log. Asserted instead:
+#   the same banner, no translated text, and (SET-007) an open word popup that survives the tap.
+# - POP-016 "muted, not italic": a text style is not readable.
+# - SET-005 "without closing the reader": NOT REACHABLE — the app's navigation is hidden while
+#   a book is open (AppShell.kt: `if (!isReader)` around the rail/bottom bar); Settings can only
+#   be reached by leaving the reader. Step 16 does what can be done: change in Settings, open the
+#   book again.
+# - TRN-010 (step 9a, added): with the pane hidden nothing is sent to a paid engine — shown
+#   through the invalid-key banner NOT appearing; real quota accounting needs a real key: MANUAL.
+# - SET-004 "same usage numbers": a made-up key never translates, so no usage is ever counted;
+#   asserted: no usage line in either picker.
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# Preconditions: Offline HQ is current (the default on a fresh install — the Translation row
+# says so), no online engine has a key (all four cards say TAP TO ADD API KEY: step 1).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+
+# 1. Settings -> Translation -> Change; tap DeepL (no key yet) -> the API key dialog opens
+#    instead of DeepL becoming current (SET-003).
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "DeepL"
+    above: "Azure Translator"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Google Cloud Translation"
+    above: "DeepL"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Azure Translator"
+- assertNotVisible: "KEY CONFIGURED"
+- tapOn: "DeepL"
+- extendedWaitUntil:
+    visible: "Paste your DeepL API key. Keys are stored encrypted on this device."
+    timeout: 10000
+- assertVisible: "API key"
+- assertVisible: "Paste key…"
+- assertVisible: "Save"
+- assertVisible: "Cancel"
+#    No key is stored, so the dialog offers no "Clear" and shows no "existing key" line.
+- assertNotVisible: "Clear"
+- assertNotVisible: ".*existing key hidden.*"
+- takeScreenshot: J-TRN-07-step1-key-dialog
+
+# 2. Cancel -> Offline HQ is still current; DeepL still shows as not configured (SET-003).
+- tapOn: "Cancel"
+- extendedWaitUntil:
+    notVisible: "Paste key…"
+    timeout: 5000
+- assertVisible: "Choose provider"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "DeepL"
+    above: "Azure Translator"
+- takeScreenshot:
+    path: colour-check/step2-deepl-not-current__PaperBg2
+    cropOn: "DeepL"
+- scrollUntilVisible:
+    element: "Offline HQ"
+    direction: UP
+    timeout: 15000
+- takeScreenshot:
+    path: colour-check/step2-offline-hq-current__PaperInk
+    cropOn: "Offline HQ"
+
+# 3. Tap DeepL again, type the made-up key, Save -> the dialog (and the picker: saving selects)
+#    closes; DeepL is current and shows as configured.
+#    The key field does not echo what is typed: 16 characters read back as 16 bullets, and the
+#    key's text is nowhere on screen.
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "DeepL"
+- extendedWaitUntil:
+    visible: "Paste key…"
+    timeout: 10000
+- tapOn: "Paste key…"
+- inputText: "fake-key-e2e-000"
+- assertVisible: "•{16}"
+- assertNotVisible: ".*fake-key.*"
+- takeScreenshot: J-TRN-07-step3-key-typed
+- tapOn: "Save"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 10000
+- assertNotVisible: "API key"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    text: "DeepL"
+    below: "Translation"
+    above: "Manage providers.*"
+- assertNotVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "KEY CONFIGURED"
+    below: "Google Cloud Translation"
+    above: "Azure Translator"
+- takeScreenshot:
+    path: colour-check/step3-deepl-current__PaperInk
+    cropOn: "DeepL"
+#    The stored key is not shown again either: the key button opens the same dialog with an
+#    empty field that says a key exists, and now offers Clear.
+- tapOn:
+    id: "translator_edit_deepl"
+- extendedWaitUntil:
+    visible: "•+ \\(existing key hidden\\)"
+    timeout: 10000
+- assertVisible: "Clear"
+- assertNotVisible: ".*fake-key.*"
+- tapOn: "Cancel"
+- extendedWaitUntil:
+    notVisible: "API key"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+
+# 4. Open en-novel.epub (never opened: nothing of it is translated) -> the banner "Invalid DeepL
+#    API key — tap Switch translator to update it" with Retry and Switch translator; no paragraph
+#    shows a translation made by another engine (ONL-002).
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    visible: "Invalid DeepL API key — tap Switch translator to update it"
+    timeout: 60000
+- assertVisible: "TRANSLATION FAILED"
+- assertVisible: "Retry"
+- assertVisible: "Switch translator"
+#    The translation pane is there (its slots are), and no slot holds a translation: no Russian
+#    anywhere, no download banner of an on-device engine.
+- assertVisible:
+    id: "translation_0_\\d+"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- takeScreenshot: J-TRN-07-step4-invalid-key-banner
+
+# 5. Tap Retry, then scroll two screens -> the same Invalid-key banner stays; nothing falls back
+#    silently (ONL-002). (Retry sends the screen again: the banner is gone for a moment and
+#    comes back with the same text. Scrolling sends nothing: the error is persistent. Neither
+#    is counted — no request log; what is asserted is the banner and the absence of any
+#    translation.)
+- tapOn: "Retry"
+- extendedWaitUntil:
+    visible: "Invalid DeepL API key — tap Switch translator to update it"
+    timeout: 60000
+- repeat:
+    times: 2
+    commands:
+      - swipe:
+          start: "30%, 80%"
+          end: "30%, 25%"
+          duration: 1500
+- assertVisible: "Invalid DeepL API key — tap Switch translator to update it"
+- assertVisible: "Retry"
+- assertVisible: "Switch translator"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- assertNotVisible: "(Preparing translation|Translating)….*"
+
+# 6. Long-press a word -> the popup shows the invalid-key error in its short form — no
+#    "tap Switch translator" (the popup has no such button) — instead of a translation; Save is
+#    disabled and stores nothing (POP-016 Failed, POP-017). MANUAL: "muted, not italic".
+#    The word: the first of paragraph 22 ("Every"). The paragraph is brought to the middle of
+#    the page first: clear of the banner, and with its first line on screen (a paragraph cut
+#    off by the top edge gives a word of a later line — seen on the phone). The full-match text "Invalid DeepL API key" is the popup's: the banner's line
+#    is longer.
+- scrollUntilVisible:
+    element:
+      id: "original_0_21"
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    id: "original_0_21"
+    point: "6%, 6%"
+- extendedWaitUntil:
+    visible: "Invalid DeepL API key"
+    timeout: 30000
+- assertVisible: "WORD"
+- assertVisible:
+    text: "Every"
+    below: "WORD"
+    above: "Listen"
+- assertVisible:
+    text: "Invalid DeepL API key"
+    below: "WORD"
+    above: "Listen"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- assertVisible:
+    enabled: false
+    containsChild:
+      text: "Save"
+- tapOn: "Save"
+#    (No "there is no toast" line: `assertNotVisible` waits for a text to go, and a toast goes
+#    by itself — the line passed after a real Save, broken copy fail07 F10b. That nothing was
+#    saved is read in Words at the end of the flow, which does fail after a real Save: F10c.)
+- assertVisible: "Invalid DeepL API key"
+- takeScreenshot: J-TRN-07-step6-popup-invalid-key
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 7. Scroll to a new screen and long-press another word -> the same invalid-key error:
+#    scrolling did not clear it (POP-017). The banner is still the same one, too.
+- scrollUntilVisible:
+    element:
+      id: "original_0_27"
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible: "Invalid DeepL API key — tap Switch translator to update it"
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    id: "original_0_27"
+    point: "6%, 6%"
+- extendedWaitUntil:
+    visible: "Invalid DeepL API key"
+    timeout: 30000
+- assertVisible:
+    text: "Nobody"
+    below: "WORD"
+    above: "Listen"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+#    For step 9a: the translation pane is switched off before the book is left.
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "off"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 8. Force-stop and relaunch the app; Settings -> Translation -> DeepL is still current and
+#    still shows as configured; no key re-entry needed (SET-010).
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "DeepL"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+
+# 9. Compare Settings -> Translation with the reader's Translator dialog -> the same current
+#    provider (DeepL), the same configured / not configured line on every card (SET-004).
+#    Here: Settings. LibreTranslate, Google Cloud, Azure: no key; DeepL: key, current; no card
+#    has a usage line (nothing was ever translated with the made-up key).
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "LibreTranslate"
+    above: "Google Cloud Translation"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Google Cloud Translation"
+    above: "DeepL"
+- assertVisible:
+    text: "KEY CONFIGURED"
+    below: "DeepL"
+    above: "Azure Translator"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Azure Translator"
+- assertNotVisible: ".*THIS MONTH.*"
+- takeScreenshot:
+    path: colour-check/step9-settings-deepl-current__PaperInk
+    cropOn: "DeepL"
+- takeScreenshot: J-TRN-07-step9-settings-picker
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+# 9a. (TRN-010, as far as a made-up key can show it.) The book opens with the translation
+#     pane hidden (switched off in step 7) and DeepL current -> nothing is sent to DeepL while
+#     the pane is hidden: 10 s on the page and a screen scrolled, and no error banner. With this
+#     key every request DeepL gets ends in the invalid-key banner within seconds (step 4, and
+#     the last lines of this step), and the banner is drawn with the pane hidden too
+#     (ReaderScreen.kt) — so "no banner" is "no request". Then "Show translation" on -> the
+#     requests start, and the banner is there.
+#     MANUAL: the monthly usage counter of a real paid key staying still while hidden (needs a
+#     real key; a made-up one never counts a character).
+- extendedWaitUntil:
+    visible:
+      id: "original_0_\\d+"
+    timeout: 30000
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- extendedWaitUntil:
+    visible: "J-TRN-07 ten second pause with the pane hidden"
+    timeout: 10000
+    optional: true
+- swipe:
+    start: "30%, 70%"
+    end: "30%, 40%"
+    duration: 1500
+- extendedWaitUntil:
+    visible: "J-TRN-07 five second pause after the scroll"
+    timeout: 5000
+    optional: true
+- assertNotVisible: "TRANSLATION FAILED"
+- assertNotVisible: "Invalid DeepL API key.*"
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- takeScreenshot: J-TRN-07-step9a-pane-hidden-no-request
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "on"
+#    The book is where it was left, the key is still the same wrong key: the banner.
+- extendedWaitUntil:
+    visible: "Invalid DeepL API key — tap Switch translator to update it"
+    timeout: 60000
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+
+# 10. In the reader, tap "Switch translator" on the banner -> the Translator picker opens,
+#     showing DeepL as the current, failing provider (SET-008) — and, step 9, the same lines
+#     as in Settings on every card.
+- tapOn: "Switch translator"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "LibreTranslate"
+    above: "Google Cloud Translation"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Google Cloud Translation"
+    above: "DeepL"
+- assertVisible:
+    text: "KEY CONFIGURED"
+    below: "DeepL"
+    above: "Azure Translator"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Azure Translator"
+- assertNotVisible: ".*THIS MONTH.*"
+- takeScreenshot:
+    path: colour-check/step10-reader-deepl-current__PaperInk
+    cropOn: "DeepL"
+- takeScreenshot: J-TRN-07-step10-reader-picker
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+
+# 11. Tap the DeepL row again (already current, no key change) -> nothing reloads; its config
+#     stays as it was (SET-007).
+#     What can be seen of "nothing reloads": every real change of the provider or its key
+#     closes an open word popup (ReaderViewModel: selectionTranslator.clear()) and re-plans the
+#     page. So a word popup is opened first; the picker is opened from the banner (which leaves
+#     the popup alone) and DeepL tapped: the picker closes, and the SAME popup with the same
+#     error is still there, the banner too. (Step 12 taps another provider the same way: there
+#     the popup goes.) MANUAL: "no flicker".
+#     The word: the first of paragraph 37 ("Every"), brought to the middle of the page.
+- scrollUntilVisible:
+    element:
+      id: "original_0_36"
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    id: "original_0_36"
+    point: "6%, 6%"
+- extendedWaitUntil:
+    visible: "Invalid DeepL API key"
+    timeout: 30000
+- assertVisible:
+    text: "Every"
+    below: "WORD"
+    above: "Listen"
+- tapOn: "Switch translator"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "DeepL"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertNotVisible: "Paste key…|.*existing key hidden.*"
+- assertVisible: "WORD"
+- assertVisible:
+    text: "Every"
+    below: "WORD"
+    above: "Listen"
+- assertVisible: "Invalid DeepL API key"
+- assertVisible: "Invalid DeepL API key — tap Switch translator to update it"
+- takeScreenshot: J-TRN-07-step11-popup-survives-reselect
+
+# 12. Tap Offline HQ -> the banner disappears and the screen that failed now shows Russian
+#     translations (SET-009). The popup of step 11 goes with the change of provider.
+#     (This is Offline HQ's first use on this install: its EN→RU pack downloads now.)
+- tapOn: "Switch translator"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Offline HQ"
+    direction: UP
+    timeout: 15000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertNotVisible: "WORD"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_\\d+"
+    timeout: 240000
+- assertNotVisible: "TRANSLATION FAILED"
+- assertNotVisible: "Invalid DeepL API key.*"
+- assertNotVisible: "Retry"
+#     …and it is Offline HQ that translated: paragraph 22 in its wording, and no "translated
+#     by" strip with the bars up (the bars must still be up after that look — README).
+- scrollUntilVisible:
+    element:
+      id: "translation_0_21"
+    direction: UP
+    speed: 30
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*паромник.*"
+      childOf:
+        id: "translation_0_21"
+    timeout: 60000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertNotVisible: ".*translated by.*"
+      - assertVisible:
+          id: "reader:languageChip"
+- takeScreenshot: J-TRN-07-step12-offline-hq-translates
+
+# 13. Open the picker and tap Clear on DeepL (not current) -> Offline HQ stays current; DeepL
+#     now shows not configured (SET-006). Clear is in the key dialog the card's key button opens.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "KEY CONFIGURED"
+    below: "DeepL"
+    above: "Azure Translator"
+- tapOn:
+    id: "translator_edit_deepl"
+- extendedWaitUntil:
+    visible: "•+ \\(existing key hidden\\)"
+    timeout: 10000
+- tapOn: "Clear"
+- extendedWaitUntil:
+    notVisible: "API key"
+    timeout: 5000
+- assertVisible: "Choose provider"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "DeepL"
+    above: "Azure Translator"
+- assertNotVisible: "KEY CONFIGURED"
+- takeScreenshot:
+    path: colour-check/step13-deepl-cleared-not-current__PaperBg2
+    cropOn: "DeepL"
+- scrollUntilVisible:
+    element: "Offline HQ"
+    direction: UP
+    timeout: 15000
+- takeScreenshot:
+    path: colour-check/step13-offline-hq-still-current__PaperInk
+    cropOn: "Offline HQ"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: ".*паромник.*"
+    childOf:
+      id: "translation_0_21"
+- assertNotVisible: "TRANSLATION FAILED"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 14. Force-stop and relaunch; open the picker -> DeepL still shows not configured (its key
+#     dialog asks for a key again, offers no Clear); reading uses Offline HQ (SET-011).
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "DeepL"
+    above: "Azure Translator"
+- assertNotVisible: "KEY CONFIGURED"
+- tapOn:
+    id: "translator_edit_deepl"
+- extendedWaitUntil:
+    visible: "Paste key…"
+    timeout: 10000
+- assertNotVisible: "Clear"
+- assertNotVisible: ".*existing key hidden.*"
+- tapOn: "Cancel"
+- extendedWaitUntil:
+    notVisible: "API key"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      text: ".*паромник.*"
+      childOf:
+        id: "translation_0_21"
+    timeout: 60000
+- assertNotVisible: "TRANSLATION FAILED"
+
+# 15. In the reader's picker tap Google Cloud, type the made-up key, Save (Google Cloud becomes
+#     current). Then tap Clear on Google Cloud -> ML Kit becomes current at once; Google Cloud
+#     is never left current without a key (MLK-006).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_deepl"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Google Cloud Translation"
+- extendedWaitUntil:
+    visible: "Paste your Google Cloud Translation API key. Keys are stored encrypted on this device."
+    timeout: 10000
+- tapOn: "Paste key…"
+- inputText: "fake-key-e2e-000"
+- assertNotVisible: ".*fake-key.*"
+- tapOn: "Save"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 10000
+#     Google Cloud is current and has its key; Offline HQ's text is gone from the page (a new
+#     provider drops the old translations).
+- assertNotVisible: ".*паромник.*"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_deepl"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "KEY CONFIGURED"
+    below: "Google Cloud Translation"
+    above: "DeepL"
+- takeScreenshot:
+    path: colour-check/step15-google-current__PaperInk
+    cropOn: "Google Cloud Translation"
+- tapOn:
+    id: "translator_edit_google_cloud"
+- extendedWaitUntil:
+    visible: "•+ \\(existing key hidden\\)"
+    timeout: 10000
+- tapOn: "Clear"
+- extendedWaitUntil:
+    notVisible: "API key"
+    timeout: 5000
+#     At once, in the picker that is still open: Google Cloud has no key and is not current;
+#     ML Kit is current (and Offline HQ is not).
+- assertVisible: "Choose provider"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Google Cloud Translation"
+    above: "DeepL"
+- assertNotVisible: "KEY CONFIGURED"
+- takeScreenshot:
+    path: colour-check/step15-google-cleared-not-current__PaperBg2
+    cropOn: "Google Cloud Translation"
+- scrollUntilVisible:
+    element: "ML Kit \\(offline\\)"
+    direction: UP
+    timeout: 15000
+- takeScreenshot:
+    path: colour-check/step15-ml-kit-current__PaperInk
+    cropOn: "ML Kit \\(offline\\)"
+- takeScreenshot:
+    path: colour-check/step15-offline-hq-not-current__PaperBg2
+    cropOn: "Offline HQ"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+#     …and the reader: the open page is translated again, by ML Kit (its wording of paragraph
+#     22; its model may download first), with no error left.
+- extendedWaitUntil:
+    visible:
+      text: ".*паромчик.*"
+      childOf:
+        id: "translation_0_21"
+    timeout: 240000
+- assertNotVisible: "TRANSLATION FAILED"
+- takeScreenshot: J-TRN-07-step15-ml-kit-after-clear
+
+# 16. Change Translation to Offline HQ in Settings and open the book again -> it translates
+#     with Offline HQ. (SET-005 as written — "without closing the reader" — is not reachable:
+#     see the header. The reader is left with Back, which is the only way to Settings.)
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "ML Kit \\(offline\\)"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      text: ".*паромник.*"
+      childOf:
+        id: "translation_0_21"
+    timeout: 60000
+- assertNotVisible: "TRANSLATION FAILED"
+- runFlow: ../../subflows/leave_reader.yaml
+#     Nothing was saved by the Save taps on a popup that had no translation (step 6).
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "No saved words yet"
+    timeout: 10000
