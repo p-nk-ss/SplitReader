@@ -9,7 +9,7 @@ Mirrolit branding and a real book (public-domain *Alice's Adventures in Wonderla
 | `feature-graphic.png` | **Feature graphic** (1024×500) | ✅ ready |
 | `01-library.png` | Screenshot — Library / home (continue reading, streak, shelf) | ✅ ready |
 | `02-reading-stats.png` | Screenshot — Almanac (streak, minutes, heatmap, by-book/language) | ✅ ready |
-| `03-translation-engines.png` | Screenshot — translator picker (ML Kit + 5 providers) | ✅ ready |
+| `03-translation-engines.png` | Screenshot — translator picker (ML Kit, Offline HQ, Quick Translate, DeepL, Google Cloud, Azure) | ⚠️ retake: shows LibreTranslate, removed in v29 |
 | `04-appearance.png` | Screenshot — Settings (themes + 9 typefaces + typography) | ✅ ready |
 | `05-reader.png` | Screenshot — Reader split-pane (EN original + live translation) | ✅ ready |
 | `ic_launcher-playstore.png` (in `app/src/main/`) | App icon (512×512) | ✅ ready |
