@@ -104,12 +104,33 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-05]
     speed: 20
     visibilityPercentage: 100
     timeout: 60000
+#    On the phone the two panes are stacked and do not stop on the same line: the scroll above
+#    ends the moment the poem is in the top pane, at its lower edge, and its translation can
+#    then still be just under the bottom pane's edge (seen 2026-11-16, run 20261116T002150Z:
+#    the wait below ran out with "— 2 — Poems I" as the bottom pane's last line). Short swipes
+#    in the top pane bring it up; the poem stays in the top pane (asserted).
+- repeat:
+    times: 6
+    while:
+      notVisible:
+        text: ".*[а-яё]{3,}.*"
+        childOf:
+          id: "translation_1_0"
+    commands:
+      - swipe:
+          start: "50%, 30%"
+          end: "50%, 22%"
+          duration: 800
 - extendedWaitUntil:
     visible:
       text: ".*[а-яё]{3,}.*"
       childOf:
         id: "translation_1_0"
     timeout: 60000
+- assertVisible:
+    text: "古池や蛙飛びこむ水の音"
+    childOf:
+      id: "original_1_0"
 
 # 3. Long-press inside a poem -> the popup translates it from Japanese into Russian (POP-001).
 #    A Japanese line has no spaces, so the "word" under the finger is the whole poem. Other
