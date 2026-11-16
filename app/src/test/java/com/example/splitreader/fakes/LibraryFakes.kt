@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.update
 internal class FakeBookLibraryRepository(
     private val log: MutableList<String>? = null,
     var failDelete: Throwable? = null,
+    /** Thrown by [moveBook] before it changes anything (a failed transaction). */
+    var failMove: Throwable? = null,
 ) : BookLibraryRepository {
     val books = MutableStateFlow<List<LibraryBook>>(emptyList())
 
@@ -65,7 +67,12 @@ internal class FakeBookLibraryRepository(
     override suspend fun withContent(contentKey: String): StoredBook? =
         contentKeys.filterValues { it == contentKey }.keys.mapNotNull { stored(it) }.minByOrNull { it.removed }
     override suspend fun setContentKey(uri: String, contentKey: String) { contentKeys[uri] = contentKey }
+    /** Runs at the start of every [moveBook]: a test can hold a move here. */
+    var beforeMove: suspend () -> Unit = {}
     override suspend fun moveBook(from: String, to: String) {
+        beforeMove()
+        failMove?.let { throw it }
+        log?.add("move $from $to")
         val wasRemoved = from in removed
         books.update { list -> list.map { if (it.uri == from) it.copy(uri = to, coverPath = null) else it } }
         if (wasRemoved) { removed -= from; removed += to }
@@ -87,9 +94,12 @@ internal interface UriOnlyLibrary : BookLibraryRepository {
 
 /** Content keys by uri; a uri not in [keys] is a file that cannot be read (null). Counts the reads. */
 internal class FakeBookContentKeys(val keys: MutableMap<String, String> = mutableMapOf()) : BookContentKeys {
-    val reads = mutableListOf<String>()
+    val reads = java.util.Collections.synchronizedList(mutableListOf<String>())
+    /** Runs before each read: a test can hold reads here (e.g. `CompletableDeferred.await()`). */
+    var beforeRead: suspend (String) -> Unit = {}
     override suspend fun keyOf(uri: String): String? {
         reads += uri
+        beforeRead(uri)
         return keys[uri]
     }
 }
@@ -100,7 +110,8 @@ internal fun sameBookFor(
     keys: BookContentKeys = FakeBookContentKeys(),
     preferences: ReadingPreferences = FakeReadingPreferences(),
     files: BookFiles = FakeBookFiles(),
-) = SameBook(library, keys, preferences, files)
+    io: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+) = SameBook(library, keys, preferences, files, io)
 
 /** Records the books whose files were deleted. When [log] is given, appends `"files <uri>"` to it. */
 internal class FakeBookFiles(

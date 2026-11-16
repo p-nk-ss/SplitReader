@@ -31,13 +31,14 @@ class AddBookToLibraryUseCase @Inject constructor(
     private val sameBook: SameBook,
 ) {
     /** Saves [book] if allowed, otherwise returns [AddResult.LimitReached] without saving. */
-    suspend fun add(book: Book): AddResult {
+    suspend fun add(book: Book): AddResult = sameBook.exclusive {
         val found = sameBook.find(book.filePath)
         if (!found.inLibrary && !entitlement.isPremium.first() && library.bookCount() >= FREE_BOOK_LIMIT) {
-            return AddResult.LimitReached
+            AddResult.LimitReached
+        } else {
+            sameBook.save(book, found)
+            AddResult.Added
         }
-        sameBook.save(book, found)
-        return AddResult.Added
     }
 
     /**

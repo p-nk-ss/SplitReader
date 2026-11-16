@@ -71,7 +71,7 @@ class SameBookTest {
         library = BookLibraryRepositoryImpl(db.bookDao())
         bookmarks = BookmarkRepositoryImpl(db.bookmarkDao())
         notes = NoteRepositoryImpl(db.noteDao())
-        sameBook = SameBook(library, keys, prefs, files)
+        sameBook = SameBook(library, keys, prefs, files, kotlinx.coroutines.Dispatchers.Unconfined)
         add = AddBookToLibraryUseCase(library, entitlement, sameBook)
         delete = DeleteBookUseCase(library, prefs, files)
         // One file, two uris.
@@ -258,5 +258,48 @@ class SameBookTest {
         assertEquals(listOf(downloads), library.getAllBooks().first().map { it.uri })
         assertReadingDataUnder(downloads)
         assertTrue("the removed copy is left alone", "/b/removed-copy" in rows("SELECT uri FROM books"))
+    }
+
+    @Test
+    fun `a book whose file now holds another book is not moved, and its key is renewed`() = runTest {
+        readUnderRecent()
+        keys.keys[recent] = "other" // the document under `recent` was overwritten with another book
+
+        assertEquals(AddResult.Added, add.add(book(downloads)))
+
+        assertEquals(listOf(downloads, recent), library.getAllBooks().first().map { it.uri })
+        assertEquals(1, bookmarks.listForBook(recent).size)
+        assertEquals(emptyList<Any>(), bookmarks.listForBook(downloads))
+        assertEquals(listOf<String?>("other"), rows("SELECT contentKey FROM books WHERE uri = '$recent'"))
+        assertEquals(listOf<String?>("moby"), rows("SELECT contentKey FROM books WHERE uri = '$downloads'"))
+        assertEquals(emptyList<String>(), files.deleted)
+    }
+
+    @Test
+    fun `a removed book whose file is gone is matched by its stored key`() = runTest {
+        readUnderRecent()
+        delete.delete(recent, alsoReadingData = false)
+        keys.keys.remove(recent) // its old location can no longer be read
+
+        add.add(book(downloads))
+
+        assertReadingDataUnder(downloads)
+    }
+
+    @Test
+    fun `the same file under another spelling of its path is not deleted with the old uri's files`() = runTest {
+        val dir = java.nio.file.Files.createTempDirectory("same-book")
+        val real = java.nio.file.Files.createDirectory(dir.resolve("real"))
+        val file = real.resolve("moby.epub").toFile().apply { writeText("moby") }
+        val link = java.nio.file.Files.createSymbolicLink(dir.resolve("link"), real)
+        val a = file.toURI().toString()
+        val b = link.resolve("moby.epub").toUri().toString()
+        keys.keys[a] = "moby"; keys.keys[b] = "moby"
+        add.add(book(a))
+
+        add.add(book(b))
+
+        assertEquals(listOf(b), library.getAllBooks().first().map { it.uri })
+        assertEquals("one file, two spellings: deleting the old uri's files would delete the book", emptyList<String>(), files.deleted)
     }
 }

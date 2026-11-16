@@ -177,7 +177,7 @@ class ReadingProgressManager @Inject constructor(
         edit.apply()
     }
 
-    override fun moveBook(from: String, to: String) {
+    override fun copyBook(from: String, to: String) {
         val all = prefs.all
         val edit = prefs.edit()
         for (prefix in PER_BOOK_KEY_PREFIXES) edit.remove(prefix + to)
@@ -195,9 +195,8 @@ class ReadingProgressManager @Inject constructor(
                 is Boolean -> edit.putBoolean(new, value)
                 is String -> edit.putString(new, value)
             }
-            edit.remove(old)
         }
-        // commit(): the library row has already moved; the place must not be lost to a process death.
+        // commit(): durable before the library row moves (SameBook runs this off the main thread).
         edit.commit()
     }
 

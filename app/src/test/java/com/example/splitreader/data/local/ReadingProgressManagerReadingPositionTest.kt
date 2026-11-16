@@ -151,7 +151,7 @@ class ReadingProgressManagerReadingPositionTest {
     }
 
     @Test
-    fun `moving a book carries every per-book key to the new uri and leaves none under the old one`() {
+    fun `copying a book carries every per-book key to the new uri and leaves the old ones as they were`() {
         seedLegacy("/b/x", chapter = 3, item = 6, offset = 8)
         prefs.edit().putBoolean("position_v2_/b/x", true).commit()
         manager.saveReadingPosition("/b/x", ReadingPosition(3, 7, 42))
@@ -162,9 +162,11 @@ class ReadingProgressManagerReadingPositionTest {
         manager.saveProgress("/b/y", 0.9f) // the new uri's own stale value is replaced
         manager.saveProgress("/b/x_1", 0.1f) // a uri that extends the old one is not touched
 
-        manager.moveBook("/b/x", "/b/y")
+        val before = prefs.all.filterKeys { "/b/x" in it && "/b/x_1" !in it }
 
-        assertEquals(emptyList<String>(), prefs.all.keys.filter { "/b/x" in it && "/b/x_1" !in it })
+        manager.copyBook("/b/x", "/b/y")
+
+        assertEquals("the old uri keeps everything until forgetBook", before, prefs.all.filterKeys { "/b/x" in it && "/b/x_1" !in it })
         assertEquals(ReadingPosition(3, 7, 42), manager.getReadingPosition("/b/y"))
         assertEquals(0.5f, manager.getProgress("/b/y")!!, 0f)
         assertEquals("Call me Ishmael", manager.getExcerpt("/b/y"))
@@ -176,11 +178,11 @@ class ReadingProgressManagerReadingPositionTest {
     }
 
     @Test
-    fun `moving a book clears what the new uri had that the old one did not`() {
+    fun `copying a book clears what the new uri had that the old one did not`() {
         manager.markFinished("/b/y")
         manager.saveProgress("/b/x", 0.2f)
 
-        manager.moveBook("/b/x", "/b/y")
+        manager.copyBook("/b/x", "/b/y")
 
         assertFalse(manager.isFinished("/b/y"))
         assertEquals(0.2f, manager.getProgress("/b/y")!!, 0f)

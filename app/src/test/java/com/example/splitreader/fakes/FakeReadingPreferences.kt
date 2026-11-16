@@ -39,15 +39,19 @@ internal class FakeReadingPreferences(
     val finished = mutableSetOf<String>()
     override fun markFinished(bookUri: String) { finished += bookUri }
     override fun isFinished(bookUri: String) = bookUri in finished
+    /** The thread each copyBook/forgetBook ran on; with [log], each also appends `"prefs copy <from> <to>"` / `"prefs forget <uri>"`. */
+    val bookThreads = java.util.Collections.synchronizedList(mutableListOf<String>())
     override fun forgetBook(bookUri: String) {
+        log?.add("prefs forget $bookUri"); bookThreads += Thread.currentThread().name
         forgotten += bookUri
         positions.remove(bookUri); excerpts.remove(bookUri); progress.remove(bookUri)
         finished.remove(bookUri); sourceLanguages.remove(bookUri)
     }
-    override fun moveBook(from: String, to: String) {
-        fun <V> MutableMap<String, V>.move() { val v = remove(from); if (v != null) put(to, v) else remove(to) }
-        positions.move(); excerpts.move(); progress.move(); sourceLanguages.move()
-        if (finished.remove(from)) finished += to else finished -= to
+    override fun copyBook(from: String, to: String) {
+        log?.add("prefs copy $from $to"); bookThreads += Thread.currentThread().name
+        fun <V> MutableMap<String, V>.copy() { val v = get(from); if (v != null) put(to, v) else remove(to) }
+        positions.copy(); excerpts.copy(); progress.copy(); sourceLanguages.copy()
+        if (from in finished) finished += to else finished -= to
     }
     /** A stored choice the app no longer has (e.g. "LIBRE_TRANSLATE"); [getTranslatorProvider] is then null. */
     var retiredProvider: String? = null

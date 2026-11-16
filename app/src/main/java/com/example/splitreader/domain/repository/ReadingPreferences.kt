@@ -27,10 +27,11 @@ interface ReadingPreferences {
     fun forgetBook(bookUri: String)
 
     /**
-     * Moves everything stored for [from] (what [forgetBook] would forget) to [to], replacing what
-     * [to] had: the Same book came back under another uri. [from] keeps nothing.
+     * Copies everything stored for [from] (what [forgetBook] would forget) to [to], replacing what
+     * [to] had: the Same book came back under another uri. [from] keeps its copy until [forgetBook].
+     * Synchronous disk write: call off the main thread.
      */
-    fun moveBook(from: String, to: String)
+    fun copyBook(from: String, to: String)
     /** The language the reader chose for [bookUri]'s text; null = detect it (the default). */
     fun getSourceLanguage(bookUri: String): Language?
     fun saveSourceLanguage(bookUri: String, language: Language?)

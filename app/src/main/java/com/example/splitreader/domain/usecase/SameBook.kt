@@ -1,14 +1,21 @@
 package com.example.splitreader.domain.usecase
 
+import com.example.splitreader.domain.IoDispatcher
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.repository.BookContentKeys
 import com.example.splitreader.domain.repository.BookFiles
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import com.example.splitreader.domain.repository.ReadingPreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.URI
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Recognises the Same book (CONTEXT.md) when a book is added under a uri the library has never held,
@@ -19,14 +26,20 @@ import javax.inject.Inject
  * read whole (SHA-256 of its content) only for a uri the library does not know, or once for a known
  * book that has no key yet (added before v29) -- re-opening a known book costs no extra read.
  *
+ * A match is checked before it is trusted: the old uri's file is read again when it can be, and a
+ * file that now holds another book only gets its key renewed (a removed book whose file is gone is
+ * trusted by its stored key).
+ *
  * Known limit: a book removed before v29 has no key and cannot be matched. Its reading data waits
  * under its old uri as before.
  */
+@Singleton
 class SameBook @Inject constructor(
     private val library: BookLibraryRepository,
     private val keys: BookContentKeys,
     private val preferences: ReadingPreferences,
     private val files: BookFiles,
+    @IoDispatcher private val io: CoroutineDispatcher,
 ) {
     /** What the library already holds of the book about to be added. */
     sealed interface Found {
@@ -45,12 +58,27 @@ class SameBook @Inject constructor(
         override val inLibrary get() = false
     }
 
+    private val mutex = Mutex()
+
+    /**
+     * Runs [block] -- one add's [find], free-slot decision and [save] -- alone. Two adds of one file
+     * at once would otherwise both find the book under its old uri: both skip the free-slot check,
+     * the second moves nothing (the row has gone) and saves a card of its own.
+     */
+    suspend fun <T> exclusive(block: suspend () -> T): T = mutex.withLock { block() }
+
     /** Looks [uri] up -- by uri, then (a uri new to the library) by the file's content. */
     suspend fun find(uri: String): Found {
         library.stored(uri)?.let { return ThisUri(inLibrary = !it.removed, hasKey = it.contentKey != null) }
         val key = keys.keyOf(uri) ?: return NewBook(key = null)
-        val same = library.withContent(key) ?: return NewBook(key)
-        return OtherUri(same.uri, inLibrary = !same.removed, key = key)
+        while (true) {
+            val same = library.withContent(key) ?: return NewBook(key)
+            // A key is taken when the book is added: the document under that uri may since hold
+            // another book (an overwritten download, a Drive file replaced). Unreadable: trust it.
+            val now = keys.keyOf(same.uri)
+            if (now == null || now == key) return OtherUri(same.uri, inLibrary = !same.removed, key = key)
+            library.setContentKey(same.uri, now) // no longer this book; look again
+        }
     }
 
     /**
@@ -73,9 +101,14 @@ class SameBook @Inject constructor(
                 if (!found.hasKey) rememberContent(uri)
             }
             is OtherUri -> withContext(NonCancellable) {
+                // Copy, move, forget: a process death between any two steps leaves the place under
+                // the uri that has the row (a stray copy under the other is harmless).
+                // The prefs' writes are synchronous commits: off the caller's (main) thread.
+                withContext(io) { preferences.copyBook(found.uri, uri) }
                 library.moveBook(found.uri, uri)
-                preferences.moveBook(found.uri, uri)
+                withContext(io) { preferences.forgetBook(found.uri) }
                 library.saveBook(book)
+                if (sameFile(found.uri, uri)) return@withContext // its "old" files are the book's own
                 try {
                     files.deleteFor(found.uri)
                 } catch (e: CancellationException) {
@@ -107,4 +140,16 @@ class SameBook @Inject constructor(
             // Best-effort: the book opens either way and tries again on its next open.
         }
     }
+
+    /** Whether two file:// uris name one file under two spellings (`/data/user/0/…` and `/data/data/…`). */
+    private fun sameFile(a: String, b: String): Boolean = try {
+        val fa = fileOf(a)
+        val fb = fileOf(b)
+        fa != null && fb != null && fa.canonicalPath == fb.canonicalPath
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun fileOf(uri: String): File? =
+        URI(uri).takeIf { it.scheme == "file" }?.path?.let(::File)
 }
