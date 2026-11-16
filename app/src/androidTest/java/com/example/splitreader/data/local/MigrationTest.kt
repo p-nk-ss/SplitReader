@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 
 /**
  * Reproduces the real upgrade path: a database created at the shipped v2 schema (translation_cache
- * + books, no synopsis) must migrate all the way to the current version (v5) WITHOUT losing data and WITH the v3 tables
+ * + books, no synopsis) must migrate all the way to the current version (v6) WITHOUT losing data and WITH the v3 tables
  * created. Before MIGRATION_2_3 exists, opening the Room DB throws (no 2->3 path) and this fails.
  */
 @RunWith(AndroidJUnit4::class)
@@ -131,6 +131,48 @@ class MigrationTest {
                     assertTrue("a book from before v5 is in the library", c.isNull(2))
                 }
                 v5.query("SELECT chapterIndex, paragraphIndex FROM bookmarks WHERE bookUri = 'content://book/1'").use { c ->
+                    assertTrue(c.moveToFirst())
+                    assertEquals(3, c.getInt(0))
+                    assertEquals(7, c.getInt(1))
+                }
+            }
+        } finally {
+            context.getDatabasePath(name).delete()
+        }
+    }
+
+    /**
+     * v5 -> v6 alone, from the committed v5 schema: a book in the library and a removed one keep their
+     * rows, removal and bookmarks; `contentKey` is NULL (filled when the book is next opened); Room
+     * validates the migrated tables against the v6 schema.
+     */
+    @Test
+    fun v5Data_survives_migration_to_v6() {
+        val name = "migration-test-v5.db"
+        context.getDatabasePath(name).delete()
+        try {
+            helper.createDatabase(name, 5).use { v5 ->
+                v5.execSQL(
+                    "INSERT INTO books (uri, title, author, coverPath, lastOpenedAt, chapterCount, synopsis, removedAt) " +
+                        "VALUES ('content://book/1', 'War and Peace', 'Tolstoy', '/covers/1.jpg', 111, 42, 'long', NULL), " +
+                        "('content://book/2', 'Anna Karenina', 'Tolstoy', NULL, 222, 8, NULL, 999)"
+                )
+                v5.execSQL(
+                    "INSERT INTO bookmarks (bookUri, chapterIndex, paragraphIndex, label, createdAt) " +
+                        "VALUES ('content://book/2', 3, 7, 'ch4', 333)"
+                )
+            }
+
+            helper.runMigrationsAndValidate(name, 6, true, Migrations.MIGRATION_5_6).use { v6 ->
+                v6.query("SELECT uri, removedAt, contentKey FROM books ORDER BY uri").use { c ->
+                    assertTrue(c.moveToFirst())
+                    assertTrue("a book from before v6 is in the library", c.isNull(1))
+                    assertTrue("a book from before v6 has no content key", c.isNull(2))
+                    assertTrue(c.moveToNext())
+                    assertEquals(999L, c.getLong(1))
+                    assertTrue(c.isNull(2))
+                }
+                v6.query("SELECT chapterIndex, paragraphIndex FROM bookmarks WHERE bookUri = 'content://book/2'").use { c ->
                     assertTrue(c.moveToFirst())
                     assertEquals(3, c.getInt(0))
                     assertEquals(7, c.getInt(1))
