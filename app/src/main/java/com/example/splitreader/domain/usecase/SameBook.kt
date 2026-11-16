@@ -54,6 +54,12 @@ class SameBook @Inject constructor(
     }
 
     /**
+     * Whether the book at [uri] is in the library -- under [uri] or, read by content, under another
+     * uri. Reads the file when [uri] is new to the library: ask only when the answer matters.
+     */
+    suspend fun isInLibrary(uri: String): Boolean = find(uri).inLibrary
+
+    /**
      * Saves [book] as [found] said. For the Same book under another uri, its data moves to
      * [Book.filePath] first and the old uri's files (cover, pictures, read grant) are deleted. The
      * move and the save run to the end even if the caller is cancelled: half of a move would leave

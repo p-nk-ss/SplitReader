@@ -44,13 +44,15 @@ class AddBookToLibraryUseCase @Inject constructor(
      * Cheap pre-check to avoid an expensive download/parse when already at the limit. [uri] is the
      * target book's identity if known (so re-downloads of an owned book are allowed); pass `null`
      * when it isn't yet known — [add] re-checks authoritatively before saving either way.
-     * It goes by uri only (no file read): at the limit, the Same book under a new uri is refused
-     * here although [add] would take it.
+     * Below the limit it reads no file. At the limit only, a [uri] new to the library is fingerprinted:
+     * the Same book as one in the library is a re-open, not a new book. (A catalog/Drive uri whose
+     * file is not downloaded yet cannot be read, so it is refused as before.)
      */
     suspend fun canAddNew(uri: String?): Boolean {
         if (entitlement.isPremium.first()) return true
         if (uri != null && library.exists(uri)) return true
-        return library.bookCount() < FREE_BOOK_LIMIT
+        if (library.bookCount() < FREE_BOOK_LIMIT) return true
+        return uri != null && sameBook.isInLibrary(uri)
     }
 
     /**
