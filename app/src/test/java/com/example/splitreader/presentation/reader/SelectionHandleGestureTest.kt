@@ -122,4 +122,21 @@ class SelectionHandleGestureTest {
         composeRule.waitForIdle()
         assertEquals(1, taps)
     }
+
+    /**
+     * Off the handles, the handle handler must leave the press alone (its early return): a long
+     * press elsewhere in the selected paragraph still selects that word (v29 review 1.2).
+     */
+    @Test
+    fun `a long press away from the handles still selects a word`() {
+        show()
+        composeRule.mainClock.autoAdvance = false
+        composeRule.onNodeWithTag("para").performTouchInput { down(Offset(right - 4f, centerY)) }
+        composeRule.mainClock.advanceTimeBy(700)
+        composeRule.onNodeWithTag("para").performTouchInput { up() }
+        composeRule.mainClock.autoAdvance = true
+        composeRule.waitForIdle()
+        assertEquals(1, selected)
+        assertEquals(0, taps)
+    }
 }
