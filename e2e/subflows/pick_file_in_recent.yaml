@@ -1,0 +1,48 @@
+appId: ${APP_ID}
+---
+# pick_file_in_recent (env FILE): taps "Open book" and selects ${FILE} in the system picker,
+# ALWAYS from the "Recent" root - never from "Downloads". The counterpart of
+# pick_file_in_downloads.yaml, for a journey that needs the SAME file picked from both roots,
+# i.e. under two different uris (README "One file, two uris"):
+#   Recent     -> content://com.android.providers.media.documents/document/document%3A<id>
+#   Downloads  -> content://com.android.providers.downloads.documents/document/msf%3A<id>
+# (J-LIB-19: since versionCode 29 the app knows the book again across the two.)
+#
+# Google's DocumentsUI (Tab_35_PixelTablet, Pixel_10_Pro, 2026-11-16 hierarchy): the Recent
+# root's list is headed "Recent files" (id header_title); the roots drawer ("Show roots") lists
+# "Open from" -> "Recent", "Images", "Documents", "Downloads". DocumentsUI remembers the last
+# root, so after a pick from Downloads the picker opens there: the drawer is used only when
+# "Recent files" is not already shown (a tap on the selected root leaves the drawer open -
+# pick_file.yaml, fix round 2). A file run.sh just pushed is the newest, so it is near the top.
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- tapOn: "Open book"
+- extendedWaitUntil:
+    visible: "Show roots"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Recent files"
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      notVisible: "Recent files"
+    commands:
+      - tapOn: "Show roots"
+      - extendedWaitUntil:
+          visible: "Open from"
+          timeout: 5000
+      - tapOn:
+          text: "Recent"
+          below: "Open from"
+- extendedWaitUntil:
+    visible: "Recent files"
+    timeout: 10000
+- assertNotVisible: "Files in Downloads"
+- scrollUntilVisible:
+    element: "${FILE}"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "${FILE}"

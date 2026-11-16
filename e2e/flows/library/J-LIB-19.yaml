@@ -15,14 +15,17 @@ tags: [smoke, full, library, J-LIB-19]
 # 1. Open book -> en-novel.epub; Chapter Picker -> "Chapter 3 — The Long Crossing" -> the reader
 #    lands on that chapter's masthead: its title and its first paragraph are on screen (NAV-018)
 #
-# Every pick of en-novel.epub in this journey goes through pick_file_in_downloads.yaml: the
-# picker's "Recent" and "Downloads" roots hand out DIFFERENT uris for one file, the app keys a
-# book by its uri, and steps 6, 8 and 10 are about the app knowing this file again. With
-# pick_file.yaml the root depends on the picks before it (run 20261115T174915Z: the first pick
-# came from Recent, the re-add from Downloads -> a new book at chapter 1, step 8 failed). The
-# lines after the pick are import_book.yaml's own.
+# Same book from another picker root (versionCode 29). The picker's "Recent" and "Downloads"
+# roots hand out DIFFERENT uris for one file (README "One file, two uris"). Up to v28 the app
+# keyed a book by its uri alone, so a re-add from the other root was a new book at chapter 1
+# (run 20261115T174915Z) and this journey had to pick en-novel.epub from Downloads every time.
+# Since v29 the app recognises the file itself. So the picks of en-novel.epub are made from
+# BOTH roots on purpose: step 1 from Recent (pick_file_in_recent.yaml), the re-adds of steps 6,
+# 8 and 10 from Downloads (pick_file_in_downloads.yaml), and step 8b from Recent again while the
+# book is in the library. Steps 8 and 8b fail on a v28 build (seen: Task 9d). The lines after
+# the pick are import_book.yaml's own.
 - runFlow:
-    file: ../../subflows/pick_file_in_downloads.yaml
+    file: ../../subflows/pick_file_in_recent.yaml
     env:
       FILE: "en-novel.epub"
 - runFlow: ../../subflows/dismiss_portrait_hint.yaml
@@ -210,8 +213,9 @@ tags: [smoke, full, library, J-LIB-19]
     direction: DOWN
     timeout: 10000
 
-# 8. Open book -> en-novel.epub -> it opens in chapter 3 where it was left, not at the start,
-#    and Bookmarks still lists the chapter 3 bookmark (LIB-023). Back -> "3 VOLUMES".
+# 8. Open book -> en-novel.epub, this time from Downloads (it was added from Recent) -> it opens
+#    in chapter 3 where it was left, not at the start, and Bookmarks still lists the chapter 3
+#    bookmark (LIB-023, LIB-028 — same book from another root). Back -> "3 VOLUMES".
 - runFlow:
     file: ../../subflows/pick_file_in_downloads.yaml
     env:
@@ -238,6 +242,41 @@ tags: [smoke, full, library, J-LIB-19]
     element: "· 3 VOLUMES"
     direction: DOWN
     timeout: 10000
+
+# 8b. With the book in the library (3 VOLUMES, the free tier full), Open book -> en-novel.epub
+#     from Recent (it is in the library under its Downloads uri) -> no limit dialog, it opens in
+#     chapter 3 at its place; back in the Library still "3 VOLUMES" and ONE card "The River
+#     Crossing" (LIB-029). On v28 this was a new book: the limit dialog.
+- runFlow:
+    file: ../../subflows/pick_file_in_recent.yaml
+    env:
+      FILE: "en-novel.epub"
+- extendedWaitUntil:
+    notVisible: "Open book"
+    timeout: 15000
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: ".*\\(ch3\\.\\d+\\).*"
+    timeout: 20000
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible: "Library is full"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: "book_card_The River Crossing"
+    index: 0
+- assertNotVisible:
+    id: "book_card_The River Crossing"
+    index: 1
 
 # 9. Delete "The River Crossing" again, this time ticking "Also delete my reading progress,
 #    bookmarks and notes" -> "2 VOLUMES"

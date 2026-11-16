@@ -73,6 +73,20 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
 - extendedWaitUntil:
     visible: "Standard Ebooks"
     timeout: 15000
+#   Phone: every Catalog source pill is whole on screen — "Google Drive" too, on a second line
+#   (CAT-017; the pills wrap since versionCode 29). Its text node is then 282 px wide on
+#   Pixel_10_Pro; up to v28 the row scrolled sideways and the node was clipped at the screen
+#   edge to 118 px ("Googl…", seen on v28 in Task 9d), which this width check fails.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          text: "Google Drive"
+          below: "Standard Ebooks"
+          width: 282
+          tolerance: 6
+      - takeScreenshot: J-RDR-09-step2-catalog-pills
 - back
 - extendedWaitUntil:
     visible: "Open book"
