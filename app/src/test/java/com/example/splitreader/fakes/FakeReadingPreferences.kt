@@ -49,6 +49,17 @@ internal class FakeReadingPreferences(
         positions.move(); excerpts.move(); progress.move(); sourceLanguages.move()
         if (finished.remove(from)) finished += to else finished -= to
     }
+    /** A stored choice the app no longer has (e.g. "LIBRE_TRANSLATE"); [getTranslatorProvider] is then null. */
+    var retiredProvider: String? = null
+    override fun retiredTranslatorProvider(): String? = retiredProvider
+    override fun clearTranslatorProvider() {
+        log?.add("clear provider")
+        provider = null
+        retiredProvider = null
+    }
+    var notice: String? = null
+    override fun getTranslatorNotice(): String? = notice
+    override fun setTranslatorNotice(text: String?) { notice = text }
     val sourceLanguages = mutableMapOf<String, Language>()
     override fun getSourceLanguage(bookUri: String): Language? = sourceLanguages[bookUri]
     override fun saveSourceLanguage(bookUri: String, language: Language?) {

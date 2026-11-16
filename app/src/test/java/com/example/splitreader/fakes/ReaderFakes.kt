@@ -194,6 +194,11 @@ internal class FakeTranslatorSettings(
     override suspend fun refresh() {
         log += "refresh"
     }
+
+    override suspend fun noticeShown() {
+        log += "noticeShown"
+        mutableConfig.update { it.copy(notice = null) }
+    }
 }
 
 internal class FakeSpeechSynthesizer : SpeechSynthesizer {

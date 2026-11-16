@@ -39,8 +39,14 @@ class TranslatorEndpoints @Inject constructor(
         }
     }
 
+    override fun forgetLibreTranslate() {
+        prefs.edit().remove(KEY_RETIRED_LIBRE).apply()
+    }
+
     companion object {
         const val DEFAULT_AZURE_REGION = "global"
         private const val KEY_AZURE_REGION = "azure_region"
+        /** Where versions before v29 kept the LibreTranslate server; only ever deleted now. */
+        private const val KEY_RETIRED_LIBRE = "libre_base_url"
     }
 }

@@ -41,6 +41,8 @@ class TranslatorSettingsImplTest {
             log += "setKey $provider"
             if (value == null) keys.remove(provider) else keys[provider] = value
         }
+        var libreForgotten = false
+        override fun forgetLibreTranslate() { libreForgotten = true }
     }
 
     private inner class FakeEndpoints : TranslatorEndpointStore {
@@ -54,6 +56,8 @@ class TranslatorSettingsImplTest {
             log += "setSecondary $provider"
             if (value == null) values.remove(provider) else values[provider] = value
         }
+        var libreForgotten = false
+        override fun forgetLibreTranslate() { libreForgotten = true }
     }
 
     private inner class FakeUsage : TranslationUsageStats {
@@ -112,6 +116,55 @@ class TranslatorSettingsImplTest {
         }
         val settings = TranslatorSettingsImpl(keys, endpoints, usage, prefs, providers, StandardTestDispatcher(testScheduler))
         assertEquals(MLKIT, settings.config.value.current)
+    }
+
+    // ── LibreTranslate removed (v29): never a silent switch ──
+
+    @Test
+    fun `a reader who had LibreTranslate gets the default translator and is told so once`() = runTest {
+        val prefs = FakeReadingPreferences(provider = null, log = log).apply { retiredProvider = "LIBRE_TRANSLATE" }
+        val settings = settings(prefs, StandardTestDispatcher(testScheduler))
+
+        assertEquals(BERGAMOT, settings.config.value.current)
+        val notice = "LibreTranslate is no longer supported — switched to Offline HQ."
+        assertEquals(notice, settings.config.value.notice)
+        settings.refresh()
+        assertEquals(BERGAMOT, settings.config.value.current)
+        assertEquals(notice, settings.config.value.notice)
+        assertEquals(null, prefs.retiredTranslatorProvider())
+
+        settings.noticeShown()
+
+        assertEquals(null, settings.config.value.notice)
+        assertEquals("shown once: not after a restart either", null, settings(prefs, StandardTestDispatcher(testScheduler)).config.value.notice)
+        assertEquals(BERGAMOT, settings.config.value.current)
+    }
+
+    @Test
+    fun `without the Offline HQ engine a reader who had LibreTranslate is told about ML Kit`() = runTest {
+        val prefs = FakeReadingPreferences(provider = null, log = log).apply { retiredProvider = "LIBRE_TRANSLATE" }
+        val providers = TranslationProvider.entries.associateWith { p ->
+            if (p == BERGAMOT) object : TranslationProviderApi {
+                override val id = BERGAMOT
+                override fun isConfigured() = false
+                override suspend fun translate(text: String, source: Language, target: Language) = text
+            } else FakeProvider(p, keys)
+        }
+        val settings = TranslatorSettingsImpl(keys, endpoints, usage, prefs, providers, StandardTestDispatcher(testScheduler))
+
+        assertEquals(MLKIT, settings.config.value.current)
+        assertEquals("LibreTranslate is no longer supported — switched to ML Kit (offline).", settings.config.value.notice)
+    }
+
+    @Test
+    fun `LibreTranslate's stored key and server are deleted`() = runTest {
+        val prefs = FakeReadingPreferences(provider = DEEPL, log = log)
+        settings(prefs, StandardTestDispatcher(testScheduler))
+
+        assertTrue(keys.libreForgotten)
+        assertTrue(endpoints.libreForgotten)
+        assertEquals("a reader on another translator is not told anything", null, prefs.notice)
+        assertEquals(DEEPL, prefs.provider)
     }
 
     @Test

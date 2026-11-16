@@ -31,8 +31,13 @@ class TranslatorSettingsImpl @Inject constructor(
     @IoDispatcher private val io: CoroutineDispatcher,
 ) : TranslatorSettings {
     private val mutex = Mutex()
+
+    init {
+        retireLibreTranslate()
+    }
+
     private val _config = MutableStateFlow(
-        TranslatorConfigState(current = current(), configs = emptyMap()),
+        TranslatorConfigState(current = current(), configs = emptyMap(), notice = prefs.getTranslatorNotice()),
     )
     override val config: StateFlow<TranslatorConfigState> = _config.asStateFlow()
 
@@ -58,6 +63,22 @@ class TranslatorSettingsImpl @Inject constructor(
     override suspend fun resetUsage(provider: TranslationProvider) = command { usage.reset(provider) }
 
     override suspend fun refresh() = command { }
+
+    override suspend fun noticeShown() = command { prefs.setTranslatorNotice(null) }
+
+    /**
+     * LibreTranslate was removed in v29. A reader who had chosen it gets the default translator and
+     * one notice saying so -- never a silent switch. Whatever was stored for it (key, server) is
+     * deleted for everyone. Its usage counter is left: nothing reads it.
+     */
+    private fun retireLibreTranslate() {
+        keys.forgetLibreTranslate()
+        endpoints.forgetLibreTranslate()
+        if (prefs.retiredTranslatorProvider() == RETIRED_LIBRE_TRANSLATE) {
+            prefs.clearTranslatorProvider()
+            prefs.setTranslatorNotice("LibreTranslate is no longer supported — switched to ${current().displayName}.")
+        }
+    }
 
     /**
      * The reader's choice, or — never chosen — Offline HQ, the best on-device engine (it covers all
@@ -88,6 +109,12 @@ class TranslatorSettingsImpl @Inject constructor(
             current = current,
             configs = configs,
             usage = TranslationProvider.entries.associateWith { usage.usage(it) },
+            notice = prefs.getTranslatorNotice(),
         )
+    }
+
+    private companion object {
+        /** The name versions before v29 stored for LibreTranslate. */
+        const val RETIRED_LIBRE_TRANSLATE = "LIBRE_TRANSLATE"
     }
 }

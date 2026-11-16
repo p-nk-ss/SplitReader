@@ -224,7 +224,21 @@ class ReadingProgressManager @Inject constructor(
     }
 
     override fun getTranslatorProvider(): TranslationProvider? =
-        prefs.getString("translator_provider", null)?.let(TranslationProvider::fromName)
+        prefs.getString("translator_provider", null)?.let { name -> TranslationProvider.entries.find { it.name == name } }
+
+    override fun retiredTranslatorProvider(): String? =
+        prefs.getString("translator_provider", null)?.takeIf { name -> TranslationProvider.entries.none { it.name == name } }
+
+    override fun clearTranslatorProvider() {
+        prefs.edit().remove("translator_provider").apply()
+    }
+
+    override fun getTranslatorNotice(): String? = prefs.getString("translator_notice", null)
+
+    override fun setTranslatorNotice(text: String?) {
+        // commit(): a notice raised must survive a process death before the reader shows it.
+        prefs.edit().apply { if (text == null) remove("translator_notice") else putString("translator_notice", text) }.commit()
+    }
 
     // ── Read-aloud (TTS) ───────────────────────────────────────────────────────
 

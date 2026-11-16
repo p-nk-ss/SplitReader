@@ -76,8 +76,4 @@ enum class TranslationProvider(
         sendsTextTo = "Microsoft Azure",
     );
 
-    companion object {
-        fun fromName(name: String?): TranslationProvider =
-            entries.find { it.name == name } ?: MLKIT
-    }
 }

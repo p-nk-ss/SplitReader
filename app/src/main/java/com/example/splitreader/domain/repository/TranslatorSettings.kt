@@ -15,4 +15,6 @@ interface TranslatorSettings {
     suspend fun resetUsage(provider: TranslationProvider)
     /** Re-reads usage counters and configured flags (e.g. when the picker opens). */
     suspend fun refresh()
+    /** The reader has been shown [TranslatorConfigState.notice]: it is not shown again. */
+    suspend fun noticeShown()
 }

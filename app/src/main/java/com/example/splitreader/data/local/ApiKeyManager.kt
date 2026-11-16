@@ -132,6 +132,11 @@ class ApiKeyManager @Inject constructor(
 
     fun setAzureKey(value: String?) = write(KEY_AZURE, value)
 
+    override fun forgetLibreTranslate() {
+        inMemory.remove(KEY_RETIRED_LIBRE)
+        prefs.edit().remove(KEY_RETIRED_LIBRE).apply()
+    }
+
     /** Provider-keyed accessor; dispatches to the matching per-provider getter. */
     override fun getKey(provider: TranslationProvider): String? = when (provider) {
         TranslationProvider.GOOGLE_CLOUD -> getGoogleCloudKey()
@@ -161,5 +166,7 @@ class ApiKeyManager @Inject constructor(
         const val KEY_GOOGLE_CLOUD = "google_cloud_key"
         const val KEY_DEEPL = "deepl_key"
         const val KEY_AZURE = "azure_key"
+        /** Where versions before v29 kept the LibreTranslate key; only ever deleted now. */
+        const val KEY_RETIRED_LIBRE = "libre_translate_key"
     }
 }
