@@ -1148,49 +1148,50 @@ Translating → Ready transition, no intermediate results) until one is added; t
 
 **Priority:** P0 · **Tags:** smoke, full, network, phone, tablet · **Devices:** tablet API 35, phone emulator
 **Fixtures:** `en-novel.epub`
-**Preconditions:** Offline HQ current with EN→RU installed; no keys saved for any online engine; online. Uses only dummy keys (`invalid-key-000`), which cost nothing.
+**Preconditions:** a clean install: Offline HQ current (its EN→RU pack downloads in step 12, the first time it translates); no keys saved for any online engine; online. Uses only a made-up key (`fake-key-e2e-000`), which costs nothing: DeepL gets at most 3 requests per failed screen and one per word popup, Google Cloud at most 3.
 
 **Steps**
 1. Settings → Translation → Change; tap DeepL (no key yet). → ✓ the API key dialog opens instead of DeepL becoming current (SET-003).
 2. Tap Cancel. → ✓ Offline HQ is still current; DeepL still shows as not configured (SET-003).
-3. Tap DeepL again, enter `invalid-key-000`, tap Save. → ✓ the dialog closes; DeepL is current and shows as configured.
-4. Open `en-novel.epub` at an untranslated chapter. → ✓ banner "Invalid DeepL API key — tap Switch translator to update it" with Retry and Switch translator; no paragraph shows ML Kit text under the DeepL label (ONL-002).
-5. Tap Retry, then scroll two screens. → ✓ the same Invalid-key banner stays; nothing falls back silently (ONL-002).
-6. Long-press a word. → ✓ the popup shows the invalid-key error (short, muted, not italic) instead of a translation (POP-017, POP-016).
+3. Tap DeepL again, enter `fake-key-e2e-000`, tap Save. → ✓ the key field shows bullets, never the typed key; the dialog and the picker close (saving selects); DeepL is current and shows KEY CONFIGURED; its key dialog now says "(existing key hidden)" and offers Clear.
+4. Open `en-novel.epub` (never opened). → ✓ banner "Invalid DeepL API key — tap Switch translator to update it" with Retry and Switch translator; no paragraph shows ML Kit text under the DeepL label (ONL-002).
+5. Tap Retry, then scroll two screens. → ✓ the same Invalid-key banner stays; nothing falls back silently — no translated text appears (ONL-002). *Manual:* that scrolling sends no new request (the debug build has no request log).
+6. Long-press a word. → ✓ the popup shows the short error "Invalid DeepL API key" (no "tap Switch translator") instead of a translation; its Save is disabled and a tap on it saves nothing (POP-017, POP-016). *Manual:* muted, not italic.
 7. Scroll to a new screen and long-press another word. → ✓ the same invalid-key error — scrolling did not clear it (POP-017).
 8. Force-stop and relaunch the app; open Settings → Translation. → ✓ DeepL is still current and still shows as configured; no key re-entry needed (SET-010).
-9. Open the reader's Translator dialog and compare with Settings → Translation. → ✓ same current provider (DeepL), same configured/not-configured state for every row (SET-004).
+9. Open the reader's Translator dialog and compare with Settings → Translation. → ✓ same current provider (DeepL), same configured/not-configured state for every row; no usage line on either (a made-up key never translates, so nothing is counted) (SET-004).
+9a. (Added.) The book is opened with **Show translation** off and DeepL current; wait 10 s and scroll a screen. → ✓ no error banner: nothing is sent to DeepL while the pane is hidden (with this key every request ends in the Invalid-key banner). Turn **Show translation** on. → ✓ the Invalid-key banner appears: requests start only now (TRN-010, request gate). *Manual:* the usage counter of a real paid key.
 10. In the reader, tap "Switch translator" on the banner. → ✓ the Translator picker opens showing DeepL as the current, failing provider (SET-008).
-11. Tap the DeepL row again (already current, no key change). → ✓ nothing reloads or flickers; its config stays as it was (SET-007).
-12. Tap Offline HQ. → ✓ the banner disappears and the screen that failed now shows Russian translations (SET-009).
-13. Open the picker and tap Clear on DeepL (not current). → ✓ Offline HQ stays current; DeepL now shows not configured (SET-006).
+11. With a word popup open (it shows the invalid-key error), open the picker from the banner and tap the DeepL row again (already current, no key change). → ✓ the picker closes and the same popup and the same banner are still there — a real provider or key change would have closed the popup; DeepL's config stays as it was (SET-007). *Manual:* no flicker.
+12. Tap Offline HQ. → ✓ the popup closes (the provider changed), the banner disappears and the screen that failed now shows Russian translations in Offline HQ's wording, with no "translated by" strip (SET-009).
+13. Open the picker, open DeepL's key dialog with its key button and tap Clear (DeepL is not current). → ✓ Offline HQ stays current; DeepL now shows not configured (SET-006).
 14. Force-stop and relaunch; open the picker. → ✓ DeepL still shows not configured; reading uses Offline HQ (SET-011).
-15. In the picker tap Google Cloud, enter `invalid-key-000`, Save (Google Cloud becomes current). Then tap Clear on Google Cloud. → ✓ ML Kit becomes current at once; Google Cloud is never left current without a key (MLK-006).
-16. With the book still open on ML Kit, go to Settings through the app's navigation (rail/bottom bar, without closing the reader), change Translation to Offline HQ, and return to the open reader. → ✓ the open book now translates with Offline HQ without being reopened (SET-005).
+15. In the reader's picker tap Google Cloud, enter `fake-key-e2e-000`, Save (Google Cloud becomes current). Then tap Clear in Google Cloud's key dialog. → ✓ ML Kit becomes current at once, in the picker that is still open; Google Cloud is never left current without a key; the open page is translated again, in ML Kit's wording (MLK-006).
+16. Leave the reader, change Translation to Offline HQ in Settings, and open the book again. → ✓ it translates with Offline HQ. (SET-005 as written — changing the setting *without closing the reader* — cannot be reached: the app's navigation is hidden while a book is open, `AppShell.kt`, and Back is the only way to Settings. Not automated; the reachable half is this step.)
 
-**Covers:** SET-003, SET-004, SET-005, SET-006, SET-007, SET-008, SET-009, SET-010, SET-011, ONL-002, POP-016, POP-017, MLK-006
+**Covers:** SET-003, SET-004, SET-006, SET-007, SET-008, SET-009, SET-010, SET-011, ONL-002, POP-016, POP-017, MLK-006, TRN-010 (request gate only) — SET-005 not reachable (step 16)
 
 ### J-TRN-08 — LibreTranslate, Azure and Quick Translate fields and gating
 
 **Priority:** P0 · **Tags:** smoke, full, network, phone, tablet · **Devices:** tablet API 35, phone emulator
 **Fixtures:** `en-novel.epub`, `plain-prose.epub`
-**Preconditions:** Offline HQ current; no online keys saved; online.
+**Preconditions:** a clean install: Offline HQ current; no online keys saved; online. The only key typed is the made-up `fake-key-e2e-000`. LibreTranslate is current only while it points at `libretranslate.example.com` (a reserved name that does not resolve); Azure never gets a key; Quick Translate (no key) really translates — about a hundred paragraphs in the whole journey.
 
 **Steps**
 1. Settings → Translation → Change; tap LibreTranslate. Enter Server URL `http://example.com` and any key; tap Save. → ✓ inline error "Cleartext http:// is blocked on modern Android — use https://"; the dialog stays open; LibreTranslate does not become current (ONL-009).
 2. Cancel. Open `en-novel.epub`, open the reader's Translator picker, tap LibreTranslate and repeat step 1. → ✓ the identical inline error; the dialog stays open; Offline HQ is still current (ONL-009).
-3. Change the URL to `libretranslate.example.com` (no scheme), key `invalid-key-000`, Save; reopen LibreTranslate's dialog. → ✓ saved with no error; the field now reads `https://libretranslate.example.com` (ONL-010).
-4. Change the URL to `https://libretranslate.com`, Save, reopen. → ✓ accepted and shown exactly as entered (ONL-011).
-5. Tap Clear on LibreTranslate (falls back to ML Kit if it was current), then select Offline HQ.
-6. Tap Azure. → ✓ the dialog has a separate "Region" field next to the API key (ONL-012 field check). Enter only Region `westeurope`, leave the key empty, Save if allowed.
-7. In the reader (if Azure became current). → ✓ a clear "Azure API key isn't set — tap Switch translator to add it" error, never ML Kit text labelled Azure (ONL-013, ONL-001). If the dialog refused to save without a key, ✓ Azure is not current and the dialog says a key is needed (SET-003, ONL-013).
-8. With Azure current and keyless (step 7 first branch), long-press a word and tap Save. → ✓ toast "TRANSLATION_FAILED" (or equivalent); Words gets no entry with a blank translation (POP-012, WRD-006). In the second branch, run this step after selecting DeepL via a restored state — see J-TRN-15 step 7.
-9. Switch to Offline HQ via "Switch translator". Open the Translator picker and find Quick Translate. → ✓ a note such as "unofficial endpoint — may be throttled or break" is shown next to it (ONL-020).
-10. Select Quick Translate. → ✓ the visible screen translates via Quick Translate; long-press a word → the popup returns a translation (ONL-021).
-11. Turn Aa → **Show translation** off, scroll forward three screens, turn it back on. → ✓ the screens scrolled while hidden had no translations made in the meantime (they fill in only now, with shimmers) — Quick Translate needs the network, so it is gated like a paid engine (ONL-014).
-12. With Quick Translate still current and the screen translated, rotate there and back. → ✓ the translated paragraphs reappear at once, with no translating placeholder — they come from the cache, not a new request (ONL-023).
-13. Turn **Show translation** off, go back to the Library and open `plain-prose.epub` (never opened); scroll three screens. Turn **Show translation** on, then immediately scroll two screens further. → ✓ the visible screen translates; the paragraphs further down show the translating placeholder first — nothing was translated in the background while hidden (TRN-027).
-14. Select Offline HQ again.
+3. Change the URL to `libretranslate.example.com` (no scheme), key `fake-key-e2e-000`, Save; reopen LibreTranslate's dialog. → ✓ saved with no error; LibreTranslate is current and the open page shows an error banner (the name does not resolve), never another engine's text; the field now reads `https://libretranslate.example.com` (ONL-010).
+4. Leave the reader; in Settings → Translation change LibreTranslate's URL to `https://libretranslate.com`, Save, reopen. → ✓ accepted and shown exactly as entered (ONL-011). (In Settings, with no book open, so that the made-up key is never sent to libretranslate.com.)
+5. Tap Clear in LibreTranslate's key dialog → ✓ LibreTranslate shows not configured and ML Kit is current (LibreTranslate was). Then select Offline HQ. (Done with the default address stored. With a custom address stored, Clear removes only the key and the card goes on saying KEY CONFIGURED — `TranslatorSettingsImpl.clear()` removes the key only; `LibreTranslateProvider.isConfigured()` is true for any non-default address. Reported as an app bug / design question; the flow holds that check as a disabled `# APP BUG` block.)
+6. Tap Azure. → ✓ the dialog has a separate "Region" field next to the API key (ONL-012 field check). Enter only Region `westeurope`, leave the key empty, Save. → ✓ the app saves it (a region alone enables Save — `TranslatorPickerDialog.kt`, `ApiKeyDialog` `saveEnabled`): Azure is current without a key, its card still says TAP TO ADD API KEY, and its dialog shows `westeurope` again.
+7. In the reader. → ✓ a clear "Azure Translator API key isn't set — tap Switch translator to add it" error with Retry and Switch translator, never another engine's text labelled Azure (ONL-013, ONL-001).
+8. With Azure current and keyless, long-press a word and tap Save. → ✓ the popup shows "Azure Translator API key isn't set"; its Save is disabled, and after a tap on it Words gets no entry (POP-012, WRD-006). *Manual:* that no toast appears (a toast's absence cannot be asserted: it goes by itself). (There is no failure toast: Save stores the popup's translation and is disabled until there is one — `ReaderPane.kt` `TranslationBubble`, `ReaderViewModel.saveWord`.)
+9. Switch to Offline HQ via "Switch translator". Open the Translator picker and find Quick Translate. → ✓ the note "Unofficial endpoint — may be rate-limited or break without notice." is on its card (ONL-020).
+10. Select Quick Translate. → ✓ the visible screen translates via Quick Translate (Russian again, and not Offline HQ's text of the same paragraph); long-press a word → the popup returns a translation (ONL-021).
+11. Turn Aa → **Show translation** off, scroll forward three screens, turn it back on. → ✓ the screens scrolled while hidden had no translations made in the meantime — Quick Translate needs the network, so it is gated like a paid engine (ONL-014). *Automated through Settings → "Cached translations: N":* N is the same before and after the three hidden screens, and larger once the pane is back and the screen is translated. *Manual:* the shimmer placeholders.
+12. With Quick Translate still current and the screen translated, rotate there and back. → ✓ the translated paragraphs reappear at once, with no translating placeholder — they come from the cache, not a new request (ONL-023). *Automated:* at the start of chapter 1, in aeroplane mode: after each turn (proven by the paragraph's width) the paragraph on top has the same Russian text, and there is no error banner and no "Translating…" — offline, a new request could only fail. *Manual:* a paid engine's usage counter unchanged by the rotations.
+13. Turn **Show translation** off, go back to the Library and open `plain-prose.epub` (never opened); scroll three screens. Turn **Show translation** on, then read on to the end of the book. → ✓ the visible screen translates; nothing was translated in the background while hidden, and what was read while hidden is not filled in afterwards (TRN-027). *Automated through the cache count:* unchanged by the hidden reading; after the pane comes on it grows by at most the paragraphs from four above the one then on top to the end of the book (between 56 − g and 56 − g + 4, three either way allowed for a layout shift). *Manual:* the placeholder on the paragraphs further down; a paid engine's usage counter.
+14. Select Offline HQ again (Settings). → ✓ Quick Translate never showed a usage line; Words has no entry.
 
 **Covers:** ONL-001, ONL-009, ONL-010, ONL-011, ONL-013, ONL-014, ONL-020, ONL-021, ONL-023, POP-012, SET-003, TRN-027 (also WRD-006; ONL-012 field check only — full Azure translation in J-TRN-12)
 

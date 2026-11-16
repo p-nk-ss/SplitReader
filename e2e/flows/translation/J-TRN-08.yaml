@@ -1,0 +1,944 @@
+appId: ${APP_ID}
+name: J-TRN-08 LibreTranslate, Azure and Quick Translate fields and gating
+tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
+# books: en-novel.epub, plain-prose.epub
+---
+# J-TRN-08 — LibreTranslate, Azure and Quick Translate: fields and gating.
+# Fixtures: en-novel.epub ("The River Crossing": chapter 1 = 42 paragraphs "(1)"…"(42)",
+# chapter 2 = 8 paragraphs "(ch2.1)"…) and plain-prose.epub ("Plain Prose": 4 chapters of 14
+# paragraphs "(ch1.1)"…"(ch4.14)", 56 in all; never opened before step 13).
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-08.
+#
+# MONEY and other people's servers. The only key typed is the made-up "fake-key-e2e-000".
+# - LibreTranslate is made current once (step 3), pointed at libretranslate.example.com — a
+#   reserved name that does not resolve, so nothing reaches anyone. Its URL is set to
+#   https://libretranslate.com only in Settings with no book open (step 4): nothing is sent there.
+# - Azure never gets a key: the app sends it nothing (it answers "key isn't set" itself).
+# - Quick Translate needs no key and really translates (steps 10–13): about a hundred
+#   paragraph requests in the whole flow, each made by reading, none in a loop.
+#
+# How the gate is seen (ONL-014, TRN-027). Every paragraph an engine translates is stored in
+# the app's cache, shown or not; Settings -> "Cached translations: N" counts them
+# (subflows/cached_translations.yaml, which restarts the app). With the translation pane hidden,
+# reading must leave N exactly as it was — Offline HQ, which is not gated, adds 13–23 over the
+# same three screens (J-TRN-01 step 9), and so would a Quick Translate that worked in the
+# background. After "Show translation" is switched on N must grow.
+# TRN-027's second half (what is translated after switching on is the screen and what follows,
+# not the screens read while hidden): plain-prose has 56 paragraphs. The flow reads which
+# paragraph is on top when the pane comes on (g, counted from 0), then reads to the end of the
+# book. Translated by then: everything from 4 paragraphs above g (TranslationPlanner.LOOKBEHIND)
+# to the end — at most 56 - g + 4 (and at least 56 - g: none of plain-prose's paragraphs was
+# stored before — en-novel is read with Quick Translate in its chapter 1 only, whose texts no
+# other book has). An engine that also filled in the g paragraphs read while hidden would have
+# stored all 56. The flow allows 3 paragraphs of slack each way for the reading of g (the
+# paragraph "on top" is the first English one Maestro finds, which may be one or two rows off
+# the planner's first visible item): it asserts 56 - g - 3 <= growth <= 56 - g + 4 + 3, with
+# g >= 10, so 56 is outside the window (seen: g 20, growth 40, phone 20261116T002150Z).
+#
+# ONL-023 (rotation): the shown paragraph must come back after each turn with the same text and
+# without the network — the flow turns the device in aeroplane mode, where any new request for
+# a shown paragraph would end in the "No internet" error banner.
+#
+# MANUAL / partial, declared here and in the journey text:
+# - ONL-023 / TRN-027 / TRN-010 with a PAID engine: "the monthly usage counter does not grow"
+#   needs a real key. MANUAL. (J-TRN-07 step 9a shows the same gate for DeepL through the
+#   invalid-key banner.)
+# - "The paragraphs further down show the translating placeholder first" (ONL-014, TRN-027): a
+#   placeholder that lasts well under a second is not readable; the cache count stands for it.
+# - ONL-012: field check only (Region is its own field and is stored); a real Azure translation
+#   with a custom region needs a real key (J-TRN-12, manual).
+# - ONL-021: best effort by nature — the unofficial endpoint may throttle (the app then retries).
+# No `hideKeyboard` in this flow: a key dialog lifts itself above the keyboard (Save, Cancel and
+# the error line stay in view on both device classes), the keyboard goes when the dialog closes,
+# and with no keyboard up `hideKeyboard` is a Back press — it closed the picker (seen).
+# The paragraph widths of step 12 are those of Tab_35_PixelTablet and Pixel_10_Pro at the
+# default margin (J-RDR-03).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# Preconditions: Offline HQ current; no online keys saved.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+
+# 1. Settings -> Translation -> Change; tap LibreTranslate. Server URL "http://example.com" and
+#    any key; Save -> inline error "Cleartext http:// is blocked on modern Android — use
+#    https://"; the dialog stays open; LibreTranslate does not become current (ONL-009).
+#    The Server URL field comes filled with the default address; the tap goes to its right end
+#    so that the cursor is after the last character, then the field is emptied.
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "LibreTranslate"
+    above: "Google Cloud Translation"
+- tapOn: "LibreTranslate"
+- extendedWaitUntil:
+    visible: "Paste your LibreTranslate API key. Keys are stored encrypted on this device."
+    timeout: 10000
+- assertVisible: "SERVER URL"
+- assertVisible: "https://libretranslate\\.com"
+- tapOn: "Paste key…"
+- inputText: "fake-key-e2e-000"
+- assertVisible: "•{16}"
+- assertNotVisible: ".*fake-key.*"
+- tapOn:
+    text: "https://libretranslate\\.com"
+    point: "95%, 50%"
+- eraseText: 60
+- inputText: "http://example.com"
+#    The address is not a secret and is shown as typed (the key above is not).
+- assertVisible: "http://example\\.com"
+- assertNotVisible: "Cleartext http://.*"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Cleartext http:// is blocked on modern Android — use https://"
+    timeout: 5000
+- assertVisible: "API key"
+- assertVisible: "SERVER URL"
+- assertVisible: "http://example\\.com"
+- takeScreenshot: J-TRN-08-step1-cleartext-rejected-settings
+- tapOn: "Cancel"
+- extendedWaitUntil:
+    notVisible: "SERVER URL"
+    timeout: 5000
+- assertVisible: "Choose provider"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "LibreTranslate"
+    above: "Google Cloud Translation"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+
+# 2. Open en-novel.epub, open the reader's Translator picker, tap LibreTranslate and repeat
+#    step 1 -> the identical inline error; the dialog stays open; Offline HQ is still current
+#    (ONL-009).
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 240000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "LibreTranslate"
+- extendedWaitUntil:
+    visible: "SERVER URL"
+    timeout: 10000
+#    (The rejected address of step 1 was not kept: the field is back at the default.)
+- assertVisible: "https://libretranslate\\.com"
+- tapOn: "Paste key…"
+- inputText: "fake-key-e2e-000"
+- tapOn:
+    text: "https://libretranslate\\.com"
+    point: "95%, 50%"
+- eraseText: 60
+- inputText: "http://example.com"
+- assertVisible: "http://example\\.com"
+- assertNotVisible: "Cleartext http://.*"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Cleartext http:// is blocked on modern Android — use https://"
+    timeout: 5000
+- assertVisible: "API key"
+- assertVisible: "SERVER URL"
+- takeScreenshot: J-TRN-08-step2-cleartext-rejected-reader
+
+# 3. Change the URL to "libretranslate.example.com" (no scheme), the made-up key, Save; reopen
+#    LibreTranslate's dialog -> saved with no error; the field now reads
+#    "https://libretranslate.example.com" (ONL-010).
+#    Saving selects LibreTranslate: the open page loses Offline HQ's Russian and — the name does
+#    not resolve — gets an error banner, never another engine's text under LibreTranslate's name.
+- tapOn:
+    text: "http://example\\.com"
+    point: "95%, 50%"
+- eraseText: 60
+- inputText: "libretranslate.example.com"
+- assertVisible: "libretranslate\\.example\\.com"
+- tapOn: "Save"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 10000
+- assertNotVisible: "SERVER URL"
+- extendedWaitUntil:
+    visible: "TRANSLATION FAILED"
+    timeout: 90000
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- takeScreenshot: J-TRN-08-step3-libretranslate-current
+- tapOn: "Switch translator"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "KEY CONFIGURED"
+    below: "LibreTranslate"
+    above: "Google Cloud Translation"
+- takeScreenshot:
+    path: colour-check/step3-libretranslate-current__PaperInk
+    cropOn: "LibreTranslate"
+- tapOn:
+    id: "translator_edit_libre_translate"
+- extendedWaitUntil:
+    visible: "SERVER URL"
+    timeout: 10000
+- assertVisible: "https://libretranslate\\.example\\.com"
+- assertVisible: "•+ \\(existing key hidden\\)"
+- assertNotVisible: ".*fake-key.*"
+- assertNotVisible: "Cleartext http://.*"
+- takeScreenshot: J-TRN-08-step3-bare-host-upgraded
+- tapOn: "Cancel"
+- extendedWaitUntil:
+    notVisible: "SERVER URL"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 4. Change the URL to "https://libretranslate.com", Save, reopen -> accepted and shown exactly
+#    as entered (ONL-011). Done in Settings, with no book open: the made-up key is never sent to
+#    libretranslate.com. Settings shows what the reader's picker saved (the same dialog).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "LibreTranslate"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "translator_edit_libre_translate"
+- extendedWaitUntil:
+    visible: "SERVER URL"
+    timeout: 10000
+- tapOn:
+    text: "https://libretranslate\\.example\\.com"
+    point: "95%, 50%"
+- eraseText: 60
+- inputText: "https://libretranslate.com"
+- assertVisible: "https://libretranslate\\.com"
+- tapOn: "Save"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 10000
+- assertNotVisible: "SERVER URL"
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_google_cloud"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "KEY CONFIGURED"
+    below: "LibreTranslate"
+    above: "Google Cloud Translation"
+- tapOn:
+    id: "translator_edit_libre_translate"
+- extendedWaitUntil:
+    visible: "SERVER URL"
+    timeout: 10000
+- assertVisible: "https://libretranslate\\.com"
+- assertNotVisible: ".*example.*"
+- assertNotVisible: "Cleartext http://.*"
+
+# 5. Tap Clear on LibreTranslate (it was current: ML Kit takes over), then select Offline HQ.
+#    Clear is tapped here with the DEFAULT address stored (step 4), and the card then reads
+#    not configured, as asserted below.
+#    APP BUG (2026-11-16, tablet, versionCode 28; SET-011 for LibreTranslate): tapped while a
+#    CUSTOM address is stored, Clear removes the key and nothing else — the card goes on reading
+#    KEY CONFIGURED with no key (broken copy fail08, line "OBS", screenshot
+#    fail08-after-clear-with-custom-url). Cause as read: TranslatorSettingsImpl.clear() removes
+#    only the key; LibreTranslateProvider.isConfigured() is true for any non-default address.
+#    The step as it must pass once the app is fixed — DISABLED until then; it would go in
+#    step 3's dialog, in place of its Cancel (seen failing today: fail08 "OBS"):
+#
+#    # # APP BUG — SET-011: Clear on LibreTranslate with a custom address stored.
+#    # - tapOn: "Clear"
+#    # - extendedWaitUntil:
+#    #     notVisible: "SERVER URL"
+#    #     timeout: 5000
+#    # - assertVisible:
+#    #     text: "TAP TO ADD API KEY"
+#    #     below: "LibreTranslate"
+#    #     above: "Google Cloud Translation"
+#    # - assertNotVisible: "KEY CONFIGURED"
+- tapOn: "Clear"
+- extendedWaitUntil:
+    notVisible: "SERVER URL"
+    timeout: 5000
+- assertVisible: "Choose provider"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "LibreTranslate"
+    above: "Google Cloud Translation"
+- assertNotVisible: "KEY CONFIGURED"
+- scrollUntilVisible:
+    element: "ML Kit \\(offline\\)"
+    direction: UP
+    timeout: 15000
+- takeScreenshot:
+    path: colour-check/step5-ml-kit-current-after-clear__PaperInk
+    cropOn: "ML Kit \\(offline\\)"
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+
+# 6. Tap Azure -> the dialog has a separate "Region" field next to the API key (ONL-012, field
+#    check). Enter only Region "westeurope", leave the key empty, Save.
+#    The app accepts that (Save is enabled by the region alone, TranslatorPickerDialog.kt
+#    ApiKeyDialog `saveEnabled`) and Azure becomes current without a key — the journey's first
+#    branch; the card goes on saying TAP TO ADD API KEY.
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Azure Translator"
+- extendedWaitUntil:
+    visible: "Paste your Azure Translator API key. Keys are stored encrypted on this device."
+    timeout: 10000
+- assertVisible: "REGION"
+- assertVisible: "Paste key…"
+- assertVisible: "global"
+- tapOn:
+    text: "global"
+    point: "95%, 50%"
+- eraseText: 20
+- inputText: "westeurope"
+- assertVisible: "westeurope"
+- assertVisible: "Paste key…"
+- takeScreenshot: J-TRN-08-step6-azure-region-only
+- tapOn: "Save"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    text: "Azure Translator"
+    below: "Translation"
+    above: "Manage providers.*"
+#    The region is stored on its own (the key is still missing): the dialog shows it again.
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "translator_edit_azure"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Azure Translator"
+- assertNotVisible: "KEY CONFIGURED"
+- takeScreenshot:
+    path: colour-check/step6-azure-current-without-key__PaperInk
+    cropOn: "Azure Translator"
+- tapOn:
+    id: "translator_edit_azure"
+- extendedWaitUntil:
+    visible: "REGION"
+    timeout: 10000
+- assertVisible: "westeurope"
+- assertVisible: "Paste key…"
+- assertNotVisible: "Clear"
+- tapOn: "Cancel"
+- extendedWaitUntil:
+    notVisible: "REGION"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+
+# 7. In the reader -> a clear "Azure Translator API key isn't set — tap Switch translator to
+#    add it" error, never another engine's text labelled Azure (ONL-013, ONL-001).
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: "Azure Translator API key isn't set — tap Switch translator to add it"
+    timeout: 60000
+- assertVisible: "TRANSLATION FAILED"
+- assertVisible: "Retry"
+- assertVisible: "Switch translator"
+- assertVisible:
+    id: "translation_0_\\d+"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- takeScreenshot: J-TRN-08-step7-azure-key-not-set
+
+# 8. With Azure current and keyless, long-press a word and tap Save -> nothing is saved: the
+#    popup shows "Azure Translator API key isn't set" (short form), its Save is disabled; a tap
+#    on it is made, and Words gets no entry (POP-012, WRD-006; Words is read at the end).
+- scrollUntilVisible:
+    element:
+      id: "original_0_11"
+    direction: DOWN
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    id: "original_0_11"
+    point: "6%, 6%"
+- extendedWaitUntil:
+    visible: "Azure Translator API key isn't set"
+    timeout: 30000
+- assertVisible: "WORD"
+- assertVisible:
+    text: "Every"
+    below: "WORD"
+    above: "Listen"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- assertVisible:
+    enabled: false
+    containsChild:
+      text: "Save"
+- tapOn: "Save"
+#    (No "there is no toast" line: `assertNotVisible` waits for a text to go, and a toast goes
+#    by itself — the line passed after a real Save, broken copy fail07 F10b. That nothing was
+#    saved is read in Words at the end of the flow, which does fail after a real Save: F10c.)
+- assertVisible: "Azure Translator API key isn't set"
+- takeScreenshot: J-TRN-08-step8-popup-key-not-set
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 9. Switch to Offline HQ via "Switch translator". Open the Translator picker and find Quick
+#    Translate -> the note "Unofficial endpoint — may be rate-limited or break without notice."
+#    is on its card (ONL-020).
+- tapOn: "Switch translator"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Offline HQ"
+    direction: UP
+    timeout: 15000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_11"
+    timeout: 240000
+- assertNotVisible: "TRANSLATION FAILED"
+#    Offline HQ's text of paragraph 12, to tell Quick Translate's from it in step 10.
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_11"
+- evalScript: ${output.hqText = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-08 paragraph 12, Offline HQ - ' + output.hqText)}
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- scrollUntilVisible:
+    element: "ADVANCED \\(OWN API KEY\\)"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "Unofficial endpoint — may be rate-limited or break without notice\\."
+    below: "Quick Translate \\(free, online\\)"
+    above: "ADVANCED \\(OWN API KEY\\)"
+- takeScreenshot: J-TRN-08-step9-quick-translate-note
+
+# 10. Select Quick Translate -> the visible screen translates via Quick Translate; long-press a
+#     word -> the popup returns a translation (ONL-021).
+#     "Via Quick Translate": paragraph 12 is Russian again and its text is not Offline HQ's.
+- tapOn: "Quick Translate \\(free, online\\)"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_11"
+    timeout: 90000
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_11"
+- evalScript: ${output.qtText = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-08 paragraph 12, Quick Translate - ' + output.qtText)}
+- assertTrue: ${output.qtText != output.hqText}
+- assertNotVisible: "TRANSLATION FAILED"
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    id: "original_0_11"
+    point: "6%, 6%"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "Every"
+    below: "WORD"
+    above: "Listen"
+- takeScreenshot: J-TRN-08-step10-quick-translate
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 11. Aa -> "Show translation" off, scroll forward three screens, turn it back on -> the
+#     screens scrolled while hidden had no translations made in the meantime: Quick Translate
+#     needs the network, so it is gated like a paid engine (ONL-014).
+#     The cache count (header): read with the pane already off (before), read again after three
+#     screens and 8 s with the pane off (must be the same number), and once more after the pane
+#     is on again and the screen is translated (must be more).
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "off"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.c0 = output.cached}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_\\d+"
+    timeout: 20000
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: "30%, 75%"
+          end: "30%, 40%"
+          duration: 1500
+      - extendedWaitUntil:
+          visible: "J-TRN-08 pause between screens"
+          timeout: 3000
+          optional: true
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause before reading the cache"
+    timeout: 8000
+    optional: true
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- assertNotVisible: "TRANSLATION FAILED"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.c1 = output.cached}
+- evalScript: ${console.log('J-TRN-08 step 11 - cached before ' + output.c0 + ', after three hidden screens ' + output.c1)}
+- assertTrue: ${output.c1 == output.c0}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_\\d+"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "on"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 90000
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause while the window is translated"
+    timeout: 10000
+    optional: true
+- assertNotVisible: "TRANSLATION FAILED"
+- takeScreenshot: J-TRN-08-step11-pane-back
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.c2 = output.cached}
+- evalScript: ${console.log('J-TRN-08 step 11 - cached after the pane came back ' + output.c2)}
+- assertTrue: ${output.c2 > output.c1}
+
+# 12. With Quick Translate still current and the screen translated, rotate there and back ->
+#     the translated paragraphs reappear at once, with no translating placeholder: they come
+#     from what the app already has, not from a new request (ONL-023).
+#     The place: the start of chapter 1 (chapter picker), so that the paragraph on top is known
+#     (original_0_0) — translated while online, 10 s for the window around it. (Chapter 1, not a
+#     later one: only its paragraphs, "(1)"…"(42)", are in no other book — step 13 counts what
+#     Quick Translate stores for plain-prose, whose "(ch2.1)"… are also en-novel's.) Then aeroplane
+#     mode on, and the device is turned and turned back: after each turn paragraph "(1)" has
+#     the same Russian text as before, and there is no error banner and no "Translating…" —
+#     offline, a request for a shown paragraph could only fail. The turn itself is proven by the
+#     paragraph's width (J-RDR-03's table).
+#     Settings -> Orientation -> AUTO first, so the device may be turned. (Settings is where
+#     cached_translations.yaml left it, at "Storage" near its end: Orientation is above.)
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "AUTO"
+    direction: UP
+    timeout: 40000
+- tapOn: "AUTO"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_\\d+"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 90000
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause while the window of chapter 1 is translated"
+    timeout: 10000
+    optional: true
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_0"
+- evalScript: ${output.rotBefore = maestro.copiedText}
+- evalScript: ${console.log('J-TRN-08 step 12 - before the turns - ' + output.rotBefore)}
+- setAirplaneMode: enabled
+- setOrientation: LANDSCAPE_LEFT
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 5000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1218
+          tolerance: 6
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 712
+          tolerance: 6
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_0"
+- assertTrue: ${maestro.copiedText == output.rotBefore}
+- assertNotVisible: "TRANSLATION FAILED"
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- takeScreenshot: J-TRN-08-step12-turned-offline
+- setOrientation: PORTRAIT
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 5000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1088
+          tolerance: 6
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "original_0_0"
+          width: 1192
+          tolerance: 6
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_0"
+- assertTrue: ${maestro.copiedText == output.rotBefore}
+- assertNotVisible: "TRANSLATION FAILED"
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- setAirplaneMode: disabled
+
+# 13. Turn "Show translation" off, go back to the Library and open plain-prose.epub (never
+#     opened); scroll three screens. Turn "Show translation" on, then read on to the end ->
+#     the visible screen translates; nothing was translated in the background while hidden,
+#     and nothing of what was read while hidden is filled in afterwards (TRN-027; header).
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "off"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.cX = output.cached}
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "plain-prose.epub"
+      TITLE: "Plain Prose"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- assertVisible: ".*\\(ch1\\.1\\)"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          start: "30%, 80%"
+          end: "30%, 25%"
+          duration: 1500
+      - extendedWaitUntil:
+          visible: "J-TRN-08 pause between screens of plain-prose"
+          timeout: 3000
+          optional: true
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause before reading the cache again"
+    timeout: 8000
+    optional: true
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
+- assertNotVisible: "TRANSLATION FAILED"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.cY = output.cached}
+- evalScript: ${console.log('J-TRN-08 step 13 - cached before plain-prose ' + output.cX + ', after reading it hidden ' + output.cY)}
+- assertTrue: ${output.cY == output.cX}
+- scrollUntilVisible:
+    element:
+      id: "book_card_Plain Prose"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Plain Prose"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "on"
+#     The visible screen translates now.
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 90000
+#     Which paragraph is on top: the first English paragraph on screen (a translation starts
+#     with a Cyrillic letter); its text ends "(chC.P)"; g = (C - 1) * 14 + P - 1. The reading
+#     with the pane hidden must have gone well past the first screen for the bound to mean
+#     anything: g >= 10.
+- copyTextFrom:
+    text: "[A-Z][a-z]+ .*\\(ch\\d+\\.\\d+\\)"
+- evalScript: ${output.topText = maestro.copiedText}
+- evalScript: ${console.log('top paragraph - ' + output.topText)}
+- evalScript: ${output.tail = output.topText.substring(output.topText.lastIndexOf('(ch') + 3, output.topText.lastIndexOf(')')).split('.')}
+- evalScript: ${output.chapterNo = parseInt(output.tail[0])}
+- evalScript: ${output.paraNo = parseInt(output.tail[1])}
+- assertTrue: ${output.chapterNo >= 1 && output.chapterNo <= 4 && output.paraNo >= 1 && output.paraNo <= 14}
+- evalScript: ${output.g = (output.chapterNo - 1) * 14 + output.paraNo - 1}
+- evalScript: ${console.log('J-TRN-08 step 13 - on top when the pane came on - paragraph ' + output.g + ' of 56')}
+- assertTrue: ${output.g >= 10}
+- scrollUntilVisible:
+    element:
+      id: "translation_3_13"
+    direction: DOWN
+    timeout: 120000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_3_13"
+    timeout: 90000
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause while the last window is translated"
+    timeout: 10000
+    optional: true
+- assertNotVisible: "TRANSLATION FAILED"
+- takeScreenshot: J-TRN-08-step13-end-of-plain-prose
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.cZ = output.cached}
+- evalScript: ${console.log('J-TRN-08 step 13 - cached after the pane came on and the book was read to its end ' + output.cZ + ' (grew by ' + (output.cZ - output.cY) + ', bound ' + (63 - output.g) + ')')}
+- assertTrue: ${output.cZ - output.cY >= 56 - output.g - 3}
+- assertTrue: ${output.cZ - output.cY <= 63 - output.g}
+
+# 14. Select Offline HQ again (Settings); Quick Translate never had a usage line; nothing was
+#     saved to Words by the Save tap of step 8. (Settings is at "Storage": Translation is above.
+#     Scrolling up stops as soon as the card's last line is in view; on the phone the
+#     "Translation" heading is then still above the screen and the `below:` check cannot hold —
+#     seen 2026-11-16, run 20261116T002150Z. So the heading is scrolled to, then the card's end.)
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Translation"
+    direction: UP
+    timeout: 40000
+- scrollUntilVisible:
+    element: "Manage providers.*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    text: "Quick Translate \\(free, online\\)"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers.*"
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 10000
+- assertNotVisible: ".*THIS MONTH.*"
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "Offline HQ"
+    below: "Translation"
+    above: "Manage providers.*"
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "No saved words yet"
+    timeout: 10000

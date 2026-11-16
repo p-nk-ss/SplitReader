@@ -229,6 +229,46 @@ caffeinate -i -s e2e/run.sh --avd Tab_35_PixelTablet --headless --tags J-TRN-07
 A run with durations at twice the usual is void, not a result. The option's parsing and the
 emulator command line are checked by `bash e2e/test_run_select.sh` (scenarios J–M).
 
+## Online engines without money (`J-TRN-07`, `J-TRN-08`)
+
+No flow types a real API key, signs in or buys. The only key is the made-up `fake-key-e2e-000`;
+DeepL and Google Cloud answer it with an auth error, which is the test. LibreTranslate is made
+current only while it points at `libretranslate.example.com` (reserved, does not resolve); its
+address is set to `https://libretranslate.com` in Settings with no book open, so nothing is
+sent there. Quick Translate needs no key and really translates.
+
+What a flow can see:
+
+- **Current provider.** Settings: the Translation row's label (`text: "DeepL"`,
+  `below: "Translation"`, `above: "Manage providers.*"` — "Change" is on two rows of Settings,
+  so its tap carries the same `below`/`above`). In a picker: a `colour-check/` crop of the
+  card's name, `PaperInk` = current, `PaperBg2` = not.
+- **Configured.** The card's line "KEY CONFIGURED" / "TAP TO ADD API KEY", between the card's
+  name and the next card's name (`below:` / `above:`). The key dialog of a card with a key
+  says "•••••••••• (existing key hidden)" and has Clear; without one "Paste key…" and no Clear.
+- **The key is masked**: the field reads back as bullets (`"•{16}"`); the Server URL / Region
+  field reads back as typed.
+- **A request was made** (made-up key): the error banner. It is drawn with the bars hidden and
+  with the translation pane hidden; an invalid-key or missing-key error is persistent (not
+  re-sent on scrolling). The popup shows the error's short form — a full-match text tells the
+  two apart ("Invalid DeepL API key" vs "Invalid DeepL API key — tap Switch translator…").
+- **Nothing was translated in the background** (Quick Translate): `cached_translations.yaml`
+  before and after reading with the pane hidden must give the same number. Offline HQ adds
+  13–23 over the same screens — the check's observed failure.
+- **No new request on rotation**: the device is turned in aeroplane mode (`setAirplaneMode`),
+  where a request for a shown paragraph could only end in the "No internet" banner.
+- **A provider or key change closes an open word popup**; re-selecting the current provider
+  does not. That is how "re-selecting is a no-op" is seen.
+
+Traps: `hideKeyboard` with no keyboard up is a Back press (it closed the picker) — a key dialog
+keeps its buttons above the keyboard, so it is not needed there. Settings keeps its scroll
+position between visits: after `cached_translations.yaml` it is at "Storage", and the Translation
+and Orientation sections are ABOVE (`direction: UP`). `assertNotVisible` on a toast proves nothing: it waits
+for the text to go, and a toast goes by itself (it passed right after a real Save). A JS regex result (`.exec`) stored in
+`output` comes back null — parse with `substring` / `split`.
+
+MANUAL by nature: anything about a paid engine's monthly usage counter (needs a real key).
+
 ## One file, two uris (`pick_file.yaml` vs `pick_file_in_downloads.yaml`)
 
 The system picker hands the app a different uri for the same file depending on the root it is
