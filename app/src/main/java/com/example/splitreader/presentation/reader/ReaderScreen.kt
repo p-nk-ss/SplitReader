@@ -125,7 +125,7 @@ internal fun ReaderRoute(
             onSetTargetLanguage = viewModel::setTargetLanguage,
             onSetSourceLanguage = viewModel::setSourceLanguage,
             onDownloadModel = viewModel::downloadModel,
-            onCheckMlKitModel = viewModel::checkMlKitModel,
+            onCheckModel = viewModel::checkModel,
             onAppearanceChange = viewModel::updateAppearance,
             onReadingPositionChanged = viewModel::onReadingPositionChanged,
             onMarkFinished = viewModel::markFinished,
@@ -209,7 +209,7 @@ internal fun ReaderContent(
     onDismissPortraitHint: (dontShowAgain: Boolean) -> Unit,
     onSetSourceLanguage: (Language?) -> Unit = {},
     onDownloadModel: (Language, TranslationProvider) -> Unit = { _, _ -> },
-    onCheckMlKitModel: () -> Unit = {},
+    onCheckModel: () -> Unit = {},
 ) {
     // A book that can't be translated reads as one column of its own text, like "Show translation" off.
     val appearance = if (state.translatable) state.appearance else state.appearance.copy(showTranslation = false)
@@ -479,7 +479,7 @@ internal fun ReaderContent(
 
         if (showLanguagePicker) {
             // Asked each time the picker opens: a model may have arrived since (never downloads).
-            LaunchedEffect(Unit) { onCheckMlKitModel() }
+            LaunchedEffect(Unit) { onCheckModel() }
             LanguagePickerDialog(
                 currentTarget = state.targetLanguage,
                 onSelect = { lang ->
@@ -494,7 +494,7 @@ internal fun ReaderContent(
                     showLanguagePicker = false
                 },
                 initialTab = languagePickerTab,
-                mlKitModelDownloaded = state.mlKitModelDownloaded,
+                modelStatus = state.modelStatus,
             )
         }
         if (showDisplaySettings) {

@@ -59,6 +59,7 @@ import com.example.splitreader.domain.model.Bookmark
 import com.example.splitreader.domain.model.Language
 import androidx.compose.ui.platform.testTag
 import com.example.splitreader.domain.model.SourceDetection
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.JetBrainsMono
@@ -171,8 +172,8 @@ internal enum class LanguagePickerTab { SOURCE, TARGET }
 /**
  * The reader's languages: the book's own ([LanguagePickerTab.SOURCE], for when detection is wrong
  * or found a language the translators lack) and the translation's ([LanguagePickerTab.TARGET]).
- * [onSelectSource] gets null for "Automatic". [mlKitModelDownloaded]: whether ML Kit's models for
- * the reader's pair are on the device (null = not known: the strip makes no claim).
+ * [onSelectSource] gets null for "Automatic". [modelStatus]: whether the active on-device
+ * translator's model for the reader's pair is here (null = unknown or an online translator: no claim).
  */
 @Composable
 internal fun LanguagePickerDialog(
@@ -183,7 +184,7 @@ internal fun LanguagePickerDialog(
     chosenSource: Language? = null,
     onSelectSource: (Language?) -> Unit = {},
     initialTab: LanguagePickerTab = LanguagePickerTab.TARGET,
-    mlKitModelDownloaded: Boolean? = null,
+    modelStatus: ModelStatus? = null,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
@@ -242,9 +243,14 @@ internal fun LanguagePickerDialog(
                         Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
                     }
                     // The real state, asked without downloading; no claim while it is unknown.
-                    mlKitModelDownloaded?.let { downloaded ->
+                    modelStatus?.let { status ->
+                        val engine = when (status.provider) {
+                            TranslationProvider.BERGAMOT -> "OFFLINE HQ"
+                            TranslationProvider.MLKIT -> "ML KIT"
+                            else -> status.provider.displayName.uppercase()
+                        }
                         Text(
-                            if (downloaded) "ML KIT · DOWNLOADED" else "ML KIT · NOT DOWNLOADED",
+                            "$engine · " + if (status.downloaded) "DOWNLOADED" else "NOT DOWNLOADED",
                             fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3,
                         )
                     }

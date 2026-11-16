@@ -95,8 +95,8 @@ class ReaderViewModel @Inject constructor(
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val translatorConfig: TranslatorConfigState =
             TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
-        /** The last [checkMlKitModel] answer; shown only while it is about the current pair. */
-        val mlKitModel: MlKitModel? = null,
+        /** The last [checkModel] answer; shown only while it is about the current pair and translator. */
+        val model: CheckedModel? = null,
     ) {
         /** False for a book in a language the translators lack (or none detected) until the reader picks one. */
         val translatable: Boolean get() = chosenSource != null || sourceDetection is SourceDetection.Supported
@@ -115,7 +115,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    private data class MlKitModel(val source: Language, val target: Language, val downloaded: Boolean)
+    private data class CheckedModel(val source: Language, val target: Language, val provider: TranslationProvider, val downloaded: Boolean)
 
     private val detectBookLanguage = DetectBookLanguageUseCase(languageDetector)
 
@@ -160,9 +160,10 @@ class ReaderViewModel @Inject constructor(
                     wordSelection = s.wordSelection,
                     translatorProvider = s.translatorProvider,
                     translatorConfig = s.translatorConfig,
-                    mlKitModelDownloaded = s.mlKitModel?.takeIf {
-                        s.translatable && it.source == s.sourceLanguage && it.target == s.targetLanguage
-                    }?.downloaded,
+                    modelStatus = s.model?.takeIf {
+                        s.translatable && it.source == s.sourceLanguage && it.target == s.targetLanguage &&
+                            it.provider == s.translatorProvider
+                    }?.let { ModelStatus(it.provider, it.downloaded) },
                 )
             }
         }
@@ -390,30 +391,33 @@ class ReaderViewModel @Inject constructor(
     }
 
     /**
-     * "Download and translate" on a paragraph in another language ([ParagraphNote.NeedsModel]):
-     * downloads [provider]'s model for [language] into the current target, then has the engine
-     * translate the paragraphs that were waiting for it.
+     * Asks — without downloading anything — whether the active translator's on-device model for
+     * the reader's pair is here, for the language picker's info strip. Nothing to ask for an online
+     * translator or an untranslatable book (the strip then makes no claim).
      */
-    /**
-     * Asks — without downloading anything — whether ML Kit's models for the reader's pair are on
-     * the device, for the language picker's info strip. Unknown (null) for an untranslatable book.
-     */
-    fun checkMlKitModel() {
+    fun checkModel() {
         val s = _state.value
-        if (!s.translatable) return
+        val provider = s.translatorProvider
+        if (!s.translatable || provider.requiresNetwork) return
         val source = s.sourceLanguage
         val target = s.targetLanguage
         viewModelScope.launch {
             val ready = try {
-                translateTextUseCase.isReady(source, target, TranslationProvider.MLKIT)
+                translateTextUseCase.isReady(source, target, provider)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 return@launch
             }
-            _state.update { it.copy(mlKitModel = MlKitModel(source, target, ready)) }
+            _state.update { it.copy(model = CheckedModel(source, target, provider, ready)) }
         }
     }
+
+    /**
+     * "Download and translate" on a paragraph in another language ([ParagraphNote.NeedsModel]):
+     * downloads [provider]'s model for [language] into the current target, then has the engine
+     * translate the paragraphs that were waiting for it.
+     */
 
     fun downloadModel(language: Language, provider: TranslationProvider) {
         if (_state.value.languageDownloads[language] is LanguageDownload.Running) return
