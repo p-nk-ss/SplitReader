@@ -110,7 +110,8 @@ starts when the book opens and is over before `pick_file.yaml` returns.)
 |---|---|
 | `launch_clean.yaml` | Clear Mirrolit's and the system picker's state, launch, wait for "Open book". |
 | `pick_file.yaml` (FILE) | "Open book" -> pick the file in the system picker (per API level). Asserts nothing about the result. |
-| `pick_file_in_downloads.yaml` (FILE) | The same, but ALWAYS from the picker's "Downloads" root. For a journey that picks one file more than once and needs the app to know it again (see "One file, two uris" below). |
+| `pick_file_in_downloads.yaml` (FILE) | The same, but ALWAYS from the picker's "Downloads" root (see "One file, two uris" below). |
+| `pick_file_in_recent.yaml` (FILE) | The same, but ALWAYS from the picker's "Recent" root ("Recent files"). With `pick_file_in_downloads` it picks one file under two uris (`J-LIB-19`). |
 | `import_book.yaml` (FILE, TITLE, FIRST_TEXT) | `pick_file` + dismiss the portrait hint + prove the right book opened (first text, then title in the top bar). |
 | `dismiss_portrait_hint.yaml` | Phone only: tick "Don't show again" and close the "Parallel reading…" hint if it is up. |
 | `show_bars.yaml` | Show the reader's bars: wait until hidden, one tap, wait for the language chip (retried). |
@@ -123,7 +124,7 @@ starts when the book opens and is over before `pick_file.yaml` returns.)
 | `watch_translation_banner.yaml` | Read the reader's banner ("Preparing translation… N%", "Translating…") until it is gone; results in `output.bn…` (readings under 100 = a pack download, whether a percentage ever went down, …). Asserts nothing itself. |
 | `rows_translated.yaml` (CHAPTER, FROM, PATTERN, TIMEOUT) | Every translation slot on screen holds a text matching PATTERN (walks down and up from paragraph FROM); `output.rows` = how many. |
 | `show_translation.yaml` (STATE: on \| off) | The reader's Display dialog -> "Show translation" to STATE; the switch must have been in the other state. |
-| `cached_translations.yaml` | Restart the app, read Settings -> "Cached translations: N" into `output.cached`, back to the Library. |
+| `cached_translations.yaml` | Read Settings -> "Cached translations: N" into `output.cached`, back to the Library (no restart since v29: the count is live). |
 | `language_chip_reads.yaml` (SOURCE, TARGET) | The reader's language button reads "SOURCE → TARGET" (`"JA"`, `"RU"`; `"FI"`, `"—"`; `"\\?"`, `"—"`). One showing of the bars and one look per side, up to five attempts each, logged. |
 | `target_russian.yaml` | Settings -> Default translation language -> Russian. Needed before a book that is not English: the default target is English, and only an English book switches it to Russian by itself. Ends on Settings. |
 | `watch_paragraph_download.yaml` (SLOT) | Read "Downloading… N%" on the "Download and translate" button of a paragraph in another language (inside translation slot SLOT) until it is gone; results in `output.pd…`. Asserts nothing itself. |
@@ -241,18 +242,23 @@ emulator command line are checked by `bash e2e/test_run_select.sh` (scenarios J�
 ## Online engines without money (`J-TRN-07`, `J-TRN-08`)
 
 No flow types a real API key, signs in or buys. The only key is the made-up `fake-key-e2e-000`;
-DeepL and Google Cloud answer it with an auth error, which is the test. LibreTranslate is made
-current only while it points at `libretranslate.example.com` (reserved, does not resolve); its
-address is set to `https://libretranslate.com` in Settings with no book open, so nothing is
-sent there. Quick Translate needs no key and really translates.
+DeepL and Google Cloud answer it with an auth error, which is the test. Quick Translate needs no
+key and really translates. LibreTranslate was removed in versionCode 29: the flows assert that
+it has no card; the one-time "LibreTranslate is no longer supported — switched to Offline HQ."
+notice after an update from v28 cannot be set up from a clean install (MANUAL, ONL-024).
 
 Who gets what: the made-up key really reaches DeepL (about a dozen requests in `J-TRN-07`) and
 Google Cloud (up to three) — that is the journey's design, not a breach: they answer with an auth
 error and charge nothing. Quick Translate (an unofficial endpoint) gets about a hundred fixture
-paragraphs (`J-TRN-08`). Nothing is sent to libretranslate.com or to Azure.
+paragraphs (`J-TRN-08`). Nothing is sent to Azure.
 
 What a flow can see:
 
+- **Where the text goes / the model.** The language picker's "To" tab ends with a strip: for an
+  on-device engine "On-device translation · no cloud calls" and "OFFLINE HQ · DOWNLOADED" /
+  "NOT DOWNLOADED" (or "ML KIT · …"); for an online one "Online translation · text is sent to
+  <recipient>" (DeepL, Google, Google Cloud, Microsoft Azure) and no model line (v29;
+  `J-TRN-08` steps 2 and 7). It is below the language grid: `scrollUntilVisible` to it.
 - **Current provider.** Settings: the Translation row's label (`text: "DeepL"`,
   `below: "Translation"`, `above: "Manage providers.*"` — "Change" is on two rows of Settings,
   so its tap carries the same `below`/`above`). In a picker: a `colour-check/` crop of the
@@ -287,29 +293,33 @@ for the text to go, and a toast goes by itself (it passed right after a real Sav
 
 MANUAL by nature: anything about a paid engine's monthly usage counter (needs a real key).
 
-## One file, two uris (`pick_file.yaml` vs `pick_file_in_downloads.yaml`)
+## One file, two uris (`pick_file_in_recent.yaml` vs `pick_file_in_downloads.yaml`)
 
 The system picker hands the app a different uri for the same file depending on the root it is
-picked from, and Mirrolit keys a book by its uri:
+picked from:
 
 ```
 Recent     content://com.android.providers.media.documents/document/document%3A<id>
 Downloads  content://com.android.providers.downloads.documents/document/msf%3A<id>
 ```
 
+Up to versionCode 28 Mirrolit keyed a book by its uri alone, so a second pick from another root
+was a new book (chapter 1, no bookmarks; at the free limit, the limit dialog), and a journey that
+picked the same file again had to use one root every time. Since v29 the app recognises the
+file itself ("Same book", release notes 1.0-29): a removed book added again from the other root
+comes back with its place and bookmarks, and the file picked from the other root while the book
+is in the library opens it — no second card, no limit dialog. `J-LIB-19` tests exactly that:
+its first pick of `en-novel.epub` is from Recent (`pick_file_in_recent.yaml`), the re-adds from
+Downloads (`pick_file_in_downloads.yaml`), and one more pick from Recent while it is in the
+library.
+
 `pick_file.yaml` taps the file wherever the picker opens ("Recent" after `launch_clean`) and
 goes to "Downloads" only when the file is not on that first screen — and DocumentsUI then
-remembers "Downloads" for every later pick of the run. So the root of a pick depends on what
-else is in `/sdcard/Download` (files left by an earlier run or a probe fill "Recent": `run.sh`
-removes only what it pushed itself) and on the picks before it. For most journeys that does
-not matter. For one that picks the SAME file again and expects the app to recognise it — a
-removed book added again, `J-LIB-19` — it decides the result: a second pick from another root
-is a new book to the app (chapter 1, no bookmarks). Such a journey uses
-`pick_file_in_downloads.yaml` for every pick of that file.
+remembers "Downloads" for every later pick of the run. For a journey whose result depends on
+the root, use the two root-specific subflows.
 
 Which uri a pick returned is in the flow's `logs/device-logcat.txt`:
-`grep 'PickerActionHandler.*onFinished' …` — one line per pick. Look there first when a
-re-opened book is "not the same book".
+`grep 'PickerActionHandler.*onFinished' …` — one line per pick.
 
 ## Picker reset (`launch_clean.yaml`)
 

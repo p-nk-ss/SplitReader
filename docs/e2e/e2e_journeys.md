@@ -58,7 +58,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-TRN-05 | Chinese and Japanese: books, sentences, both on-device engines | P0 | smoke, full, network, tablet, phone | 12 | 6 |
 | J-TRN-06 | Book language detection and the "From" override | P0 | smoke, full, network, phone, tablet | 11 | 6 |
 | J-TRN-07 | Online-engine keys without spending money: errors, Switch translator, clearing | P0 | smoke, full, network, phone, tablet | 16 | 13 |
-| J-TRN-08 | LibreTranslate, Azure and Quick Translate fields and gating | P0 | smoke, full, network, phone, tablet | 14 | 14 |
+| J-TRN-08 | Azure and Quick Translate fields and gating, no LibreTranslate | P0 | smoke, full, network, phone, tablet | 11 | 11 |
 | J-TRN-09 | From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book into German | P1 | full, network, tablet | 19 | 11 |
 | J-TRN-10 | Jumping around: bookmarks, huge chapters, other books, odd books | P1 | full, network, phone, tablet | 10 | 4 |
 | J-TRN-11 | A DeepL reader: real key, usage, popup save, hidden pane | P0 | manual, network, phone, tablet | 15 | 18 |
@@ -376,18 +376,21 @@ position-based selector when it isn't showing.
 **Preconditions** Fresh install, Settings → Premium (debug) off, signed out, fixtures pushed.
 
 **Steps**
-1. Open book → `en-novel.epub`; in the reader open the Chapter Picker → "Chapter 3 — The Long Crossing" → ✓ the reader lands on that chapter's masthead: its title and its first paragraph ("…(ch3.1)…") are on screen (NAV-018).
+The system picker hands out a different uri for one file from its "Recent" and "Downloads" roots; since versionCode 29 the app knows the file again across them ("Same book"). So `en-novel.epub` is picked from **Recent** in steps 1 and 8b and from **Downloads** in steps 6, 8 and 10.
+
+1. Open book → `en-novel.epub` (from Recent); in the reader open the Chapter Picker → "Chapter 3 — The Long Crossing" → ✓ the reader lands on that chapter's masthead: its title and its first paragraph ("…(ch3.1)…") are on screen (NAV-018).
 2. Scroll about a screen into chapter 3; Bookmarks (top bar) → "Bookmark this page" → ✓ the row becomes "Remove bookmark here" and the list shows "Chapter 3 — The Long Crossing · ¶ n". Close, Back to Library.
 3. Open book → `no-description.epub`, Back; Open book → `plain-prose.epub`, Back → ✓ "3 VOLUMES" (the free tier is full).
 4. Tap the delete icon on "The River Crossing" → ✓ the text reads "… will be removed from your library. Your place, bookmarks and notes are kept in case you add it again." and "Also delete my reading progress, bookmarks and notes" is **not** ticked; tick it → ✓ the text ends "Your place, bookmarks and notes will be deleted with it."; untick it → ✓ the first text is back (LIB-027).
 5. Delete (checkbox unticked) → ✓ the card is gone, "2 VOLUMES". Open book → `cover-b.epub` → ✓ it imports and opens without the limit dialog — a removed book holds no slot (LIB-024). Back → "3 VOLUMES".
 6. Open book → `en-novel.epub` (the removed book), the library being full again → ✓ "Library is full"; after Got it still "3 VOLUMES" and no card for it (LIB-025).
 7. Delete "The Blue Cover Book" → "2 VOLUMES".
-8. Open book → `en-novel.epub` → ✓ no limit dialog; it opens in chapter 3 where it was left ("…(ch3.n)…" on screen), not at the start; Bookmarks still lists "Chapter 3 — The Long Crossing · ¶ n" (LIB-023). Back → "3 VOLUMES".
+8. Open book → `en-novel.epub` from Downloads (it was added from Recent) → ✓ no limit dialog; it opens in chapter 3 where it was left ("…(ch3.n)…" on screen), not at the start; Bookmarks still lists "Chapter 3 — The Long Crossing · ¶ n" (LIB-023, LIB-028). Back → "3 VOLUMES".
+8b. With the book in the library and "3 VOLUMES", Open book → `en-novel.epub` from Recent → ✓ no limit dialog; it opens in chapter 3 at its place; back in the Library still "3 VOLUMES" and one card for it (LIB-029).
 9. Tap the delete icon on "The River Crossing" → ✓ the checkbox is unticked again (LIB-027); tick it → Delete → "2 VOLUMES".
 10. Open book → `en-novel.epub` → ✓ it opens at the start of chapter 1 ("…(1)…" on screen, no chapter 3 text); Bookmarks shows "No bookmarks yet…" (LIB-026). Back → "3 VOLUMES".
 
-**Covers:** NAV-018, LIB-027, LIB-024, LIB-025, LIB-023, LIB-026
+**Covers:** NAV-018, LIB-027, LIB-024, LIB-025, LIB-023, LIB-026, LIB-028 (step 8), LIB-029 (step 8b)
 
 ---
 
@@ -739,7 +742,7 @@ translation works without network keys.
 **Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** phone emulator (compact) and tablet API 35 · **Fixtures** F-LONG · **Preconditions** fresh install (phone: portrait default); signed out. The three saved words are made in the flow, inside step 4 / 11 (a long press on a word in the reader → the popup's "Save").
 
 1. Launch on the phone → ✓ a bottom bar with the 5 items Library, Catalog, Almanac, Words, Settings, in that order (NAV-005).
-2. Tap each bottom-bar item in turn, then system Back → ✓ each opens its destination; Back returns to the Library, as on the tablet (NAV-006).
+2. Tap each bottom-bar item in turn, then system Back → ✓ each opens its destination; Back returns to the Library, as on the tablet (NAV-006). In the Catalog every source pill is whole on screen, "Google Drive" on a second line (CAT-017; v29).
 3. Tap the avatar ("?") in the top status strip → ✓ the sign-in screen opens (signed out) (NAV-007).
 4. Back; open F-LONG → ✓ the bottom bar is hidden in the reader (NAV-017). Save three words; Back.
 5. Open Words; tap a saved word → ✓ the list is replaced full-screen by its detail (NAV-010).
@@ -750,7 +753,7 @@ translation works without network keys.
 10. On the tablet, open Words and select a word → ✓ master list and detail are side by side, no back arrow (NAV-013). (Runs after step 11, which makes the saved words.)
 11. On the tablet, open F-LONG → ✓ the rail is hidden in the reader (NAV-017). Save three words; Back.
 
-**Covers:** NAV-005, NAV-006, NAV-007, NAV-017, NAV-010, NAV-011, NAV-012, NAV-014, NAV-013
+**Covers:** NAV-005, NAV-006, NAV-007, NAV-017, NAV-010, NAV-011, NAV-012, NAV-014, NAV-013, CAT-017
 
 ---
 
@@ -994,7 +997,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 | J-TRN-05 | Chinese and Japanese: books, sentences, both on-device engines | P0 | automated · smoke |
 | J-TRN-06 | Book language detection and the "From" override | P0 | automated · smoke |
 | J-TRN-07 | Online-engine keys without spending money: errors, Switch translator, clearing | P0 | automated · smoke |
-| J-TRN-08 | LibreTranslate, Azure and Quick Translate fields and gating | P0 | automated · smoke |
+| J-TRN-08 | Azure and Quick Translate fields and gating, no LibreTranslate | P0 | automated · smoke |
 | J-TRN-09 | From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book into German | P1 | automated · full |
 | J-TRN-10 | Jumping around: bookmarks, huge chapters, other books, odd books | P1 | automated · full |
 | J-TRN-11 | A DeepL reader: real key, usage, popup save, hidden pane | P0 | manual |
@@ -1018,7 +1021,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 1. Launch the app (there is no onboarding: the Library is the first screen) and import `en-novel.epub` from the Library; importing a book opens it. (On a phone the "Parallel reading fits landscape better" hint opens over the book; the flow closes it at once with one point tap on GOT IT, because it hides the banner of step 2, and ticks "Don't show again" when the hint comes back on the next opening of the book, in step 7.)
 2. The book opens. → ✓ language button reads "EN → RU"; the banner reads "Preparing translation… N%" and N only grows (the popup, not the banner, says "Downloading language model… N%"); there is no "ML KIT READY" label in the top-right corner or anywhere else (OHQ-001, OHQ-004); while the banner is up it does not cover the chapter number "— 1 —" (LAY-023, a colour crop). On a phone this is watched in portrait, the two panes stacked — the first-run layout. With the bars up there is no "… — translated by ML Kit" strip: Offline HQ itself served.
 3. Wait for the download to finish without touching the screen. → ✓ every paragraph on the first screen gets a translation, not only the top one; the banner shows "Translating…" and then goes idle (TRN-001, OHQ-004). (The "Translating…" line is asserted on the tablet; on the phone it is up for well under a second and is only logged.)
-4. Open the Translator picker from the reader. → ✓ Offline HQ is the current translator (its card is the inverted one — checked by colour); the list shows ML Kit and Offline HQ ready with no key line, Quick Translate ready (online, no key), and DeepL, Google Cloud, Azure and LibreTranslate each with a key button ("TAP TO ADD API KEY") (OHQ-001, SET-002).
+4. Open the Translator picker from the reader. → ✓ Offline HQ is the current translator (its card is the inverted one — checked by colour); the list shows ML Kit and Offline HQ ready with no key line, Quick Translate ready (online, no key), and DeepL, Google Cloud and Azure each with a key button ("TAP TO ADD API KEY"); no LibreTranslate card — removed in versionCode 29 (OHQ-001, SET-002).
 5. In the picker, look at the ML Kit, Offline HQ and Quick Translate rows. → ✓ none has a usage bar or counter (ONL-016).
 6. Tap Offline HQ (already current). → ✓ no key field or "Configure" prompt opens; the picker closes and the reader keeps translating (OHQ-024).
 7. Back in the reader, wait 10 s without scrolling, then scroll paragraph by paragraph to the end of chapter 1. → ✓ paragraphs further down already show translations when they come into view (TRN-005). Automated as: after the 10 s the translation cache (Settings → "Cached translations: N", read after an app restart) holds the first screen's paragraphs plus the 8 below it, and every third paragraph down to the chapter's last has its translation within 3 s of being scrolled to; "no Translating delay" as the eye sees it is manual. On the way the 12th paragraph is checked to be in Offline HQ's wording ("паромник"; ML Kit says "паромчик").
@@ -1043,7 +1046,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 4. Drag the handle out two words, back one, out three, back two — then release once. → ✓ exactly one translation request for the final selection; no flicker of intermediate results (POP-004, POP-005). Automated as one straight drag from "river" to "its": the popup shows "river, though its" as a SENTENCE with one translation; the request count and the out-and-back path are manual.
 5. With the phrase showing Ready, look at Save. → ✓ a multi-word selection cannot be saved: its popup has no Save button at all, only Listen (POP-011; `ReaderPane.kt`, `TranslationBubble`).
 6. Drag the end handle past the paragraph's last line into the margin and release there. → ✓ the selection runs to the end of the paragraph's text and gets a new translation, no error (POP-006); "exactly one request" is manual.
-7. Touch the end handle and release it without moving. → ✓ no new request; the same Ready result stays (POP-007). **App bug, 2026-11-15 (versionCode 28): the popup closes** — the touch is also taken as a tap on the paragraph, which dismisses the selection; and a touch that rests on the handle for the long-press time replaces the selection with the word under the handle. Not asserted until fixed (the step is in the flow as a disabled block).
+7. With "river" selected, tap its end handle, then press it still for 0.7 s. → ✓ after each, the same WORD popup with the same translation, no "Translating…" (POP-007; "no new request" itself is MANUAL). Fixed in versionCode 29 — up to v28 the tap closed the popup and the still press replaced the selection with the word under the handle. v29 trade-off: a long press on the word right under the end of a selection does nothing (not exercised).
 8. Long-press a single word in paragraph A, note the popup; then long-press the word at the same offset in paragraph B. → ✓ the popup shows paragraph B's own word and translation, nothing left over from A (POP-019).
 9. Long-press word A and, before it reaches Ready, long-press word B in another paragraph. → ✓ only word B's result is shown; A's late answer never appears (POP-021). Here: two quick presses back to back and the end state. With A really still in flight: J-TRN-03 step 13b.
 10. Long-press a word and, while it is still Translating, tap elsewhere in the text to dismiss; then long-press a different word. → ✓ the tap closes the popup; the dismissed request never shows up in the new popup; the app stays responsive (POP-022). Here the end state only; with the first request really still in flight: J-TRN-03 step 13a.
@@ -1171,20 +1174,18 @@ Translating → Ready transition, no intermediate results) until one is added; t
 
 **Covers:** SET-003, SET-004, SET-006, SET-007, SET-008, SET-009, SET-010, SET-011, ONL-002, POP-016, POP-017, MLK-006, TRN-010 (request gate only) — SET-005 not reachable (step 16)
 
-### J-TRN-08 — LibreTranslate, Azure and Quick Translate fields and gating
+### J-TRN-08 — Azure and Quick Translate fields and gating, no LibreTranslate
 
 **Priority:** P0 · **Tags:** smoke, full, network, phone, tablet · **Devices:** tablet API 35, phone emulator
 **Fixtures:** `en-novel.epub`, `prose-one-chapter.epub`
-**Preconditions:** a clean install: Offline HQ current; no online keys saved; online. The only key typed is the made-up `fake-key-e2e-000`. LibreTranslate is current only while it points at `libretranslate.example.com` (a reserved name that does not resolve); Azure never gets a key; Quick Translate (no key) really translates — about a hundred paragraphs in the whole journey.
+**Preconditions:** a clean install: Offline HQ current; no online keys saved; online. The only key typed is the made-up `fake-key-e2e-000`. Azure never gets a key; Quick Translate (no key) really translates — about a hundred paragraphs in the whole journey.
 
 **Steps**
-1. Settings → Translation → Change; tap LibreTranslate. Enter Server URL `http://example.com` and any key; tap Save. → ✓ inline error "Cleartext http:// is blocked on modern Android — use https://"; the dialog stays open; LibreTranslate does not become current (ONL-009).
-2. Cancel. Open `en-novel.epub`, open the reader's Translator picker, tap LibreTranslate and repeat step 1. → ✓ the identical inline error; the dialog stays open; Offline HQ is still current (ONL-009).
-3. Change the URL to `libretranslate.example.com` (no scheme), key `fake-key-e2e-000`, Save; reopen LibreTranslate's dialog. → ✓ saved with no error; LibreTranslate is current and the open page shows an error banner (the name does not resolve), never another engine's text; the field now reads `https://libretranslate.example.com` (ONL-010).
-4. Leave the reader; in Settings → Translation change LibreTranslate's URL to `https://libretranslate.com`, Save, reopen. → ✓ accepted and shown exactly as entered (ONL-011). (In Settings, with no book open, so that the made-up key is never sent to libretranslate.com.)
-5. Tap Clear in LibreTranslate's key dialog → ✓ LibreTranslate shows not configured and ML Kit is current (LibreTranslate was). Then select Offline HQ. (Done with the default address stored. With a custom address stored, Clear removes only the key and the card goes on saying KEY CONFIGURED — `TranslatorSettingsImpl.clear()` removes the key only; `LibreTranslateProvider.isConfigured()` is true for any non-default address. Reported as an app bug / design question; the flow holds that check as a disabled `# APP BUG` block.)
+1. Settings → Translation → Change. → ✓ the picker has no LibreTranslate card (LibreTranslate was removed in versionCode 29; its former steps — cleartext URL rejected, bare host upgraded, https URL kept, Clear with a custom address — are retired with it: ONL-009, ONL-010, ONL-011 "removed in v29"). The one-time notice "LibreTranslate is no longer supported — switched to Offline HQ." after an update from v28 with LibreTranslate selected cannot be set up from a clean install: MANUAL (ONL-024).
+2. Open `en-novel.epub`; open the language picker ("To" tab). → ✓ the strip reads "On-device translation · no cloud calls" and "OFFLINE HQ · DOWNLOADED", nothing about ML Kit or online translation (TRN-028). The reader's Translator picker has no LibreTranslate card either.
+3.–5. (Removed with LibreTranslate in versionCode 29; the numbers are kept so the steps below keep theirs.) Leave the reader; Settings → Translation still says Offline HQ.
 6. Tap Azure. → ✓ the dialog has a separate "Region" field next to the API key (ONL-012 field check). Enter only Region `westeurope`, leave the key empty, Save. → ✓ the app saves it (a region alone enables Save — `TranslatorPickerDialog.kt`, `ApiKeyDialog` `saveEnabled`): Azure is current without a key, its card still says TAP TO ADD API KEY, and its dialog shows `westeurope` again.
-7. In the reader. → ✓ a clear "Azure Translator API key isn't set — tap Switch translator to add it" error with Retry and Switch translator, never another engine's text labelled Azure (ONL-013, ONL-001).
+7. In the reader. → ✓ a clear "Azure Translator API key isn't set — tap Switch translator to add it" error with Retry and Switch translator, never another engine's text labelled Azure (ONL-013, ONL-001). The language picker's strip reads "Online translation · text is sent to Microsoft Azure", with no model line and no "no cloud calls" (TRN-028).
 8. With Azure current and keyless, long-press a word and tap Save. → ✓ the popup shows "Azure Translator API key isn't set"; its Save is disabled, and after a tap on it Words gets no entry (POP-012, WRD-006). *Manual:* that no toast appears (a toast's absence cannot be asserted: it goes by itself). (There is no failure toast: Save stores the popup's translation and is disabled until there is one — `ReaderPane.kt` `TranslationBubble`, `ReaderViewModel.saveWord`.)
 9. Switch to Offline HQ via "Switch translator". Open the Translator picker and find Quick Translate. → ✓ the note "Unofficial endpoint — may be rate-limited or break without notice." is on its card (ONL-020).
 10. Select Quick Translate. → ✓ the visible screen translates via Quick Translate (Russian again, and not Offline HQ's text of the same paragraph); long-press a word → the popup returns a translation (ONL-021).
@@ -1193,7 +1194,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 13. Turn **Show translation** off, go back to the Library and open `prose-one-chapter.epub` (never opened; 56 paragraphs in ONE chapter); scroll three screens. Turn **Show translation** on, then read on to the end of the book. → ✓ the visible screen translates; nothing was translated in the background while hidden, and what was read while hidden is not filled in afterwards (TRN-027). *Automated through the cache count:* unchanged by the hidden reading; after the pane comes on it grows by at most the paragraphs from four above the one then on top (g, at least 10) to the end of the book (between 56 − g and 56 − g + 4, three either way allowed for a layout shift; the lower end is timing — the flow scrolls on before the look-behind runs). The book is one chapter so that "the chapter behind it" is the whole hidden read: an engine that fills the current chapter from its start when the pane comes on stores all 56, above the bound for every g ≥ 8. *Manual:* the placeholder on the paragraphs further down; a paid engine's usage counter.
 14. Select Offline HQ again (Settings). → ✓ Quick Translate never showed a usage line (true by construction — Quick Translate does not track usage; the flow's look cannot fail); Words has no entry.
 
-**Covers:** ONL-001, ONL-009, ONL-010, ONL-011, ONL-013, ONL-014, ONL-020, ONL-021, ONL-023, POP-012, SET-003, TRN-027 (also WRD-006; ONL-012 field check only — full Azure translation in J-TRN-12)
+**Covers:** ONL-001, ONL-013, ONL-014, ONL-020, ONL-021, ONL-023, POP-012, SET-003, TRN-027, TRN-028 (also WRD-006; ONL-012 field check only — full Azure translation in J-TRN-12). ONL-009/010/011: removed in v29. ONL-024: MANUAL.
 
 ### J-TRN-09 — From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book into German
 
@@ -1353,7 +1354,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 7. Long-press a word and tap Save. → ✓ toast "TRANSLATION_FAILED" (or equivalent); no blank entry in Words (POP-012, WRD-006).
 8. Tap Switch translator → DeepL → enter the key → Save. → ✓ the dialog closes and translation proceeds (ONL-008).
 9. Keystore-failing profile: enter a DeepL key, cold-restart the app, open a book; repeat the cold start twice. → ✓ each cold start shows a readable "no key" banner (the key lived in memory only) (ONL-007).
-10. Release audit on the `.aab`/APK (jadx or apkanalyzer + grep) and the source tree: search for API keys/tokens and `http://` base URLs (LibreTranslate default especially); check the OkHttp logging interceptor. → ✓ no secrets; every translator base URL is HTTPS; the logging interceptor exists only in debug builds (ONL-022).
+10. Release audit on the `.aab`/APK (jadx or apkanalyzer + grep) and the source tree: search for API keys/tokens and `http://` base URLs; check the OkHttp logging interceptor. → ✓ no secrets; every translator base URL is HTTPS; the logging interceptor exists only in debug builds (ONL-022).
 
 **Covers:** OHQ-002, OHQ-003, OHQ-021, OHQ-022, SET-017, ONL-001, ONL-007, ONL-008, ONL-022, POP-012 (also WRD-006)
 
