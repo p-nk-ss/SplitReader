@@ -37,8 +37,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.splitreader.data.local.UrlResult
-import com.example.splitreader.data.local.normalizeLibreUrl
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProviderCategory
 import com.example.splitreader.domain.model.TranslationUsage
@@ -148,7 +146,6 @@ internal fun TranslatorPickerDialog(
             secondaryLabel = provider.secondaryLabel,
             secondaryValue = state.configs[provider]?.secondaryValue.orEmpty(),
             secondaryPlaceholder = provider.secondaryPlaceholder.orEmpty(),
-            secondaryIsUrl = provider.secondaryIsUrl,
             helpUrl = provider.helpUrl,
             onSave = { key, secondary ->
                 onConfigure(provider, key, secondary)
@@ -293,7 +290,6 @@ internal fun ApiKeyDialog(
     secondaryLabel: String?,
     secondaryValue: String,
     secondaryPlaceholder: String,
-    secondaryIsUrl: Boolean,
     helpUrl: String?,
     onSave: (key: String?, secondary: String?) -> Unit,
     onClear: () -> Unit,
@@ -304,7 +300,6 @@ internal fun ApiKeyDialog(
     val sp = LocalSpacing.current
     var input by remember { mutableStateOf("") }
     var secondaryInput by remember { mutableStateOf(secondaryValue) }
-    var urlError by remember { mutableStateOf<String?>(null) }
 
     EditorialDialog(eyebrow = provider.displayName, title = "API key", onDismiss = onDismiss) {
         Text(
@@ -365,9 +360,7 @@ internal fun ApiKeyDialog(
                     onValueChange = { secondaryInput = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = if (secondaryIsUrl) KeyboardType.Uri else KeyboardType.Text,
-                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     textStyle = TextStyle(
                         fontFamily = JetBrainsMono,
                         fontSize = 13.sp,
@@ -382,15 +375,6 @@ internal fun ApiKeyDialog(
                     },
                 )
             }
-            if (urlError != null) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = urlError!!,
-                    fontFamily = Newsreader,
-                    fontSize = 11.sp,
-                    color = DangerTone,
-                )
-            }
         }
         Spacer(Modifier.height(sp.md))
         val saveEnabled = input.isNotBlank() || existingPresent ||
@@ -402,14 +386,7 @@ internal fun ApiKeyDialog(
                 enabled = saveEnabled,
                 onClick = {
                     val secondary = if (secondaryLabel != null) secondaryInput.trim() else null
-                    val invalid = if (secondaryIsUrl && !secondary.isNullOrBlank())
-                        (normalizeLibreUrl(secondary) as? UrlResult.Invalid)?.reason else null
-                    if (invalid != null) {
-                        urlError = invalid
-                    } else {
-                        urlError = null
-                        onSave(input.trim().ifBlank { null }, secondary)
-                    }
+                    onSave(input.trim().ifBlank { null }, secondary)
                 },
             )
             if (existingPresent) {

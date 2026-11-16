@@ -98,6 +98,13 @@ sealed interface ReaderUiState {
         val paragraphNotes: Map<Int, Map<Int, ParagraphNote>> = emptyMap(),
         /** Models the reader asked to download from a paragraph's note. */
         val languageDownloads: Map<Language, LanguageDownload> = emptyMap(),
+        /**
+         * Whether the active translator's model for [sourceLanguage]→[targetLanguage] is on the device, as last
+         * asked (without downloading) by [ReaderViewModel.checkModel]; null = not known.
+         */
+        val modelStatus: ModelStatus? = null,
+        /** A one-time message about the translator (the one the reader chose is gone); shown until dismissed. */
+        val translatorNotice: String? = null,
     ) : ReaderUiState {
         /** False when the book's language can't be translated from and the reader hasn't picked one: shown untranslated. */
         val translatable: Boolean
@@ -121,3 +128,6 @@ sealed interface ReaderUiState {
             get() = book.chapters[currentChapterIndex.coerceIn(0, book.chapters.size - 1)]
     }
 }
+
+/** Whether [provider]'s on-device model for the reader's pair is on the device. */
+data class ModelStatus(val provider: TranslationProvider, val downloaded: Boolean)

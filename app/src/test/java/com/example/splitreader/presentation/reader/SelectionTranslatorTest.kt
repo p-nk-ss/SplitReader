@@ -52,7 +52,7 @@ private class SelectionFakeRepo : TranslationRepository {
     override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> =
         prepareProgress.asFlow()
 
-    override suspend fun cachedCount() = 0
+    override fun cachedCount() = kotlinx.coroutines.flow.flowOf(0)
     override suspend fun clearCache() = Unit
 }
 

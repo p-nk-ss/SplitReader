@@ -60,6 +60,7 @@ import com.example.splitreader.domain.model.Language
 import androidx.compose.ui.platform.testTag
 import com.example.splitreader.e2eRoot
 import com.example.splitreader.domain.model.SourceDetection
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.OrientationLock
 import com.example.splitreader.domain.model.ReadingDefaults
 import com.example.splitreader.presentation.theme.JetBrainsMono
@@ -177,17 +178,21 @@ internal enum class LanguagePickerTab { SOURCE, TARGET }
 /**
  * The reader's languages: the book's own ([LanguagePickerTab.SOURCE], for when detection is wrong
  * or found a language the translators lack) and the translation's ([LanguagePickerTab.TARGET]).
- * [onSelectSource] gets null for "Automatic".
+ * [onSelectSource] gets null for "Automatic". [modelStatus]: whether the active on-device
+ * translator's model for the reader's pair is here (null = unknown or an online translator: no claim).
  */
 @Composable
 internal fun LanguagePickerDialog(
     currentTarget: Language,
+    /** The active translator: the strip says whether text leaves the device. */
+    translatorProvider: TranslationProvider,
     onSelect: (Language) -> Unit,
     onDismiss: () -> Unit,
     sourceDetection: SourceDetection = SourceDetection.Unknown,
     chosenSource: Language? = null,
     onSelectSource: (Language?) -> Unit = {},
     initialTab: LanguagePickerTab = LanguagePickerTab.TARGET,
+    modelStatus: ModelStatus? = null,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
@@ -241,11 +246,28 @@ internal fun LanguagePickerDialog(
                         fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2,
                     )
                 } else {
-                    Row {
-                        Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
-                        Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                    // "No cloud calls" only where it is true: an online translator gets told where the text goes.
+                    val recipient = translatorProvider.sendsTextTo
+                    if (recipient == null) {
+                        Row {
+                            Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
+                            Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                        }
+                    } else {
+                        Text(stringResource(R.string.reader_online_translation_sent_to, recipient), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
                     }
-                    Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+                    // The real state, asked without downloading; no claim while it is unknown.
+                    modelStatus?.let { status ->
+                        val engine = when (status.provider) {
+                            TranslationProvider.BERGAMOT -> "OFFLINE HQ"
+                            TranslationProvider.MLKIT -> "ML KIT"
+                            else -> status.provider.displayName.uppercase()
+                        }
+                        Text(
+                            "$engine · " + if (status.downloaded) "DOWNLOADED" else "NOT DOWNLOADED",
+                            fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3,
+                        )
+                    }
                 }
             }
         }
@@ -506,6 +528,24 @@ internal fun PortraitHintDialog(
                 dense = true,
                 filled = true,
             )
+        }
+        Spacer(Modifier.height(sp.sm))
+    }
+}
+
+/**
+ * Tells the reader once that the translator they chose is gone and which one replaced it
+ * ([ReaderUiState.Success.translatorNotice]) -- the app never switches translators silently.
+ */
+@Composable
+internal fun TranslatorNoticeDialog(message: String, onDismiss: () -> Unit) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    EditorialDialog(eyebrow = "Translation", title = "Your translator changed", onDismiss = onDismiss) {
+        Text(text = message, fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink2)
+        Spacer(Modifier.height(sp.sm))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+            LibraryTagButton(text = "OK", onClick = onDismiss, showPlus = false, dense = true, filled = true)
         }
         Spacer(Modifier.height(sp.sm))
     }

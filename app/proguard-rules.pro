@@ -28,7 +28,7 @@
 -renamesourcefileattribute SourceFile
 
 # ── Gson / Retrofit DTOs ──────────────────────────────────────────────────────
-# The online translators (DeepL, Azure, Google Cloud, LibreTranslate) serialize
+# The online translators (DeepL, Azure, Google Cloud) serialize
 # request/response data classes through Gson (via Retrofit's GsonConverterFactory).
 # Gson maps JSON by reflection, so these model classes and their fields must survive
 # R8 renaming. They carry @SerializedName, but the annotation only helps if the

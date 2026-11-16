@@ -79,9 +79,16 @@ internal class FakeTranslationRepository : TranslationRepository {
         if (source in failPrepare) throw IOException("no network")
         notInstalled -= source
     }
-    override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider) = source !in notInstalled
-    override suspend fun cachedCount() = 0
-    override suspend fun clearCache() = Unit
+    /** The provider each [isReady] call asked about, in order. */
+    val readyChecks: MutableList<TranslationProvider> = Collections.synchronizedList(mutableListOf())
+    override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean {
+        readyChecks += provider
+        return source !in notInstalled
+    }
+    /** What the translation cache holds, as the DAO would count it. */
+    val cached = MutableStateFlow(0)
+    override fun cachedCount(): Flow<Int> = cached
+    override suspend fun clearCache() { cached.value = 0 }
 
     fun texts(): List<String> = synchronized(calls) { calls.map { it.first } }
 
@@ -186,6 +193,11 @@ internal class FakeTranslatorSettings(
 
     override suspend fun refresh() {
         log += "refresh"
+    }
+
+    override suspend fun noticeShown() {
+        log += "noticeShown"
+        mutableConfig.update { it.copy(notice = null) }
     }
 }
 

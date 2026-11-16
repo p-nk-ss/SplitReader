@@ -6,4 +6,7 @@ import com.example.splitreader.domain.model.TranslationProvider
 interface TranslatorKeyStore {
     fun getKey(provider: TranslationProvider): String?
     fun setKey(provider: TranslationProvider, value: String?)
+
+    /** Deletes the key stored for LibreTranslate, a translator the app no longer has. */
+    fun forgetLibreTranslate()
 }

@@ -65,6 +65,8 @@
     <!-- Reader: on-device translation banner -->
     <string name="reader_ondevice_translation">"On-device translation · "</string>
     <string name="reader_no_cloud_calls">no cloud calls</string>
+    <!-- Reader: the same strip for an online translator; %1$s = who receives the text (e.g. DeepL) -->
+    <string name="reader_online_translation_sent_to">Online translation · text is sent to %1$s</string>
 
     <!-- Errors -->
     <string name="error_file_access">Can\'t access this file — reopen it via \"Open book\".</string>

@@ -58,7 +58,7 @@ private class FakeRepo : TranslationRepository {
         return "${target.code}:$text"
     }
     override fun prepare(source: Language, target: Language, provider: TranslationProvider): Flow<Float> = emptyFlow()
-    override suspend fun cachedCount() = 0
+    override fun cachedCount() = kotlinx.coroutines.flow.flowOf(0)
     override suspend fun clearCache() = Unit
 
     fun texts() = calls.map { it.first }

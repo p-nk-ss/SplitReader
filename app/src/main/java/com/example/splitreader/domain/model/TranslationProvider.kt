@@ -11,9 +11,10 @@ enum class TranslationProvider(
     val tracksUsage: Boolean,
     val secondaryLabel: String? = null,
     val secondaryPlaceholder: String? = null,
-    val secondaryIsUrl: Boolean = false,
     val helpUrl: String? = null,
     val stabilityNote: String? = null,
+    /** Who receives the text an online translator translates (honest privacy line); null = on-device. */
+    val sendsTextTo: String? = null,
 ) {
     MLKIT(
         displayName = "ML Kit (offline)",
@@ -40,18 +41,7 @@ enum class TranslationProvider(
         description = "Fast online translation. No setup; needs internet.",
         tracksUsage = false,
         stabilityNote = "Unofficial endpoint — may be rate-limited or break without notice.",
-    ),
-    LIBRE_TRANSLATE(
-        displayName = "LibreTranslate",
-        requiresApiKey = true,
-        requiresNetwork = true,
-        category = TranslationProviderCategory.ADVANCED,
-        description = "Open-source engine (Argos). Get a free-tier key at portal.libretranslate.com, or point to a self-hosted instance.",
-        tracksUsage = true,
-        secondaryLabel = "Server URL",
-        secondaryPlaceholder = "https://…",
-        secondaryIsUrl = true,
-        helpUrl = null,
+        sendsTextTo = "Google",
     ),
     GOOGLE_CLOUD(
         displayName = "Google Cloud Translation",
@@ -61,6 +51,7 @@ enum class TranslationProvider(
         description = "Official API. 500K characters/month free, paid after.",
         tracksUsage = true,
         helpUrl = "console.cloud.google.com → Translation API → API key",
+        sendsTextTo = "Google Cloud",
     ),
     DEEPL(
         displayName = "DeepL",
@@ -70,6 +61,7 @@ enum class TranslationProvider(
         description = "DeepL Free API. 500K characters/month free with own key.",
         tracksUsage = true,
         helpUrl = "deepl.com/pro-api (free plan)",
+        sendsTextTo = "DeepL",
     ),
     AZURE(
         displayName = "Azure Translator",
@@ -80,12 +72,8 @@ enum class TranslationProvider(
         tracksUsage = true,
         secondaryLabel = "Region",
         secondaryPlaceholder = "global",
-        secondaryIsUrl = false,
         helpUrl = "portal.azure.com → Translator resource → Keys and Endpoint",
+        sendsTextTo = "Microsoft Azure",
     );
 
-    companion object {
-        fun fromName(name: String?): TranslationProvider =
-            entries.find { it.name == name } ?: MLKIT
-    }
 }

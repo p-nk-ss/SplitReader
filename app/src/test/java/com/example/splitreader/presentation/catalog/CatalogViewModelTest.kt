@@ -1,5 +1,7 @@
 package com.example.splitreader.presentation.catalog
 
+import com.example.splitreader.fakes.UriOnlyLibrary
+import com.example.splitreader.fakes.sameBookFor
 import android.app.Application
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
@@ -70,7 +72,7 @@ class CatalogViewModelTest {
     private class FakeLibrary(
         var count: Int = 0,
         val existing: MutableSet<String> = mutableSetOf(),
-    ) : BookLibraryRepository {
+    ) : UriOnlyLibrary {
         override suspend fun saveBook(book: Book) {
             if (book.filePath !in existing) {
                 existing += book.filePath
@@ -116,7 +118,7 @@ class CatalogViewModelTest {
                 context,
                 FakeCrashReporter(),
             ),
-            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlement(premium)),
+            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlement(premium), sameBookFor(library)),
             crashReporter = crash,
         )
     }

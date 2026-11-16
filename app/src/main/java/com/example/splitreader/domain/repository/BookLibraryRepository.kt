@@ -2,6 +2,7 @@ package com.example.splitreader.domain.repository
 
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.LibraryBook
+import com.example.splitreader.domain.model.StoredBook
 import kotlinx.coroutines.flow.Flow
 
 /** Stores the user's library of opened books and their last-opened ordering. */
@@ -25,4 +26,21 @@ interface BookLibraryRepository {
 
     /** Whether a book with [uri] is already in the library (i.e. adding it is a re-open, not new). */
     suspend fun exists(uri: String): Boolean
+
+    // ── The Same book (see SameBook): the only reads that also see Removed books ──────────────
+
+    /** The row for [uri], in the library or removed; null when the library never held it. */
+    suspend fun stored(uri: String): StoredBook?
+
+    /** A row, in the library or removed, whose content key is [contentKey]; one in the library first. */
+    suspend fun withContent(contentKey: String): StoredBook?
+
+    suspend fun setContentKey(uri: String, contentKey: String)
+
+    /**
+     * Moves the row of [from] -- and its bookmarks, notes, saved words and reading sessions -- to
+     * [to], in one transaction. [to] must have no row. The moved row has no cover: its file was
+     * named after [from].
+     */
+    suspend fun moveBook(from: String, to: String)
 }

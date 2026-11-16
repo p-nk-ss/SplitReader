@@ -61,15 +61,15 @@ class ApiKeyManagerTest {
     @Test
     fun blankOrNull_clearsTheKey() {
         val manager = ApiKeyManager(context)
-        manager.setLibreTranslateKey("libre-key")
-        assertEquals("libre-key", manager.getLibreTranslateKey())
+        manager.setAzureKey("azure-key")
+        assertEquals("azure-key", manager.getAzureKey())
 
-        manager.setLibreTranslateKey("   ") // blank trims to empty -> removal
-        assertNull(manager.getLibreTranslateKey())
+        manager.setAzureKey("   ") // blank trims to empty -> removal
+        assertNull(manager.getAzureKey())
 
-        manager.setLibreTranslateKey("again")
-        manager.setLibreTranslateKey(null)
-        assertNull(manager.getLibreTranslateKey())
+        manager.setAzureKey("again")
+        manager.setAzureKey(null)
+        assertNull(manager.getAzureKey())
     }
 
     @Test

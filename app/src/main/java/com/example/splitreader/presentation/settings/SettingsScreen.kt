@@ -266,7 +266,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(sp.xs))
             Text(
-                text = "Manage providers, API keys, server URL and monthly usage.",
+                text = "Manage providers, API keys, region and monthly usage.",
                 fontFamily = Newsreader,
                 fontStyle = FontStyle.Italic,
                 fontSize = 12.sp,

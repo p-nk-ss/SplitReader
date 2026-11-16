@@ -2,9 +2,11 @@ package com.example.splitreader.data.repository
 
 import com.example.splitreader.data.local.BookDao
 import com.example.splitreader.data.local.BookEntity
+import com.example.splitreader.data.local.StoredBookRow
 import com.example.splitreader.data.repository.mapper.toDomain
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.LibraryBook
+import com.example.splitreader.domain.model.StoredBook
 import com.example.splitreader.domain.repository.BookLibraryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -46,4 +48,15 @@ class BookLibraryRepositoryImpl @Inject constructor(
     override suspend fun bookCount(): Int = bookDao.count()
 
     override suspend fun exists(uri: String): Boolean = bookDao.exists(uri)
+
+    override suspend fun stored(uri: String): StoredBook? = bookDao.storedRow(uri)?.toDomain()
+
+    override suspend fun withContent(contentKey: String): StoredBook? =
+        bookDao.rowWithContent(contentKey)?.toDomain()
+
+    override suspend fun setContentKey(uri: String, contentKey: String) = bookDao.setContentKey(uri, contentKey)
+
+    override suspend fun moveBook(from: String, to: String) = bookDao.move(from, to)
+
+    private fun StoredBookRow.toDomain() = StoredBook(uri = uri, contentKey = contentKey, removed = removed)
 }

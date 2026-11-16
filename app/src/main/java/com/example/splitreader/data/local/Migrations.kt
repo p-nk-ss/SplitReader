@@ -74,6 +74,16 @@ object Migrations {
         }
     }
 
+    /**
+     * `contentKey`: the SHA-256 of the book file, so the same file added under another uri is
+     * recognised (the Same book). NULL until the book is next opened or added.
+     */
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE books ADD COLUMN contentKey TEXT")
+        }
+    }
+
     /** All migrations in ascending order, for the database builder and tests. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }

@@ -62,7 +62,7 @@ class TranslationRepositoryImpl @Inject constructor(
     override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean =
         providers[provider]?.isReady(source, target) ?: false
 
-    override suspend fun cachedCount(): Int = dao.count()
+    override fun cachedCount(): Flow<Int> = dao.observeCount()
 
     override suspend fun clearCache() = dao.clearAll()
 

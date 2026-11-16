@@ -64,13 +64,12 @@ nothing you read has to leave your phone.
 
 | Engine | Where it runs | Key needed | Notes |
 |---|---|---|---|
-| **ML Kit** (default) | On device | No | Free, works offline once a language model is downloaded |
-| **Offline HQ** | On device | No | Mozilla / Firefox-Translations models run by [bergamot-translator](https://github.com/browsermt/bergamot-translator). Higher quality than ML Kit; each language pair is a 17–44 MB pack downloaded once. Non-English pairs go through English. |
+| **ML Kit** | On device | No | Free, works offline once a language model is downloaded; the default where Offline HQ can't run |
+| **Offline HQ** (default) | On device | No | Mozilla / Firefox-Translations models run by [bergamot-translator](https://github.com/browsermt/bergamot-translator). Higher quality than ML Kit; each language pair is a 17–44 MB pack downloaded once. Non-English pairs go through English. |
 | Quick Translate | Online | No | Unofficial endpoint, best effort |
 | DeepL | Online | Your own | |
 | Google Cloud Translation | Online | Your own | |
 | Microsoft Azure Translator | Online | Your own | |
-| LibreTranslate | Online | Your own | Any instance URL, including self-hosted; HTTPS only |
 
 API keys are encrypted with an Android Keystore key and excluded from backups. Online engines only
 receive text when you choose one.

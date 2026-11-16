@@ -1,5 +1,7 @@
 package com.example.splitreader.presentation.catalog
 
+import com.example.splitreader.fakes.UriOnlyLibrary
+import com.example.splitreader.fakes.sameBookFor
 import android.app.Application
 import android.content.Context
 import android.net.Uri
@@ -61,7 +63,7 @@ class DriveViewModelTest {
         fun preexisting(f: DrivePickedFile) = target(f).writeBytes(ByteArray(8))
     }
 
-    private class FakeLibrary(var count: Int, val existing: MutableSet<String>) : BookLibraryRepository {
+    private class FakeLibrary(var count: Int, val existing: MutableSet<String>) : UriOnlyLibrary {
         override suspend fun saveBook(book: Book) { if (existing.add(book.filePath)) count++ }
         override suspend fun bookCount(): Int = count
         override suspend fun exists(uri: String): Boolean = uri in existing
@@ -112,7 +114,7 @@ class DriveViewModelTest {
                 context,
                 FakeCrashReporter(),
             ),
-            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlement(premium)),
+            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlement(premium), sameBookFor(library)),
         )
     }
 

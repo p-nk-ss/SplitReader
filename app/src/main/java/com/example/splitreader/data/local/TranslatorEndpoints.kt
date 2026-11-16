@@ -1,34 +1,18 @@
 package com.example.splitreader.data.local
 
 import android.content.Context
-import android.util.Log
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslatorEndpointStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Persists the user-configurable LibreTranslate base URL (falls back to a default). */
+/** Persists Azure's region, the one translator setting besides a key. */
 @Singleton
 class TranslatorEndpoints @Inject constructor(
     @ApplicationContext context: Context,
 ) : TranslatorEndpointStore {
     private val prefs = context.getSharedPreferences("translator_endpoints", Context.MODE_PRIVATE)
-
-    fun getLibreTranslateBaseUrl(): String =
-        prefs.getString(KEY_LIBRE, null)?.takeIf { it.isNotBlank() } ?: DEFAULT_LIBRE_URL
-
-    fun setLibreTranslateBaseUrl(url: String?) {
-        if (url.isNullOrBlank()) {
-            prefs.edit().remove(KEY_LIBRE).apply()
-            return
-        }
-        // Invalid (http://) URLs are not persisted; the UI validates first and shows the reason.
-        when (val result = normalizeLibreUrl(url)) {
-            is UrlResult.Valid -> prefs.edit().putString(KEY_LIBRE, result.url).apply()
-            is UrlResult.Invalid -> Log.w(TAG, "Rejected LibreTranslate URL: ${result.reason}")
-        }
-    }
 
     fun getAzureRegion(): String =
         prefs.getString(KEY_AZURE_REGION, null)?.takeIf { it.isNotBlank() } ?: DEFAULT_AZURE_REGION
@@ -41,10 +25,9 @@ class TranslatorEndpoints @Inject constructor(
         }.apply()
     }
 
-    /** Provider-keyed accessor for the secondary config value (region / base URL). */
+    /** Provider-keyed accessor for the secondary config value (Azure's region). */
     override fun getSecondary(provider: TranslationProvider): String = when (provider) {
         TranslationProvider.AZURE -> getAzureRegion()
-        TranslationProvider.LIBRE_TRANSLATE -> getLibreTranslateBaseUrl()
         else -> ""
     }
 
@@ -52,16 +35,18 @@ class TranslatorEndpoints @Inject constructor(
     override fun setSecondary(provider: TranslationProvider, value: String?) {
         when (provider) {
             TranslationProvider.AZURE -> setAzureRegion(value)
-            TranslationProvider.LIBRE_TRANSLATE -> setLibreTranslateBaseUrl(value)
             else -> Unit
         }
     }
 
+    override fun forgetLibreTranslate() {
+        prefs.edit().remove(KEY_RETIRED_LIBRE).apply()
+    }
+
     companion object {
-        const val DEFAULT_LIBRE_URL = "https://libretranslate.com"
         const val DEFAULT_AZURE_REGION = "global"
-        private const val KEY_LIBRE = "libre_base_url"
         private const val KEY_AZURE_REGION = "azure_region"
-        private const val TAG = "TranslatorEndpoints"
+        /** Where versions before v29 kept the LibreTranslate server; only ever deleted now. */
+        private const val KEY_RETIRED_LIBRE = "libre_base_url"
     }
 }

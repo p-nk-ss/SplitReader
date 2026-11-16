@@ -95,6 +95,8 @@ class ReaderViewModel @Inject constructor(
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val translatorConfig: TranslatorConfigState =
             TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
+        /** The last [checkModel] answer; shown only while it is about the current pair and translator. */
+        val model: CheckedModel? = null,
     ) {
         /** False for a book in a language the translators lack (or none detected) until the reader picks one. */
         val translatable: Boolean get() = chosenSource != null || sourceDetection is SourceDetection.Supported
@@ -112,6 +114,8 @@ class ReaderViewModel @Inject constructor(
             SourceDetection.Unknown -> null
         }
     }
+
+    private data class CheckedModel(val source: Language, val target: Language, val provider: TranslationProvider, val downloaded: Boolean)
 
     private val detectBookLanguage = DetectBookLanguageUseCase(languageDetector)
 
@@ -156,6 +160,11 @@ class ReaderViewModel @Inject constructor(
                     wordSelection = s.wordSelection,
                     translatorProvider = s.translatorProvider,
                     translatorConfig = s.translatorConfig,
+                    translatorNotice = s.translatorConfig.notice,
+                    modelStatus = s.model?.takeIf {
+                        s.translatable && it.source == s.sourceLanguage && it.target == s.targetLanguage &&
+                            it.provider == s.translatorProvider
+                    }?.let { ModelStatus(it.provider, it.downloaded) },
                 )
             }
         }
@@ -383,10 +392,34 @@ class ReaderViewModel @Inject constructor(
     }
 
     /**
+     * Asks — without downloading anything — whether the active translator's on-device model for
+     * the reader's pair is here, for the language picker's info strip. Nothing to ask for an online
+     * translator or an untranslatable book (the strip then makes no claim).
+     */
+    fun checkModel() {
+        val s = _state.value
+        val provider = s.translatorProvider
+        if (!s.translatable || provider.requiresNetwork) return
+        val source = s.sourceLanguage
+        val target = s.targetLanguage
+        viewModelScope.launch {
+            val ready = try {
+                translateTextUseCase.isReady(source, target, provider)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return@launch
+            }
+            _state.update { it.copy(model = CheckedModel(source, target, provider, ready)) }
+        }
+    }
+
+    /**
      * "Download and translate" on a paragraph in another language ([ParagraphNote.NeedsModel]):
      * downloads [provider]'s model for [language] into the current target, then has the engine
      * translate the paragraphs that were waiting for it.
      */
+
     fun downloadModel(language: Language, provider: TranslationProvider) {
         if (_state.value.languageDownloads[language] is LanguageDownload.Running) return
         val target = _state.value.targetLanguage
@@ -514,6 +547,11 @@ class ReaderViewModel @Inject constructor(
     }
 
     /** [dontShowAgain] persists; otherwise the hint simply does not reappear this entry. */
+    /** The reader dismissed [ReaderUiState.Success.translatorNotice]: it is never shown again. */
+    fun dismissTranslatorNotice() {
+        viewModelScope.launch { translatorSettings.noticeShown() }
+    }
+
     fun dismissPortraitHint(dontShowAgain: Boolean) {
         if (dontShowAgain) progressManager.savePortraitHintDismissed(true)
         _state.update { it.copy(portraitHintDismissed = it.portraitHintDismissed || dontShowAgain) }

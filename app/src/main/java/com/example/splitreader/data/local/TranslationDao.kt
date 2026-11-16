@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TranslationDao {
@@ -20,6 +21,7 @@ interface TranslationDao {
     @Query("DELETE FROM translation_cache")
     suspend fun clearAll()
 
+    /** Re-emitted by Room whenever the table changes. */
     @Query("SELECT COUNT(*) FROM translation_cache")
-    suspend fun count(): Int
+    fun observeCount(): Flow<Int>
 }

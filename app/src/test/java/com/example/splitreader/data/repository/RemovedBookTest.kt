@@ -1,5 +1,6 @@
 package com.example.splitreader.data.repository
 
+import com.example.splitreader.fakes.sameBookFor
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -69,7 +70,7 @@ class RemovedBookTest {
         bookmarks = BookmarkRepositoryImpl(db.bookmarkDao())
         notes = NoteRepositoryImpl(db.noteDao())
         delete = DeleteBookUseCase(library, prefs, files)
-        add = AddBookToLibraryUseCase(library, entitlement)
+        add = AddBookToLibraryUseCase(library, entitlement, sameBookFor(library, preferences = prefs, files = files))
 
         add.add(book(cover = "/covers/old.jpg"))
         bookmarks.add(uri, 1, 0)

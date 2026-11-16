@@ -28,8 +28,8 @@ interface TranslationRepository {
      */
     suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean = true
 
-    /** Number of cached translations (for the Settings storage display). */
-    suspend fun cachedCount(): Int
+    /** Number of cached translations (the Settings storage display); emits again whenever it changes. */
+    fun cachedCount(): Flow<Int>
 
     /** Clears all cached translations. */
     suspend fun clearCache()

@@ -57,7 +57,11 @@ class SettingsViewModel @Inject constructor(
     val state = _state.asStateFlow()
 
     init {
-        refreshCacheCount()
+        // Observed, not read once: translations cached while reading must show when Settings is
+        // shown again (its ViewModel outlives a trip to the reader).
+        viewModelScope.launch {
+            translationRepository.cachedCount().collect { n -> _state.update { it.copy(cachedTranslationCount = n) } }
+        }
         // loadState() seeds a cheap prefs-only placeholder; refresh() builds the real config off the main thread.
         viewModelScope.launch { translatorSettings.refresh() }
         viewModelScope.launch {
@@ -132,18 +136,9 @@ class SettingsViewModel @Inject constructor(
 
     // ── Storage ─────────────────────────────────────────────────────────────────
 
-    fun refreshCacheCount() {
-        viewModelScope.launch {
-            val count = translationRepository.cachedCount()
-            _state.update { it.copy(cachedTranslationCount = count) }
-        }
-    }
-
+    /** The count follows through [TranslationRepository.cachedCount]. */
     fun clearTranslationCache() {
-        viewModelScope.launch {
-            translationRepository.clearCache()
-            _state.update { it.copy(cachedTranslationCount = 0) }
-        }
+        viewModelScope.launch { translationRepository.clearCache() }
     }
 
     // ── Read aloud ────────────────────────────────────────────────────────────

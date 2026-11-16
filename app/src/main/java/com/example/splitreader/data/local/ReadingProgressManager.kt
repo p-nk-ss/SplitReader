@@ -177,6 +177,29 @@ class ReadingProgressManager @Inject constructor(
         edit.apply()
     }
 
+    override fun copyBook(from: String, to: String) {
+        val all = prefs.all
+        val edit = prefs.edit()
+        for (prefix in PER_BOOK_KEY_PREFIXES) edit.remove(prefix + to)
+        legacyScrollKeys(to).forEach { edit.remove(it) }
+        val moved = PER_BOOK_KEY_PREFIXES.map { prefix -> prefix + from to prefix + to } +
+            legacyScrollKeys(from).map { key ->
+                val prefix = if (key.startsWith("last_scroll_offset_")) "last_scroll_offset_" else "last_scroll_"
+                key to prefix + to + key.removePrefix(prefix + from)
+            }
+        for ((old, new) in moved) {
+            when (val value = all[old] ?: continue) {
+                is Int -> edit.putInt(new, value)
+                is Long -> edit.putLong(new, value)
+                is Float -> edit.putFloat(new, value)
+                is Boolean -> edit.putBoolean(new, value)
+                is String -> edit.putString(new, value)
+            }
+        }
+        // commit(): durable before the library row moves (SameBook runs this off the main thread).
+        edit.commit()
+    }
+
     override fun saveTargetLanguage(language: Language) {
         prefs.edit()
             .putString("target_language", language.code)
@@ -200,7 +223,22 @@ class ReadingProgressManager @Inject constructor(
     }
 
     override fun getTranslatorProvider(): TranslationProvider? =
-        prefs.getString("translator_provider", null)?.let(TranslationProvider::fromName)
+        prefs.getString("translator_provider", null)?.let { name -> TranslationProvider.entries.find { it.name == name } }
+
+    override fun retiredTranslatorProvider(): String? =
+        prefs.getString("translator_provider", null)?.takeIf { name -> TranslationProvider.entries.none { it.name == name } }
+
+    override fun clearTranslatorProvider() {
+        prefs.edit().remove("translator_provider").apply()
+    }
+
+    override fun getTranslatorNotice(): String? = prefs.getString("translator_notice", null)
+
+    override fun setTranslatorNotice(text: String?) {
+        // apply(), not commit(): raised from TranslatorSettingsImpl's constructor on the main thread.
+        // Ordering is all that matters (see retireLibreTranslate): apply() keeps it within this file.
+        prefs.edit().apply { if (text == null) remove("translator_notice") else putString("translator_notice", text) }.apply()
+    }
 
     // ── Read-aloud (TTS) ───────────────────────────────────────────────────────
 

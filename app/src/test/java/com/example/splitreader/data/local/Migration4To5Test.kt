@@ -65,7 +65,7 @@ class Migration4To5Test {
     }
 
     @Test
-    fun `a v4 library opens at v5 with its books still in the library and their bookmarks kept`() = runTest {
+    fun `a v4 library opens at v5 and on with its books still in the library and their bookmarks kept`() = runTest {
         createV4()
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, name)
@@ -74,7 +74,7 @@ class Migration4To5Test {
             .build()
         try {
             val sdb = db.openHelper.writableDatabase // migrates, then validates against the entities
-            assertEquals(5, sdb.version)
+            assertEquals(6, sdb.version) // through v5 to the current version
             sdb.query("SELECT title, coverPath, removedAt FROM books WHERE uri = 'content://book/1'").use { c ->
                 assertTrue(c.moveToFirst())
                 assertEquals("War and Peace", c.getString(0))

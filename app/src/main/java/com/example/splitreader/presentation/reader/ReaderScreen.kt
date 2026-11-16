@@ -125,6 +125,7 @@ internal fun ReaderRoute(
             onSetTargetLanguage = viewModel::setTargetLanguage,
             onSetSourceLanguage = viewModel::setSourceLanguage,
             onDownloadModel = viewModel::downloadModel,
+            onCheckModel = viewModel::checkModel,
             onAppearanceChange = viewModel::updateAppearance,
             onReadingPositionChanged = viewModel::onReadingPositionChanged,
             onMarkFinished = viewModel::markFinished,
@@ -147,6 +148,7 @@ internal fun ReaderRoute(
             onRetryTranslation = viewModel::retryTranslation,
             onTranslateWholeChapter = viewModel::translateWholeChapter,
             onDismissPortraitHint = viewModel::dismissPortraitHint,
+            onDismissTranslatorNotice = viewModel::dismissTranslatorNotice,
         )
     }
 }
@@ -208,6 +210,8 @@ internal fun ReaderContent(
     onDismissPortraitHint: (dontShowAgain: Boolean) -> Unit,
     onSetSourceLanguage: (Language?) -> Unit = {},
     onDownloadModel: (Language, TranslationProvider) -> Unit = { _, _ -> },
+    onCheckModel: () -> Unit = {},
+    onDismissTranslatorNotice: () -> Unit = {},
 ) {
     // A book that can't be translated reads as one column of its own text, like "Show translation" off.
     val appearance = if (state.translatable) state.appearance else state.appearance.copy(showTranslation = false)
@@ -476,8 +480,11 @@ internal fun ReaderContent(
         }
 
         if (showLanguagePicker) {
+            // Asked each time the picker opens: a model may have arrived since (never downloads).
+            LaunchedEffect(Unit) { onCheckModel() }
             LanguagePickerDialog(
                 currentTarget = state.targetLanguage,
+                translatorProvider = state.translatorProvider,
                 onSelect = { lang ->
                     onSetTargetLanguage(lang)
                     showLanguagePicker = false
@@ -490,6 +497,7 @@ internal fun ReaderContent(
                     showLanguagePicker = false
                 },
                 initialTab = languagePickerTab,
+                modelStatus = state.modelStatus,
             )
         }
         if (showDisplaySettings) {
@@ -507,6 +515,9 @@ internal fun ReaderContent(
                 hintShownThisEntry = true
                 onDismissPortraitHint(dontShowAgain)
             })
+        } else if (state.translatorNotice != null) {
+            // After the portrait hint, never on top of it.
+            TranslatorNoticeDialog(message = state.translatorNotice, onDismiss = onDismissTranslatorNotice)
         }
         if (showTranslatorPicker) {
             LaunchedEffect(Unit) { onRefreshTranslationUsage() }

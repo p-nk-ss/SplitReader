@@ -18,4 +18,9 @@ data class BookEntity(
      * until the same book is added again: no library query may return or count it.
      */
     val removedAt: Long? = null,
+    /**
+     * SHA-256 (hex) of the book file's content: the same file under another uri is the same book.
+     * Null for a book not opened since v29 -- and for one whose file could not be read then.
+     */
+    val contentKey: String? = null,
 )

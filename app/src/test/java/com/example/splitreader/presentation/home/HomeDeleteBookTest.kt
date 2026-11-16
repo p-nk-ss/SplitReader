@@ -1,5 +1,6 @@
 package com.example.splitreader.presentation.home
 
+import com.example.splitreader.fakes.sameBookFor
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.example.splitreader.domain.model.Book
@@ -51,7 +52,7 @@ class HomeDeleteBookTest {
                 FakeCrashReporter(),
             ),
             bookLibraryRepository = library,
-            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlementRepository()),
+            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlementRepository(), sameBookFor(library)),
             deleteBookUseCase = DeleteBookUseCase(library, prefs, files),
             progressManager = prefs,
             sessionRepository = sessions,

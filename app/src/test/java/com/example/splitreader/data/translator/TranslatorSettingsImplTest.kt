@@ -1,5 +1,6 @@
 package com.example.splitreader.data.translator
 
+import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProvider.AZURE
@@ -40,15 +41,23 @@ class TranslatorSettingsImplTest {
             log += "setKey $provider"
             if (value == null) keys.remove(provider) else keys[provider] = value
         }
+        var libreForgotten = false
+        override fun forgetLibreTranslate() { libreForgotten = true }
     }
 
     private inner class FakeEndpoints : TranslatorEndpointStore {
         val values = ConcurrentHashMap<TranslationProvider, String>()
-        override fun getSecondary(provider: TranslationProvider): String = values[provider] ?: ""
+        /** Like [com.example.splitreader.data.local.TranslatorEndpoints]: unset → the provider's default. */
+        override fun getSecondary(provider: TranslationProvider): String = values[provider] ?: when (provider) {
+            AZURE -> TranslatorEndpoints.DEFAULT_AZURE_REGION
+            else -> ""
+        }
         override fun setSecondary(provider: TranslationProvider, value: String?) {
             log += "setSecondary $provider"
             if (value == null) values.remove(provider) else values[provider] = value
         }
+        var libreForgotten = false
+        override fun forgetLibreTranslate() { libreForgotten = true }
     }
 
     private inner class FakeUsage : TranslationUsageStats {
@@ -109,6 +118,69 @@ class TranslatorSettingsImplTest {
         assertEquals(MLKIT, settings.config.value.current)
     }
 
+    // ── LibreTranslate removed (v29): never a silent switch ──
+
+    @Test
+    fun `a reader who had LibreTranslate gets the default translator and is told so once`() = runTest {
+        val prefs = FakeReadingPreferences(provider = null, log = log).apply { retiredProvider = "LIBRE_TRANSLATE" }
+        val settings = settings(prefs, StandardTestDispatcher(testScheduler))
+
+        assertEquals(BERGAMOT, settings.config.value.current)
+        val notice = "LibreTranslate is no longer supported — switched to Offline HQ."
+        assertEquals(notice, settings.config.value.notice)
+        settings.refresh()
+        assertEquals(BERGAMOT, settings.config.value.current)
+        assertEquals(notice, settings.config.value.notice)
+        assertEquals(null, prefs.retiredTranslatorProvider())
+
+        settings.noticeShown()
+
+        assertEquals(null, settings.config.value.notice)
+        assertEquals("shown once: not after a restart either", null, settings(prefs, StandardTestDispatcher(testScheduler)).config.value.notice)
+        assertEquals(BERGAMOT, settings.config.value.current)
+    }
+
+    @Test
+    fun `without the Offline HQ engine a reader who had LibreTranslate is told about ML Kit`() = runTest {
+        val prefs = FakeReadingPreferences(provider = null, log = log).apply { retiredProvider = "LIBRE_TRANSLATE" }
+        val providers = TranslationProvider.entries.associateWith { p ->
+            if (p == BERGAMOT) object : TranslationProviderApi {
+                override val id = BERGAMOT
+                override fun isConfigured() = false
+                override suspend fun translate(text: String, source: Language, target: Language) = text
+            } else FakeProvider(p, keys)
+        }
+        val settings = TranslatorSettingsImpl(keys, endpoints, usage, prefs, providers, StandardTestDispatcher(testScheduler))
+
+        assertEquals(MLKIT, settings.config.value.current)
+        assertEquals("LibreTranslate is no longer supported — switched to ML Kit (offline).", settings.config.value.notice)
+    }
+
+    @Test
+    fun `choosing a translator before the notice was shown drops it -- it would name the wrong one`() = runTest {
+        for (choose in listOf<suspend (TranslatorSettingsImpl) -> Unit>({ it.select(MLKIT) }, { it.saveKey(DEEPL, "k", null) })) {
+            val prefs = FakeReadingPreferences(provider = null, log = log).apply { retiredProvider = "LIBRE_TRANSLATE" }
+            val settings = settings(prefs, StandardTestDispatcher(testScheduler))
+            assertTrue(settings.config.value.notice != null)
+
+            choose(settings)
+
+            assertEquals(null, settings.config.value.notice)
+            assertEquals(null, prefs.notice)
+        }
+    }
+
+    @Test
+    fun `LibreTranslate's stored key and server are deleted`() = runTest {
+        val prefs = FakeReadingPreferences(provider = DEEPL, log = log)
+        settings(prefs, StandardTestDispatcher(testScheduler))
+
+        assertTrue(keys.libreForgotten)
+        assertTrue(endpoints.libreForgotten)
+        assertEquals("a reader on another translator is not told anything", null, prefs.notice)
+        assertEquals(DEEPL, prefs.provider)
+    }
+
     @Test
     fun `a reader's own choice of ML Kit stays`() = runTest {
         val (_, settings) = newSettings(MLKIT)
@@ -150,6 +222,22 @@ class TranslatorSettingsImplTest {
         assertEquals(DEEPL, settings.config.value.current)
         assertTrue(settings.config.value.configs[DEEPL]!!.configured)
         assertFalse(settings.config.value.configs[AZURE]!!.configured)
+    }
+
+    /**
+     * Azure's region is not what makes it configured (its key is), and a reader re-entering a key
+     * for a `westeurope` resource must not find the region silently back at "global" (v29 review 4.1).
+     */
+    @Test
+    fun `clearing Azure keeps its region`() = runTest {
+        keys.keys[AZURE] = "a"
+        endpoints.values[AZURE] = "westeurope"
+        val (_, settings) = newSettings(MLKIT)
+
+        settings.clear(AZURE)
+
+        assertFalse(settings.config.value.configs[AZURE]!!.configured)
+        assertEquals("westeurope", settings.config.value.configs[AZURE]!!.secondaryValue)
     }
 
     @Test
