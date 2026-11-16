@@ -24,10 +24,12 @@ class SettingsViewModelTest {
 
     private val settings = FakeTranslatorSettings(current = TranslationProvider.QUICK_TRANSLATE)
 
+    private val repo = FakeTranslationRepository()
+
     private fun vm(prefs: FakeReadingPreferences = FakeReadingPreferences()) = SettingsViewModel(
         progressManager = prefs,
         translatorSettings = settings,
-        translationRepository = FakeTranslationRepository(),
+        translationRepository = repo,
         textToSpeechManager = FakeSpeechSynthesizer(),
         entitlementRepository = FakeEntitlementRepository(),
         offlineModelStore = FakeOfflineModelStore(),
@@ -79,5 +81,25 @@ class SettingsViewModelTest {
 
         assertEquals(next, vm.state.value.translatorConfig)
         assertEquals(TranslationProvider.DEEPL, vm.state.value.translatorProvider)
+    }
+
+    /**
+     * "Cached translations: N" (and the clear dialog's number) was read once, when the ViewModel was
+     * made: translations cached while reading afterwards showed only after a restart.
+     */
+    @Test
+    fun `the cached translation count follows the cache`() = runTest(main.dispatcher) {
+        repo.cached.value = 3
+        val vm = vm()
+        advanceUntilIdle()
+        assertEquals(3, vm.state.value.cachedTranslationCount)
+
+        repo.cached.value = 7 // the reader cached more
+        advanceUntilIdle()
+        assertEquals(7, vm.state.value.cachedTranslationCount)
+
+        vm.clearTranslationCache()
+        advanceUntilIdle()
+        assertEquals(0, vm.state.value.cachedTranslationCount)
     }
 }

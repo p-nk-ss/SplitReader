@@ -54,7 +54,7 @@ class ParagraphNotesEngineTest {
             isReadyGate?.await()
             return ready
         }
-        override suspend fun cachedCount() = 0
+        override fun cachedCount() = kotlinx.coroutines.flow.flowOf(0)
         override suspend fun clearCache() = Unit
     }
 

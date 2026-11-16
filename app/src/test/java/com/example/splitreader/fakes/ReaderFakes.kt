@@ -85,8 +85,10 @@ internal class FakeTranslationRepository : TranslationRepository {
         readyChecks += provider
         return source !in notInstalled
     }
-    override suspend fun cachedCount() = 0
-    override suspend fun clearCache() = Unit
+    /** What the translation cache holds, as the DAO would count it. */
+    val cached = MutableStateFlow(0)
+    override fun cachedCount(): Flow<Int> = cached
+    override suspend fun clearCache() { cached.value = 0 }
 
     fun texts(): List<String> = synchronized(calls) { calls.map { it.first } }
 

@@ -31,7 +31,7 @@ private class FakeTranslationDao : TranslationDao {
         rows.values.removeAll { it.timestamp < before }
     }
     override suspend fun clearAll() = rows.clear()
-    override suspend fun count(): Int = rows.size
+    override fun observeCount() = kotlinx.coroutines.flow.flowOf(rows.size)
 }
 
 private class FakeProvider(
