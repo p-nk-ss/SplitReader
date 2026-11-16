@@ -23,3 +23,7 @@ _Avoid_: mark, saved position
 **Removed book**:
 A book the reader deleted without ticking "Also delete my reading progress, bookmarks and notes". It is not in the library: no list shows it, it does not count toward the free-tier limit, and adding it again needs a free slot. Its Reading position, progress, bookmarks and notes are kept and return when the same book is added again.
 _Avoid_: archived book, hidden book, soft-deleted book
+
+**Same book**:
+Files with identical content are one book, whichever folder or app the reader picked them from. Adding the Same book under another location never makes a second card: a book in the library stays one book, and a Removed book comes back with its Reading position, progress, bookmarks and notes, exactly as if it had been added from where it was before.
+_Avoid_: duplicate, copy, same file

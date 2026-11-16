@@ -6,9 +6,13 @@ import com.example.splitreader.domain.model.AuthState
 import com.example.splitreader.domain.model.AuthUser
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.LibraryBook
+import com.example.splitreader.domain.model.StoredBook
 import com.example.splitreader.domain.repository.AuthRepository
+import com.example.splitreader.domain.repository.BookContentKeys
 import com.example.splitreader.domain.repository.BookFiles
 import com.example.splitreader.domain.repository.BookLibraryRepository
+import com.example.splitreader.domain.repository.ReadingPreferences
+import com.example.splitreader.domain.usecase.SameBook
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -51,7 +55,52 @@ internal class FakeBookLibraryRepository(
     }
     override suspend fun bookCount(): Int = books.value.size
     override suspend fun exists(uri: String): Boolean = books.value.any { it.uri == uri }
+
+    val contentKeys = mutableMapOf<String, String>()
+    override suspend fun stored(uri: String): StoredBook? = when {
+        exists(uri) -> StoredBook(uri, contentKeys[uri], removed = false)
+        uri in removed -> StoredBook(uri, contentKeys[uri], removed = true)
+        else -> null
+    }
+    override suspend fun withContent(contentKey: String): StoredBook? =
+        contentKeys.filterValues { it == contentKey }.keys.mapNotNull { stored(it) }.minByOrNull { it.removed }
+    override suspend fun setContentKey(uri: String, contentKey: String) { contentKeys[uri] = contentKey }
+    override suspend fun moveBook(from: String, to: String) {
+        val wasRemoved = from in removed
+        books.update { list -> list.map { if (it.uri == from) it.copy(uri = to, coverPath = null) else it } }
+        if (wasRemoved) { removed -= from; removed += to }
+        contentKeys.remove(from)?.let { contentKeys[to] = it }
+    }
 }
+
+/**
+ * Library rows by uri only -- no content keys, nothing to move: for the tests the Same book is not
+ * about. A book is "stored" while [exists] says so.
+ */
+internal interface UriOnlyLibrary : BookLibraryRepository {
+    override suspend fun stored(uri: String): StoredBook? =
+        if (exists(uri)) StoredBook(uri, contentKey = null, removed = false) else null
+    override suspend fun withContent(contentKey: String): StoredBook? = null
+    override suspend fun setContentKey(uri: String, contentKey: String) = Unit
+    override suspend fun moveBook(from: String, to: String) = error("no Same book in this test")
+}
+
+/** Content keys by uri; a uri not in [keys] is a file that cannot be read (null). Counts the reads. */
+internal class FakeBookContentKeys(val keys: MutableMap<String, String> = mutableMapOf()) : BookContentKeys {
+    val reads = mutableListOf<String>()
+    override suspend fun keyOf(uri: String): String? {
+        reads += uri
+        return keys[uri]
+    }
+}
+
+/** A [SameBook] over [library] that never recognises another uri: every file is unreadable. */
+internal fun sameBookFor(
+    library: BookLibraryRepository,
+    keys: BookContentKeys = FakeBookContentKeys(),
+    preferences: ReadingPreferences = FakeReadingPreferences(),
+    files: BookFiles = FakeBookFiles(),
+) = SameBook(library, keys, preferences, files)
 
 /** Records the books whose files were deleted. When [log] is given, appends `"files <uri>"` to it. */
 internal class FakeBookFiles(

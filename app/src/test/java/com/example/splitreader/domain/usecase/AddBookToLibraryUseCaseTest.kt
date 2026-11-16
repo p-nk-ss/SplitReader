@@ -1,5 +1,7 @@
 package com.example.splitreader.domain.usecase
 
+import com.example.splitreader.fakes.UriOnlyLibrary
+import com.example.splitreader.fakes.sameBookFor
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.LibraryBook
 import com.example.splitreader.domain.repository.BookLibraryRepository
@@ -27,7 +29,7 @@ class AddBookToLibraryUseCaseTest {
     private class FakeLibrary(
         var count: Int = 0,
         val existing: MutableSet<String> = mutableSetOf(),
-    ) : BookLibraryRepository {
+    ) : UriOnlyLibrary {
         val saved = mutableListOf<Book>()
         override suspend fun saveBook(book: Book) {
             saved += book
@@ -54,7 +56,7 @@ class AddBookToLibraryUseCaseTest {
         Book(title = "T", author = "A", chapters = emptyList(), filePath = path)
 
     private fun useCase(library: FakeLibrary, premium: Boolean) =
-        AddBookToLibraryUseCase(library, FakeEntitlement(premium))
+        AddBookToLibraryUseCase(library, FakeEntitlement(premium), sameBookFor(library))
 
     // ── canAddNew ─────────────────────────────────────────────────────────────
 

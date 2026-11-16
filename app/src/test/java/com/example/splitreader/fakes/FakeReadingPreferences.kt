@@ -45,7 +45,7 @@ internal class FakeReadingPreferences(
         finished.remove(bookUri); sourceLanguages.remove(bookUri)
     }
     override fun moveBook(from: String, to: String) {
-        fun <V> MutableMap<String, V>.move() { remove(from)?.let { put(to, it) } ?: remove(to) }
+        fun <V> MutableMap<String, V>.move() { val v = remove(from); if (v != null) put(to, v) else remove(to) }
         positions.move(); excerpts.move(); progress.move(); sourceLanguages.move()
         if (finished.remove(from)) finished += to else finished -= to
     }

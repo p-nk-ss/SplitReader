@@ -1,5 +1,7 @@
 package com.example.splitreader.presentation.home
 
+import com.example.splitreader.fakes.UriOnlyLibrary
+import com.example.splitreader.fakes.sameBookFor
 import android.app.Application
 import android.content.Context
 import android.net.Uri
@@ -55,7 +57,7 @@ class HomeImportLoadingTest {
     @get:Rule val main = MainDispatcherRule(UnconfinedTestDispatcher())
 
     /** A library whose save waits for [saveGate], so the test can look at the screen mid-save. */
-    private class GatedLibrary : BookLibraryRepository {
+    private class GatedLibrary : UriOnlyLibrary {
         val saveGate = CompletableDeferred<Unit>()
         val saveStarted = CompletableDeferred<Unit>()
         val books = MutableStateFlow<List<LibraryBook>>(emptyList())
@@ -89,7 +91,7 @@ class HomeImportLoadingTest {
                 FakeCrashReporter(),
             ),
             bookLibraryRepository = library,
-            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlementRepository()),
+            addBookToLibraryUseCase = AddBookToLibraryUseCase(library, FakeEntitlementRepository(), sameBookFor(library)),
             deleteBookUseCase = DeleteBookUseCase(library, FakeReadingPreferences(), FakeBookFiles()),
             progressManager = FakeReadingPreferences(),
             sessionRepository = sessions,
