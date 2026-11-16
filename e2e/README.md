@@ -201,7 +201,7 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
   `when: true: ${DEVICE_CLASS == '…'}`. A swipe that does not move (`duration: 700`,
   `waitToSettleTimeoutMs: 100`) is a 0.9 s long press; `longPressOn` holds for 3–4 s.
 - **Widths and pixel points are per AVD.** The `phone` / `tablet` numbers (paragraph widths in
-  `J-RDR-03`, `J-TRN-08` step 12, the 2432 of `J-TRN-06`, every literal point) are those of
+  `J-RDR-03`, `J-TRN-08` step 12, the 2432 of `J-TRN-06`, the 282 of `J-RDR-09`'s Google Drive pill, every literal point) are those of
   Pixel_10_Pro and Tab_35_PixelTablet. Another AVD of the same class (Tab_26_Nexus9) is selected
   by the tags and fails those checks: run the suite on those two AVDs.
 - **A flow that turns the device or switches aeroplane mode** declares `onFlowComplete:`
@@ -266,8 +266,8 @@ What a flow can see:
 - **Configured.** The card's line "KEY CONFIGURED" / "TAP TO ADD API KEY", between the card's
   name and the next card's name (`below:` / `above:`). The key dialog of a card with a key
   says "•••••••••• (existing key hidden)" and has Clear; without one "Paste key…" and no Clear.
-- **The key is masked**: the field reads back as bullets (`"•{16}"`); the Server URL / Region
-  field reads back as typed.
+- **The key is masked**: the field reads back as bullets (`"•{16}"`); the Region field reads back as
+  typed.
 - **A request was made** (made-up key): the error banner. It is drawn with the bars hidden and
   with the translation pane hidden; an invalid-key or missing-key error is persistent (not
   re-sent on scrolling). The popup shows the error's short form — a full-match text tells the

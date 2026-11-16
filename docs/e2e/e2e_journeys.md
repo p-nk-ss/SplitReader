@@ -30,7 +30,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-LIB-16 | Upgrading an old install in place (DB v2 / v3 → current) | P0 | manual, tablet | 8 | 7 |
 | J-LIB-17 | Release artifact audit before a Play upload | P0 | manual | 9 | 9 |
 | J-LIB-18 | Odd files that need a human eye | P1 | manual, tablet | 4 | 4 |
-| J-LIB-19 | Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them | P0 | smoke, full, tablet, phone | 10 | 6 |
+| J-LIB-19 | Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them | P0 | smoke, full, tablet, phone | 10 | 8 |
 | J-RDR-01 | Tablet: first read of an illustrated classic, side-by-side | P0 | smoke, full, tablet | 15 | 16 |
 | J-RDR-02 | Phone: stacked reading, progress and bookmarks | P0 | smoke, full, phone | 13 | 17 |
 | J-RDR-03 | Rotation and resume: the paragraph never moves | P0 | smoke, full, rotation, phone, tablet | 11 | 8 |
@@ -39,7 +39,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-RDR-06 | Tablet: tuning typography, layout combos and persistence | P1 | full, tablet | 13 | 10 |
 | J-RDR-07 | Phone: tuning the stacked reader at large font scale | P1 | full, phone | 10 | 6 |
 | J-RDR-08 | Tablet: unusual books and jumps while translation is loading | P1 | full, tablet | 6 | 5 |
-| J-RDR-09 | App chrome and the Words screen on phone and tablet | P0 | smoke, full, phone, tablet | 11 | 9 |
+| J-RDR-09 | App chrome and the Words screen on phone and tablet | P0 | smoke, full, phone, tablet | 11 | 10 |
 | J-RDR-10 | Tablet: working the divider by hand, then in split-screen | P1 | manual, tablet | 11 | 9 |
 | J-RDR-11 | Phone: hands-on stacked reading, words and rotation | P0 | manual, phone, rotation | 12 | 12 |
 | J-RDR-12 | Orientation lock and first-run defaults on phone and tablet | P0 | manual, phone, tablet, rotation | 8 | 7 |
@@ -58,7 +58,7 @@ before larger releases (+ tablet API 26); manual journeys on a real device befor
 | J-TRN-05 | Chinese and Japanese: books, sentences, both on-device engines | P0 | smoke, full, network, tablet, phone | 12 | 6 |
 | J-TRN-06 | Book language detection and the "From" override | P0 | smoke, full, network, phone, tablet | 11 | 6 |
 | J-TRN-07 | Online-engine keys without spending money: errors, Switch translator, clearing | P0 | smoke, full, network, phone, tablet | 16 | 13 |
-| J-TRN-08 | Azure and Quick Translate fields and gating, no LibreTranslate | P0 | smoke, full, network, phone, tablet | 11 | 11 |
+| J-TRN-08 | Azure and Quick Translate fields and gating, no LibreTranslate | P0 | smoke, full, network, phone, tablet | 11 | 12 |
 | J-TRN-09 | From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book into German | P1 | full, network, tablet | 19 | 11 |
 | J-TRN-10 | Jumping around: bookmarks, huge chapters, other books, odd books | P1 | full, network, phone, tablet | 10 | 4 |
 | J-TRN-11 | A DeepL reader: real key, usage, popup save, hidden pane | P0 | manual, network, phone, tablet | 15 | 18 |
@@ -930,7 +930,7 @@ Expected to fail until fixed; report, never block. Run as one probing session.
 | J-RDR-06 | full · tablet | P1 | 10 |
 | J-RDR-07 | full · phone | P1 | 6 |
 | J-RDR-08 | full · tablet | P1 | 5 |
-| J-RDR-09 | smoke · phone + tablet | P0 | 9 |
+| J-RDR-09 | smoke · phone + tablet | P0 | 10 |
 | J-RDR-10 | manual · tablet | P1 | 9 |
 | J-RDR-11 | manual · phone | P0 | 12 |
 | J-RDR-12 | manual · orientation | P0 | 7 |
@@ -1021,7 +1021,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 1. Launch the app (there is no onboarding: the Library is the first screen) and import `en-novel.epub` from the Library; importing a book opens it. (On a phone the "Parallel reading fits landscape better" hint opens over the book; the flow closes it at once with one point tap on GOT IT, because it hides the banner of step 2, and ticks "Don't show again" when the hint comes back on the next opening of the book, in step 7.)
 2. The book opens. → ✓ language button reads "EN → RU"; the banner reads "Preparing translation… N%" and N only grows (the popup, not the banner, says "Downloading language model… N%"); there is no "ML KIT READY" label in the top-right corner or anywhere else (OHQ-001, OHQ-004); while the banner is up it does not cover the chapter number "— 1 —" (LAY-023, a colour crop). On a phone this is watched in portrait, the two panes stacked — the first-run layout. With the bars up there is no "… — translated by ML Kit" strip: Offline HQ itself served.
 3. Wait for the download to finish without touching the screen. → ✓ every paragraph on the first screen gets a translation, not only the top one; the banner shows "Translating…" and then goes idle (TRN-001, OHQ-004). (The "Translating…" line is asserted on the tablet; on the phone it is up for well under a second and is only logged.)
-4. Open the Translator picker from the reader. → ✓ Offline HQ is the current translator (its card is the inverted one — checked by colour); the list shows ML Kit and Offline HQ ready with no key line, Quick Translate ready (online, no key), and DeepL, Google Cloud and Azure each with a key button ("TAP TO ADD API KEY"); no LibreTranslate card — removed in versionCode 29 (OHQ-001, SET-002).
+4. Open the Translator picker from the reader. → ✓ Offline HQ is the current translator (its card is the inverted one — checked by colour); the list shows ML Kit and Offline HQ ready with no key line, Quick Translate ready (online, no key), and DeepL, Google Cloud and Azure each with a key button ("TAP TO ADD API KEY") (OHQ-001, SET-002). No LibreTranslate card (removed in versionCode 29) is checked by J-TRN-08 step 1.
 5. In the picker, look at the ML Kit, Offline HQ and Quick Translate rows. → ✓ none has a usage bar or counter (ONL-016).
 6. Tap Offline HQ (already current). → ✓ no key field or "Configure" prompt opens; the picker closes and the reader keeps translating (OHQ-024).
 7. Back in the reader, wait 10 s without scrolling, then scroll paragraph by paragraph to the end of chapter 1. → ✓ paragraphs further down already show translations when they come into view (TRN-005). Automated as: after the 10 s the translation cache (Settings → "Cached translations: N", read after an app restart) holds the first screen's paragraphs plus the 8 below it, and every third paragraph down to the chapter's last has its translation within 3 s of being scrolled to; "no Translating delay" as the eye sees it is manual. On the way the 12th paragraph is checked to be in Offline HQ's wording ("паромник"; ML Kit says "паромчик").
@@ -1031,7 +1031,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 11. Tap Save. → ✓ toast "Saved to dictionary" (POP-001, WRD-001).
 12. Turn **Show translation** back on and close the book. Kill and relaunch the app, reopen the book. → ✓ Settings → Language packs lists EN → RU; no new download banner; translations appear at once; Offline HQ is still current and no "translated by ML Kit" strip shows (OHQ-001, OHQ-004).
 
-**Covers:** OHQ-001, OHQ-004, OHQ-024, OHQ-025, TRN-001, TRN-005, POP-001, POP-002, SET-002, ONL-016, LAY-023 (also WRD-001)
+**Covers:** OHQ-001, OHQ-004, OHQ-024, OHQ-025, TRN-001, TRN-005, POP-001, POP-002, SET-002, SET-018, ONL-016, LAY-023 (also WRD-001)
 
 ### J-TRN-02 — Word popup: select, drag, save, and the Words list
 
@@ -1194,7 +1194,7 @@ Translating → Ready transition, no intermediate results) until one is added; t
 13. Turn **Show translation** off, go back to the Library and open `prose-one-chapter.epub` (never opened; 56 paragraphs in ONE chapter); scroll three screens. Turn **Show translation** on, then read on to the end of the book. → ✓ the visible screen translates; nothing was translated in the background while hidden, and what was read while hidden is not filled in afterwards (TRN-027). *Automated through the cache count:* unchanged by the hidden reading; after the pane comes on it grows by at most the paragraphs from four above the one then on top (g, at least 10) to the end of the book (between 56 − g and 56 − g + 4, three either way allowed for a layout shift; the lower end is timing — the flow scrolls on before the look-behind runs). The book is one chapter so that "the chapter behind it" is the whole hidden read: an engine that fills the current chapter from its start when the pane comes on stores all 56, above the bound for every g ≥ 8. *Manual:* the placeholder on the paragraphs further down; a paid engine's usage counter.
 14. Select Offline HQ again (Settings). → ✓ Quick Translate never showed a usage line (true by construction — Quick Translate does not track usage; the flow's look cannot fail); Words has no entry.
 
-**Covers:** ONL-001, ONL-013, ONL-014, ONL-020, ONL-021, ONL-023, POP-012, SET-003, TRN-027, TRN-028 (also WRD-006; ONL-012 field check only — full Azure translation in J-TRN-12). ONL-009/010/011: removed in v29. ONL-024: MANUAL.
+**Covers:** ONL-001, ONL-013, ONL-014, ONL-020, ONL-021, ONL-023, POP-012, SET-003, SET-018, TRN-027, TRN-028 (also WRD-006; ONL-012 field check only — full Azure translation in J-TRN-12). ONL-009/010/011: removed in v29. ONL-024: MANUAL.
 
 ### J-TRN-09 — From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book into German
 

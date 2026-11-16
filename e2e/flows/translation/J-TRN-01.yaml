@@ -210,7 +210,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 #    4, continued: the three engines with their own key — each card has its key button
 #    (translator_edit_<provider>, the pencil that opens the key field); an engine without a key
 #    says "TAP TO ADD API KEY" (asserted on the first card; the line is the same on all three).
-#    No LibreTranslate card anywhere in the list (removed in versionCode 29).
+#    (No LibreTranslate card — removed in versionCode 29 — is checked by J-TRN-08 step 1.)
 - scrollUntilVisible:
     element:
       id: "translator_edit_google_cloud"
@@ -233,9 +233,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
     timeout: 15000
 - assertVisible: "Azure Translator"
 - assertNotVisible: ".*THIS MONTH.*"
-- assertNotVisible: ".*LibreTranslate.*"
-- assertNotVisible:
-    id: "translator_edit_libre_translate"
+# No LibreTranslate here: J-TRN-08 step 1 checks it at the top of the list (seen failing on v28);
+# at this scroll position its old slot may be off screen, so a check here could not fail.
 
 # 6. Tap Offline HQ (already current) -> no key field or "Configure" prompt opens; the picker
 #    closes and the reader still shows its translation (OHQ-024).

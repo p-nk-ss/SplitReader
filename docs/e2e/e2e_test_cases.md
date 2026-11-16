@@ -48,7 +48,7 @@ Results go to `releases/e2e-<versionName>-<versionCode>.md`.
 | UPD | Updates | 6 |
 | ALM | Almanac | 9 |
 | DAT | Data / upgrade | 7 |
-| | **Total** | **465** |
+| | **Total** | **464** |
 
 ## Reader-layout
 

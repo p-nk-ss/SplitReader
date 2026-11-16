@@ -271,6 +271,8 @@ tags: [smoke, full, library, J-LIB-19]
       id: "book_card_The River Crossing"
     direction: DOWN
     timeout: 10000
+# The proof of "one card" is "· 3 VOLUMES" above with no limit dialog; the index check below
+# only sees cards that are composed (lazy shelf) and is a cheap extra.
 - assertVisible:
     id: "book_card_The River Crossing"
     index: 0
