@@ -157,6 +157,20 @@ class TranslatorSettingsImplTest {
     }
 
     @Test
+    fun `choosing a translator before the notice was shown drops it -- it would name the wrong one`() = runTest {
+        for (choose in listOf<suspend (TranslatorSettingsImpl) -> Unit>({ it.select(MLKIT) }, { it.saveKey(DEEPL, "k", null) })) {
+            val prefs = FakeReadingPreferences(provider = null, log = log).apply { retiredProvider = "LIBRE_TRANSLATE" }
+            val settings = settings(prefs, StandardTestDispatcher(testScheduler))
+            assertTrue(settings.config.value.notice != null)
+
+            choose(settings)
+
+            assertEquals(null, settings.config.value.notice)
+            assertEquals(null, prefs.notice)
+        }
+    }
+
+    @Test
     fun `LibreTranslate's stored key and server are deleted`() = runTest {
         val prefs = FakeReadingPreferences(provider = DEEPL, log = log)
         settings(prefs, StandardTestDispatcher(testScheduler))

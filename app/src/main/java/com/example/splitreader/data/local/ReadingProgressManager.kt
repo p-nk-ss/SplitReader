@@ -236,8 +236,9 @@ class ReadingProgressManager @Inject constructor(
     override fun getTranslatorNotice(): String? = prefs.getString("translator_notice", null)
 
     override fun setTranslatorNotice(text: String?) {
-        // commit(): a notice raised must survive a process death before the reader shows it.
-        prefs.edit().apply { if (text == null) remove("translator_notice") else putString("translator_notice", text) }.commit()
+        // apply(), not commit(): raised from TranslatorSettingsImpl's constructor on the main thread.
+        // Ordering is all that matters (see retireLibreTranslate): apply() keeps it within this file.
+        prefs.edit().apply { if (text == null) remove("translator_notice") else putString("translator_notice", text) }.apply()
     }
 
     // ── Read-aloud (TTS) ───────────────────────────────────────────────────────

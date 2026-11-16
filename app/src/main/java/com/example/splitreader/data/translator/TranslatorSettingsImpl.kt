@@ -43,12 +43,19 @@ class TranslatorSettingsImpl @Inject constructor(
 
     override suspend fun select(provider: TranslationProvider) = command {
         if (current() != provider) prefs.setTranslatorProvider(provider)
+        dropNotice()
     }
 
     override suspend fun saveKey(provider: TranslationProvider, key: String?, secondary: String?) = command {
         if (key != null) keys.setKey(provider, key)
         if (provider.secondaryLabel != null && secondary != null) endpoints.setSecondary(provider, secondary)
         prefs.setTranslatorProvider(provider)
+        dropNotice()
+    }
+
+    /** A reader who chose a translator needs no notice about the one chosen for them (it would name the wrong one). */
+    private fun dropNotice() {
+        if (prefs.getTranslatorNotice() != null) prefs.setTranslatorNotice(null)
     }
 
     /**
@@ -75,8 +82,11 @@ class TranslatorSettingsImpl @Inject constructor(
         keys.forgetLibreTranslate()
         endpoints.forgetLibreTranslate()
         if (prefs.retiredTranslatorProvider() == RETIRED_LIBRE_TRANSLATE) {
-            prefs.clearTranslatorProvider()
+            // The notice first: both are async writes to one prefs file, each writing the whole file,
+            // so a cleared choice on disk always comes with its notice. Lost both -> this runs again.
+            // (The retired name already reads as "no choice", so current() is the default here.)
             prefs.setTranslatorNotice("LibreTranslate is no longer supported — switched to ${current().displayName}.")
+            prefs.clearTranslatorProvider()
         }
     }
 
