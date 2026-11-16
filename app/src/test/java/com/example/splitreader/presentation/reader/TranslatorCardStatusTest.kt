@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.reader
 import android.app.Application
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import com.example.splitreader.domain.model.ProviderConfig
 import com.example.splitreader.domain.model.TranslationProvider
@@ -37,15 +38,20 @@ class TranslatorCardStatusTest {
         }
     }
 
+    /** LibreTranslate's own card (a clickable row merges its texts), not another provider's "KEY CONFIGURED". */
+    private fun libreCard(status: String) = hasText("LibreTranslate") and hasText(status)
+
     @Test
     fun `a own server without a key is named, not called a key`() {
         show(ProviderConfig(configured = true, secondaryValue = "https://libre.example.org", keyStored = false))
-        composeRule.onNodeWithText("SERVER · LIBRE.EXAMPLE.ORG").assertExists()
+        composeRule.onNode(libreCard("SERVER · LIBRE.EXAMPLE.ORG")).assertExists()
+        composeRule.onNode(libreCard("KEY CONFIGURED")).assertDoesNotExist()
     }
 
     @Test
     fun `a stored key still reads as configured`() {
         show(ProviderConfig(configured = true, secondaryValue = "https://libre.example.org", keyStored = true))
+        composeRule.onNode(libreCard("KEY CONFIGURED")).assertExists()
         composeRule.onNodeWithText("SERVER · LIBRE.EXAMPLE.ORG").assertDoesNotExist()
     }
 }
