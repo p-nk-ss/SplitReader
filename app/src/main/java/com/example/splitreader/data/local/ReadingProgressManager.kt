@@ -177,6 +177,30 @@ class ReadingProgressManager @Inject constructor(
         edit.apply()
     }
 
+    override fun moveBook(from: String, to: String) {
+        val all = prefs.all
+        val edit = prefs.edit()
+        for (prefix in PER_BOOK_KEY_PREFIXES) edit.remove(prefix + to)
+        legacyScrollKeys(to).forEach { edit.remove(it) }
+        val moved = PER_BOOK_KEY_PREFIXES.map { prefix -> prefix + from to prefix + to } +
+            legacyScrollKeys(from).map { key ->
+                val prefix = if (key.startsWith("last_scroll_offset_")) "last_scroll_offset_" else "last_scroll_"
+                key to prefix + to + key.removePrefix(prefix + from)
+            }
+        for ((old, new) in moved) {
+            when (val value = all[old] ?: continue) {
+                is Int -> edit.putInt(new, value)
+                is Long -> edit.putLong(new, value)
+                is Float -> edit.putFloat(new, value)
+                is Boolean -> edit.putBoolean(new, value)
+                is String -> edit.putString(new, value)
+            }
+            edit.remove(old)
+        }
+        // commit(): the library row has already moved; the place must not be lost to a process death.
+        edit.commit()
+    }
+
     override fun saveTargetLanguage(language: Language) {
         prefs.edit()
             .putString("target_language", language.code)
