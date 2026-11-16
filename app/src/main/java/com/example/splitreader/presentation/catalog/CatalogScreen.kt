@@ -11,12 +11,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -264,8 +264,11 @@ internal fun CatalogScreen(
 
 /**
  * Editorial source switcher: one pill per [CatalogSource] plus a Google Drive pill. The active one
- * fills with the accent. Scrolls horizontally so the labels never clip on narrow screens.
+ * fills with the accent. The pills wrap onto a second line (same [LocalSpacing] `sm` gap as between
+ * pills) rather than scroll: on a phone a scrolled row cut "Google Drive" off at the screen edge and
+ * readers never found Drive import.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SourceTabs(
     selectedSource: CatalogSource,
@@ -274,9 +277,9 @@ private fun SourceTabs(
     onSelectDrive: () -> Unit,
 ) {
     val sp = LocalSpacing.current
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(sp.sm),
+        verticalArrangement = Arrangement.spacedBy(sp.sm),
     ) {
         CatalogSource.entries.forEach { source ->
             TabPill(
