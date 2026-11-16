@@ -171,7 +171,8 @@ internal enum class LanguagePickerTab { SOURCE, TARGET }
 /**
  * The reader's languages: the book's own ([LanguagePickerTab.SOURCE], for when detection is wrong
  * or found a language the translators lack) and the translation's ([LanguagePickerTab.TARGET]).
- * [onSelectSource] gets null for "Automatic".
+ * [onSelectSource] gets null for "Automatic". [mlKitModelDownloaded]: whether ML Kit's models for
+ * the reader's pair are on the device (null = not known: the strip makes no claim).
  */
 @Composable
 internal fun LanguagePickerDialog(
@@ -182,6 +183,7 @@ internal fun LanguagePickerDialog(
     chosenSource: Language? = null,
     onSelectSource: (Language?) -> Unit = {},
     initialTab: LanguagePickerTab = LanguagePickerTab.TARGET,
+    mlKitModelDownloaded: Boolean? = null,
 ) {
     val palette = LocalReaderPalette.current
     val sp = LocalSpacing.current
@@ -239,7 +241,13 @@ internal fun LanguagePickerDialog(
                         Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
                         Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
                     }
-                    Text("ML KIT · DOWNLOADED", fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3)
+                    // The real state, asked without downloading; no claim while it is unknown.
+                    mlKitModelDownloaded?.let { downloaded ->
+                        Text(
+                            if (downloaded) "ML KIT · DOWNLOADED" else "ML KIT · NOT DOWNLOADED",
+                            fontFamily = JetBrainsMono, fontSize = 11.sp, letterSpacing = 0.3.sp, color = palette.ink3,
+                        )
+                    }
                 }
             }
         }

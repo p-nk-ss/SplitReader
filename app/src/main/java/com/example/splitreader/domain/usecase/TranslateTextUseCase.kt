@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
@@ -47,6 +48,10 @@ class TranslateTextUseCase @Inject constructor(
      */
     fun download(language: Language, target: Language, provider: TranslationProvider): Flow<Float> =
         repository.prepare(language, target, provider).flowOn(ioDispatcher)
+
+    /** Whether [provider] can translate [source]→[target] now without downloading anything. */
+    suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean =
+        withContext(ioDispatcher) { repository.isReady(source, target, provider) }
 
     /**
      * Translates paragraphs in the given index range.

@@ -79,7 +79,12 @@ internal class FakeTranslationRepository : TranslationRepository {
         if (source in failPrepare) throw IOException("no network")
         notInstalled -= source
     }
-    override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider) = source !in notInstalled
+    /** The provider each [isReady] call asked about, in order. */
+    val readyChecks: MutableList<TranslationProvider> = Collections.synchronizedList(mutableListOf())
+    override suspend fun isReady(source: Language, target: Language, provider: TranslationProvider): Boolean {
+        readyChecks += provider
+        return source !in notInstalled
+    }
     override suspend fun cachedCount() = 0
     override suspend fun clearCache() = Unit
 

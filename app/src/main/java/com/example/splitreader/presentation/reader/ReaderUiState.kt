@@ -98,6 +98,11 @@ sealed interface ReaderUiState {
         val paragraphNotes: Map<Int, Map<Int, ParagraphNote>> = emptyMap(),
         /** Models the reader asked to download from a paragraph's note. */
         val languageDownloads: Map<Language, LanguageDownload> = emptyMap(),
+        /**
+         * Whether ML Kit's models for [sourceLanguage]→[targetLanguage] are on the device, as last
+         * asked (without downloading) by [ReaderViewModel.checkMlKitModel]; null = not known.
+         */
+        val mlKitModelDownloaded: Boolean? = null,
     ) : ReaderUiState {
         /** False when the book's language can't be translated from and the reader hasn't picked one: shown untranslated. */
         val translatable: Boolean

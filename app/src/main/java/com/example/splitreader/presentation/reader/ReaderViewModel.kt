@@ -95,6 +95,8 @@ class ReaderViewModel @Inject constructor(
         val translatorProvider: TranslationProvider = TranslationProvider.MLKIT,
         val translatorConfig: TranslatorConfigState =
             TranslatorConfigState(current = TranslationProvider.MLKIT, configs = emptyMap()),
+        /** The last [checkMlKitModel] answer; shown only while it is about the current pair. */
+        val mlKitModel: MlKitModel? = null,
     ) {
         /** False for a book in a language the translators lack (or none detected) until the reader picks one. */
         val translatable: Boolean get() = chosenSource != null || sourceDetection is SourceDetection.Supported
@@ -112,6 +114,8 @@ class ReaderViewModel @Inject constructor(
             SourceDetection.Unknown -> null
         }
     }
+
+    private data class MlKitModel(val source: Language, val target: Language, val downloaded: Boolean)
 
     private val detectBookLanguage = DetectBookLanguageUseCase(languageDetector)
 
@@ -156,6 +160,9 @@ class ReaderViewModel @Inject constructor(
                     wordSelection = s.wordSelection,
                     translatorProvider = s.translatorProvider,
                     translatorConfig = s.translatorConfig,
+                    mlKitModelDownloaded = s.mlKitModel?.takeIf {
+                        s.translatable && it.source == s.sourceLanguage && it.target == s.targetLanguage
+                    }?.downloaded,
                 )
             }
         }
@@ -387,6 +394,27 @@ class ReaderViewModel @Inject constructor(
      * downloads [provider]'s model for [language] into the current target, then has the engine
      * translate the paragraphs that were waiting for it.
      */
+    /**
+     * Asks — without downloading anything — whether ML Kit's models for the reader's pair are on
+     * the device, for the language picker's info strip. Unknown (null) for an untranslatable book.
+     */
+    fun checkMlKitModel() {
+        val s = _state.value
+        if (!s.translatable) return
+        val source = s.sourceLanguage
+        val target = s.targetLanguage
+        viewModelScope.launch {
+            val ready = try {
+                translateTextUseCase.isReady(source, target, TranslationProvider.MLKIT)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return@launch
+            }
+            _state.update { it.copy(mlKitModel = MlKitModel(source, target, ready)) }
+        }
+    }
+
     fun downloadModel(language: Language, provider: TranslationProvider) {
         if (_state.value.languageDownloads[language] is LanguageDownload.Running) return
         val target = _state.value.targetLanguage
