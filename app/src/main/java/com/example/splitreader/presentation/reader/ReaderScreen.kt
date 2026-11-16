@@ -148,6 +148,7 @@ internal fun ReaderRoute(
             onRetryTranslation = viewModel::retryTranslation,
             onTranslateWholeChapter = viewModel::translateWholeChapter,
             onDismissPortraitHint = viewModel::dismissPortraitHint,
+            onDismissTranslatorNotice = viewModel::dismissTranslatorNotice,
         )
     }
 }
@@ -210,6 +211,7 @@ internal fun ReaderContent(
     onSetSourceLanguage: (Language?) -> Unit = {},
     onDownloadModel: (Language, TranslationProvider) -> Unit = { _, _ -> },
     onCheckModel: () -> Unit = {},
+    onDismissTranslatorNotice: () -> Unit = {},
 ) {
     // A book that can't be translated reads as one column of its own text, like "Show translation" off.
     val appearance = if (state.translatable) state.appearance else state.appearance.copy(showTranslation = false)
@@ -513,6 +515,9 @@ internal fun ReaderContent(
                 hintShownThisEntry = true
                 onDismissPortraitHint(dontShowAgain)
             })
+        } else if (state.translatorNotice != null) {
+            // After the portrait hint, never on top of it.
+            TranslatorNoticeDialog(message = state.translatorNotice, onDismiss = onDismissTranslatorNotice)
         }
         if (showTranslatorPicker) {
             LaunchedEffect(Unit) { onRefreshTranslationUsage() }

@@ -103,6 +103,8 @@ sealed interface ReaderUiState {
          * asked (without downloading) by [ReaderViewModel.checkModel]; null = not known.
          */
         val modelStatus: ModelStatus? = null,
+        /** A one-time message about the translator (the one the reader chose is gone); shown until dismissed. */
+        val translatorNotice: String? = null,
     ) : ReaderUiState {
         /** False when the book's language can't be translated from and the reader hasn't picked one: shown untranslated. */
         val translatable: Boolean

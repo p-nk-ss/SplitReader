@@ -527,6 +527,24 @@ internal fun PortraitHintDialog(
     }
 }
 
+/**
+ * Tells the reader once that the translator they chose is gone and which one replaced it
+ * ([ReaderUiState.Success.translatorNotice]) -- the app never switches translators silently.
+ */
+@Composable
+internal fun TranslatorNoticeDialog(message: String, onDismiss: () -> Unit) {
+    val palette = LocalReaderPalette.current
+    val sp = LocalSpacing.current
+    EditorialDialog(eyebrow = "Translation", title = "Your translator changed", onDismiss = onDismiss) {
+        Text(text = message, fontFamily = Newsreader, fontSize = 14.sp, color = palette.ink2)
+        Spacer(Modifier.height(sp.sm))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+            LibraryTagButton(text = "OK", onClick = onDismiss, showPlus = false, dense = true, filled = true)
+        }
+        Spacer(Modifier.height(sp.sm))
+    }
+}
+
 // ── Chapter picker dialog ─────────────────────────────────────────────────
 
 @Composable

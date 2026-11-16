@@ -160,6 +160,7 @@ class ReaderViewModel @Inject constructor(
                     wordSelection = s.wordSelection,
                     translatorProvider = s.translatorProvider,
                     translatorConfig = s.translatorConfig,
+                    translatorNotice = s.translatorConfig.notice,
                     modelStatus = s.model?.takeIf {
                         s.translatable && it.source == s.sourceLanguage && it.target == s.targetLanguage &&
                             it.provider == s.translatorProvider
@@ -546,6 +547,11 @@ class ReaderViewModel @Inject constructor(
     }
 
     /** [dontShowAgain] persists; otherwise the hint simply does not reappear this entry. */
+    /** The reader dismissed [ReaderUiState.Success.translatorNotice]: it is never shown again. */
+    fun dismissTranslatorNotice() {
+        viewModelScope.launch { translatorSettings.noticeShown() }
+    }
+
     fun dismissPortraitHint(dontShowAgain: Boolean) {
         if (dontShowAgain) progressManager.savePortraitHintDismissed(true)
         _state.update { it.copy(portraitHintDismissed = it.portraitHintDismissed || dontShowAgain) }

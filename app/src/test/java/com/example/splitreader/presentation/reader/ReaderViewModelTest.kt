@@ -562,4 +562,23 @@ class ReaderViewModelTest {
     private companion object {
         const val RELOAD_WINDOW_MS = 1_500L
     }
+
+    @Test
+    fun `the notice that the reader's translator is gone shows until dismissed, then never again`() = runTest(main.dispatcher) {
+        val settings = FakeTranslatorSettings(current = TranslationProvider.BERGAMOT).apply {
+            mutableConfig.value = mutableConfig.value.copy(notice = "LibreTranslate is no longer supported — switched to Offline HQ.")
+        }
+        val h = harness(book(5), settings = settings)
+        open(h)
+        advanceUntilIdle()
+
+        assertEquals("LibreTranslate is no longer supported — switched to Offline HQ.", h.success().translatorNotice)
+        assertFalse("not acknowledged before the reader dismissed it", "noticeShown" in settings.log)
+
+        h.vm.dismissTranslatorNotice()
+        advanceUntilIdle()
+
+        assertEquals(null, h.success().translatorNotice)
+        assertEquals(listOf("noticeShown"), settings.log.filter { it == "noticeShown" })
+    }
 }
