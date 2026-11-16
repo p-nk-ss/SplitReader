@@ -46,8 +46,14 @@ class TranslatorSettingsImpl @Inject constructor(
         prefs.setTranslatorProvider(provider)
     }
 
+    /**
+     * Forgets the provider's whole setup: the key and its secondary setting (LibreTranslate's server,
+     * Azure's region). A custom LibreTranslate server alone keeps the provider configured, so
+     * clearing only the key left the card unchanged after Clear.
+     */
     override suspend fun clear(provider: TranslationProvider) = command {
         keys.setKey(provider, null)
+        if (provider.secondaryLabel != null) endpoints.setSecondary(provider, null)
         if (current() == provider) prefs.setTranslatorProvider(TranslationProvider.MLKIT)
     }
 
@@ -78,9 +84,11 @@ class TranslatorSettingsImpl @Inject constructor(
      */
     private fun build(current: TranslationProvider): TranslatorConfigState {
         val configs = TranslationProvider.entries.associateWith { p ->
+            val configured = providers[p]?.isConfigured() ?: (p.category == TranslationProviderCategory.FREE)
             ProviderConfig(
-                configured = providers[p]?.isConfigured() ?: (p.category == TranslationProviderCategory.FREE),
+                configured = configured,
                 secondaryValue = endpoints.getSecondary(p),
+                keyStored = if (p.requiresApiKey) keys.getKey(p) != null else configured,
             )
         }
         return TranslatorConfigState(

@@ -100,6 +100,8 @@ internal fun TranslatorPickerDialog(
                     provider = provider,
                     selected = provider == state.current,
                     configured = configured,
+                    keyStored = state.configs[provider]?.keyStored ?: configured,
+                    secondaryValue = state.configs[provider]?.secondaryValue.orEmpty(),
                     usage = state.usage[provider],
                     onSelect = {
                         if (!configured) keyDialogTarget = provider else onSelect(provider)
@@ -144,6 +146,7 @@ internal fun TranslatorPickerDialog(
         ApiKeyDialog(
             provider = provider,
             existingPresent = state.configs[provider]?.configured ?: false,
+            keyStored = state.configs[provider]?.keyStored ?: false,
             secondaryLabel = provider.secondaryLabel,
             secondaryValue = state.configs[provider]?.secondaryValue.orEmpty(),
             secondaryPlaceholder = provider.secondaryPlaceholder.orEmpty(),
@@ -195,6 +198,8 @@ private fun ProviderRow(
     selected: Boolean,
     configured: Boolean,
     usage: TranslationUsage?,
+    keyStored: Boolean = configured,
+    secondaryValue: String = "",
     onSelect: () -> Unit,
     onConfigure: (() -> Unit)?,
     onResetUsage: () -> Unit,
@@ -240,7 +245,13 @@ private fun ProviderRow(
             }
             if (provider.requiresApiKey) {
                 Spacer(Modifier.height(sp.xxs))
-                val statusText = if (configured) "Key configured" else "Tap to add API key"
+                // A LibreTranslate server of the reader's own is configured without a key: name it.
+                val statusText = when {
+                    configured && keyStored -> "Key configured"
+                    configured && secondaryValue.isNotBlank() -> "Server · ${serverHost(secondaryValue)}"
+                    configured -> "Configured"
+                    else -> "Tap to add API key"
+                }
                 Text(
                     text = statusText.uppercase(),
                     fontFamily = JetBrainsMono,
@@ -296,6 +307,8 @@ internal fun ApiKeyDialog(
     onSave: (key: String?, secondary: String?) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
+    /** Whether a key is stored ([existingPresent] can be a LibreTranslate server alone). */
+    keyStored: Boolean = existingPresent,
 ) {
     val palette = LocalReaderPalette.current
     val radii = LocalRadii.current
@@ -336,7 +349,7 @@ internal fun ApiKeyDialog(
                 decorationBox = { inner ->
                     if (input.isEmpty()) {
                         Text(
-                            text = if (existingPresent) "•••••••••• (existing key hidden)" else "Paste key…",
+                            text = if (keyStored) "•••••••••• (existing key hidden)" else "Paste key…",
                             fontFamily = JetBrainsMono,
                             fontSize = 13.sp,
                             color = palette.ink3,
@@ -532,3 +545,7 @@ private fun DialogButton(label: String, primary: Boolean, enabled: Boolean, onCl
         )
     }
 }
+
+/** The host of a server address ("https://libre.example.org/x" → "libre.example.org"); the address itself if it has none. */
+private fun serverHost(url: String): String =
+    runCatching { java.net.URI(url.trim()).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: url.trim()

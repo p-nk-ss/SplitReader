@@ -6,6 +6,7 @@ import com.example.splitreader.domain.model.TranslationProvider.AZURE
 import com.example.splitreader.domain.model.TranslationProvider.BERGAMOT
 import com.example.splitreader.domain.model.TranslationProvider.DEEPL
 import com.example.splitreader.domain.model.TranslationProvider.GOOGLE_CLOUD
+import com.example.splitreader.domain.model.TranslationProvider.LIBRE_TRANSLATE
 import com.example.splitreader.domain.model.TranslationProvider.MLKIT
 import com.example.splitreader.domain.model.TranslationUsage
 import com.example.splitreader.domain.repository.TranslationUsageStats
@@ -150,6 +151,53 @@ class TranslatorSettingsImplTest {
         assertEquals(DEEPL, settings.config.value.current)
         assertTrue(settings.config.value.configs[DEEPL]!!.configured)
         assertFalse(settings.config.value.configs[AZURE]!!.configured)
+    }
+
+    /** Like [LibreTranslateProvider]: a key or a server other than the public one configures it. */
+    private inner class LibreLike : TranslationProviderApi {
+        override val id = LIBRE_TRANSLATE
+        override fun isConfigured() = keys.getKey(LIBRE_TRANSLATE) != null || endpoints.getSecondary(LIBRE_TRANSLATE).isNotEmpty()
+        override suspend fun translate(text: String, source: Language, target: Language) = text
+    }
+
+    private fun TestScope.libreSettings(current: TranslationProvider) = TranslatorSettingsImpl(
+        keys, endpoints, usage, FakeReadingPreferences(provider = current, log = log),
+        TranslationProvider.entries.associateWith { if (it == LIBRE_TRANSLATE) LibreLike() else FakeProvider(it, keys) },
+        StandardTestDispatcher(testScheduler),
+    )
+
+    /**
+     * LibreTranslate with its own server and a key: Clear removed only the key, and the card still
+     * read "KEY CONFIGURED" (the custom server alone keeps it configured). Clear forgets the whole
+     * setup — key and server — so the card visibly goes back to "add a key".
+     */
+    @Test
+    fun `clearing LibreTranslate forgets its key and its server`() = runTest {
+        keys.keys[LIBRE_TRANSLATE] = "k"
+        endpoints.values[LIBRE_TRANSLATE] = "https://libre.example.org"
+        val settings = libreSettings(LIBRE_TRANSLATE)
+
+        settings.clear(LIBRE_TRANSLATE)
+
+        assertFalse(settings.config.value.configs[LIBRE_TRANSLATE]!!.configured)
+        assertEquals("", settings.config.value.configs[LIBRE_TRANSLATE]!!.secondaryValue)
+        assertEquals(MLKIT, settings.config.value.current)
+    }
+
+    /** A self-hosted server needs no key: the config says whether a key is stored, so the card doesn't claim one. */
+    @Test
+    fun `a LibreTranslate server without a key is configured but has no key`() = runTest {
+        endpoints.values[LIBRE_TRANSLATE] = "https://libre.example.org"
+        val settings = libreSettings(MLKIT)
+        settings.refresh()
+
+        val libre = settings.config.value.configs[LIBRE_TRANSLATE]!!
+        assertTrue(libre.configured)
+        assertFalse(libre.keyStored)
+
+        keys.keys[LIBRE_TRANSLATE] = "k"
+        settings.refresh()
+        assertTrue(settings.config.value.configs[LIBRE_TRANSLATE]!!.keyStored)
     }
 
     @Test
