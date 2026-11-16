@@ -1,5 +1,6 @@
 package com.example.splitreader.data.translator
 
+import com.example.splitreader.data.local.TranslatorEndpoints
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.model.TranslationProvider.AZURE
@@ -45,7 +46,12 @@ class TranslatorSettingsImplTest {
 
     private inner class FakeEndpoints : TranslatorEndpointStore {
         val values = ConcurrentHashMap<TranslationProvider, String>()
-        override fun getSecondary(provider: TranslationProvider): String = values[provider] ?: ""
+        /** Like [com.example.splitreader.data.local.TranslatorEndpoints]: unset → the provider's default. */
+        override fun getSecondary(provider: TranslationProvider): String = values[provider] ?: when (provider) {
+            LIBRE_TRANSLATE -> TranslatorEndpoints.DEFAULT_LIBRE_URL
+            AZURE -> TranslatorEndpoints.DEFAULT_AZURE_REGION
+            else -> ""
+        }
         override fun setSecondary(provider: TranslationProvider, value: String?) {
             log += "setSecondary $provider"
             if (value == null) values.remove(provider) else values[provider] = value
@@ -156,7 +162,8 @@ class TranslatorSettingsImplTest {
     /** Like [LibreTranslateProvider]: a key or a server other than the public one configures it. */
     private inner class LibreLike : TranslationProviderApi {
         override val id = LIBRE_TRANSLATE
-        override fun isConfigured() = keys.getKey(LIBRE_TRANSLATE) != null || endpoints.getSecondary(LIBRE_TRANSLATE).isNotEmpty()
+        override fun isConfigured() = keys.getKey(LIBRE_TRANSLATE) != null ||
+            endpoints.getSecondary(LIBRE_TRANSLATE) != TranslatorEndpoints.DEFAULT_LIBRE_URL
         override suspend fun translate(text: String, source: Language, target: Language) = text
     }
 
@@ -180,8 +187,24 @@ class TranslatorSettingsImplTest {
         settings.clear(LIBRE_TRANSLATE)
 
         assertFalse(settings.config.value.configs[LIBRE_TRANSLATE]!!.configured)
-        assertEquals("", settings.config.value.configs[LIBRE_TRANSLATE]!!.secondaryValue)
+        assertEquals("back to the public server", TranslatorEndpoints.DEFAULT_LIBRE_URL, settings.config.value.configs[LIBRE_TRANSLATE]!!.secondaryValue)
         assertEquals(MLKIT, settings.config.value.current)
+    }
+
+    /**
+     * Azure's region is not what makes it configured (its key is), and a reader re-entering a key
+     * for a `westeurope` resource must not find the region silently back at "global" (v29 review 4.1).
+     */
+    @Test
+    fun `clearing Azure keeps its region`() = runTest {
+        keys.keys[AZURE] = "a"
+        endpoints.values[AZURE] = "westeurope"
+        val settings = libreSettings(MLKIT)
+
+        settings.clear(AZURE)
+
+        assertFalse(settings.config.value.configs[AZURE]!!.configured)
+        assertEquals("westeurope", settings.config.value.configs[AZURE]!!.secondaryValue)
     }
 
     /** A self-hosted server needs no key: the config says whether a key is stored, so the card doesn't claim one. */
