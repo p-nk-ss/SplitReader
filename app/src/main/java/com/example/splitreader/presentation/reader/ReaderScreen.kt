@@ -482,6 +482,7 @@ internal fun ReaderContent(
             LaunchedEffect(Unit) { onCheckModel() }
             LanguagePickerDialog(
                 currentTarget = state.targetLanguage,
+                translatorProvider = state.translatorProvider,
                 onSelect = { lang ->
                     onSetTargetLanguage(lang)
                     showLanguagePicker = false

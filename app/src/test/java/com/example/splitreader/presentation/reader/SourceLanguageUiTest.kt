@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.SourceDetection
+import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.presentation.theme.SplitReaderTheme
 import com.example.splitreader.screenshot.ScreenFixtures
 import org.junit.Assert.assertEquals
@@ -33,7 +34,7 @@ class SourceLanguageUiTest {
         composeRule.setContent {
             SplitReaderTheme {
                 LanguagePickerDialog(
-                    currentTarget = Language.RUSSIAN, onSelect = {}, onDismiss = {},
+                    currentTarget = Language.RUSSIAN, translatorProvider = TranslationProvider.BERGAMOT, onSelect = {}, onDismiss = {},
                     sourceDetection = SourceDetection.Unsupported("fi"), chosenSource = null,
                     onSelectSource = { picked += it }, initialTab = LanguagePickerTab.SOURCE,
                 )
@@ -50,7 +51,7 @@ class SourceLanguageUiTest {
         var target: Language? = null
         composeRule.setContent {
             SplitReaderTheme {
-                LanguagePickerDialog(currentTarget = Language.RUSSIAN, onSelect = { target = it }, onDismiss = {})
+                LanguagePickerDialog(currentTarget = Language.RUSSIAN, translatorProvider = TranslationProvider.BERGAMOT, onSelect = { target = it }, onDismiss = {})
             }
         }
         composeRule.onNodeWithText("Automatic").assertDoesNotExist()

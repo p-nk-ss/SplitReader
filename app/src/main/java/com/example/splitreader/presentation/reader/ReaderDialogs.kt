@@ -178,6 +178,8 @@ internal enum class LanguagePickerTab { SOURCE, TARGET }
 @Composable
 internal fun LanguagePickerDialog(
     currentTarget: Language,
+    /** The active translator: the strip says whether text leaves the device. */
+    translatorProvider: TranslationProvider,
     onSelect: (Language) -> Unit,
     onDismiss: () -> Unit,
     sourceDetection: SourceDetection = SourceDetection.Unknown,
@@ -238,9 +240,15 @@ internal fun LanguagePickerDialog(
                         fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2,
                     )
                 } else {
-                    Row {
-                        Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
-                        Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                    // "No cloud calls" only where it is true: an online translator gets told where the text goes.
+                    val recipient = translatorProvider.sendsTextTo
+                    if (recipient == null) {
+                        Row {
+                            Text(stringResource(R.string.reader_ondevice_translation), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
+                            Text(stringResource(R.string.reader_no_cloud_calls), fontFamily = Newsreader, fontStyle = FontStyle.Italic, fontSize = 12.sp, color = palette.ink2)
+                        }
+                    } else {
+                        Text(stringResource(R.string.reader_online_translation_sent_to, recipient), fontFamily = Newsreader, fontSize = 12.sp, color = palette.ink2)
                     }
                     // The real state, asked without downloading; no claim while it is unknown.
                     modelStatus?.let { status ->

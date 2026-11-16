@@ -100,7 +100,7 @@ class ModelStatusTest {
 
     private fun showStrip(status: ModelStatus?) = composeRule.setContent {
         SplitReaderTheme {
-            LanguagePickerDialog(currentTarget = Language.RUSSIAN, onSelect = {}, onDismiss = {}, modelStatus = status)
+            LanguagePickerDialog(currentTarget = Language.RUSSIAN, translatorProvider = status?.provider ?: TranslationProvider.BERGAMOT, onSelect = {}, onDismiss = {}, modelStatus = status)
         }
     }
 

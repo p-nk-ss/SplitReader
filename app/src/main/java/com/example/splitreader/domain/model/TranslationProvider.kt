@@ -14,6 +14,8 @@ enum class TranslationProvider(
     val secondaryIsUrl: Boolean = false,
     val helpUrl: String? = null,
     val stabilityNote: String? = null,
+    /** Who receives the text an online translator translates (honest privacy line); null = on-device. */
+    val sendsTextTo: String? = null,
 ) {
     MLKIT(
         displayName = "ML Kit (offline)",
@@ -40,6 +42,7 @@ enum class TranslationProvider(
         description = "Fast online translation. No setup; needs internet.",
         tracksUsage = false,
         stabilityNote = "Unofficial endpoint — may be rate-limited or break without notice.",
+        sendsTextTo = "Google",
     ),
     LIBRE_TRANSLATE(
         displayName = "LibreTranslate",
@@ -52,6 +55,7 @@ enum class TranslationProvider(
         secondaryPlaceholder = "https://…",
         secondaryIsUrl = true,
         helpUrl = null,
+        sendsTextTo = "LibreTranslate",
     ),
     GOOGLE_CLOUD(
         displayName = "Google Cloud Translation",
@@ -61,6 +65,7 @@ enum class TranslationProvider(
         description = "Official API. 500K characters/month free, paid after.",
         tracksUsage = true,
         helpUrl = "console.cloud.google.com → Translation API → API key",
+        sendsTextTo = "Google Cloud",
     ),
     DEEPL(
         displayName = "DeepL",
@@ -70,6 +75,7 @@ enum class TranslationProvider(
         description = "DeepL Free API. 500K characters/month free with own key.",
         tracksUsage = true,
         helpUrl = "deepl.com/pro-api (free plan)",
+        sendsTextTo = "DeepL",
     ),
     AZURE(
         displayName = "Azure Translator",
@@ -82,6 +88,7 @@ enum class TranslationProvider(
         secondaryPlaceholder = "global",
         secondaryIsUrl = false,
         helpUrl = "portal.azure.com → Translator resource → Keys and Endpoint",
+        sendsTextTo = "Microsoft Azure",
     );
 
     companion object {
