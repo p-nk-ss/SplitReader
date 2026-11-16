@@ -1,5 +1,5 @@
 appId: ${APP_ID}
-name: J-TRN-08 LibreTranslate, Azure and Quick Translate fields and gating
+name: J-TRN-08 Azure and Quick Translate fields and gating, no LibreTranslate
 tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
 # books: en-novel.epub, prose-one-chapter.epub
 # Step 12 turns the device and switches aeroplane mode on: whatever happens in between, the
@@ -9,23 +9,22 @@ onFlowComplete:
   - setAirplaneMode: disabled
   - setOrientation: PORTRAIT
 ---
-# J-TRN-08 — LibreTranslate, Azure and Quick Translate: fields and gating.
+# J-TRN-08 — Azure and Quick Translate: fields and gating; LibreTranslate is gone (v29).
 # Fixtures: en-novel.epub ("The River Crossing": chapter 1 = 42 paragraphs "(1)"…"(42)",
 # chapter 2 = 8 paragraphs "(ch2.1)"…) and prose-one-chapter.epub ("Prose in One Chapter": ONE
 # chapter of 56 paragraphs "(s1)"…"(s56)", texts no other fixture has; never opened before step 13).
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-08.
+# Steps 3–5 (LibreTranslate's fields) were removed with LibreTranslate in versionCode 29; the
+# other steps keep their numbers.
 #
 # MONEY and other people's servers. The only key typed is the made-up "fake-key-e2e-000".
-# - LibreTranslate is made current once (step 3), pointed at libretranslate.example.com — a
-#   reserved name that does not resolve, so nothing reaches anyone. Its URL is set to
-#   https://libretranslate.com only in Settings with no book open (step 4): nothing is sent there.
 # - Azure never gets a key: the app sends it nothing (it answers "key isn't set" itself).
 # - Quick Translate needs no key and really translates (steps 10–13): about a hundred
 #   paragraph requests in the whole flow, each made by reading, none in a loop.
 #
 # How the gate is seen (ONL-014, TRN-027). Every paragraph an engine translates is stored in
 # the app's cache, shown or not; Settings -> "Cached translations: N" counts them
-# (subflows/cached_translations.yaml, which restarts the app). With the translation pane hidden,
+# (subflows/cached_translations.yaml). With the translation pane hidden,
 # reading must leave N exactly as it was — Offline HQ, which is not gated, adds 13–23 over the
 # same three screens (J-TRN-01 step 9), and so would a Quick Translate that worked in the
 # background. After "Show translation" is switched on N must grow.
@@ -78,11 +77,10 @@ onFlowComplete:
     below: "Translation"
     above: "Manage providers.*"
 
-# 1. Settings -> Translation -> Change; tap LibreTranslate. Server URL "http://example.com" and
-#    any key; Save -> inline error "Cleartext http:// is blocked on modern Android — use
-#    https://"; the dialog stays open; LibreTranslate does not become current (ONL-009).
-#    The Server URL field comes filled with the default address; the tap goes to its right end
-#    so that the cursor is after the last character, then the field is emptied.
+# 1. Settings -> Translation -> Change -> the picker lists no LibreTranslate card: LibreTranslate
+#    was removed in versionCode 29 (ONL-009/010/011 and SET-011 for LibreTranslate are retired;
+#    the one-time "LibreTranslate is no longer supported" notice after an update is MANUAL —
+#    it cannot be set up from a clean install). The advanced cards are Google Cloud, DeepL, Azure.
 - tapOn:
     text: "Change"
     below: "Translation"
@@ -90,71 +88,28 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "Choose provider"
     timeout: 10000
+- assertNotVisible: ".*LibreTranslate.*"
 - scrollUntilVisible:
     element:
-      id: "translator_edit_google_cloud"
+      id: "translator_edit_azure"
     direction: DOWN
     timeout: 15000
-- assertVisible:
-    text: "TAP TO ADD API KEY"
-    below: "LibreTranslate"
-    above: "Google Cloud Translation"
-- tapOn: "LibreTranslate"
-- extendedWaitUntil:
-    visible: "Paste your LibreTranslate API key. Keys are stored encrypted on this device."
-    timeout: 10000
-- assertVisible: "SERVER URL"
-- assertVisible: "https://libretranslate\\.com"
-- tapOn: "Paste key…"
-- inputText: "fake-key-e2e-000"
-- assertVisible: "•{16}"
-- assertNotVisible: ".*fake-key.*"
-- tapOn:
-    text: "https://libretranslate\\.com"
-    point: "95%, 50%"
-- eraseText: 60
-- inputText: "http://example.com"
-#    The address is not a secret and is shown as typed (the key above is not).
-- assertVisible: "http://example\\.com"
-- assertNotVisible: "Cleartext http://.*"
-- tapOn: "Save"
-- extendedWaitUntil:
-    visible: "Cleartext http:// is blocked on modern Android — use https://"
-    timeout: 5000
-- assertVisible: "API key"
-- assertVisible: "SERVER URL"
-- assertVisible: "http://example\\.com"
-- takeScreenshot: J-TRN-08-step1-cleartext-rejected-settings
-- tapOn: "Cancel"
-- extendedWaitUntil:
-    notVisible: "SERVER URL"
-    timeout: 5000
-- assertVisible: "Choose provider"
-- scrollUntilVisible:
-    element:
-      id: "translator_edit_google_cloud"
-    direction: DOWN
-    timeout: 15000
-- assertVisible:
-    text: "TAP TO ADD API KEY"
-    below: "LibreTranslate"
-    above: "Google Cloud Translation"
+- assertVisible: "Google Cloud Translation"
+- assertVisible: "DeepL"
+- assertNotVisible: ".*LibreTranslate.*"
+- assertNotVisible:
+    id: "translator_edit_libre_translate"
+- takeScreenshot: J-TRN-08-step1-no-libretranslate-settings
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "Choose provider"
     timeout: 5000
-- scrollUntilVisible:
-    element: "Manage providers.*"
-    direction: DOWN
-    timeout: 20000
-- assertVisible:
-    text: "Offline HQ"
-    below: "Translation"
-    above: "Manage providers.*"
 
-# 2. Open en-novel.epub, open the reader's Translator picker, tap LibreTranslate and repeat
-#    step 1 -> the identical inline error; the dialog stays open; Offline HQ is still current
-#    (ONL-009).
+# 2. Open en-novel.epub -> translated by Offline HQ. The language picker ("To" tab) says where
+#    the text goes and what the model is: "On-device translation · no cloud calls" and
+#    "OFFLINE HQ · DOWNLOADED" (the EN→RU pack was just downloaded), nothing about an online
+#    translator (since versionCode 29; v28 always said "ML KIT · DOWNLOADED"). The reader's
+#    Translator picker has no LibreTranslate card either.
 - tapOn: "Library"
 - extendedWaitUntil:
     visible: "Open book"
@@ -174,204 +129,45 @@ onFlowComplete:
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- scrollUntilVisible:
+    element: "no cloud calls"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "OFFLINE HQ · DOWNLOADED"
+- assertVisible: "On-device translation ·.*"
+- assertNotVisible: ".*ML KIT.*"
+- assertNotVisible: "Online translation.*"
+- takeScreenshot: J-TRN-08-step2-strip-offline-hq
+- back
+- extendedWaitUntil:
+    notVisible: "Translate into"
+    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
       BUTTON: "reader:translatorPickerButton"
       OPENS: "Choose provider"
 - scrollUntilVisible:
     element:
-      id: "translator_edit_google_cloud"
+      id: "translator_edit_azure"
     direction: DOWN
     timeout: 15000
-- tapOn: "LibreTranslate"
-- extendedWaitUntil:
-    visible: "SERVER URL"
-    timeout: 10000
-#    (The rejected address of step 1 was not kept: the field is back at the default.)
-- assertVisible: "https://libretranslate\\.com"
-- tapOn: "Paste key…"
-- inputText: "fake-key-e2e-000"
-- tapOn:
-    text: "https://libretranslate\\.com"
-    point: "95%, 50%"
-- eraseText: 60
-- inputText: "http://example.com"
-- assertVisible: "http://example\\.com"
-- assertNotVisible: "Cleartext http://.*"
-- tapOn: "Save"
-- extendedWaitUntil:
-    visible: "Cleartext http:// is blocked on modern Android — use https://"
-    timeout: 5000
-- assertVisible: "API key"
-- assertVisible: "SERVER URL"
-- takeScreenshot: J-TRN-08-step2-cleartext-rejected-reader
-
-# 3. Change the URL to "libretranslate.example.com" (no scheme), the made-up key, Save; reopen
-#    LibreTranslate's dialog -> saved with no error; the field now reads
-#    "https://libretranslate.example.com" (ONL-010).
-#    Saving selects LibreTranslate: the open page loses Offline HQ's Russian and — the name does
-#    not resolve — gets an error banner, never another engine's text under LibreTranslate's name.
-- tapOn:
-    text: "http://example\\.com"
-    point: "95%, 50%"
-- eraseText: 60
-- inputText: "libretranslate.example.com"
-- assertVisible: "libretranslate\\.example\\.com"
-- tapOn: "Save"
-- extendedWaitUntil:
-    notVisible: "Choose provider"
-    timeout: 10000
-- assertNotVisible: "SERVER URL"
-- extendedWaitUntil:
-    visible: "TRANSLATION FAILED"
-    timeout: 90000
-- assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
-- takeScreenshot: J-TRN-08-step3-libretranslate-current
-- tapOn: "Switch translator"
-- extendedWaitUntil:
-    visible: "Choose provider"
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: "translator_edit_google_cloud"
-    direction: DOWN
-    timeout: 15000
-- assertVisible:
-    text: "KEY CONFIGURED"
-    below: "LibreTranslate"
-    above: "Google Cloud Translation"
-- takeScreenshot:
-    path: colour-check/step3-libretranslate-current__PaperInk
-    cropOn: "LibreTranslate"
-- tapOn:
-    id: "translator_edit_libre_translate"
-- extendedWaitUntil:
-    visible: "SERVER URL"
-    timeout: 10000
-- assertVisible: "https://libretranslate\\.example\\.com"
-- assertVisible: "•+ \\(existing key hidden\\)"
-- assertNotVisible: ".*fake-key.*"
-- assertNotVisible: "Cleartext http://.*"
-- takeScreenshot: J-TRN-08-step3-bare-host-upgraded
-- tapOn: "Cancel"
-- extendedWaitUntil:
-    notVisible: "SERVER URL"
-    timeout: 5000
+- assertNotVisible: ".*LibreTranslate.*"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "Choose provider"
     timeout: 5000
 - runFlow: ../../subflows/leave_reader.yaml
 
-# 4. Change the URL to "https://libretranslate.com", Save, reopen -> accepted and shown exactly
-#    as entered (ONL-011). Done in Settings, with no book open: the made-up key is never sent to
-#    libretranslate.com. Settings shows what the reader's picker saved (the same dialog).
+# 3.–5. (LibreTranslate's Server URL, cleartext, bare host and Clear — removed with
+#    LibreTranslate in versionCode 29; numbers kept so the steps below keep theirs.)
 - tapOn: "Settings"
 - scrollUntilVisible:
     element: "Manage providers.*"
     direction: DOWN
     timeout: 40000
-- assertVisible:
-    text: "LibreTranslate"
-    below: "Translation"
-    above: "Manage providers.*"
-- tapOn:
-    text: "Change"
-    below: "Translation"
-    above: "Manage providers.*"
-- extendedWaitUntil:
-    visible: "Choose provider"
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: "translator_edit_google_cloud"
-    direction: DOWN
-    timeout: 15000
-- tapOn:
-    id: "translator_edit_libre_translate"
-- extendedWaitUntil:
-    visible: "SERVER URL"
-    timeout: 10000
-- tapOn:
-    text: "https://libretranslate\\.example\\.com"
-    point: "95%, 50%"
-- eraseText: 60
-- inputText: "https://libretranslate.com"
-- assertVisible: "https://libretranslate\\.com"
-- tapOn: "Save"
-- extendedWaitUntil:
-    notVisible: "Choose provider"
-    timeout: 10000
-- assertNotVisible: "SERVER URL"
-- scrollUntilVisible:
-    element: "Manage providers.*"
-    direction: DOWN
-    timeout: 20000
-- tapOn:
-    text: "Change"
-    below: "Translation"
-    above: "Manage providers.*"
-- extendedWaitUntil:
-    visible: "Choose provider"
-    timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: "translator_edit_google_cloud"
-    direction: DOWN
-    timeout: 15000
-- assertVisible:
-    text: "KEY CONFIGURED"
-    below: "LibreTranslate"
-    above: "Google Cloud Translation"
-- tapOn:
-    id: "translator_edit_libre_translate"
-- extendedWaitUntil:
-    visible: "SERVER URL"
-    timeout: 10000
-- assertVisible: "https://libretranslate\\.com"
-- assertNotVisible: ".*example.*"
-- assertNotVisible: "Cleartext http://.*"
-
-# 5. Tap Clear on LibreTranslate (it was current: ML Kit takes over), then select Offline HQ.
-#    Clear is tapped here with the DEFAULT address stored (step 4), and the card then reads
-#    not configured, as asserted below.
-#    APP BUG (2026-11-16, tablet, versionCode 28; SET-011 for LibreTranslate): tapped while a
-#    CUSTOM address is stored, Clear removes the key and nothing else — the card goes on reading
-#    KEY CONFIGURED with no key (broken copy fail08, line "OBS", screenshot
-#    fail08-after-clear-with-custom-url). Cause as read: TranslatorSettingsImpl.clear() removes
-#    only the key; LibreTranslateProvider.isConfigured() is true for any non-default address.
-#    The step as it must pass once the app is fixed — DISABLED until then; it would go in
-#    step 3's dialog, in place of its Cancel (seen failing today: fail08 "OBS"):
-#
-#    # # APP BUG — SET-011: Clear on LibreTranslate with a custom address stored.
-#    # - tapOn: "Clear"
-#    # - extendedWaitUntil:
-#    #     notVisible: "SERVER URL"
-#    #     timeout: 5000
-#    # - assertVisible:
-#    #     text: "TAP TO ADD API KEY"
-#    #     below: "LibreTranslate"
-#    #     above: "Google Cloud Translation"
-#    # - assertNotVisible: "KEY CONFIGURED"
-- tapOn: "Clear"
-- extendedWaitUntil:
-    notVisible: "SERVER URL"
-    timeout: 5000
-- assertVisible: "Choose provider"
-- assertVisible:
-    text: "TAP TO ADD API KEY"
-    below: "LibreTranslate"
-    above: "Google Cloud Translation"
-- assertNotVisible: "KEY CONFIGURED"
-- scrollUntilVisible:
-    element: "ML Kit \\(offline\\)"
-    direction: UP
-    timeout: 15000
-- takeScreenshot:
-    path: colour-check/step5-ml-kit-current-after-clear__PaperInk
-    cropOn: "ML Kit \\(offline\\)"
-- tapOn: "Offline HQ"
-- extendedWaitUntil:
-    notVisible: "Choose provider"
-    timeout: 5000
 - assertVisible:
     text: "Offline HQ"
     below: "Translation"
@@ -479,6 +275,26 @@ onFlowComplete:
 - assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
 - assertNotVisible: "(Preparing translation|Translating)….*"
 - takeScreenshot: J-TRN-08-step7-azure-key-not-set
+#    The language picker ("To" tab) says the text goes to Microsoft Azure, with no model line
+#    and no "no cloud calls" (since versionCode 29). Opening it sends and downloads nothing.
+#    The scroll gets 30 s: on the phone one swipe of the dialog took ~10 s to settle (run
+#    20261116T155952Z: the 10 s timeout ran out after that one swipe, the strip on screen).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- scrollUntilVisible:
+    element: "Online translation · text is sent to Microsoft Azure"
+    direction: DOWN
+    timeout: 30000
+- assertNotVisible: "no cloud calls"
+- assertNotVisible: "(OFFLINE HQ|ML KIT|AZURE TRANSLATOR) · .*"
+- takeScreenshot: J-TRN-08-step7-strip-azure
+- back
+- extendedWaitUntil:
+    notVisible: "Translate into"
+    timeout: 5000
 
 # 8. With Azure current and keyless, long-press a word and tap Save -> nothing is saved: the
 #    popup shows "Azure Translator API key isn't set" (short form), its Save is disabled; a tap

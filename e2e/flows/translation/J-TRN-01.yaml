@@ -107,9 +107,9 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 #    The right book opened (the title is in the top bar), "EN → RU" on the language button: its
 #    three texts "EN", "→", "RU" are children of reader:languageChip (the footer repeats
 #    "EN → RU" as one text of its own, which is not what the button shows).
-#    (OHQ-001's "no ML KIT label": the reader has none. The language dialog's "To" tab does say
-#    "ML KIT · DOWNLOADED" whatever the engine — app defect, ReaderDialogs.kt LanguagePickerDialog;
-#    not asserted there until it is fixed.)
+#    (OHQ-001's "no ML KIT label": the reader has none. The language dialog's "To" tab names the
+#    active engine's model since versionCode 29 — "OFFLINE HQ · DOWNLOADED", asserted in J-TRN-08
+#    step 2; up to v28 it said "ML KIT · DOWNLOADED" whatever the engine.)
 - evalScript: ${output.chipAttempt = 0}
 - retry:
     maxRetries: 2
@@ -169,8 +169,9 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 - takeScreenshot: J-TRN-01-step3-first-screen-translated
 
 # 4. Translator picker -> Offline HQ is the current translator (OHQ-001); ML Kit, Offline HQ and
-#    Quick Translate are listed ready, with no key line and no key button; LibreTranslate, Google
-#    Cloud, DeepL and Azure each have "TAP TO ADD API KEY" and a key button (SET-002).
+#    Quick Translate are listed ready, with no key line and no key button; Google Cloud, DeepL and
+#    Azure each have "TAP TO ADD API KEY" and a key button (SET-002). There is no LibreTranslate
+#    card: it was removed in versionCode 29.
 #    The current provider's card is drawn inverted (ink background); no node says "selected". So
 #    the card's name is cropped and e2e/check_colours.py requires its background colour:
 #    PaperInk for Offline HQ, PaperBg2 (an ordinary card) for ML Kit.
@@ -206,24 +207,19 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 - assertNotVisible: ".*THIS MONTH.*"
 - assertNotVisible: "Reset counter"
 - takeScreenshot: J-TRN-01-step4-picker
-#    4, continued: the four engines with their own key — each card has its key button
+#    4, continued: the three engines with their own key — each card has its key button
 #    (translator_edit_<provider>, the pencil that opens the key field); an engine without a key
-#    says "TAP TO ADD API KEY" (asserted on the first card; the line is the same on all four).
-- scrollUntilVisible:
-    element:
-      id: "translator_edit_libre_translate"
-    direction: DOWN
-    timeout: 15000
-- assertVisible: "LibreTranslate"
-- assertVisible:
-    text: "TAP TO ADD API KEY"
-    below: "LibreTranslate"
+#    says "TAP TO ADD API KEY" (asserted on the first card; the line is the same on all three).
+#    No LibreTranslate card anywhere in the list (removed in versionCode 29).
 - scrollUntilVisible:
     element:
       id: "translator_edit_google_cloud"
     direction: DOWN
     timeout: 15000
 - assertVisible: "Google Cloud Translation"
+- assertVisible:
+    text: "TAP TO ADD API KEY"
+    below: "Google Cloud Translation"
 - scrollUntilVisible:
     element:
       id: "translator_edit_deepl"
@@ -237,6 +233,9 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
     timeout: 15000
 - assertVisible: "Azure Translator"
 - assertNotVisible: ".*THIS MONTH.*"
+- assertNotVisible: ".*LibreTranslate.*"
+- assertNotVisible:
+    id: "translator_edit_libre_translate"
 
 # 6. Tap Offline HQ (already current) -> no key field or "Configure" prompt opens; the picker
 #    closes and the reader still shows its translation (OHQ-024).

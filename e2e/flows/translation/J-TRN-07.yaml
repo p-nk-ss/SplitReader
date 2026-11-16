@@ -345,17 +345,15 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
 
 # 9. Compare Settings -> Translation with the reader's Translator dialog -> the same current
 #    provider (DeepL), the same configured / not configured line on every card (SET-004).
-#    Here: Settings. LibreTranslate, Google Cloud, Azure: no key; DeepL: key, current; no card
-#    has a usage line (nothing was ever translated with the made-up key).
+#    Here: Settings. Google Cloud, Azure: no key; DeepL: key, current; no card has a usage line
+#    (nothing was ever translated with the made-up key). No LibreTranslate card (removed in
+#    versionCode 29); Google Cloud's line is asserted between it and DeepL.
 - scrollUntilVisible:
     element:
       id: "translator_edit_google_cloud"
     direction: DOWN
     timeout: 15000
-- assertVisible:
-    text: "TAP TO ADD API KEY"
-    below: "LibreTranslate"
-    above: "Google Cloud Translation"
+- assertNotVisible: ".*LibreTranslate.*"
 - scrollUntilVisible:
     element:
       id: "translator_edit_azure"
@@ -460,10 +458,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
       id: "translator_edit_google_cloud"
     direction: DOWN
     timeout: 15000
-- assertVisible:
-    text: "TAP TO ADD API KEY"
-    below: "LibreTranslate"
-    above: "Google Cloud Translation"
+- assertNotVisible: ".*LibreTranslate.*"
 - scrollUntilVisible:
     element:
       id: "translator_edit_azure"

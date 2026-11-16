@@ -2,8 +2,8 @@ appId: ${APP_ID}
 ---
 # set_translator (env NAME): opens the reader's translator picker and selects the provider whose
 # card shows ${NAME} (TranslationProvider.displayName, domain/model/TranslationProvider.kt -
-# "ML Kit (offline)", "Offline HQ", "Quick Translate (free, online)", "LibreTranslate",
-# "Google Cloud Translation", "DeepL", "Azure Translator").
+# "ML Kit (offline)", "Offline HQ", "Quick Translate (free, online)",
+# "Google Cloud Translation", "DeepL", "Azure Translator"; LibreTranslate was removed in v29).
 #
 # ProviderRow's whole card is clickable (TranslatorPickerDialog.kt: `.clickable(onClick =
 # onSelect)`), so tapping the displayName text selects it directly for an already-configured

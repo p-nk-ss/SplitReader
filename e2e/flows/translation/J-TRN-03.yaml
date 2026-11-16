@@ -574,16 +574,16 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - runFlow: ../../subflows/leave_reader.yaml
 - tapOn: "Settings"
 - scrollUntilVisible:
-    element: "Manage providers, API keys, server URL and monthly usage\\."
+    element: "Manage providers, API keys, region and monthly usage\\."
     direction: DOWN
     timeout: 40000
 - assertVisible:
     text: "Offline HQ"
-    above: "Manage providers, API keys, server URL and monthly usage\\."
+    above: "Manage providers, API keys, region and monthly usage\\."
 - tapOn:
     text: "Change"
     below: "Translation"
-    above: "Manage providers, API keys, server URL and monthly usage\\."
+    above: "Manage providers, API keys, region and monthly usage\\."
 - extendedWaitUntil:
     visible: "Choose provider"
     timeout: 5000
@@ -593,7 +593,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     timeout: 5000
 - assertVisible:
     text: "ML Kit \\(offline\\)"
-    above: "Manage providers, API keys, server URL and monthly usage\\."
+    above: "Manage providers, API keys, region and monthly usage\\."
 #    Open the book in the SAME process: the engine chosen in Settings is the one the reader
 #    uses at once (SET-001) — paragraph 12 in ML Kit's wording (output.mlkit, step 7).
 - tapOn: "Library"
@@ -635,15 +635,15 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     timeout: 45000
 - tapOn: "Settings"
 - scrollUntilVisible:
-    element: "Manage providers, API keys, server URL and monthly usage\\."
+    element: "Manage providers, API keys, region and monthly usage\\."
     direction: DOWN
     timeout: 40000
 - assertVisible:
     text: "ML Kit \\(offline\\)"
-    above: "Manage providers, API keys, server URL and monthly usage\\."
+    above: "Manage providers, API keys, region and monthly usage\\."
 - assertNotVisible:
     text: "Offline HQ"
-    above: "Manage providers, API keys, server URL and monthly usage\\."
+    above: "Manage providers, API keys, region and monthly usage\\."
 - takeScreenshot: J-TRN-03-step9-settings-ml-kit
 - tapOn: "Library"
 - scrollUntilVisible:
@@ -677,13 +677,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - runFlow: ../../subflows/leave_reader.yaml
 - tapOn: "Settings"
 - scrollUntilVisible:
-    element: "Manage providers, API keys, server URL and monthly usage\\."
+    element: "Manage providers, API keys, region and monthly usage\\."
     direction: DOWN
     timeout: 40000
 - tapOn:
     text: "Change"
     below: "Translation"
-    above: "Manage providers, API keys, server URL and monthly usage\\."
+    above: "Manage providers, API keys, region and monthly usage\\."
 - extendedWaitUntil:
     visible: "Choose provider"
     timeout: 5000
@@ -693,7 +693,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     timeout: 5000
 - assertVisible:
     text: "Offline HQ"
-    above: "Manage providers, API keys, server URL and monthly usage\\."
+    above: "Manage providers, API keys, region and monthly usage\\."
 - tapOn: "Library"
 - scrollUntilVisible:
     element:

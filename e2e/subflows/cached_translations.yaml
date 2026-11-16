@@ -5,19 +5,18 @@ appId: ${APP_ID}
 # not it was ever on screen, so the number tells what the reader's engine translated — the only
 # way a flow can see work done off screen (look-ahead below the page, a hidden translation pane).
 #
-# The app is restarted first. Settings reads the number once, when its screen is first opened in
-# a process (SettingsViewModel.init -> refreshCacheCount), and shows that same number on every
-# later visit: without the restart a second call returned the first call's count although 30 more
-# paragraphs had been translated in between (Tab_35_PixelTablet, 2026-11-15 — reported as an app
-# defect in task-9-report.md; not what the calling journeys test).
+# The app is NOT restarted: since versionCode 29 Settings follows the count live
+# (SettingsViewModel collects TranslationRepository.cachedCount()). Up to versionCode 28 it read
+# the number once per process and showed it on every later visit, and this subflow restarted the
+# app first (stopApp + launchApp) — without that a second call returned the first call's count
+# although 30 more paragraphs had been translated in between (Tab_35_PixelTablet, 2026-11-15).
+# The restart is gone so the journeys see the live number; on a v28 build the second call of a
+# journey is stale again and its "the count grew" check fails (seen: Task 9d, J-TRN-01 step 9).
 # Call it from the Library, after the reader was left (its position is saved by then).
 # Ends on the Library at "Open book".
-- stopApp
-- launchApp:
-    stopApp: false
 - extendedWaitUntil:
     visible: "Open book"
-    timeout: 45000
+    timeout: 15000
 - tapOn: "Settings"
 - scrollUntilVisible:
     element: "Cached translations: \\d+"
