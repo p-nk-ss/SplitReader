@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
@@ -701,8 +702,12 @@ internal fun ParagraphItem(
             .background(Color.Transparent)
             .pointerInput(isOriginal, text) {
                 if (!isOriginal) return@pointerInput
+                // Initial pass: the handle claims its press before the paragraph's own tap /
+                // long-press detector below (inner, so it sees the Main pass first). Otherwise a tap
+                // on a handle dismissed the popup and a still press re-selected a word — a new
+                // (possibly billed) translation request. A handle only drags.
                 awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val downPos = down.position
                     val downId = down.id
 
@@ -730,7 +735,7 @@ internal fun ParagraphItem(
 
                     try {
                         while (true) {
-                            val event = awaitPointerEvent()
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
                             val change = event.changes.firstOrNull { it.id == downId } ?: break
                             if (!change.pressed) break
                             change.consume()
