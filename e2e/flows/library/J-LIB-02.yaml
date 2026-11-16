@@ -3,6 +3,9 @@ name: J-LIB-02 Catalog evening
 tags: [smoke, full, library, network, J-LIB-02]
 # No `# books:` header on purpose: this journey is entirely live catalog/network, no local
 # fixtures — run.sh pushes nothing for it.
+# The offline step switches aeroplane mode on: whatever happens there, the flow ends online.
+onFlowComplete:
+  - setAirplaneMode: disabled
 ---
 # J-LIB-02 — Catalog evening: search, download from Gutenberg and Standard Ebooks, hit the cap,
 # go offline. Source: docs/e2e/e2e_journeys.md J-LIB-02. No fixtures; live catalog, real network.

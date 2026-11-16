@@ -1,12 +1,18 @@
 appId: ${APP_ID}
 name: J-TRN-08 LibreTranslate, Azure and Quick Translate fields and gating
 tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
-# books: en-novel.epub, plain-prose.epub
+# books: en-novel.epub, prose-one-chapter.epub
+# Step 12 turns the device and switches aeroplane mode on: whatever happens in between, the
+# flow ends online and in the orientation it started in (a failure there must not leave the
+# emulator offline or turned for the flows after it).
+onFlowComplete:
+  - setAirplaneMode: disabled
+  - setOrientation: PORTRAIT
 ---
 # J-TRN-08 — LibreTranslate, Azure and Quick Translate: fields and gating.
 # Fixtures: en-novel.epub ("The River Crossing": chapter 1 = 42 paragraphs "(1)"…"(42)",
-# chapter 2 = 8 paragraphs "(ch2.1)"…) and plain-prose.epub ("Plain Prose": 4 chapters of 14
-# paragraphs "(ch1.1)"…"(ch4.14)", 56 in all; never opened before step 13).
+# chapter 2 = 8 paragraphs "(ch2.1)"…) and prose-one-chapter.epub ("Prose in One Chapter": ONE
+# chapter of 56 paragraphs "(s1)"…"(s56)", texts no other fixture has; never opened before step 13).
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-08.
 #
 # MONEY and other people's servers. The only key typed is the made-up "fake-key-e2e-000".
@@ -24,16 +30,21 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
 # same three screens (J-TRN-01 step 9), and so would a Quick Translate that worked in the
 # background. After "Show translation" is switched on N must grow.
 # TRN-027's second half (what is translated after switching on is the screen and what follows,
-# not the screens read while hidden): plain-prose has 56 paragraphs. The flow reads which
-# paragraph is on top when the pane comes on (g, counted from 0), then reads to the end of the
-# book. Translated by then: everything from 4 paragraphs above g (TranslationPlanner.LOOKBEHIND)
-# to the end — at most 56 - g + 4 (and at least 56 - g: none of plain-prose's paragraphs was
-# stored before — en-novel is read with Quick Translate in its chapter 1 only, whose texts no
-# other book has). An engine that also filled in the g paragraphs read while hidden would have
-# stored all 56. The flow allows 3 paragraphs of slack each way for the reading of g (the
-# paragraph "on top" is the first English one Maestro finds, which may be one or two rows off
-# the planner's first visible item): it asserts 56 - g - 3 <= growth <= 56 - g + 4 + 3, with
-# g >= 10, so 56 is outside the window (seen: g 20, growth 40, phone 20261116T002150Z).
+# not the screens read while hidden): prose-one-chapter has 56 paragraphs in ONE chapter. The
+# flow reads which paragraph is on top when the pane comes on (g, counted from 0), then reads to
+# the end of the book. Translated by then: everything from 4 paragraphs above g
+# (TranslationPlanner.LOOKBEHIND) to the end — at most 56 - g + 4. The lower end, 56 - g, is
+# timing, not layout: the flow scrolls on before the look-behind has run (seen: g 31, growth 25).
+# None of the book's paragraphs was stored before (its texts are in no other book). The flow
+# allows 3 paragraphs of slack each way for the reading of g (the paragraph "on top" is the first
+# English paragraph Maestro finds, which may be one or two rows off the planner's first visible
+# item): it asserts 56 - g - 3 <= growth <= 56 - g + 4 + 3, with g >= 10.
+# Why ONE chapter: the bug TRN-027 names is "translates the chapter behind it" — an engine that,
+# when the pane comes on, also fills the current chapter from its start to the screen (the app has
+# that path: "Translate the rest of this chapter" fills a chapter's untranslated runs from its
+# first paragraph). In a book of 14-paragraph chapters such a fill adds only the top paragraph's
+# place in its chapter (p), and the bound let p <= 7 through. Here the chapter behind is the whole
+# hidden read: the fill stores all 56, and 56 > 63 - g for every g >= 8.
 #
 # ONL-023 (rotation): the shown paragraph must come back after each turn with the same text and
 # without the network — the flow turns the device in aeroplane mode, where any new request for
@@ -682,12 +693,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
 #     the translated paragraphs reappear at once, with no translating placeholder: they come
 #     from what the app already has, not from a new request (ONL-023).
 #     The place: the start of chapter 1 (chapter picker), so that the paragraph on top is known
-#     (original_0_0) — translated while online, 10 s for the window around it. (Chapter 1, not a
-#     later one: only its paragraphs, "(1)"…"(42)", are in no other book — step 13 counts what
-#     Quick Translate stores for plain-prose, whose "(ch2.1)"… are also en-novel's.) Then aeroplane
-#     mode on, and the device is turned and turned back: after each turn paragraph "(1)" has
+#     (original_0_0) — translated while online, 10 s for the window around it. Then aeroplane
+#     mode on (10 s for the radios to go down), and the device is turned and turned back: after each turn paragraph "(1)" has
 #     the same Russian text as before, and there is no error banner and no "Translating…" —
-#     offline, a request for a shown paragraph could only fail. The turn itself is proven by the
+#     offline, a request for a shown paragraph could only fail, and each look comes 5 s after the
+#     turn, when such a request has ended (proved by a broken copy that opens a chapter never
+#     translated with the same pauses: the banner is seen). The turn itself is proven by the
 #     paragraph's width (J-RDR-03's table).
 #     Settings -> Orientation -> AUTO first, so the device may be turned. (Settings is where
 #     cached_translations.yaml left it, at "Storage" near its end: Orientation is above.)
@@ -736,6 +747,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
 - evalScript: ${output.rotBefore = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-08 step 12 - before the turns - ' + output.rotBefore)}
 - setAirplaneMode: enabled
+#     The radios go down some time after the command returns (it returns in ~30 ms): 10 s before
+#     the first turn, the time after which a request offline was seen to end in the error banner.
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause for aeroplane mode to take the network down"
+    timeout: 10000
+    optional: true
+#     On the tablet (natural orientation landscape) LANDSCAPE_LEFT is the turn to portrait.
 - setOrientation: LANDSCAPE_LEFT
 - extendedWaitUntil:
     visible:
@@ -759,13 +777,19 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
           id: "original_0_0"
           width: 712
           tolerance: 6
+#     5 s after the turn, offline: a request made for the turn has ended by now (offline it fails
+#     at once), so "Translating…" cannot be one still in flight, and its error banner is up.
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause after the turn, offline"
+    timeout: 5000
+    optional: true
 - copyTextFrom:
     text: ".*[а-яё]{3,}.*"
     childOf:
       id: "translation_0_0"
 - assertTrue: ${maestro.copiedText == output.rotBefore}
-- assertNotVisible: "TRANSLATION FAILED"
 - assertNotVisible: "(Preparing translation|Translating)….*"
+- assertNotVisible: "TRANSLATION FAILED"
 - takeScreenshot: J-TRN-08-step12-turned-offline
 - setOrientation: PORTRAIT
 - extendedWaitUntil:
@@ -790,16 +814,22 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
           id: "original_0_0"
           width: 1192
           tolerance: 6
+#     5 s after the turn, offline: a request made for the turn has ended by now (offline it fails
+#     at once), so "Translating…" cannot be one still in flight, and its error banner is up.
+- extendedWaitUntil:
+    visible: "J-TRN-08 pause after the turn, offline"
+    timeout: 5000
+    optional: true
 - copyTextFrom:
     text: ".*[а-яё]{3,}.*"
     childOf:
       id: "translation_0_0"
 - assertTrue: ${maestro.copiedText == output.rotBefore}
-- assertNotVisible: "TRANSLATION FAILED"
 - assertNotVisible: "(Preparing translation|Translating)….*"
+- assertNotVisible: "TRANSLATION FAILED"
 - setAirplaneMode: disabled
 
-# 13. Turn "Show translation" off, go back to the Library and open plain-prose.epub (never
+# 13. Turn "Show translation" off, go back to the Library and open prose-one-chapter.epub (never
 #     opened); scroll three screens. Turn "Show translation" on, then read on to the end ->
 #     the visible screen translates; nothing was translated in the background while hidden,
 #     and nothing of what was read while hidden is filled in afterwards (TRN-027; header).
@@ -813,10 +843,10 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
 - runFlow:
     file: ../../subflows/import_book.yaml
     env:
-      FILE: "plain-prose.epub"
-      TITLE: "Plain Prose"
+      FILE: "prose-one-chapter.epub"
+      TITLE: "Prose in One Chapter"
       FIRST_TEXT: "The old mill still stood at the bend of the river"
-- assertVisible: ".*\\(ch1\\.1\\)"
+- assertVisible: ".*\\(s1\\)"
 - assertNotVisible:
     id: "translation_\\d+_\\d+"
 - repeat:
@@ -827,7 +857,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
           end: "30%, 25%"
           duration: 1500
       - extendedWaitUntil:
-          visible: "J-TRN-08 pause between screens of plain-prose"
+          visible: "J-TRN-08 pause between screens of prose-one-chapter"
           timeout: 3000
           optional: true
 - extendedWaitUntil:
@@ -841,15 +871,15 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
 - runFlow: ../../subflows/leave_reader.yaml
 - runFlow: ../../subflows/cached_translations.yaml
 - evalScript: ${output.cY = output.cached}
-- evalScript: ${console.log('J-TRN-08 step 13 - cached before plain-prose ' + output.cX + ', after reading it hidden ' + output.cY)}
+- evalScript: ${console.log('J-TRN-08 step 13 - cached before prose-one-chapter ' + output.cX + ', after reading it hidden ' + output.cY)}
 - assertTrue: ${output.cY == output.cX}
 - scrollUntilVisible:
     element:
-      id: "book_card_Plain Prose"
+      id: "book_card_Prose in One Chapter"
     direction: DOWN
     timeout: 10000
 - tapOn:
-    id: "book_card_Plain Prose"
+    id: "book_card_Prose in One Chapter"
 - extendedWaitUntil:
     visible:
       id: "original_\\d+_\\d+"
@@ -866,37 +896,35 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
         id: "translation_\\d+_\\d+"
     timeout: 90000
 #     Which paragraph is on top: the first English paragraph on screen (a translation starts
-#     with a Cyrillic letter); its text ends "(chC.P)"; g = (C - 1) * 14 + P - 1. The reading
+#     with a Cyrillic letter); its text ends "(sN)"; g = N - 1. The reading
 #     with the pane hidden must have gone well past the first screen for the bound to mean
 #     anything: g >= 10.
 - copyTextFrom:
-    text: "[A-Z][a-z]+ .*\\(ch\\d+\\.\\d+\\)"
+    text: "[A-Z][a-z]+ .*\\(s\\d+\\)"
 - evalScript: ${output.topText = maestro.copiedText}
 - evalScript: ${console.log('top paragraph - ' + output.topText)}
-- evalScript: ${output.tail = output.topText.substring(output.topText.lastIndexOf('(ch') + 3, output.topText.lastIndexOf(')')).split('.')}
-- evalScript: ${output.chapterNo = parseInt(output.tail[0])}
-- evalScript: ${output.paraNo = parseInt(output.tail[1])}
-- assertTrue: ${output.chapterNo >= 1 && output.chapterNo <= 4 && output.paraNo >= 1 && output.paraNo <= 14}
-- evalScript: ${output.g = (output.chapterNo - 1) * 14 + output.paraNo - 1}
+- evalScript: ${output.paraNo = parseInt(output.topText.substring(output.topText.lastIndexOf('(s') + 2, output.topText.lastIndexOf(')')))}
+- assertTrue: ${output.paraNo >= 1 && output.paraNo <= 56}
+- evalScript: ${output.g = output.paraNo - 1}
 - evalScript: ${console.log('J-TRN-08 step 13 - on top when the pane came on - paragraph ' + output.g + ' of 56')}
 - assertTrue: ${output.g >= 10}
 - scrollUntilVisible:
     element:
-      id: "translation_3_13"
+      id: "translation_0_55"
     direction: DOWN
     timeout: 120000
 - extendedWaitUntil:
     visible:
       text: ".*[а-яё]{3,}.*"
       childOf:
-        id: "translation_3_13"
+        id: "translation_0_55"
     timeout: 90000
 - extendedWaitUntil:
     visible: "J-TRN-08 pause while the last window is translated"
     timeout: 10000
     optional: true
 - assertNotVisible: "TRANSLATION FAILED"
-- takeScreenshot: J-TRN-08-step13-end-of-plain-prose
+- takeScreenshot: J-TRN-08-step13-end-of-the-book
 - runFlow: ../../subflows/leave_reader.yaml
 - runFlow: ../../subflows/cached_translations.yaml
 - evalScript: ${output.cZ = output.cached}
@@ -929,6 +957,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-08]
 - extendedWaitUntil:
     visible: "Choose provider"
     timeout: 10000
+#     "No usage line" is true by construction (QUICK_TRANSLATE.tracksUsage = false): the line below
+#     cannot fail and is not evidence of anything; it only keeps the picker's look in the record.
 - assertNotVisible: ".*THIS MONTH.*"
 - tapOn: "Offline HQ"
 - extendedWaitUntil:

@@ -523,6 +523,18 @@ def build_plain_prose(out_dir: str) -> str:
     return name
 
 
+def build_prose_one_chapter(out_dir: str) -> str:
+    """F-PROSE-1CH (J-TRN-08 step 13): 56 paragraphs in ONE chapter, tails "(s1)"…"(s56)" that no
+    other fixture has. Everything read with the pane hidden is in the chapter the reader is in when
+    the pane comes on, so an engine that fills "the chapter behind" stores the whole hidden read."""
+    name = "prose-one-chapter.epub"
+    paras = [RIVER_PARAGRAPHS[i % len(RIVER_PARAGRAPHS)] + f" (s{i + 1})" for i in range(56)]
+    build_simple_epub(os.path.join(out_dir, name), "mirrolit-e2e-prose-one-chapter", "Prose in One Chapter",
+                       "Test Author", "en", [("Chapter 1", paras)],
+                       description="Plain prose, 56 paragraphs in a single chapter.")
+    return name
+
+
 def build_long_chapter(out_dir: str) -> str:
     """One chapter with 500+ paragraphs."""
     name = "long-chapter.epub"
@@ -1064,6 +1076,7 @@ def build_all(out_dir: str) -> list[str]:
     built.append(build_en_novel(out_dir))
     built.append(build_short_novel(out_dir))
     built.append(build_plain_prose(out_dir))
+    built.append(build_prose_one_chapter(out_dir))
     built.append(build_long_chapter(out_dir))
     built.append(build_english_with_french(out_dir))
     built.append(build_no_description(out_dir))

@@ -2,6 +2,9 @@ appId: ${APP_ID}
 name: J-RDR-03 Rotation and resume - the paragraph never moves
 tags: [smoke, full, rotation, phone, tablet, reading, J-RDR-03]
 # books: en-novel.epub
+# The flow turns the device: whatever happens in between, it ends the way it started.
+onFlowComplete:
+  - setOrientation: PORTRAIT
 ---
 # J-RDR-03 — Rotation and resume: the paragraph never moves.
 # Fixture: en-novel.epub (F-LONG, "The River Crossing": 22 chapters; chapter 8 has 8 paragraphs

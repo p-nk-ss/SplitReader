@@ -1,6 +1,6 @@
 # Fixture books — sources, hashes, and journey coverage
 
-Built by `build_fixtures.py` (synthetic, committed — total ≈ 98.4 KB, well under the 200 KB
+Built by `build_fixtures.py` (synthetic, committed — total ≈ 100.5 KB, well under the 200 KB
 budget) and `fetch_fixtures.sh` (real Gutenberg books, downloaded on demand into `fetched/`,
 **gitignored, never committed**). Two large pathological fixtures (`zipbomb.epub`, `oversized.fb2`)
 are also generated locally, never committed — see the `--large` flag and the note under "Large,
@@ -46,7 +46,8 @@ point).
 | `zh-novel.epub` | 2471 | `2d9b3786fc789b8e648f778fedde39cf88625803caa2681520d23b4f3bc23c5b` | 长章节测试小说 | "那天晚上，温暖的雾气在城市上空久久不散…" | `zh-novel.epub` (J-TRN-05, J-TRN-06) |
 | `en-novel.epub` | 18304 | `0bceaefcc69ad3f82a6a9e00220269e78190fe66a1789e5a7347a09336dc825e` | The River Crossing | "The old mill still stood at the bend of the river…" | `en-novel.epub` / **F-LONG** (J-TRN-01/02/03/07/09/10, J-RDR-02/03/04/05/08/09/16/17) |
 | `short-novel.epub` | 2023 | `c139dd83edfbe00776dbb7edab3af3c05ef1eac2344e4b7cb59073c549f0da3d` | A Short Crossing | "The old mill still stood at the bend of the river…" | **F-SHORT** (reader) (J-RDR-04) |
-| `plain-prose.epub` | 4329 | `9c178312305d994e3d9db61f32e4728ba813e3331f8939c7722d59d19c64db5a` | Plain Prose | "The old mill still stood at the bend of the river…" | F-PROSE (J-LIB-04, J-TRN-08) |
+| `plain-prose.epub` | 4329 | `9c178312305d994e3d9db61f32e4728ba813e3331f8939c7722d59d19c64db5a` | Plain Prose | "The old mill still stood at the bend of the river…" | F-PROSE (J-LIB-04) |
+| `prose-one-chapter.epub` | 2112 | `0b7a13495f3b2f4c6f7a14500a9d7dbcb5af1fb27110bb3c7d951d8d100cef27` | Prose in One Chapter | "The old mill still stood at the bend of the river… (s1)" — 56 paragraphs in ONE chapter, tails "(s1)"…"(s56)" | F-PROSE-1CH (J-TRN-08 step 13) |
 | `long-chapter.epub` | 3693 | `b06fa8eb3a3f0b0bd76484ffa1c8ad6aa55be1a396dca27956672ab38cea9fef` | One Very Long Chapter | "The old mill still stood at the bend of the river…" | `long-chapter.epub` (J-TRN-10) |
 | `empty.epub` / `empty-book.epub` | 1401 (each) | `5d9d0b6bf420d21f41ac351a58072117c3d734c391ee6fc63b4486e651a0edb0` | Empty Book | (no extractable content) | F-EMPTY / F-EMPTY1 / `empty-book.epub` (J-LIB-03, J-RDR-15, J-TRN-10) |
 | `empty-first-chapter.epub` / `empty-chapter.epub` | 1961 (each) | `749621b8cf132631a825612866a644afe7a0a29a273552458c239dc865c50eb8` | Empty First Chapter | (ch1: heading only, 0 paragraphs; ch2 has text) | F-EMPTY-CH1 / `empty-chapter.epub` (J-LIB-18, J-TRN-10) |
