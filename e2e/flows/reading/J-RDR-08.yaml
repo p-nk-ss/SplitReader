@@ -1,0 +1,344 @@
+appId: ${APP_ID}
+name: J-RDR-08 Tablet unusual books and jumps while translation is loading
+tags: [full, tablet, reading, J-RDR-08]
+# books: pictures-only.epub, rur-cs.epub, en-novel.epub
+---
+# J-RDR-08 — Tablet: unusual books and jumps while translation is loading.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-08.
+# Fixtures: pictures-only.epub (F-IMGONLY, "Pictures Only": two 1×1 pictures, no text),
+# rur-cs.epub (F-RUR, Gutenberg 13083, Čapek's "R.U.R." in Czech: the play's speeches are laid
+# out as HTML table rows), en-novel.epub (F-LONG, "The River Crossing": chapter 21 has 8
+# paragraphs "(ch21.1)"…"(ch21.8)").
+#
+# Correction to the journey (verified on Tab_35_PixelTablet): the app reads R.U.R. as ONE chapter
+# — the chapter picker lists only "Chapter 1"; the prologue ("Předehra") and the three acts
+# ("DĚJSTVÍ PRVNÍ"…) are headings inside it (the file has no chapter breaks the app's chapter
+# rules accept; chapter rules are frozen, CLAUDE.md "Every text block is read (v26)"). So
+# "chapter picker -> Act I" is "chapter picker -> Chapter 1" (it lands on the start of the play),
+# and the bookmarked speech line is in the PROLOGUE, the part of the play that starts on the
+# first screens — Act I is about 600 table rows further and would cost minutes of scrolling for
+# the same check.
+- assertTrue: ${DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open book -> pictures-only.epub -> it opens (no failure, no blank page) and the pictures are
+#    shown (ILL-004).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "pictures-only.epub"
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+    timeout: 20000
+- assertVisible:
+    id: "illustration"
+    index: 1
+- assertNotVisible: "Nothing to read here"
+- assertNotVisible: "Can't open this book"
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - extendedWaitUntil:
+          visible: ".*Pictures Only.*"
+          timeout: 3000
+- takeScreenshot: J-RDR-08-step1-pictures-only
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 2. Open book -> rur-cs.epub; chapter picker -> its (only) chapter -> the view lands on the
+#    start of the play (NAV-009); the play is rendered line by line, not as a table: each speech
+#    ("Sulla — Ano.") is a paragraph of its own.
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "rur-cs.epub"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- assertVisible: "R\\.U\\.R\\."
+- assertVisible:
+    id: "reader:chapterRow:0"
+- assertNotVisible:
+    id: "reader:chapterRow:1"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 15000
+- scrollUntilVisible:
+    element: "Předehra"
+    direction: DOWN
+    timeout: 120000
+- scrollUntilVisible:
+    element: "Sulla — Ano\\."
+    direction: DOWN
+    timeout: 60000
+#    A text selector full-matches a whole text node: "Sulla — Ano." matching exactly is a node
+#    holding that one speech and nothing else (a table drawn as one block would be one long
+#    node), and the speech before it is a node of its own too.
+- assertVisible: "Sulla — Ano\\."
+- assertVisible: "Domin — \\(diktuje\\).*"
+- assertVisible:
+    text: "Sulla — Ano\\."
+    below: "Domin — \\(diktuje\\).*"
+- takeScreenshot: J-RDR-08-step2-line-by-line
+
+# 3. Scroll on into the prologue and bookmark a speech line -> the page is bookmarked ("Remove
+#    bookmark here"; the bookmark icon's "on" state is that button).
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: "30%, 80%"
+          end: "30%, 25%"
+          duration: 1500
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- copyTextFrom: "Chapter 1 · ¶ \\d+"
+- evalScript: ${output.rurLabel = maestro.copiedText}
+- evalScript: ${output.rurP = parseInt(output.rurLabel.replace(/.*¶ /, ''))}
+- evalScript: ${console.log('J-RDR-08 step 3 - R.U.R. bookmark ' + output.rurLabel)}
+- assertTrue: ${output.rurP > 37}
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+
+# 4. Back to Library; reopen R.U.R. and go to its start (chapter picker -> the chapter); Bookmarks
+#    -> the bookmark -> it lands on the same line: that paragraph is the top one, the one before
+#    it is off screen (BMK-007).
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_R\\.U\\.R\\..*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_R\\.U\\.R\\..*"
+#   Reopening restores the saved place WITH its in-paragraph offset (ReadingPosition.offset), so
+#   the bookmarked paragraph itself can be scrolled almost off the top (seen: only its last
+#   pixels left, not reported as visible). The paragraph after it is on screen either way.
+- extendedWaitUntil:
+    visible:
+      id: "original_0_${output.rurP}"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_0_${output.rurP - 1}"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Chapter 1 · ¶ \\d+"
+- tapOn: "${output.rurLabel}"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_${output.rurP - 1}"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_0_${output.rurP - 2}"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page|Remove bookmark here"
+- assertVisible: "Remove bookmark here"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- takeScreenshot: J-RDR-08-step4-rur-bookmark
+- runFlow: ../../subflows/leave_reader.yaml
+
+# Precondition of step 5: en-novel.epub with a bookmark near the end (chapter 21: on this tablet
+# the last chapter, 22, fits on one screen, so only its first paragraph could be on top — the
+# jump would prove less), the position back at the start, and the translation cache cleared.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- scrollUntilVisible:
+    element:
+      id: "reader:chapterRow:20"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "reader:chapterRow:20"
+- extendedWaitUntil:
+    visible: ".*\\(ch21\\.1\\).*"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+#   Move on until the 3rd paragraph or later is the top one (small swipes, as in J-RDR-02).
+- repeat:
+    times: 60
+    while:
+      visible:
+        id: "original_20_1"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 33%"
+          duration: 800
+- assertNotVisible:
+    id: "original_20_1"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- copyTextFrom: "Chapter 21 · ¶ \\d+"
+- evalScript: ${output.enLabel = maestro.copiedText}
+- evalScript: ${output.enP = parseInt(output.enLabel.replace(/.*¶ /, ''))}
+- evalScript: ${console.log('J-RDR-08 precondition - en-novel bookmark ' + output.enLabel)}
+- assertTrue: ${output.enP >= 3 && output.enP <= 7}
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 15000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Cached translations: \\d+"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    text: "Clear"
+    rightOf: "Cached translations: \\d+"
+- extendedWaitUntil:
+    visible: "Delete all \\d+ cached translations\\?.*"
+    timeout: 5000
+- tapOn:
+    text: "Clear"
+    below: "Delete all \\d+ cached translations\\?.*"
+- extendedWaitUntil:
+    visible: "Cached translations: 0"
+    timeout: 10000
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+
+# 5. Open en-novel.epub (at the start, nothing cached), open Bookmarks at once and tap the
+#    chapter 21 bookmark while the panes are still being translated -> the view lands precisely
+#    on the bookmarked paragraph: it is the top one, the one before it is off screen (POS-001,
+#    BMK-004). Whether its translation slot was still empty at the landing is logged (a look
+#    takes about a second; Offline HQ may have filled it by then).
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Chapter 21 · ¶ \\d+"
+- tapOn: "${output.enLabel}"
+- extendedWaitUntil:
+    visible:
+      id: "original_20_${output.enP - 1}"
+    timeout: 15000
+- evalScript: ${output.slotEmpty = 'unknown'}
+- runFlow:
+    when:
+      notVisible:
+        text: ".*[а-яё]{3,}.*"
+        childOf:
+          id: "translation_20_${output.enP - 1}"
+    commands:
+      - evalScript: ${output.slotEmpty = 'yes'}
+- evalScript: ${console.log('J-RDR-08 step 5 - landing slot still untranslated at the first look - ' + output.slotEmpty)}
+- assertVisible:
+    id: "original_20_${output.enP - 1}"
+- assertNotVisible:
+    id: "original_20_${output.enP - 2}"
+
+# 6. Wait for the translation -> the paragraph stays on top; the page shows as bookmarked
+#    (POS-001, BMK-004).
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_20_${output.enP - 1}"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "J-RDR-08 translations settle"
+    timeout: 5000
+    optional: true
+- assertVisible:
+    id: "original_20_${output.enP - 1}"
+- assertNotVisible:
+    id: "original_20_${output.enP - 2}"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page|Remove bookmark here"
+- assertVisible: "Remove bookmark here"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- takeScreenshot: J-RDR-08-step6-landed

@@ -1,0 +1,570 @@
+appId: ${APP_ID}
+name: J-RDR-06 Tablet tuning typography, layout combos and persistence
+tags: [full, tablet, reading, J-RDR-06]
+# books: full-features.fb2, alice-illustrated.epub
+---
+# J-RDR-06 — Tablet: tuning typography, layout combos and persistence.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-06.
+# Fixtures: full-features.fb2 (F-FB2, "The Complete Letters"), alice-illustrated.epub (F-ALICE).
+#
+# What a flow can see of typography: the Display dialog's value labels ("16sp", "×1.50",
+# "18dp", "0.00sp", "50 / 50"), the switches' checked state, and — for the typeface, whose chip
+# is drawn inverted when selected and has no selected state in the tree — a colour crop of the
+# chip's name (e2e/check_colours.py: PaperInk = selected, PaperBg2 = not), as J-TRN-01 does for
+# the translator cards. The page itself is seen only through paragraph widths (margins, split).
+# MANUAL: "resizes live, no slider jump", "right edges align / ragged-right", "nothing clips"
+# and ILL-005 ("the picture and the chapter title align flush with the text margin") are how
+# the page LOOKS; the flow takes a screenshot at each of those points.
+#
+# Widths (Tab_35_PixelTablet, 2560 px wide, 2 px per dp; README "Widths and pixel points are per
+# AVD"): the split is taken of the WHOLE width, then each pane loses its outer margin and the
+# fixed 12 dp (24 px) gutter at the divider: s·2560 − 2·margin − 24 px for the original and
+# (1 − s)·2560 − 2·margin − 24 px for the translation, margin in dp. J-RDR-05: margin 32 dp,
+# s 0.5 -> 1192 / 1192. Seen on Tab_35_PixelTablet (run 20261119T125041Z): at "35 / 65" the
+# panes are 813 / 1571 px, i.e. s = 0.352 (the label rounds); the first draft of this flow
+# took the split of the width between the margins and expected 827 / 1557.
+#
+# Sliders: the typography sliders have test tags (font_size_slider, …), tapped at a point along
+# their track; the split slider has none (picked by size between its label and the next row, as
+# in J-RDR-01); the Settings "Page margins" slider likewise (as in J-RDR-05).
+# Slider taps (measured with adb taps on Pixel_10_Pro, the same Compose slider): a tap counts only
+# inside the track's touch area, which starts and ends about 11–16dp in from the row's ends — a tap
+# at 0% / 1% of a row does nothing (Settings' margins stayed 32dp, run 20261119T133146Z), and so
+# does one just past the track's end. So the "extremes" are taps just inside the track: 2% of a
+# Settings row gives the minimum (4dp, 30 / 70), 98% (of a 2248 px row) about 99 % of the range:
+# 47dp, 29sp, 1.98sp — the label floors margins and font size. The checks accept 47–48dp, 29–30sp,
+# 1.9x–2.00sp: the journey's "48 dp, font 30, letter spacing 2" is "at the top of each range".
+# In between, a tap at f of an L px row sets min + (f·L − ~16dp) / (L − ~32dp) · range.
+- assertTrue: ${DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open F-FB2; Display -> Text size clearly larger -> the value changes (APP-010, APP-006).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "full-features.fb2"
+      TITLE: "The Complete Letters"
+      FIRST_TEXT: "The letter arrived on a grey morning, long after everyone had stopped expecting it"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- scrollUntilVisible:
+    element:
+      id: "font_size_slider"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- assertVisible:
+    text: "16sp"
+    rightOf: "Font size"
+- tapOn:
+    id: "font_size_slider"
+    point: "75%, 50%"
+- extendedWaitUntil:
+    visible:
+      text: "2[4-7]sp"
+      rightOf: "Font size"
+    timeout: 5000
+- copyTextFrom:
+    text: "2[4-7]sp"
+    rightOf: "Font size"
+- evalScript: ${output.size = maestro.copiedText}
+
+# 2. Line height up -> the value changes (APP-011).
+- scrollUntilVisible:
+    element:
+      id: "line_height_slider"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- assertVisible: "×1\\.50"
+- tapOn:
+    id: "line_height_slider"
+    point: "90%, 50%"
+- extendedWaitUntil:
+    visible: "×1\\.(8|9)\\d"
+    timeout: 5000
+- copyTextFrom: "×1\\.(8|9)\\d"
+- evalScript: ${output.lineHeight = maestro.copiedText}
+
+# 3. Letter spacing up -> the value changes (APP-012).
+- scrollUntilVisible:
+    element:
+      id: "letter_spacing_slider"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- assertVisible:
+    text: "0\\.00sp"
+    rightOf: "Letter spacing"
+- tapOn:
+    id: "letter_spacing_slider"
+    point: "50%, 50%"
+- extendedWaitUntil:
+    visible:
+      text: "(0\\.9|1\\.0)\\dsp"
+      rightOf: "Letter spacing"
+    timeout: 5000
+- copyTextFrom:
+    text: "(0\\.9|1\\.0)\\dsp"
+    rightOf: "Letter spacing"
+- evalScript: ${output.letter = maestro.copiedText}
+
+# 4. Paragraph spacing up -> the value changes (APP-013).
+- scrollUntilVisible:
+    element:
+      id: "paragraph_spacing_slider"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- assertVisible:
+    text: "18dp"
+    rightOf: "Paragraph spacing"
+- tapOn:
+    id: "paragraph_spacing_slider"
+    point: "80%, 50%"
+- extendedWaitUntil:
+    visible:
+      text: "(3\\d|4[0-8])dp"
+      rightOf: "Paragraph spacing"
+    timeout: 5000
+- copyTextFrom:
+    text: "(3\\d|4[0-8])dp"
+    rightOf: "Paragraph spacing"
+- evalScript: ${output.paraSpacing = maestro.copiedText}
+- evalScript: ${console.log('J-RDR-06 steps 1-4 - size ' + output.size + ', line height ' + output.lineHeight + ', letter ' + output.letter + ', paragraph ' + output.paraSpacing)}
+
+# 5. Justify text: on by default; off -> on -> off (APP-014). It is left OFF, the non-default
+#    value, so that step 8 and step 9 can tell it was kept.
+- scrollUntilVisible:
+    element: "Justify text"
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    checked: true
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- tapOn:
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- assertNotVisible:
+    checked: true
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- tapOn:
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- assertVisible:
+    checked: true
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- tapOn:
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- assertNotVisible:
+    checked: true
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+
+# 6. Pick another reading font -> Lora is selected, Serif (the default) is not (APP-009).
+- scrollUntilVisible:
+    element: "Serif"
+    direction: UP
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- takeScreenshot:
+    path: colour-check/step6-serif-before__PaperInk
+    cropOn: "Serif"
+- tapOn: "Lora"
+- takeScreenshot:
+    path: colour-check/step6-lora__PaperInk
+    cropOn: "Lora"
+- takeScreenshot:
+    path: colour-check/step6-serif-after__PaperBg2
+    cropOn: "Serif"
+
+# 7. Split position -> about 35 / 65 -> the value changes (and the panes resize — the widths are
+#    asserted in step 10).
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "50 / 50"
+- tapOn:
+    below: "Split position"
+    above: "Show translation"
+    height: 44
+    tolerance: 8
+    point: "15%, 50%"
+- extendedWaitUntil:
+    visible: "35 / 65"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- takeScreenshot: J-RDR-06-step7-tuned-page
+
+# 8. Settings -> the same font is selected and "Justify text" matches the reader (off)
+#    (APP-009, APP-014); the other values are the reader's too.
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Serif"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 30000
+- takeScreenshot:
+    path: colour-check/step8-settings-lora__PaperInk
+    cropOn: "Lora"
+- takeScreenshot:
+    path: colour-check/step8-settings-serif__PaperBg2
+    cropOn: "Serif"
+- scrollUntilVisible:
+    element: "Justify text"
+    direction: DOWN
+    timeout: 15000
+- assertNotVisible:
+    checked: true
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- assertVisible:
+    text: "${output.size}"
+    rightOf: "Font size"
+- assertVisible: "${output.lineHeight}"
+- assertVisible:
+    text: "${output.letter}"
+    rightOf: "Letter spacing"
+- assertVisible:
+    text: "${output.paraSpacing}"
+    rightOf: "Paragraph spacing"
+- assertVisible:
+    text: "35 / 65"
+    rightOf: "Split ratio"
+
+# 9. Kill and relaunch; reopen F-FB2 -> size, line height, letter spacing, paragraph spacing,
+#    font, alignment and the split 0.35 are all kept (APP-006, APP-010, APP-011, APP-012,
+#    APP-013, LAY-006): the Display dialog shows them, and the panes have the 35 / 65 widths
+#    (margin 32 dp; the tap gives s = 0.352, see the header: 0.352·2560 − 64 − 24 = 813 and
+#    0.648·2560 − 64 − 24 = 1571).
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: "book_card_The Complete Letters"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The Complete Letters"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- assertVisible:
+    id: "original_\\d+_\\d+"
+    width: 813
+    tolerance: 10
+- assertVisible:
+    id: "translation_\\d+_\\d+"
+    width: 1571
+    tolerance: 10
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- assertVisible:
+    text: "${output.size}"
+    rightOf: "Font size"
+- takeScreenshot:
+    path: colour-check/step9-relaunch-lora__PaperInk
+    cropOn: "Lora"
+- assertVisible: "${output.lineHeight}"
+- scrollUntilVisible:
+    element:
+      id: "paragraph_spacing_slider"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 10000
+- assertVisible:
+    text: "${output.letter}"
+    rightOf: "Letter spacing"
+- assertVisible:
+    text: "${output.paraSpacing}"
+    rightOf: "Paragraph spacing"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "35 / 65"
+- assertNotVisible:
+    checked: true
+    below: "Justify text"
+    above: "Align both edges of each line"
+    rightOf: "Justify text"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 10. Margins 4 dp, then 48 dp (Settings) -> the original's left edge and the translation's right
+#     edge move: at 4 dp the panes are 869 / 1627 px, at 48 dp 781 / 1539 px (the gutter at the
+#     divider is the fixed 24 px in both); nothing clips (MANUAL, screenshots) (APP-003).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    below: "Page margins"
+    above: "Show translation"
+    width: 2248
+    height: 44
+    tolerance: 10
+    point: "2%, 50%"
+- assertVisible:
+    text: "4dp"
+    below: "Split ratio"
+    above: "Show translation"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The Complete Letters"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The Complete Letters"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- assertVisible:
+    id: "original_\\d+_\\d+"
+    width: 869
+    tolerance: 10
+- assertVisible:
+    id: "translation_\\d+_\\d+"
+    width: 1627
+    tolerance: 10
+- takeScreenshot: J-RDR-06-step10-margins-4
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    below: "Page margins"
+    above: "Show translation"
+    width: 2248
+    height: 44
+    tolerance: 10
+    point: "98%, 50%"
+- assertVisible:
+    text: "4[78]dp"
+    below: "Split ratio"
+    above: "Show translation"
+
+# 11. The extreme: margins 48 dp, font size 30, letter spacing 2, split 30 / 70 -> nothing clips
+#     (MANUAL, screenshot); the panes are 0.3·2560 − 96 − 24 = 648 / 0.7·2560 − 96 − 24 = 1672 px (APP-003).
+- scrollUntilVisible:
+    element: "Font size"
+    direction: UP
+    timeout: 15000
+- tapOn:
+    id: "font_size_slider"
+    point: "98%, 50%"
+- assertVisible:
+    text: "(29|30)sp"
+    rightOf: "Font size"
+- tapOn:
+    id: "letter_spacing_slider"
+    point: "98%, 50%"
+- assertVisible:
+    text: "(1\\.9\\d|2\\.00)sp"
+    rightOf: "Letter spacing"
+- scrollUntilVisible:
+    element: "Page margins"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    below: "Split ratio"
+    above: "Page margins"
+    width: 2248
+    height: 44
+    tolerance: 10
+    point: "2%, 50%"
+- assertVisible:
+    text: "30 / 70"
+    rightOf: "Split ratio"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The Complete Letters"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The Complete Letters"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- assertVisible:
+    id: "original_\\d+_\\d+"
+    width: 648
+    tolerance: 10
+- assertVisible:
+    id: "translation_\\d+_\\d+"
+    width: 1672
+    tolerance: 10
+- takeScreenshot: J-RDR-06-step11-extreme
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 12. Margins 12 dp; open F-ALICE at a chapter with a heading and a plate (chapter index 2: "— 3 —",
+#     the tall drawing after its 9th paragraph) -> the picture and the chapter title align with
+#     the text margin (ILL-005: MANUAL, screenshot). What is asserted: the text column is the
+#     12 dp one (0.3·2560 − 24 − 24 = 720 px) and the picture is drawn whole at its own size.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    below: "Page margins"
+    above: "Show translation"
+    width: 2248
+    height: 44
+    tolerance: 10
+    point: "20%, 50%"
+- assertVisible:
+    text: "12dp"
+    below: "Split ratio"
+    above: "Show translation"
+- tapOn: "Library"
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+- extendedWaitUntil:
+    visible: "— 1 —"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:2"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "— 3 —"
+    timeout: 15000
+- assertVisible:
+    id: "original_2_0"
+    width: 720
+    tolerance: 10
+- takeScreenshot: J-RDR-06-step12-title-margins-12
+- repeat:
+    times: 40
+    while:
+      notVisible:
+        id: "illustration"
+        width: 366
+        height: 900
+        tolerance: 6
+    commands:
+      - swipe:
+          start: "15%, 70%"
+          end: "15%, 45%"
+          duration: 1200
+- assertVisible:
+    id: "illustration"
+    width: 366
+    height: 900
+    tolerance: 6
+- takeScreenshot: J-RDR-06-step12-picture-margins-12
+
+# 13. Margins 40 dp; the same chapter -> still aligned with the text (ILL-005: MANUAL,
+#     screenshot); the text column is the 40 dp one (0.3·2560 − 80 − 24 = 664 px).
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    below: "Page margins"
+    above: "Show translation"
+    width: 2248
+    height: 44
+    tolerance: 10
+    point: "82%, 50%"
+- assertVisible:
+    text: "40dp"
+    below: "Split ratio"
+    above: "Show translation"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Alice's Adventures in Wonderland.*"
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+    timeout: 20000
+#     The book reopens at its place, where the picture can be cut by the bottom edge (seen: run
+#     20261119T134750Z, picture from y 875 to the screen's end): move on until it is whole.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 20
+    while:
+      notVisible:
+        id: "illustration"
+        width: 366
+        height: 900
+        tolerance: 6
+    commands:
+      - swipe:
+          start: "15%, 60%"
+          end: "15%, 50%"
+          duration: 1200
+- assertVisible:
+    id: "illustration"
+    width: 366
+    height: 900
+    tolerance: 6
+- assertVisible:
+    id: "original_2_\\d+"
+    width: 664
+    tolerance: 10
+- takeScreenshot: J-RDR-06-step13-picture-margins-40

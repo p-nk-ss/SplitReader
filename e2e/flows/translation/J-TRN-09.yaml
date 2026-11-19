@@ -1,0 +1,654 @@
+appId: ${APP_ID}
+name: J-TRN-09 From ML Kit to Offline HQ - empty packs, cache, unsupported pair, a Russian book into German
+tags: [full, network, tablet, translation, J-TRN-09]
+# books: en-novel.epub, ru-book.epub
+---
+# J-TRN-09 — From ML Kit to Offline HQ: empty packs, cache, unsupported pair, a Russian book
+# into German. Tablet only (the journey's device; ML Kit models download unreliably on API 30).
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-09.
+# Fixtures: en-novel.epub ("The River Crossing"; its 12th paragraph, "Every morning the ferryman
+# crossed…", is "…паромчик…" in ML Kit's Russian and "…паромник…" in Offline HQ's — the pinned
+# models, J-TRN-03 steps 6–7 — so that paragraph tells the two engines apart), ru-book.epub
+# ("Осенний вечер в Москве": three chapters of 2–3 paragraphs, all on one tablet screen).
+# Network: ML Kit's EN→RU and EN→HI models, Offline HQ's EN→RU, RU→EN, EN→DE packs.
+#
+# Changes to the journey's order (the app's behaviour, not a different check):
+#  - Step 12: importing a book opens it, so "import ru-book, then set the target to German with no
+#    book open" is done the other way round: Settings -> German first (no book open, nothing
+#    downloads), then the import, which is step 13's opening.
+#  - Step 19: the three short chapters of ru-book are on one screen and were all translated (and
+#    cached) at the first opening, so no chapter is untranslated. The cache is cleared together
+#    with the RU → EN pack, which makes the book's chapters untranslated again.
+- assertTrue: ${DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Settings -> Translation -> Change -> ML Kit, before any book is opened -> ML Kit is the
+#    current translator (MLK-010).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, region and monthly usage\\."
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 5000
+- tapOn: "ML Kit \\(offline\\)"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "ML Kit \\(offline\\)"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- assertNotVisible:
+    text: "Offline HQ"
+    above: "Manage providers, API keys, region and monthly usage\\."
+
+# 2. Language packs -> "No Offline HQ packs downloaded yet. Choose “Offline HQ” as the translator
+#    and packs download as you read." — no list, no total (OHQ-010).
+- scrollUntilVisible:
+    element: "No Offline HQ packs downloaded yet\\..*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "No Offline HQ packs downloaded yet\\. Choose .Offline HQ. as the translator and packs download as you read\\."
+- assertNotVisible: "[A-Z]{2} → [A-Z]{2} · \\d+ MB"
+- assertNotVisible: "Total \\d+ MB.*"
+
+# 3. About -> the version, "Formats: EPUB · FB2 · MOBI", "Translation: Google ML Kit · Offline HQ
+#    (Mozilla/Bergamot)" and the open-source licences entry (SET-016).
+- scrollUntilVisible:
+    element: "OPEN-SOURCE LICENCES"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "VERSION"
+- assertVisible:
+    text: "\\d+\\.\\d+.*"
+    rightOf: "VERSION"
+- assertVisible:
+    text: "EPUB · FB2 · MOBI"
+    rightOf: "FORMATS"
+- assertVisible:
+    text: "Google ML Kit · Offline HQ \\(Mozilla/Bergamot\\)"
+    rightOf: "TRANSLATION"
+- assertVisible: "THIRD_PARTY_LICENSES\\.md in the app repository"
+- takeScreenshot: J-TRN-09-step3-about
+- tapOn: "Library"
+
+# 4. Import en-novel.epub and wait for the model and the first screen -> the pane fills with ML
+#    Kit's translations (MLK-001): paragraph 12 reads "…паромчик…".
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 0
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 180000
+- assertTrue: ${output.rows >= 6}
+- scrollUntilVisible:
+    element:
+      id: "translation_0_11"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*паромчик.*"
+      childOf:
+        id: "translation_0_11"
+    timeout: 60000
+- takeScreenshot: J-TRN-09-step4-ml-kit
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 5. Force-stop and relaunch; open the book -> ML Kit is still the current translator and the
+#    translations are ML Kit's (MLK-010).
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, region and monthly usage\\."
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "ML Kit \\(offline\\)"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "translation_0_11"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*паромчик.*"
+      childOf:
+        id: "translation_0_11"
+    timeout: 60000
+
+# 6. Aa -> Show translation off, scroll forward three screens, turn it back on -> those screens
+#    are already translated: ML Kit is free and keeps working while hidden (MLK-003).
+#    As in J-TRN-01 step 9: the cache count before the three hidden screens and after them,
+#    read with the pane still off, must differ by at least 5.
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "off"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.before = output.cached}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: "30%, 80%"
+          end: "30%, 20%"
+          duration: 1500
+      - extendedWaitUntil:
+          visible: "J-TRN-09 pause between screens"
+          timeout: 3000
+          optional: true
+- extendedWaitUntil:
+    visible: "J-TRN-09 pause before reading the cache"
+    timeout: 8000
+    optional: true
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${console.log('J-TRN-09 step 6 - cached before ' + output.before + ', after three hidden screens ' + output.cached)}
+- assertTrue: ${output.cached >= output.before + 5}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/show_translation.yaml
+    env:
+      STATE: "on"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 7. Settings -> Storage -> "Cached translations: N" with N > 0 (SET-014).
+- runFlow: ../../subflows/cached_translations.yaml
+- assertTrue: ${output.cached > 0}
+
+# 8. Clear and confirm -> the count reads 0 (SET-014).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Cached translations: \\d+"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    text: "Clear"
+    rightOf: "Cached translations: \\d+"
+- extendedWaitUntil:
+    visible: "Delete all \\d+ cached translations\\?.*"
+    timeout: 5000
+- tapOn:
+    text: "Clear"
+    below: "Delete all \\d+ cached translations\\?.*"
+- extendedWaitUntil:
+    visible: "Cached translations: 0"
+    timeout: 10000
+- tapOn: "Library"
+
+# 9. Back to the same screen of the book -> the paragraphs are translated again rather than
+#    taken from the cache: the count grows from 0 (SET-014). ("Shimmers, then text" as a reader
+#    sees it is the same thing; the placeholder phase is too short to be looked at reliably.)
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 60000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${console.log('J-TRN-09 step 9 - cached after the clear and one screen ' + output.cached)}
+- assertTrue: ${output.cached >= 3}
+
+# 10. Settings -> Translation -> Change -> Offline HQ. In the book: language button -> "To" ->
+#     Hindi. The journey expects "Offline HQ doesn't support EN→HI — translated by ML Kit"
+#     (MLK-007), but the v29 pinned catalog HAS en-hi (assets/bergamot/manifest.json: every one of
+#     the 17 other app languages has an en-X and an X-en pack), so no target choice can produce an
+#     unsupported Offline HQ pair: the fallback strip is reached only through ENGINE_UNAVAILABLE
+#     (a device where Bergamot cannot run, MANUAL). What is
+#     checked instead: the Hindi translation arrives (Offline HQ downloads EN→HI), with no
+#     fallback strip and no error banner. MLK-007 itself is step 10b, with DeepL (no Hindi).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, region and monthly usage\\."
+    direction: UP
+    timeout: 40000
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 5000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "Offline HQ"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+#     The language grid scrolls inside the dialog: Hindi is in its last rows.
+- scrollUntilVisible:
+    element: "हिन्दी"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 15000
+- tapOn: "हिन्दी"
+- extendedWaitUntil:
+    notVisible: "Translate into"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: ".*[ऀ-ॿ]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 180000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertNotVisible: ".*translated by.*"
+      - assertVisible:
+          id: "reader:languageChip"
+- assertNotVisible: ".*(Couldn't|failed|Invalid|No internet).*"
+- takeScreenshot: J-TRN-09-step10-hindi
+
+# 10b. MLK-007 through the other way the app has to an unsupported pair: DeepL has no Hindi. In
+#      the reader's picker: DeepL -> the made-up key "fake-key-e2e-000" -> Save (saving selects
+#      it). TranslationRepositoryImpl.resolve() sees a configured provider that does not support
+#      EN→HI and falls back before any request is made (nothing is sent to DeepL): the strip
+#      "DeepL doesn't support EN→HI — translated by ML Kit (offline)" with the bars up, Hindi in
+#      the pane (ML Kit's EN→HI model downloads), no error banner. Then Offline HQ again.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- scrollUntilVisible:
+    element: "DeepL"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "DeepL"
+- extendedWaitUntil:
+    visible: "Paste key…"
+    timeout: 10000
+- tapOn: "Paste key…"
+- inputText: "fake-key-e2e-000"
+- assertVisible: "•{16}"
+- tapOn: "Save"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: ".*[ऀ-ॿ]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 180000
+- retry:
+    maxRetries: 3
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible: "DeepL doesn't support EN→HI — translated by ML Kit \\(offline\\)"
+- assertNotVisible: ".*(Couldn't|failed|Invalid|No internet|API key).*"
+- takeScreenshot: J-TRN-09-step10b-deepl-hindi-by-ml-kit
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- scrollUntilVisible:
+    element: "Offline HQ"
+    direction: UP
+    timeout: 15000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 10000
+
+# 11. Target back to Russian -> still no strip; Offline HQ downloads/uses EN→RU: paragraph 12
+#     in Offline HQ's wording ("…паромник…").
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:languageChip"
+      OPENS: "Translate into"
+- scrollUntilVisible:
+    element: "Русский"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    text: "Русский"
+    index: 0
+- extendedWaitUntil:
+    notVisible: "Translate into"
+    timeout: 10000
+#     The reader is further down by now (the session restored a later place): back to chapter 1
+#     with the chapter picker, then down to its 12th paragraph.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "translation_0_11"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*паромник.*"
+      childOf:
+        id: "translation_0_11"
+    timeout: 180000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "RU"
+          childOf:
+            id: "reader:languageChip"
+      - assertNotVisible: ".*translated by.*"
+      - assertVisible:
+          id: "reader:languageChip"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 12. (Order swapped, see the header.) With no book open, Settings -> Default translation
+#     language -> German.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Default translation language"
+    direction: UP
+    timeout: 40000
+- tapOn:
+    text: "Change"
+    below: "Default translation language"
+- extendedWaitUntil:
+    visible: "Default language"
+    timeout: 10000
+- tapOn: "DE"
+- extendedWaitUntil:
+    notVisible: "Default language"
+    timeout: 10000
+- assertVisible:
+    text: "Deutsch"
+    below: "Default translation language"
+- tapOn: "Library"
+
+# 13. Import (= open) ru-book.epub -> the language button reads "RU → DE"; two downloads run one
+#     after the other (RU→EN, then EN→DE), the banner's percentage covering both (OHQ-008).
+#     What is checked: a download is seen (readings under 100), the banner never goes down, and
+#     after it both packs are listed (step 17). "One after the other" and "noticeably longer"
+#     are MANUAL (the banner has one percentage for both legs).
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- tapOn: "Open book"
+- extendedWaitUntil:
+    visible: "ru-book.epub"
+    timeout: 15000
+- tapOn:
+    text: "ru-book.epub"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible: "Preparing translation….*"
+    timeout: 30000
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- evalScript: ${console.log('J-TRN-09 step 13 - banner readings under 100 ' + output.bnBelow100 + ', first ' + output.bnFirst + ', max ' + output.bnMax)}
+- assertTrue: ${output.bnBelow100 >= 2}
+- assertTrue: ${output.bnDecreased == false}
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "RU"
+      TARGET: "DE"
+
+# 14. The first screen -> German text in the pane (OHQ-008).
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 0
+      PATTERN: ".*\\b(der|die|das|und|Sie|Er|ein|eine)\\b.*"
+      TIMEOUT: 120000
+- assertTrue: ${output.rows >= 2}
+- assertNotVisible:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_0"
+- takeScreenshot: J-TRN-09-step14-german
+
+# 15. Translator picker -> Offline HQ's description says that non-English pairs go through
+#     English; it does not claim a direct RU→DE model (OHQ-007).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- assertVisible: ".*Non-English pairs go through English\\..*"
+- assertNotVisible: ".*RU→DE.*|.*RU → DE.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+
+# 16. Close and reopen the book; jump to another chapter -> no download banner; translation is
+#     quick (OHQ-008).
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_Осенний вечер в Москве"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Осенний вечер в Москве"
+    waitToSettleTimeoutMs: 100
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 == 0}
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:2"
+    waitToSettleTimeoutMs: 100
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- assertTrue: ${output.bnBelow100 == 0}
+- extendedWaitUntil:
+    visible:
+      text: ".*\\b(der|die|das|und|Sie|Er|ein|eine)\\b.*"
+      childOf:
+        id: "translation_2_0"
+    timeout: 15000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 17. Settings -> Language packs -> rows "RU → EN · N MB" and "EN → DE · N MB" (and the earlier
+#     "EN → RU"), each with Delete; the total is the sum of every row (EN → HI too: step 10 downloaded it) and credits "Models by Mozilla
+#     (MPL-2.0)" (OHQ-009). (Each row's MB is rounded down on its own, so the total may exceed
+#     the sum of the rounded rows by up to one per row.)
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "RU → EN · \\d+ MB"
+- assertVisible: "EN → DE · \\d+ MB"
+- assertVisible: "EN → RU · \\d+ MB"
+- assertVisible: "EN → HI · \\d+ MB"
+- assertVisible:
+    text: "Delete"
+    rightOf: "RU → EN · \\d+ MB"
+- assertVisible:
+    text: "Delete"
+    rightOf: "EN → DE · \\d+ MB"
+- copyTextFrom: "RU → EN · \\d+ MB"
+- evalScript: "${output.mbRuEn = parseInt(maestro.copiedText.split('· ').pop())}"
+- copyTextFrom: "EN → DE · \\d+ MB"
+- evalScript: "${output.mbEnDe = parseInt(maestro.copiedText.split('· ').pop())}"
+- copyTextFrom: "EN → RU · \\d+ MB"
+- evalScript: "${output.mbEnRu = parseInt(maestro.copiedText.split('· ').pop())}"
+- copyTextFrom: "EN → HI · \\d+ MB"
+- evalScript: "${output.mbEnHi = parseInt(maestro.copiedText.split('· ').pop())}"
+- copyTextFrom: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- evalScript: "${output.mbTotal = parseInt(maestro.copiedText.split(' ')[1])}"
+- evalScript: ${output.mbSum = output.mbRuEn + output.mbEnDe + output.mbEnRu + output.mbEnHi}
+- evalScript: ${console.log('J-TRN-09 step 17 - RU→EN ' + output.mbRuEn + ', EN→DE ' + output.mbEnDe + ', EN→RU ' + output.mbEnRu + ', EN→HI ' + output.mbEnHi + ', total ' + output.mbTotal)}
+- assertTrue: ${output.mbTotal >= output.mbSum && output.mbTotal <= output.mbSum + 4}
+- assertTrue: ${output.mbRuEn > 0 && output.mbEnDe > 0 && output.mbEnRu > 0}
+- takeScreenshot: J-TRN-09-step17-packs
+
+# 18. Delete "RU → EN" -> the row disappears and the total drops (OHQ-011).
+#     `rightOf:` constrains only x: every row's Delete is right of every label, and the first one
+#     (EN → DE's) was tapped (run 20261119T133146Z). The rows are sorted, RU → EN last: its Delete
+#     is the one below the EN → RU label and above the total.
+- tapOn:
+    text: "Delete"
+    below: "EN → RU · \\d+ MB"
+    above: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- extendedWaitUntil:
+    notVisible: "RU → EN · \\d+ MB"
+    timeout: 10000
+- assertVisible: "EN → DE · \\d+ MB"
+- assertVisible: "EN → RU · \\d+ MB"
+- assertVisible: "EN → HI · \\d+ MB"
+- copyTextFrom: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+- evalScript: "${output.mbTotal2 = parseInt(maestro.copiedText.split(' ')[1])}"
+- evalScript: ${console.log('J-TRN-09 step 18 - total after the delete ' + output.mbTotal2)}
+- assertTrue: ${output.mbTotal2 < output.mbTotal && output.mbTotal2 >= output.mbTotal - output.mbRuEn - 1}
+#     (See the header: the cache is cleared too, so the book has untranslated chapters again.)
+- scrollUntilVisible:
+    element: "Cached translations: \\d+"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: "Clear"
+    rightOf: "Cached translations: \\d+"
+- extendedWaitUntil:
+    visible: "Delete all \\d+ cached translations\\?.*"
+    timeout: 5000
+- tapOn:
+    text: "Clear"
+    below: "Delete all \\d+ cached translations\\?.*"
+- extendedWaitUntil:
+    visible: "Cached translations: 0"
+    timeout: 10000
+- tapOn: "Library"
+
+# 19. Reopen ru-book.epub at an untranslated chapter -> only the RU→EN leg downloads again, from
+#     the start, and the German translation follows with no "corrupted" error (OHQ-011,
+#     OHQ-008). Afterwards Settings lists RU → EN again.
+- scrollUntilVisible:
+    element:
+      id: "book_card_Осенний вечер в Москве"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Осенний вечер в Москве"
+    waitToSettleTimeoutMs: 100
+- extendedWaitUntil:
+    visible: "Preparing translation….*"
+    timeout: 30000
+- runFlow: ../../subflows/watch_translation_banner.yaml
+- evalScript: ${console.log('J-TRN-09 step 19 - banner readings under 100 ' + output.bnBelow100 + ', first ' + output.bnFirst + ', max ' + output.bnMax)}
+- assertTrue: ${output.bnBelow100 >= 2}
+- assertTrue: ${output.bnFirst >= 0 && output.bnFirst < 50}
+- assertTrue: ${output.bnDecreased == false}
+- extendedWaitUntil:
+    visible:
+      text: ".*\\b(der|die|das|und|Sie|Er|ein|eine)\\b.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 120000
+- assertNotVisible: ".*(corrupt|Couldn't).*"
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "RU → EN · \\d+ MB"
+- assertVisible: "EN → DE · \\d+ MB"
