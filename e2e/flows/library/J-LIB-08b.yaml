@@ -1,0 +1,116 @@
+appId: ${APP_ID}
+name: J-LIB-08b The shelf on a 360dp phone
+tags: [full, library, phone, J-LIB-08b]
+# books: no-description.epub, tiny.epub, prose-one-chapter.epub
+# wm_density: 569
+---
+# J-LIB-08b — J-LIB-08's steps 7 (phone at 360dp), 8 and 9: the Library on a 360dp-wide phone.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-08.
+# run.sh runs this flow at display density 569 (`# wm_density:` header): Pixel_10_Pro's 1280 px
+# are then 1280 · 160 / 569 = 360dp, and resets the density after it. Phone only.
+#
+# Three books are enough here (2 columns need two cards on one row; the shelf header and the hero
+# need one book): the free tier, no Premium (debug).
+# Grid (LIB-013): (360 − 72 − 22) / 2 = 133dp = 473 px at 3.556 px/dp (1 column would be
+# 1024 px). "CONTINUE READING" on one line (LIB-020): one line of 11sp is about 92 px here, two lines about 185: the check is under 120.
+- assertTrue: ${DEVICE_CLASS == 'phone'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "no-description.epub"
+      TITLE: "No Description Here"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "prose-one-chapter.epub"
+      TITLE: "Prose in One Chapter"
+      FIRST_TEXT: "The old mill still stood at the bend of the river.*\\(s1\\)"
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 40%"
+          duration: 800
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "tiny.epub"
+      TITLE: "Tiny Book"
+      FIRST_TEXT: "A very short first line\\."
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 9. At 360dp the hero's "CONTINUE READING" BUTTON (below "LAST OPENED") still fits one line
+#    (LIB-020). The hero's eyebrow, also "CONTINUE READING", sits in the narrow title column next to
+#    the cover and DOES wrap here: seen [690,1736][1074,1922] = two lines in a 108dp column
+#    (run 20261119T133241Z). LIB-020 is about the button; the wrapped eyebrow is reported as a
+#    finding (screenshot J-LIB-08b-step9-hero-360dp), not asserted.
+- extendedWaitUntil:
+    visible:
+      text: "Tiny Book"
+      above: "by Test Author"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "CONTINUE READING"
+      below: "LAST OPENED"
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    text: "CONTINUE READING"
+    below: "LAST OPENED"
+    height: 60
+    tolerance: 59
+- takeScreenshot: J-LIB-08b-step9-hero-360dp
+
+# 8. The "Your shelf" header: the filter pills are one line that scrolls sideways; the header
+#    does not grow tall (LIB-014). A pill cut off at the right edge before scrolling is expected;
+#    after a swipe along the row every pill is reachable (LIB-015).
+- scrollUntilVisible:
+    element: "Your shelf"
+    direction: DOWN
+    centerElement: true
+    timeout: 10000
+- assertVisible: "All · 3"
+- assertVisible:
+    text: "Reading · 1"
+    rightOf: "All · 3"
+- assertVisible:
+    text: "All · 3"
+    below: "Your shelf"
+- takeScreenshot: J-LIB-08b-step8-pills-before
+- swipe:
+    from: "Reading · 1"
+    direction: LEFT
+    duration: 800
+- assertVisible:
+    text: "Unread · 2"
+    rightOf: "Finished · 0"
+- assertVisible:
+    text: "Unread · 2"
+    below: "Your shelf"
+- takeScreenshot: J-LIB-08b-step8-pills-after
+- tapOn: "Unread · 2"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Tiny Book"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    id: "book_card_Prose in One Chapter"
+
+# 7 (360dp). The grid has 2 columns: a card is 473 px wide (LIB-013).
+- assertVisible:
+    id: "book_card_Tiny Book"
+    width: 473
+    tolerance: 5
+- takeScreenshot: J-LIB-08b-step7-grid-360dp

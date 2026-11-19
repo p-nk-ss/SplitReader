@@ -1,0 +1,399 @@
+appId: ${APP_ID}
+name: J-LIB-08 Arranging the shelf - hero, filters, search, grid
+tags: [full, library, phone, tablet, J-LIB-08]
+# books: no-description.epub, tiny.epub, prose-one-chapter.epub, alice-illustrated.epub, cover-b.epub, image-chapter.epub, pictures-only.epub, full-features.fb2
+---
+# J-LIB-08 — Arranging the shelf on tablet and phone: hero, filters, search, grid.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-08. Steps 8 and 9 (the phone at
+# 360dp) are J-LIB-08b, which runs at that density (`# wm_density:`).
+# Fixtures: no-description.epub (F-NODESC, "No Description Here": no dc:description, first
+# paragraph "The old mill still stood at the bend of the river…"), tiny.epub (F-TINY, "Tiny
+# Book": "A very short first line." then two river paragraphs), prose-one-chapter.epub
+# (F-PROSE-1CH, "Prose in One Chapter": ONE chapter of 56 paragraphs "(s1)"…"(s56)"), then
+# alice-illustrated.epub, cover-b.epub, image-chapter.epub, pictures-only.epub,
+# full-features.fb2 (F-ALICE, F-COVER-B, F-IMGCH, F-PICS, F-FB2).
+#
+# Corrections to the journey (verified against the v29 source):
+#  - Step 2: the hero's centre text is SynopsisExtractor.build(description, paragraphs) = the
+#    description, else the first paragraph of 40+ characters ANYWHERE in the book — not only the
+#    first one. tiny.epub's first paragraph is short, but its second is a river paragraph, so its
+#    hero shows "The old mill still stood…", not an empty centre. The empty hero (LIB-019's main
+#    check) needs a book whose every paragraph is under 40 characters; no fixture is one. What is
+#    asserted: the short first line is NOT the teaser, the first qualifying paragraph is.
+#  - Step 3: plain.mobi (F-MOBI-PLAIN) has two short paragraphs, both on the first screen: it
+#    cannot be scrolled to its middle. prose-one-chapter.epub (one chapter, 56 paragraphs) is
+#    used instead; the progress is paragraph-based (Book.progressAt = top paragraph / 56).
+#  - The phone is Pixel_10_Pro at its own width, 427dp (1280 px at 480 dpi), standing for the
+#    journey's 411dp (same column count by HomeScreen's own bounds: 2 columns for 98.3 < 132 <=
+#    158.5).
+#
+# Grid columns (LIB-013) are read from a card's width: GridCells.Adaptive(132dp) with 36dp side
+# padding and 22dp gaps. Tablet: (1280 − 88 rail − 72 − 6·22) / 7 = 141.1dp = 282 px (6
+# columns would be 336 px, 8 are impossible). Phone 427dp: (427 − 72 − 22) / 2 = 166.5dp =
+# 499 px (1 column would be 1065 px).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Import no-description.epub, open it, Back -> the hero's centre text is the book's first
+#    paragraph (cleaned/trimmed), not blank (LIB-018).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "no-description.epub"
+      TITLE: "No Description Here"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow: ../../subflows/leave_reader.yaml
+- extendedWaitUntil:
+    visible: "CONTINUE READING"
+    timeout: 10000
+- assertVisible:
+    text: "No Description Here"
+    above: "by Test Author"
+- assertVisible:
+    text: "The old mill still stood at the bend of the river, though its wheel had not turned since the summer the millpond ran dry and the fish went with it downstream\\."
+- takeScreenshot: J-LIB-08-step1-hero-first-paragraph
+
+# 2. Import tiny.epub, open, Back -> the hero (see the correction above): the short first line is
+#    not the teaser, the first paragraph of 40+ characters is; "CONTINUE READING" on one line
+#    (one line of 11sp text is 52 px on the tablet, 2 px/dp, about 78 px on the phone, 3 px/dp;
+#    the checks are under 60 and under 120 px; two lines would be about twice one); the "Last opened" card and the progress row
+#    are there (their size and position: screenshot, MANUAL) (LIB-019, LIB-020).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "tiny.epub"
+      TITLE: "Tiny Book"
+      FIRST_TEXT: "A very short first line\\."
+- runFlow: ../../subflows/leave_reader.yaml
+- extendedWaitUntil:
+    visible:
+      text: "Tiny Book"
+      above: "by Test Author"
+    timeout: 10000
+- assertNotVisible: "A very short first line\\."
+- assertVisible:
+    text: "The old mill still stood at the bend of the river.*"
+- assertVisible: "LAST OPENED"
+- assertVisible:
+    text: "CH 1 OF 1"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          text: "CONTINUE READING"
+          below: "LAST OPENED"
+          height: 30
+          tolerance: 29
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "CONTINUE READING"
+            below: "LAST OPENED"
+          direction: DOWN
+          timeout: 10000
+      - assertVisible:
+          text: "CONTINUE READING"
+          below: "LAST OPENED"
+          height: 60
+          tolerance: 59
+      - scrollUntilVisible:
+          element: "Open book"
+          direction: UP
+          timeout: 10000
+- takeScreenshot: J-LIB-08-step2-hero-tiny
+
+# 3. Import prose-one-chapter.epub (one chapter), scroll to about its middle (the top paragraph
+#    around the 28th of 56), Back -> its progress reads about 50 % (paragraph-based, not 100 % or
+#    0 %): accepted 40–55 % (seen 44 % and 46 %: the saved place lags the last small swipe by a
+#    paragraph or two); the filter Reading lists it, the filter Unread does not (LIB-008).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "prose-one-chapter.epub"
+      TITLE: "Prose in One Chapter"
+      FIRST_TEXT: "The old mill still stood at the bend of the river.*\\(s1\\)"
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 80
+    while:
+      notVisible:
+        id: "original_0_2[6-9]"
+    commands:
+      - swipe:
+          start: "30%, 70%"
+          end: "30%, 40%"
+          duration: 800
+- repeat:
+    times: 40
+    while:
+      visible:
+        id: "original_0_2[0-5]"
+    commands:
+      - swipe:
+          start: "30%, 50%"
+          end: "30%, 40%"
+          duration: 800
+- assertNotVisible:
+    id: "original_0_2[0-5]"
+- takeScreenshot: J-LIB-08-step3-middle
+- runFlow: ../../subflows/leave_reader.yaml
+- extendedWaitUntil:
+    visible:
+      text: "Prose in One Chapter"
+      above: "by Test Author"
+    timeout: 10000
+- assertVisible:
+    text: "(4\\d|5[0-5])%"
+- scrollUntilVisible:
+    element: "(4\\d|5[0-5])% · CH 1/1"
+    direction: DOWN
+    timeout: 10000
+- copyTextFrom: "(4\\d|5[0-5])% · CH 1/1"
+- evalScript: ${console.log('J-LIB-08 step 3 - the card reads ' + maestro.copiedText)}
+- tapOn: "Reading · 1"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Prose in One Chapter"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    id: "book_card_Tiny Book"
+- assertNotVisible:
+    id: "book_card_No Description Here"
+- tapOn: "Unread · 2"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Tiny Book"
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: "book_card_No Description Here"
+- assertNotVisible:
+    id: "book_card_Prose in One Chapter"
+- takeScreenshot: J-LIB-08-step3-unread
+- tapOn: "All · 3"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+
+# 4. Tap the hero's cover -> the book opens at the saved place (a paragraph of the 20s on
+#    screen, not "(s1)"). Back; tap the hero's title -> it opens. Back; tap empty space inside
+#    the card -> it opens (LIB-010).
+#    The hero's cover is drawn with the title on it (a text node "PROSE IN ONE CHAPTER"; Maestro's
+#    text match ignores case): it is the one BELOW the hero's "by Test Author", the hero's title
+#    the one ABOVE it (and the cover's is above the hero's "CH 1 OF 1", which shelf cards are not).
+#    "Empty space": the card's "LAST OPENED" box — plain, non-interactive content of the card,
+#    like its margins (a tap at a fixed point missed the card on the phone: the Library's scroll
+#    position after leaving the reader varies, run 20261119T143912Z). The whole card is one
+#    clickable node ([108,1398][1172,2592] on the phone), so any of its content opens the book.
+- tapOn:
+    text: "Prose in One Chapter"
+    below: "by Test Author"
+    above: "CH 1 OF 1"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_2[6-9]"
+    timeout: 20000
+- assertNotVisible: ".*\\(s1\\)"
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn:
+    text: "Prose in One Chapter"
+    above: "by Test Author"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_2[6-9]"
+    timeout: 20000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "LAST OPENED"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_2[6-9]"
+    timeout: 20000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 5. The Library's search: the field opens with the keyboard (LIB-011: no blank band between the
+#    list and the keyboard — screenshot, MANUAL); "tiny" -> only Tiny Book. Back puts the keyboard
+#    away and (phone) the bottom tab bar is back in its place (LIB-012): while the keyboard is up
+#    the phone's bottom bar is hidden.
+#    The field takes the focus itself (LibrarySearchBar's FocusRequester) and the keyboard comes
+#    up; its placeholder is not in the accessibility tree, so the text is typed straight away.
+- tapOn: "Search books"
+- extendedWaitUntil:
+    visible: "Close search"
+    timeout: 5000
+- inputText: "tiny"
+- takeScreenshot: J-LIB-08-step5-search-keyboard
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertNotVisible: "Catalog"
+- back
+- extendedWaitUntil:
+    visible: "Catalog"
+    timeout: 5000
+- assertVisible: "Words"
+- takeScreenshot: J-LIB-08-step5-keyboard-gone
+#    The query stays after the keyboard is gone: the shelf lists only Tiny Book. (With the
+#    keyboard up the cards are under it on the tablet.)
+- assertVisible: "tiny"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Tiny Book"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    id: "book_card_No Description Here"
+- assertNotVisible:
+    id: "book_card_Prose in One Chapter"
+- scrollUntilVisible:
+    element: "Close search"
+    direction: UP
+    timeout: 10000
+- tapOn: "Close search"
+- scrollUntilVisible:
+    element:
+      id: "book_card_No Description Here"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+
+# 6. The account avatar -> the account (sign-in) screen; Catalog, Words, then Library -> the
+#    account screen does not come back (ACC-019). (Signed out the avatar reads "?" and opens the
+#    sign-in screen: J-LIB-09a.)
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          text: "\\?"
+          above: "Catalog"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          text: "\\?"
+          below: "Settings"
+- extendedWaitUntil:
+    visible: "Continue with Google"
+    timeout: 10000
+- tapOn: "Catalog"
+- extendedWaitUntil:
+    notVisible: "Continue with Google"
+    timeout: 10000
+- tapOn: "Words"
+- assertNotVisible: "Continue with Google"
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- assertNotVisible: "Continue with Google"
+
+# 7. Premium (debug) on; import the five other books (8 in all) -> the tablet's grid has 7
+#    columns, the phone's 2 (LIB-013), read from a card's width (see the header).
+- runFlow: ../../subflows/premium_debug.yaml
+- tapOn: "Library"
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "cover-b.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: ".*The old mill still stood at the bend of the river.*"
+    timeout: 30000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "image-chapter.epub"
+- extendedWaitUntil:
+    visible: ".*The old mill still stood at the bend of the river.*"
+    timeout: 30000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "pictures-only.epub"
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+    timeout: 20000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "full-features.fb2"
+- extendedWaitUntil:
+    visible: ".*The letter arrived on a grey morning.*"
+    timeout: 30000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+#   Alice's first screen is pictures only (J-RDR-01): its chapter number shows it opened.
+- extendedWaitUntil:
+    visible: "— 1 —"
+    timeout: 60000
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element: "· 8 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Tiny Book"
+    direction: DOWN
+    timeout: 10000
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "book_card_Tiny Book"
+          width: 282
+          tolerance: 4
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "book_card_Tiny Book"
+          width: 499
+          tolerance: 4
+- takeScreenshot: J-LIB-08-step7-grid
+
+# 10. Premium (debug) off (steps 8 and 9: J-LIB-08b).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "settings_debug_premium_switch"
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    id: "settings_debug_premium_switch"
+    checked: true
+- tapOn:
+    id: "settings_debug_premium_switch"
+- extendedWaitUntil:
+    notVisible: ".*Premium active.*"
+    timeout: 10000
+- assertVisible:
+    id: "settings_debug_premium_switch"
+    checked: false
+- tapOn: "Library"

@@ -1,0 +1,311 @@
+appId: ${APP_ID}
+name: J-LIB-10 A reading day shows up in the Almanac
+tags: [full, library, network, phone, tablet, J-LIB-10]
+# books: english-with-french.epub, pictures-only.epub
+---
+# J-LIB-10 — A reading day shows up in the Almanac, including an unknown-language book.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-10.
+# Fixtures: english-with-french.epub (F-FOREIGN, "An English Novel": chapter 1 = the five river
+# paragraphs, then the French letter "Mon cher ami, je vous écris de Paris…" = original_0_5, then
+# two more), pictures-only.epub (F-PICS, "Pictures Only": two pictures, no text, no language).
+# Network: the EN→RU Offline HQ pack is downloaded when the English book opens, the FR→EN pack
+# from the French letter's "Download and translate" button (step 3).
+#
+# A reading session is recorded when the reader is left, and only if it lasted 15 s or more
+# (EndReadingSessionUseCase.MIN_SESSION_SECONDS); minutes are whole minutes of it. So the
+# English book is kept open for about four minutes in all, the picture book for about 70 s.
+#
+# What cannot be produced on a fresh install (MANUAL): "No reading sessions yet." / "No data
+# yet." (ALM-009). Those two texts are the empty "Time by book" and "Languages" cards, drawn only
+# when the Almanac HAS data for the streak but none in the chosen range — and every range (Week,
+# Month, Year, All time) ends today, so a day with reading fills all of them; without reading the
+# whole screen is the "Open a book…" card instead (asserted in step 1 for every range). The
+# journey's step 8 ("a past range with no sessions") has no such range in the app.
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Almanac -> "Open a book to start tracking your reading." with the streak/minutes/words hint
+#    and no chart (ALM-005), in every range: Week, Month, Year, All time.
+- tapOn: "Almanac"
+- extendedWaitUntil:
+    visible: "Open a book to start tracking your reading\\."
+    timeout: 10000
+- assertVisible: "Your streak, minutes, and word counts will appear here\\."
+- assertVisible: "BEGIN"
+- assertNotVisible: "THIS WEEK"
+- assertNotVisible: "LAST 26 WEEKS"
+- assertNotVisible: "TIME BY BOOK"
+- assertNotVisible: "day streak"
+- evalScript: ${output.ranges = ['Month', 'Year', 'All time', 'Week']}
+- evalScript: ${output.r = 0}
+- repeat:
+    while:
+      true: ${output.r < 4}
+    commands:
+      - tapOn: "${output.ranges[output.r]}"
+      - assertVisible: "Open a book to start tracking your reading\\."
+      - assertNotVisible: "THIS WEEK"
+      - assertNotVisible: "LANGUAGES"
+      - assertNotVisible: "day streak"
+      - evalScript: ${output.r = output.r + 1}
+- takeScreenshot: J-LIB-10-step1-empty-almanac
+- tapOn: "Library"
+
+# 2. Import english-with-french.epub and read chapter 1 (the session runs from now until the
+#    reader is left after step 3).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "english-with-french.epub"
+      TITLE: "An English Novel"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- evalScript: ${output.readStart = Date.now()}
+
+# 3. The French letter: its model is fetched from its own button (no other path downloads it),
+#    then a long press on its first words -> the popup translates from French; Save. Words ->
+#    the entry's source language is FR, not the book's EN (WRD-003).
+- scrollUntilVisible:
+    element:
+      text: "FR · French, not translated"
+      childOf:
+        id: "translation_0_5"
+    direction: DOWN
+    speed: 20
+    visibilityPercentage: 100
+    timeout: 120000
+- tapOn:
+    text: "Download and translate"
+    childOf:
+      id: "translation_0_5"
+- extendedWaitUntil:
+    visible:
+      text: "FR · from French"
+      childOf:
+        id: "translation_0_5"
+    timeout: 180000
+- scrollUntilVisible:
+    element:
+      id: "original_0_5"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+#    "Mon cher ami," opens the paragraph: a point a few percent in hits "Mon" or "cher".
+- longPressOn:
+    id: "original_0_5"
+    point: "6%, 6%"
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 10000
+- assertVisible:
+    text: "Mon|cher"
+    below: "WORD"
+    above: "Listen"
+- copyTextFrom:
+    text: "Mon|cher"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.frWord = maestro.copiedText}
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.frRu = maestro.copiedText}
+- evalScript: ${console.log('J-LIB-10 step 3 - ' + output.frWord + ' = ' + output.frRu)}
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 10000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 10000
+#    Keep reading until the book has been open for at least 3 min 30 s (scrolling slowly through
+#    chapter 1 and into chapter 2). Maestro has no plain pause: an optional wait for a text that
+#    never comes is one.
+- repeat:
+    while:
+      true: ${Date.now() - output.readStart < 210000}
+    commands:
+      - swipe:
+          start: "50%, 70%"
+          end: "50%, 50%"
+          duration: 1500
+      - extendedWaitUntil:
+          visible: "J-LIB-10 reading pause"
+          timeout: 15000
+          optional: true
+- evalScript: ${console.log('J-LIB-10 step 2 - read for ' + Math.round((Date.now() - output.readStart) / 1000) + ' s')}
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "${output.frWord}"
+    timeout: 15000
+- assertVisible: "1 saved word"
+- assertVisible:
+    text: "FR"
+    rightOf: "${output.frRu}"
+- assertNotVisible: "EN"
+- tapOn: "${output.frWord}"
+- extendedWaitUntil:
+    visible: "context"
+    timeout: 10000
+- assertVisible: "FR"
+- assertVisible: "RU"
+- assertNotVisible: "EN"
+- takeScreenshot: J-LIB-10-step3-words-fr
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - back
+      - extendedWaitUntil:
+          visible: "1 saved word"
+          timeout: 10000
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 4. Import pictures-only.epub, look at the pictures for about 70 s, Back.
+#    The book has no text: it opens and its reader shows no paragraph; the title in the top bar
+#    proves it is the right book.
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "pictures-only.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 20000
+- evalScript: ${output.picStart = Date.now()}
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - extendedWaitUntil:
+          visible: ".*Pictures Only.*"
+          timeout: 3000
+- repeat:
+    while:
+      true: ${Date.now() - output.picStart < 70000}
+    commands:
+      - extendedWaitUntil:
+          visible: "J-LIB-10 picture pause"
+          timeout: 10000
+          optional: true
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 5. Today's reading minutes on Home ("+N MIN TODAY" on the Continue reading card) -> the
+#    Almanac's figure for today (this week's bar for today, "Nm") is the same N; so is the Week
+#    total (all the reading happened today) (ALM-004). N is at least 4 (3.5 min + 70 s).
+- scrollUntilVisible:
+    element: "\\+\\d+ MIN TODAY"
+    direction: DOWN
+    timeout: 10000
+- copyTextFrom: "\\+\\d+ MIN TODAY"
+- evalScript: "${output.today = parseInt(maestro.copiedText.replace(/[^0-9]/g, ''))}"
+- evalScript: ${console.log('J-LIB-10 step 5 - Home says ' + output.today + ' min today')}
+- assertTrue: ${output.today >= 4}
+- tapOn: "Almanac"
+- extendedWaitUntil:
+    visible: "day streak"
+    timeout: 10000
+- tapOn: "Week"
+- assertVisible:
+    text: "${output.today}"
+    above: "minutes"
+- assertVisible: "of 180 this week"
+- scrollUntilVisible:
+    element: "THIS WEEK"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "${output.today}m"
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    text: "${output.today}m"
+    below: "THIS WEEK"
+- takeScreenshot: J-LIB-10-step5-almanac-today
+
+# 6. Almanac's languages -> the picture book's language reads "UNKNOWN", never "UND" or blank;
+#    the English book's reads "EN"; both books are in "Time by book" (ALM-001).
+- scrollUntilVisible:
+    element: "LANGUAGES"
+    direction: DOWN
+    timeout: 15000
+- scrollUntilVisible:
+    element: "UNKNOWN"
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    text: "UNKNOWN"
+    below: "LANGUAGES"
+- assertVisible:
+    text: "EN"
+    below: "LANGUAGES"
+- assertNotVisible: "UND"
+- assertNotVisible: "und"
+- assertVisible: "Pictures Only"
+- assertVisible: "An English Novel"
+- takeScreenshot: J-LIB-10-step6-languages
+
+# 7. Scroll through the streak and the heatmap -> only proper English labels, no raw
+#    placeholder or debug text (ALM-002): the fixed labels are there, and no text on the screen
+#    looks like an unfilled format ("%1$d", "%s", "{0}") or a programming value ("null",
+#    "NaN", "Infinity", "UND").
+- scrollUntilVisible:
+    element: "day streak"
+    direction: UP
+    timeout: 15000
+- assertVisible: "Longest: "
+- assertVisible: "1 day"
+- assertVisible: "LAST 26 WEEKS"
+- assertVisible: "\\d+ ACTIVE DAYS · \\d+ MIN"
+#    The heatmap's legend is under the fold on the phone.
+- scrollUntilVisible:
+    element: "LESS"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "LESS"
+- assertVisible: "MORE"
+- assertNotVisible: ".*%\\d?\\$?[ds].*"
+- assertNotVisible: ".*\\{\\d*\\}.*"
+- assertNotVisible: ".*\\b(null|NaN|Infinity|undefined)\\b.*"
+- scrollUntilVisible:
+    element: "TIME BY BOOK"
+    direction: DOWN
+    timeout: 15000
+- assertNotVisible: ".*%\\d?\\$?[ds].*"
+- assertNotVisible: ".*\\b(null|NaN|Infinity|undefined)\\b.*"
+- takeScreenshot: J-LIB-10-step7-labels
+
+# 8. A range with no sessions -> MANUAL / not reachable (see the header: every range ends today).
+#    What the ranges DO show is checked instead: Month, Year and All time each hold today's
+#    reading, the same N minutes.
+- scrollUntilVisible:
+    element: "Week"
+    direction: UP
+    timeout: 15000
+- evalScript: ${output.r = 0}
+- repeat:
+    while:
+      true: ${output.r < 3}
+    commands:
+      - tapOn: "${output.ranges[output.r]}"
+      - assertVisible:
+          text: "${output.today}"
+          above: "minutes"
+      - assertNotVisible: "Open a book to start tracking your reading\\."
+      - evalScript: ${output.r = output.r + 1}

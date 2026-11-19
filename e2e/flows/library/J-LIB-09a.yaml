@@ -1,0 +1,167 @@
+appId: ${APP_ID}
+name: J-LIB-09a Account screens without an account
+tags: [full, library, phone, tablet, J-LIB-09a]
+# No `# books:` header on purpose: these are the account screens only, no book is needed.
+# The validation steps run in aeroplane mode (see below): whatever happens there, the flow ends
+# online.
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+# J-LIB-09a — Account screens without an account: the screens-only part of J-LIB-09 (its steps
+# 1–3, 6 and 12; the rest of J-LIB-09 needs real Firebase accounts and stays MANUAL — decided
+# 2026-11-06: "account is automated as screens and validation only").
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-09.
+#
+# No account is ever created and nothing is signed in. The two validation steps (2, 3) must not
+# reach Firebase even if the app's own check were broken: a valid address with the password
+# "short1" (6 characters) is a password Firebase itself accepts, so a broken inline check would
+# CREATE an account. So the form is filled and submitted in aeroplane mode: a request that got
+# past the inline check could only end in "No connection. Check your network and try again."
+# (auth_error_network), which is asserted absent — the proof that "nothing was submitted" — and
+# no account can be created. The address is on example.com (reserved, RFC 2606).
+#
+# Correction to the journey text (verified against SplitReaderNavHost.kt): signed out, the
+# avatar opens the sign-in screen itself (AUTH_ROUTE: "ACCOUNT", "Sign in", "Continue with
+# Google", "No account? Create one"), not the Profile screen's signed-out card ("Sign in to sync
+# your library and link Google Drive." + "Sign in or create account"); that card is only shown on
+# the Profile route, which the avatar opens when signed IN. Step 1 asserts the screen that opens.
+# The screen is recognised by "Continue with Google", never by its eyebrow "ACCOUNT": Maestro's text
+# match ignores case and also reads content descriptions, and the phone's avatar is described as
+# "Account" — so "ACCOUNT" is "visible" on every phone screen (seen: Pixel_10_Pro, step 12 failed
+# on assertNotVisible "ACCOUNT" in the Catalog).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 6 (first, it is the way in). The avatar is present and tappable: on the phone in the top status
+#    strip, above the bottom bar; on the tablet at the foot of the rail, under Settings, with the
+#    caption "Sign in" (ACC-020). Signed out it reads "?". Each device class sees its own layout;
+#    the other one is the other class's run. (The shell's test tags — shell:railAvatar,
+#    shell:bottomBar — are not exposed as resource ids: the shell is outside the content root
+#    that turns tags into ids. Seen in the hierarchy, Tab_35_PixelTablet.)
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          text: "\\?"
+          above: "Catalog"
+      - assertNotVisible: "Sign in"
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          text: "\\?"
+          below: "Settings"
+      - assertVisible:
+          text: "Sign in"
+          below: "\\?"
+
+# 1. Tap the avatar -> the sign-in screen (see the correction above).
+- tapOn: "\\?"
+- extendedWaitUntil:
+    visible: "Continue with Google"
+    timeout: 10000
+- assertVisible: "Continue with Google"
+- assertVisible: "No account\\? Create one"
+- assertVisible: "Forgot password\\?"
+- takeScreenshot: J-LIB-09a-step1-sign-in
+
+# 2. Switch to Create account -> name "E2E", email "not-an-email", a password long enough
+#    (so only the email is wrong) -> Create account -> inline "Enter a valid email address.";
+#    nothing submitted (ACC-002).
+- setAirplaneMode: enabled
+- extendedWaitUntil:
+    visible: "J-LIB-09a radios going down"
+    timeout: 8000
+    optional: true
+- tapOn: "No account\\? Create one"
+- extendedWaitUntil:
+    visible: "Already have an account\\? Sign in"
+    timeout: 5000
+- assertVisible: "How should we call you\\?"
+- assertNotVisible: "Forgot password\\?"
+- tapOn: "How should we call you\\?"
+- inputText: "E2E"
+- hideKeyboard
+- tapOn: "you@example.com"
+- inputText: "not-an-email"
+- hideKeyboard
+- tapOn: "Your password"
+- inputText: "Mirrolit-e2e-1"
+- hideKeyboard
+# "Create account" is both the screen's title and its button; the button is the one above
+# "Continue with Google" and below the password field's eyebrow.
+- tapOn:
+    text: "Create account"
+    below: "PASSWORD"
+    above: "Continue with Google"
+- extendedWaitUntil:
+    visible: "Enter a valid email address\\."
+    timeout: 5000
+- assertNotVisible: "Password must be at least 8 characters\\."
+- extendedWaitUntil:
+    visible: "No connection\\. Check your network and try again\\."
+    timeout: 5000
+    optional: true
+- assertNotVisible: "No connection\\. Check your network and try again\\."
+- assertNotVisible: "Something went wrong\\. Please try again\\."
+- assertVisible: "Already have an account\\? Sign in"
+- takeScreenshot: J-LIB-09a-step2-invalid-email
+
+# 3. Email = an address on example.com, password "short1" -> inline "Password must be at least 8
+#    characters."; the email error is gone; nothing submitted (ACC-003).
+#    The fields keep their text: the email field is cleared by erasing (it is the first field
+#    holding "not-an-email"), the password field likewise. The keyboard is put away after each
+#    field: on the tablet it covers the next field.
+- tapOn: "not-an-email"
+- eraseText: 20
+- inputText: "mirrolit.e2e+j-lib-09a@example.com"
+- hideKeyboard
+- tapOn:
+    text: "•+"
+    below: "PASSWORD"
+- eraseText: 20
+- inputText: "short1"
+- hideKeyboard
+- tapOn:
+    text: "Create account"
+    below: "PASSWORD"
+    above: "Continue with Google"
+- extendedWaitUntil:
+    visible: "Password must be at least 8 characters\\."
+    timeout: 5000
+- assertNotVisible: "Enter a valid email address\\."
+- extendedWaitUntil:
+    visible: "No connection\\. Check your network and try again\\."
+    timeout: 5000
+    optional: true
+- assertNotVisible: "No connection\\. Check your network and try again\\."
+- assertNotVisible: "Something went wrong\\. Please try again\\."
+- assertVisible: "Already have an account\\? Sign in"
+- takeScreenshot: J-LIB-09a-step3-short-password
+- setAirplaneMode: disabled
+
+# 12. With the account screen open, tap Catalog -> Words -> Library -> the account screen is not
+#     resurrected; visiting Catalog again does not bring it back either (ACC-019).
+- tapOn: "Catalog"
+- extendedWaitUntil:
+    notVisible: "Continue with Google"
+    timeout: 10000
+- tapOn: "Words"
+- assertNotVisible: "Continue with Google"
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- assertNotVisible: "Continue with Google"
+- tapOn: "Catalog"
+- extendedWaitUntil:
+    visible: "Standard Ebooks"
+    timeout: 15000
+- assertNotVisible: "Continue with Google"
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- assertNotVisible: "Continue with Google"
