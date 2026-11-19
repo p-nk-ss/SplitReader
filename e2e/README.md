@@ -61,6 +61,22 @@ Rules:
   `python3 e2e/books/build_fixtures.py --large` (writes them into `e2e/books/fetched/`, which is
   gitignored). See `e2e/books/SOURCES.md`.
 
+## Device settings for one flow (`# font_scale:`, `# wm_density:`)
+
+Maestro cannot change the system font size or the display density, so `run.sh` does it with adb
+for a flow that asks for it in a header line (same rules as `# books:`: one line, no leading
+whitespace, anywhere before the flow's commands):
+
+```yaml
+# font_scale: 1.3     # J-RDR-07: `settings put system font_scale 1.3` before the flow, 1.0 after
+# wm_density: 569     # J-LIB-08b: `wm density 569` before the flow (Pixel_10_Pro = 360dp wide), `wm density reset` after
+```
+
+The value is put back right after the flow, whatever its result, so no other flow runs with it;
+`run.sh` logs the value it read back from the device. A density changes every pixel number of
+the flow: a flow with `# wm_density:` is tagged for one device class and its widths are those of
+that AVD at that density.
+
 ## Tag selection (`--tags`)
 
 `run.sh --tags TAGLIST` still selects which flow FILES run, matching OR-semantics against each
@@ -174,7 +190,7 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
 - **Who translated.** The picker's inverted card is the CHOICE. When the chosen engine cannot
   serve, ML Kit does and a strip under the top bar says "… — translated by ML Kit" (only while
   the bars are up): `show_bars`, then `assertNotVisible: ".*translated by.*"`. The strip can be
-  produced on an emulator with DeepL + any made-up key + target Hindi (DeepL has no Hindi). `assertNotVisible` waits for a text to go, and the strip goes with the bars: assert the language button right after it, or a strip that was there passes.
+  produced on an emulator with DeepL + any made-up key + target Hindi (DeepL has no Hindi; `J-TRN-09` step 10b) — not with Offline HQ, which has every app pair in v29. `assertNotVisible` waits for a text to go, and the strip goes with the bars: assert the language button right after it, or a strip that was there passes.
 - **A percentage that goes down** (`bnDecreased`, `dlDecreased`, `pdDecreased`): the app clamps
   each caller's progress so it never decreases within one download attempt; a lower number can
   only show after an error banner and a new attempt. The checks are right but have never been
@@ -284,12 +300,12 @@ What a flow can see:
 - **A provider or key change closes an open word popup**; re-selecting the current provider
   does not. That is how "re-selecting is a no-op" is seen.
 
-Traps: `hideKeyboard` with no keyboard up is a Back press (it closed the picker) — a key dialog
+Traps: Maestro's text match ignores case and also reads content descriptions — the phone's account avatar is described as "Account", so `"ACCOUNT"` is "visible" on every phone screen (`J-LIB-09a` recognises the sign-in screen by "Continue with Google"). `rightOf:` constrains x only: in a list of rows each with a "Delete", `text: "Delete", rightOf: "<row label>"` is the FIRST Delete on screen whatever the label (`J-TRN-09` step 18 uses `below:` the row before and `above:` the total). A slider takes a tap only inside its track's touch area, about 11–16dp in from the row's ends: a `point: "0%, 50%"` / `"1%, 50%"` tap does nothing (`J-RDR-06` header). `hideKeyboard` with no keyboard up is a Back press (it closed the picker) — a key dialog
 keeps its buttons above the keyboard, so it is not needed there. Settings keeps its scroll
 position between visits: after `cached_translations.yaml` it is at "Storage", and the Translation
 and Orientation sections are ABOVE (`direction: UP`). `assertNotVisible` on a toast proves nothing: it waits
 for the text to go, and a toast goes by itself (it passed right after a real Save). A JS regex result (`.exec`) stored in
-`output` comes back null — parse with `substring` / `split`.
+`output` comes back null, and `.replace(/…(\d+)…/, '$1')` inside `${…}` gives `undefined` (`J-TRN-10`, 2026-11-19) — parse with `substring` / `split`. A YAML line `- evalScript: ${…}` whose JS holds ": " does not parse (the whole flow is skipped: "Parsing Failed"); quote the whole value.
 
 MANUAL by nature: anything about a paid engine's monthly usage counter (needs a real key).
 

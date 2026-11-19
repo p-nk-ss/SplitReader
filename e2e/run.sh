@@ -481,6 +481,25 @@ write_timeout_junit() {
 XML
 }
 
+# A flow whose maestro run ended non-zero WITHOUT writing its junit (a YAML that does not parse:
+# "Parsing Failed at …"; a maestro crash before the first command) would have no row at all in
+# summary.md, which then read "N passed" next to a non-zero exit (seen 2026-11-19, J-TRN-10). This
+# writes a FAIL row for it. $1 output path, $2 flow stem, $3 maestro's exit code.
+write_no_junit_junit() {
+  local out_path="$1" stem="$2" code="$3"
+  local now; now="$(date -u +%Y-%m-%dT%H:%M:%S)"
+  cat > "$out_path" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="$stem" device="$SERIAL" tests="1" failures="1" time="0" timestamp="$now">
+    <testcase id="$stem" name="$stem" classname="$stem" file="$stem.yaml" time="0" timestamp="$now" status="ERROR">
+      <failure message="maestro exited $code without a result">maestro exited $code and wrote no junit for this flow: the flow did not run (a YAML that does not parse, or maestro failed before the first command). See this run's console output for the line maestro printed.</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
+XML
+}
+
 # The same for the colour check: a FAIL row for a checker that ended without writing its own
 # junit (python missing, a syntax error, a crash before the first line). Without a row the summary
 # would have no "<flow> colours" line and read "all passed" next to a non-zero exit code.
@@ -521,6 +540,23 @@ for flow in "${SELECTED_FLOWS[@]}"; do
       push_fixture "$src"
     done
     log "pushed ${#books[@]} fixture(s) for $stem: ${books[*]}"
+  fi
+
+  # `# font_scale: N` (one line, e.g. J-RDR-07's 1.3): the system font scale this flow runs at.
+  # Maestro has no command for it, so it is set here with adb before the flow and put back to
+  # 1.0 right after it (whatever the result), so no other flow runs at it.
+  font_scale="$(sed -n 's/^# font_scale:[[:space:]]*\([0-9.]*\)[[:space:]]*$/\1/p' "$flow" | head -1)"
+  if [ -n "$font_scale" ]; then
+    "$ADB" -s "$SERIAL" shell settings put system font_scale "$font_scale" < /dev/null
+    log "$stem: system font_scale set to $font_scale (read back: $("$ADB" -s "$SERIAL" shell settings get system font_scale < /dev/null | tr -d '\r'))"
+  fi
+  # `# wm_density: N` (one line, e.g. J-LIB-08b's 569 = a 360dp-wide Pixel_10_Pro): the display
+  # density this flow runs at, set with `adb shell wm density N` and reset (`wm density reset`)
+  # right after it, whatever the result.
+  wm_density="$(sed -n 's/^# wm_density:[[:space:]]*\([0-9]*\)[[:space:]]*$/\1/p' "$flow" | head -1)"
+  if [ -n "$wm_density" ]; then
+    "$ADB" -s "$SERIAL" shell wm density "$wm_density" < /dev/null
+    log "$stem: display density set to $wm_density (read back: $("$ADB" -s "$SERIAL" shell wm density < /dev/null | tr -d '\r' | tr '\n' ' '))"
   fi
 
   FLOW_RUN="$RUN/$stem"
@@ -566,6 +602,18 @@ for flow in "${SELECTED_FLOWS[@]}"; do
   else
     log "$stem maestro exit code: $flow_exit"
     [ "$flow_exit" -eq 0 ] || OVERALL_EXIT=1
+    if [ "$flow_exit" -ne 0 ] && [ ! -s "$FLOW_RUN/junit.xml" ]; then
+      log "$stem: maestro exited $flow_exit without a junit — recording as FAIL"
+      write_no_junit_junit "$FLOW_RUN/junit.xml" "$stem" "$flow_exit"
+    fi
+  fi
+  if [ -n "$font_scale" ]; then
+    "$ADB" -s "$SERIAL" shell settings put system font_scale 1.0 < /dev/null
+    log "$stem: system font_scale put back to 1.0"
+  fi
+  if [ -n "$wm_density" ]; then
+    "$ADB" -s "$SERIAL" shell wm density reset < /dev/null
+    log "$stem: display density reset"
   fi
 
   # Colour crops (see the header): checked here, reported as the row "<stem> colours". Its junit
