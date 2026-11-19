@@ -1,0 +1,460 @@
+appId: ${APP_ID}
+name: J-RDR-07 Phone tuning the stacked reader at large font scale
+tags: [full, phone, reading, J-RDR-07]
+# books: alice-illustrated.epub, classic-h2.mobi
+# font_scale: 1.3
+---
+# J-RDR-07 — Phone: tuning the stacked reader at large font scale.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-07.
+# run.sh sets the system font scale to 1.3 (the `# font_scale:` header) before this flow and
+# puts it back to 1.0 after it. Phone only, portrait: the reader is stacked — original on top
+# (reader:verticalTopPane), translation below (reader:verticalBottomPane).
+# Fixtures: alice-illustrated.epub (F-ALICE: chapter index 0 opens with three pictures — the
+# 600x401 endpapers first — before its first text), classic-h2.mobi (F-MOBI, "Classic H2 Test").
+#
+# What a flow can see: the Display dialog's value labels ("50 / 50"), Settings' "Split ratio" and
+# "Page margins" labels, the panes' sizes (ids above) and the paragraphs' widths. Pixel_10_Pro:
+# 1280 px wide, 3 px per dp. A paragraph is the page width minus both margins: margin 32 dp ->
+# 1280 − 192 = 1088 px (J-RDR-03), 4 dp -> 1256 px, 48 dp -> 992 px, in both panes.
+# Settings' sliders are tapped just inside their track (a tap in the row's end insets does
+# nothing; J-RDR-06's header): 4% of the 1076 px row gives the minimum, 96% the top of the range
+# (47dp — the label floors — or 48dp; 70 / 30).
+# MANUAL: "nothing clipped" (screenshots at both extremes) and that the chip's text is drawn
+# whole (the node holds the whole text even when it is drawn cut off: screenshot).
+- assertTrue: ${DEVICE_CLASS == 'phone'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open F-ALICE -> the top bar's language button reads "EN → RU" (LAY-021).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: "— 1 —"
+    timeout: 30000
+- runFlow:
+    file: ../../subflows/language_chip_reads.yaml
+    env:
+      SOURCE: "EN"
+      TARGET: "RU"
+- runFlow: ../../subflows/show_bars.yaml
+- takeScreenshot: J-RDR-07-step1-chip
+
+# 5 (first: the book opens on it). The first picture is drawn in the top pane, and its space is
+#    kept at the same place in the bottom pane (an illustration row there, without a picture).
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+      childOf:
+        id: "reader:verticalTopPane"
+    timeout: 20000
+- assertVisible:
+    id: "illustration_row"
+    childOf:
+      id: "reader:verticalBottomPane"
+- assertNotVisible:
+    id: "illustration"
+    childOf:
+      id: "reader:verticalBottomPane"
+- takeScreenshot: J-RDR-07-step5-plate
+
+# 2. Display -> a separate "Vertical split" slider in the stacked layout; no "Split position"
+#    (LAY-012).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- scrollUntilVisible:
+    element: "Vertical split"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- assertVisible:
+    text: "50 / 50"
+    rightOf: "Vertical split"
+- assertNotVisible: "Split position"
+
+# 3. Vertical split -> 35 / 65 -> the top pane gets shorter; Settings' (horizontal) "Split ratio"
+#    is still 50 / 50 (LAY-012). The slider has no tag: it is the row between its label and
+#    "Show translation" (range 0.3–0.7: 35 is 12.5 % along the track, which is inset 16dp (48 px) at each end of the 981 px row: 16 % of the row; the slider row is 66 px high).
+- tapOn:
+    below: "Vertical split"
+    above: "Show translation"
+    height: 66
+    tolerance: 10
+    point: "16%, 50%"
+- extendedWaitUntil:
+    visible:
+      text: "35 / 65"
+      rightOf: "Vertical split"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- takeScreenshot: J-RDR-07-step3-vertical-35
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 40000
+- assertVisible:
+    text: "50 / 50"
+    rightOf: "Split ratio"
+
+# 4. Margins 4 dp, then 48 dp (Settings) -> the outer edge of both panes moves: paragraphs are
+#    1256 px wide at 4 dp and 992 px at 48 dp in both panes (APP-002); nothing clipped (MANUAL,
+#    screenshots).
+- tapOn:
+    below: "Page margins"
+    above: "Show translation"
+    height: 66
+    tolerance: 10
+    point: "4%, 50%"
+- assertVisible:
+    text: "4dp"
+    rightOf: "Page margins"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Alice's Adventures in Wonderland.*"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:1"
+- extendedWaitUntil:
+    visible:
+      id: "original_1_2"
+    timeout: 15000
+- assertVisible:
+    id: "original_1_2"
+    width: 1256
+    tolerance: 8
+- extendedWaitUntil:
+    visible:
+      id: "translation_1_\\d+"
+      width: 1256
+      tolerance: 8
+    timeout: 15000
+- takeScreenshot: J-RDR-07-step4-margins-4
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 40000
+- tapOn:
+    below: "Page margins"
+    above: "Show translation"
+    height: 66
+    tolerance: 10
+    point: "96%, 50%"
+- assertVisible:
+    text: "4[78]dp"
+    rightOf: "Page margins"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Alice's Adventures in Wonderland.*"
+- extendedWaitUntil:
+    visible:
+      id: "original_1_\\d+"
+      width: 992
+      tolerance: 8
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "translation_1_\\d+"
+      width: 992
+      tolerance: 8
+    timeout: 15000
+- takeScreenshot: J-RDR-07-step4-margins-48
+
+# 6. Display -> "Show illustrations" off -> the picture is gone from both panes (ILL-016).
+#    Back at chapter index 0, where the pictures are.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+#    Step 3's result, with the bars hidden: the panes are 923 / 1621 px high (between the status
+#    bar and the screen's bottom; at 50 / 50 they are about 1272 each) (LAY-012).
+- assertVisible:
+    id: "reader:verticalTopPane"
+    height: 923
+    tolerance: 40
+- assertVisible:
+    id: "reader:verticalBottomPane"
+    height: 1621
+    tolerance: 40
+#    The chapter jump lands on the chapter's masthead, the first picture under it — but once (run
+#    20261119T135517Z) with original_0_0 at the top pane's edge and the pictures above it: then
+#    the top pane is pulled down to the pictures.
+- repeat:
+    times: 10
+    while:
+      notVisible:
+        id: "illustration"
+        childOf:
+          id: "reader:verticalTopPane"
+    commands:
+      - swipe:
+          start: "50%, 12%"
+          end: "50%, 30%"
+          duration: 800
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+      childOf:
+        id: "reader:verticalTopPane"
+    timeout: 15000
+- assertVisible:
+    id: "illustration_row"
+    childOf:
+      id: "reader:verticalBottomPane"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- scrollUntilVisible:
+    element: "Show illustrations"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    below: "Show illustrations"
+    above: "Display book images inline"
+    rightOf: "Show illustrations"
+- assertNotVisible:
+    checked: true
+    below: "Show illustrations"
+    above: "Display book images inline"
+    rightOf: "Show illustrations"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible:
+      id: "illustration"
+    timeout: 10000
+- assertNotVisible:
+    id: "illustration_row"
+- takeScreenshot: J-RDR-07-step6-no-pictures
+
+# 7. On again -> the picture is back in the top pane and its space in the bottom one (ILL-016).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- scrollUntilVisible:
+    element: "Show illustrations"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    below: "Show illustrations"
+    above: "Display book images inline"
+    rightOf: "Show illustrations"
+- assertVisible:
+    checked: true
+    below: "Show illustrations"
+    above: "Display book images inline"
+    rightOf: "Show illustrations"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+#    The reader keeps its place when the pictures come back: the text it showed stays on top and
+#    the pictures are laid out above it (seen: original_0_0 at the top edge). Pull down to them.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 10
+    while:
+      notVisible:
+        id: "illustration"
+        childOf:
+          id: "reader:verticalTopPane"
+    commands:
+      - swipe:
+          start: "50%, 12%"
+          end: "50%, 30%"
+          duration: 800
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+      childOf:
+        id: "reader:verticalTopPane"
+    timeout: 15000
+- assertVisible:
+    id: "illustration_row"
+    childOf:
+      id: "reader:verticalBottomPane"
+
+# 8. Kill and relaunch; reopen F-ALICE -> the vertical split is still 35 / 65 (LAY-013).
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Alice's Adventures in Wonderland.*"
+- extendedWaitUntil:
+    visible:
+      id: "reader:verticalTopPane"
+    timeout: 20000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- scrollUntilVisible:
+    element: "Vertical split"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- assertVisible:
+    text: "35 / 65"
+    rightOf: "Vertical split"
+
+# 9. "Show translation" off; open F-MOBI -> one pane, the original only (LAY-010).
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn:
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- assertNotVisible:
+    checked: true
+    below: "Show translation"
+    above: "Hide to read original only"
+    rightOf: "Show translation"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "classic-h2.mobi"
+- extendedWaitUntil:
+    visible: "Chapter 1 opens here, on a quiet morning.*"
+    timeout: 30000
+- assertNotVisible:
+    id: "reader:verticalBottomPane"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- takeScreenshot: J-RDR-07-step9-single-pane
+
+# 10. The Display dialog in this state has no split slider at all (neither "Vertical split" nor
+#     "Split position": they are drawn only with the translation on), and Settings' Split ratio
+#     changed -> still one pane (LAY-010). Then "Show translation" back on (the font scale is put
+#     back by run.sh).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:displaySettingsButton"
+      OPENS: "Display"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- assertNotVisible: "Vertical split"
+- assertNotVisible: "Split position"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Display"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    visibilityPercentage: 100
+    timeout: 40000
+- tapOn:
+    below: "Split ratio"
+    above: "Page margins"
+    height: 66
+    tolerance: 10
+    point: "96%, 50%"
+- assertVisible:
+    text: "70 / 30"
+    rightOf: "Split ratio"
+- tapOn: "Library"
+- scrollUntilVisible:
+    element:
+      id: "book_card_Classic H2 Test"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Classic H2 Test"
+- extendedWaitUntil:
+    visible: "Chapter 1 opens here, on a quiet morning.*"
+    timeout: 20000
+- assertNotVisible:
+    id: "reader:verticalBottomPane"
+- assertNotVisible:
+    id: "translation_\\d+_\\d+"
+- assertVisible:
+    id: "original_\\d+_\\d+"
+    width: 992
+    tolerance: 8
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Show translation"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    below: "Show translation"
+    above: "Show the translated pane by default"
+    rightOf: "Show translation"
+- assertVisible:
+    checked: true
+    below: "Show translation"
+    above: "Show the translated pane by default"
+    rightOf: "Show translation"
+- tapOn: "Library"
