@@ -1,0 +1,450 @@
+appId: ${APP_ID}
+name: J-TRN-10 Jumping around - bookmarks, huge chapters, other books, odd books
+tags: [full, network, phone, tablet, translation, J-TRN-10]
+# books: en-novel.epub, mixed-lang.epub, long-chapter.epub, empty-chapter.epub, empty-book.epub, pictures-only.epub
+---
+# J-TRN-10 — Jumping around: bookmarks, huge chapters, other books, odd books.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-10.
+# Fixtures: en-novel.epub ("The River Crossing": chapter 1 = 42 paragraphs "(1)"…"(42)", chapters
+# 2, 4–22 = 8 paragraphs "(chN.1)"…), mixed-lang.epub ("Letters in Many Tongues"),
+# long-chapter.epub ("One Very Long Chapter": ONE chapter of 520 paragraphs ending "(p1)"…
+# "(p520)"; ids original_0_0 … original_0_519), empty-chapter.epub ("Empty First Chapter": a
+# chapter with a heading and no paragraph, then "Chapter Two"), empty-book.epub ("Empty Book":
+# nothing to read), pictures-only.epub ("Pictures Only": two pictures, no text).
+# Six books: the free tier holds three, so Settings -> "Premium (debug)" is turned on first.
+# Network: the EN→RU Offline HQ pack is downloaded when the first book opens.
+#
+# "Translates without a scroll" = after the jump, with no gesture of the flow, the slots of the
+# paragraphs on screen fill with Russian (subflows/rows_translated.yaml walks the slots on
+# screen and never scrolls).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+- runFlow: ../../subflows/premium_debug.yaml
+- tapOn: "Library"
+
+# Precondition: Offline HQ with EN→RU (the default; the pack downloads now) and a bookmark in
+# chapter 5 of en-novel.epub, the reader back in chapter 1.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 180000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:4"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch5\\.1\\).*"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- assertVisible: "Chapter 5 · ¶ 1"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 15000
+- assertNotVisible: ".*\\(ch5\\.\\d+\\).*"
+
+# 1. Bookmarks -> the chapter 5 bookmark -> the landing screen fills with translations without
+#    any scroll (TRN-021).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Chapter 5 · ¶ 1"
+- tapOn: "Chapter 5 · ¶ 1"
+- extendedWaitUntil:
+    visible:
+      id: "original_4_0"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 4
+      FROM: 0
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 30000
+- evalScript: ${console.log('J-TRN-10 step 1 - chapter 5 landing, ' + output.rows + ' translated rows')}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 5 : 2)}"
+- assertVisible:
+    id: "original_4_0"
+- takeScreenshot: J-TRN-10-step1-bookmark-landing
+
+# 2. Chapter picker -> chapter 8 -> the landing screen translates without a scroll (TRN-021).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:7"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "original_7_0"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 7
+      FROM: 0
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 30000
+- evalScript: ${console.log('J-TRN-10 step 2 - chapter 8 landing, ' + output.rows + ' translated rows')}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 5 : 2)}"
+- assertVisible:
+    id: "original_7_0"
+
+# 3. Note two translated paragraphs of chapter 8; Library -> mixed-lang.epub -> only this book's
+#    translations appear; nothing of en-novel's shows (TRN-009). (The "not even briefly" half —
+#    a flash shorter than one look — is MANUAL.)
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_7_0"
+- evalScript: ${output.enA = maestro.copiedText}
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_7_1"
+- evalScript: ${output.enB = maestro.copiedText}
+- evalScript: "${console.log('J-TRN-10 step 3 - en-novel ch8 - ' + output.enA.substring(0, 60) + ' | ' + output.enB.substring(0, 60))}"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "mixed-lang.epub"
+      TITLE: "Letters in Many Tongues"
+      FIRST_TEXT: "It was late in the autumn when the letter finally arrived"
+- assertNotVisible: "${output.enA}"
+- assertNotVisible: "${output.enB}"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 60000
+- assertNotVisible: "${output.enA}"
+- assertNotVisible: "${output.enB}"
+- copyTextFrom:
+    text: ".*[а-яё]{3,}.*"
+    childOf:
+      id: "translation_0_0"
+- evalScript: ${output.mixA = maestro.copiedText}
+- assertTrue: ${output.mixA != output.enA && output.mixA != output.enB}
+- takeScreenshot: J-TRN-10-step3-mixed-lang
+
+# 4. Library -> reopen en-novel.epub -> it opens in chapter 8 with its own translations; nothing
+#    of mixed-lang's leaks in (TRN-009).
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: ".*\\(ch8\\.\\d+\\).*"
+    timeout: 20000
+- assertNotVisible: "${output.mixA}"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_7_0"
+    timeout: 30000
+- assertVisible: "${output.enA}"
+- assertNotVisible: "${output.mixA}"
+- assertNotVisible: ".*\\(ch[1-79]\\.\\d+\\).*"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 5. long-chapter.epub (520 paragraphs in one chapter): fling far ahead (to about paragraph 400)
+#    and stop -> the landing screen translates within a few seconds and is not stuck behind the
+#    earlier part of the chapter (TRN-022).
+#    "At most ~8 paragraphs are processed before it" is NOT asserted (MANUAL): Maestro cannot
+#    fling 400 paragraphs in one gesture; the flow gets there with ~40 short flings, each of which
+#    stops for about a second on a screen the engine then translates (it should: that screen is
+#    on view). The cache count before and after is logged only — seen on the tablet: 81 -> 468
+#    for a landing at paragraph 390, i.e. every screen passed was translated, which is what a
+#    reader who stops on each screen gets, not evidence of an in-order backlog. What is asserted:
+#    the landing screen's rows are translated within 30 s of the last fling. The direct jump of
+#    step 7 (a bookmark, no screens on the way) is the clean "not stuck behind" check.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "long-chapter.epub"
+      TITLE: "One Very Long Chapter"
+      FIRST_TEXT: "The old mill still stood at the bend of the river.*\\(p1\\)"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "J-TRN-10 look-ahead settles"
+    timeout: 10000
+    optional: true
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.c0 = output.cached}
+- scrollUntilVisible:
+    element:
+      id: "book_card_One Very Long Chapter"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_One Very Long Chapter"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 120
+    while:
+      notVisible:
+        id: "original_0_(39\\d|4\\d\\d|5[01]\\d)"
+    commands:
+      - swipe:
+          start: "50%, 85%"
+          end: "50%, 10%"
+          duration: 120
+          waitToSettleTimeoutMs: 100
+- evalScript: ${output.flingEnd = Date.now()}
+#    The paragraph container has no text of its own; its marker "(pN)" is read from the text.
+- copyTextFrom: ".*\\(p(39\\d|4\\d\\d|5[01]\\d)\\)"
+- evalScript: "${output.landP = parseInt(maestro.copiedText.split('(p').pop())}"
+- evalScript: ${console.log('J-TRN-10 step 5 - landed at paragraph ' + output.landP)}
+- assertTrue: ${output.landP >= 390 && output.landP <= 515}
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: ${output.landP - 1}
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 15000
+- evalScript: ${output.landSecs = Math.round((Date.now() - output.flingEnd) / 1000)}
+- evalScript: ${console.log('J-TRN-10 step 5 - landing screen, ' + output.rows + ' rows translated ' + output.landSecs + ' s after the fling')}
+- assertTrue: ${output.rows >= 1}
+- assertTrue: ${output.landSecs <= 30}
+- takeScreenshot: J-TRN-10-step5-landed
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.c1 = output.cached}
+- evalScript: ${console.log('J-TRN-10 step 5 - cache ' + output.c0 + ' before the fling, ' + output.c1 + ' after the landing')}
+- scrollUntilVisible:
+    element:
+      id: "book_card_One Very Long Chapter"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_One Very Long Chapter"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_${output.landP - 1}"
+    timeout: 20000
+
+# 6. Bookmark this screen. Fling back to the chapter start -> the first screens translate, no
+#    stuck placeholders.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
+- copyTextFrom: "Chapter 1 · ¶ \\d+"
+- evalScript: ${output.bmLabel = maestro.copiedText}
+- evalScript: ${output.bmP = parseInt(output.bmLabel.replace(/.*¶ /, ''))}
+- evalScript: ${console.log('J-TRN-10 step 6 - bookmark ' + output.bmLabel)}
+- assertTrue: ${output.bmP >= 370}
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 120
+    while:
+      notVisible:
+        id: "original_0_0"
+    commands:
+      - swipe:
+          start: "50%, 10%"
+          end: "50%, 85%"
+          duration: 120
+          waitToSettleTimeoutMs: 100
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 0
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 20000
+- assertTrue: ${output.rows >= 1}
+- assertNotVisible: "(Preparing translation|Translating)….*"
+
+# 7. Bookmarks -> the new bookmark -> the landing screen (≈ paragraph 400) translates without a
+#    scroll (TRN-021, TRN-022).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Chapter 1 · ¶ \\d+"
+- tapOn: "${output.bmLabel}"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_${output.bmP - 1}"
+    timeout: 15000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: ${output.bmP - 1}
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 15000
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 4 : 2)}"
+- takeScreenshot: J-TRN-10-step7-bookmark-400
+
+# 8. Fling ahead again, to about paragraph 480 -> the screen translates promptly, not stuck
+#    behind earlier paragraphs (TRN-022).
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 60
+    while:
+      notVisible:
+        id: "original_0_(4[89]\\d|5[01]\\d)"
+    commands:
+      - swipe:
+          start: "50%, 85%"
+          end: "50%, 10%"
+          duration: 120
+          waitToSettleTimeoutMs: 100
+- evalScript: ${output.flingEnd = Date.now()}
+- copyTextFrom: ".*\\(p(4[89]\\d|5[01]\\d)\\)"
+- evalScript: "${output.landP = parseInt(maestro.copiedText.split('(p').pop())}"
+- evalScript: ${console.log('J-TRN-10 step 8 - landed at paragraph ' + output.landP)}
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: ${output.landP - 1}
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 15000
+- evalScript: ${output.landSecs = Math.round((Date.now() - output.flingEnd) / 1000)}
+- evalScript: ${console.log('J-TRN-10 step 8 - ' + output.rows + ' rows translated ' + output.landSecs + ' s after the fling')}
+- assertTrue: ${output.rows >= 1}
+- assertTrue: ${output.landSecs <= 30}
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 9. empty-chapter.epub -> no crash; the translation banner ends idle once the first chapter with
+#    text is reached (TRN-024): its first chapter is a heading only; the reader shows it and the
+#    second chapter's text, which translates; no banner stays up and no error appears.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "empty-chapter.epub"
+      TITLE: "Empty First Chapter"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_0"
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible: "(Preparing translation|Translating)….*"
+    timeout: 30000
+- assertNotVisible: ".*(Couldn't|failed|Error|error).*"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 10. empty-book.epub, then pictures-only.epub -> no crash; for each the banner ends idle — no
+#     stuck spinner, no error (TRN-024). empty-book.epub opens on the reader's "Nothing to read
+#     here" notice (as empty.epub in J-LIB-03).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "empty-book.epub"
+- extendedWaitUntil:
+    visible: "Nothing to read here"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "J-TRN-10 empty book settles"
+    timeout: 8000
+    optional: true
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- assertNotVisible: ".*(Couldn't|failed|Error|error).*"
+- assertVisible: "Nothing to read here"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "pictures-only.epub"
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 20000
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - extendedWaitUntil:
+          visible: ".*Pictures Only.*"
+          timeout: 3000
+- extendedWaitUntil:
+    visible: "J-TRN-10 picture book settles"
+    timeout: 8000
+    optional: true
+- assertNotVisible: "(Preparing translation|Translating)….*"
+- assertNotVisible: ".*(Couldn't|failed|Error|error).*"
+- takeScreenshot: J-TRN-10-step10-pictures-only
+- runFlow: ../../subflows/leave_reader.yaml
+- assertVisible: "Open book"

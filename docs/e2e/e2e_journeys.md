@@ -325,6 +325,8 @@ position-based selector when it isn't showing.
 
 **Covers:** LIB-008, LIB-010, LIB-011, LIB-012, LIB-013, LIB-014, LIB-015, LIB-018, LIB-019, LIB-020, ACC-019
 
+**Automated:** `e2e/flows/library/J-LIB-08.yaml` (tablet + phone at its own 427dp, steps 1–7 and 10) and `J-LIB-08b.yaml` (phone only, run at `# wm_density: 569` = 360dp: steps 7 at 360dp, 8, 9). Differences from the text above, from the v29 source: the hero's teaser is the description, else the first paragraph of **40+ characters anywhere** in the book, so `tiny.epub` (short first line, then river paragraphs) shows "The old mill still stood…" — the **empty hero of LIB-019 cannot be produced by any fixture** (MANUAL until a book whose every paragraph is under 40 characters exists); `plain.mobi` has two paragraphs on one screen and cannot be scrolled to its middle, so step 3 uses `prose-one-chapter.epub` (56 paragraphs, one chapter; seen 46 %). Columns are read from a card's width (tablet 282 px = 7 columns, phone 499 px / 473 px at 360dp = 2). The one-line check is on the **button** "CONTINUE READING" (below "LAST OPENED"); at 360dp the hero's eyebrow of the same text wraps to two lines in its narrow title column (finding, screenshot `J-LIB-08b-step9-hero-360dp`). MANUAL: "no blank band above the keyboard" (LIB-011), "Last opened keeps its widened size / progress row pinned" (screenshots).
+
 ### J-LIB-09 — Account lifecycle with email and password: sign-up validation to account deletion
 
 **Priority** P0 · **Tags** manual, network, tablet, phone · **Devices** tablet API 35 (rail), phone emulator (bottom bar)
@@ -351,6 +353,8 @@ position-based selector when it isn't showing.
 
 **Covers:** ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-010, ACC-012, ACC-013, ACC-014, ACC-015, ACC-019, ACC-020
 
+**Automated (screens only):** `e2e/flows/library/J-LIB-09a.yaml` — steps 1–3, 6 and 12 on tablet and phone, no account created, nothing signed in. Signed out, the avatar opens the **sign-in screen** ("ACCOUNT", "Sign in", "Continue with Google", "No account? Create one"), not Profile's "Sign in to sync your library…" card (that card is on the Profile route, reached signed in). The validation steps run in aeroplane mode, so a request that slipped past the inline check could only end in "No connection…", which is asserted absent. The rest of the journey stays MANUAL.
+
 ### J-LIB-10 — A reading day shows up in the Almanac, including an unknown-language book
 
 **Priority** P1 · **Tags** full, network, tablet, phone · **Devices** tablet API 35, phone emulator
@@ -368,6 +372,8 @@ position-based selector when it isn't showing.
 8. Switch to a past range with no sessions → ✓ "No reading sessions yet." / "No data yet." (ALM-009).
 
 **Covers:** ALM-001, ALM-002, ALM-004, ALM-005, ALM-009, WRD-003
+
+**Automated:** `e2e/flows/library/J-LIB-10.yaml` (tablet + phone). A session counts when it lasts 15 s or more, so the English book is kept open about 3.5 min and the picture book about 70 s; Home's "+N MIN TODAY" equals the Almanac's week figure and today's bar. ALM-009 ("No reading sessions yet." / "No data yet." for a range without sessions) is **not reachable**: those texts are drawn only when the Almanac has data but none in the chosen range, and every range (Week, Month, Year, All time) ends today — step 8 checks instead that every range shows today's minutes; the empty state of step 1 is the "Open a book…" card, checked in all four ranges.
 
 ### J-LIB-19 — Removing a book and adding it again: the place and bookmarks are kept unless the reader deletes them
 
@@ -710,6 +716,8 @@ translation works without network keys.
 
 **Covers:** APP-010, APP-006, APP-011, APP-012, APP-013, APP-014, APP-009, LAY-006, APP-003, ILL-005
 
+**Automated:** `e2e/flows/reading/J-RDR-06.yaml` (tablet). Values are read from the Display dialog's and Settings' labels, the typeface from colour crops of its chip, layout from paragraph widths (the split is taken of the whole width: `s·2560 − 2·margin − 24 px`). Slider "extremes" are taps just inside the track (a tap in the row's end insets does nothing), so they read 47–48dp, 29–30sp, 1.9x–2.00sp. MANUAL: "live, no slider jump", the look of justified text, "nothing clips", ILL-005's flush alignment (screenshots at each).
+
 ### J-RDR-07 — Phone: tuning the stacked reader at large font scale
 **Priority** P1 · **Tags** full, phone · **Devices** phone emulator API 35, portrait · **Fixtures** F-ALICE, F-MOBI · **Preconditions** `adb shell settings put system font_scale 1.3` (Largest); portrait hint suppressed; translation on.
 
@@ -726,6 +734,8 @@ translation works without network keys.
 
 **Covers:** LAY-021, LAY-012, APP-002, ILL-016, LAY-013, LAY-010
 
+**Automated:** `e2e/flows/reading/J-RDR-07.yaml` (phone, `# font_scale: 1.3` header: run.sh sets it and puts back 1.0). Step 5 comes first (F-ALICE opens on its pictures). The panes' heights (923 / 1621 px at 35 / 65) and widths (1256 px at 4dp, 992 px at 48dp) are asserted; the chip's text is the whole "EN → RU" node — that it is drawn uncut is a screenshot (MANUAL). The chapter picker's jump to chapter 1 once landed with the first text at the top and the pictures above it (run 20261119T135517Z; next runs landed on the masthead) — the flow pulls the pane down to the pictures; see the Task 10 report.
+
 ### J-RDR-08 — Tablet: unusual books and jumps while translation is loading
 **Priority** P1 · **Tags** full, tablet · **Devices** tablet API 35, landscape · **Fixtures** F-RUR, F-IMGONLY, F-LONG · **Preconditions** F-RUR and F-IMGONLY not yet imported; F-LONG has a bookmark in its last chapter, current position at the start, translation cache cleared.
 
@@ -737,6 +747,8 @@ translation works without network keys.
 6. Wait for translation → ✓ the paragraph stays on top; the bookmark icon shows bookmarked (POS-001, BMK-004).
 
 **Covers:** ILL-004, NAV-009, BMK-007, POS-001, BMK-004
+
+**Automated:** `e2e/flows/reading/J-RDR-08.yaml` (tablet). The app reads R.U.R. as **one chapter** (prologue and acts are headings inside it; chapter rules are frozen), so "Act I" is the start of the play and the bookmarked speech is in the prologue; reopening restores the place with its in-paragraph offset, so the paragraph after the bookmarked one is what is waited for. F-LONG's bookmark is in chapter 21 (chapter 22 fits on one tablet screen).
 
 ### J-RDR-09 — App chrome and the Words screen on phone and tablet
 **Priority** P0 · **Tags** smoke, full, phone, tablet · **Devices** phone emulator (compact) and tablet API 35 · **Fixtures** F-LONG · **Preconditions** fresh install (phone: portrait default); signed out. The three saved words are made in the flow, inside step 4 / 11 (a long press on a word in the reader → the popup's "Save").
@@ -1225,6 +1237,8 @@ Translating → Ready transition, no intermediate results) until one is added; t
 
 **Covers:** MLK-001, MLK-003, MLK-007, MLK-010, OHQ-007, OHQ-008, OHQ-009, OHQ-010, OHQ-011, SET-014, SET-016
 
+**Automated:** `e2e/flows/translation/J-TRN-09.yaml` (tablet). Step 10 as written cannot happen: the pinned Offline HQ catalog has an en-X and an X-en pack for every app language (EN→HI included), so Hindi is translated by Offline HQ with no strip (EN → HI is then listed in Language packs and counted in the total; Offline HQ's own strip needs a device where Bergamot cannot run: MANUAL). MLK-007 is automated as step 10b with **DeepL + the made-up key + Hindi** (DeepL has no Hindi; the fallback is decided before any request): "DeepL doesn't support EN→HI — translated by ML Kit (offline)", Hindi from ML Kit, no error banner; then Offline HQ again. Order changes: German is set in Settings before the import (importing opens the book); for step 19 the cache is cleared with the RU → EN pack, because the three short chapters were all translated at the first opening.
+
 ### J-TRN-10 — Jumping around: bookmarks, huge chapters, other books, odd books
 
 **Priority:** P1 · **Tags:** full, network, phone, tablet · **Devices:** tablet API 35, tablet API 26, phone emulator
@@ -1244,6 +1258,8 @@ Translating → Ready transition, no intermediate results) until one is added; t
 10. Open `empty-book.epub`, then `pictures-only.epub`. → ✓ no crash; for each the banner ends idle — no stuck spinner, no error (TRN-024).
 
 **Covers:** TRN-009, TRN-021, TRN-022, TRN-024
+
+**Automated:** `e2e/flows/translation/J-TRN-10.yaml` (tablet + phone; Premium (debug) for six books). "At most ~8 paragraphs processed before the landing" (TRN-022) is **MANUAL**: Maestro reaches paragraph ~400 with ~40 short flings, each stopping on a screen the engine then translates (the cache count is logged: 80 → 466 on the tablet); the landing's rows translated within 30 s and the direct bookmark jump of step 7 are asserted. "Nothing from the other book, even briefly" is checked at two looks; a flash shorter than one look is MANUAL.
 
 ---
 
