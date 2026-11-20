@@ -16,7 +16,12 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
 #
 # "Translates without a scroll" = after the jump, with no gesture of the flow, the slots of the
 # paragraphs on screen fill with Russian (subflows/rows_translated.yaml walks the slots on
-# screen and never scrolls).
+# screen and never scrolls). Before each bookmark jump (steps 1, 7) the reader is left and the
+# translation cache cleared, and the book reopened away from the landing: the landing then has
+# no translation anywhere — not in the cache, not in the reader's memory (a reader session keeps
+# the rows it translated) — so a jump that does not get its landing translated fails the step.
+# Without that, both landings had been translated earlier in the same session and passed whatever
+# the engine did after the jump.
 - assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
 - runFlow: ../../subflows/premium_debug.yaml
@@ -77,9 +82,51 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
     visible: ".*downstream\\. \\(1\\).*"
     timeout: 15000
 - assertNotVisible: ".*\\(ch5\\.\\d+\\).*"
+#   Chapter 5 was translated while it was bookmarked: leave, clear the cache, reopen in chapter 1
+#   (the look-ahead is 8 paragraphs; chapter 5 starts 24 paragraphs after chapter 1's end).
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/clear_translation_cache.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 20000
+#   The cache count before the jump: the reopened screen and its look-ahead translated, then
+#   counted. After the jump the count must have grown by at least the landing's rows — the proof
+#   that the landing was new work (with the landing translated before, it grows by ~0: the
+#   mutation without the cache clear fails there).
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "J-TRN-10 step 1 window settles"
+    timeout: 8000
+    optional: true
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.cPre = output.cached}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 20000
+- assertNotVisible: ".*\\(ch5\\.\\d+\\).*"
 
-# 1. Bookmarks -> the chapter 5 bookmark -> the landing screen fills with translations without
-#    any scroll (TRN-021).
+# 1. Bookmarks -> the chapter 5 bookmark -> the landing screen, translated nowhere yet, fills with
+#    translations without any scroll (TRN-021).
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -102,6 +149,21 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
 - assertVisible:
     id: "original_4_0"
 - takeScreenshot: J-TRN-10-step1-bookmark-landing
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${console.log('J-TRN-10 step 1 - cache ' + output.cPre + ' before the jump, ' + output.cached + ' after it, ' + output.rows + ' landing rows')}
+- assertTrue: ${output.cached >= output.cPre + output.rows}
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_4_0"
+    timeout: 20000
 
 # 2. Chapter picker -> chapter 8 -> the landing screen translates without a scroll (TRN-021).
 - runFlow:
@@ -204,7 +266,8 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
 #    for a landing at paragraph 390, i.e. every screen passed was translated, which is what a
 #    reader who stops on each screen gets, not evidence of an in-order backlog. What is asserted:
 #    the landing screen's rows are translated within 30 s of the last fling. The direct jump of
-#    step 7 (a bookmark, no screens on the way) is the clean "not stuck behind" check.
+#    step 7 (a bookmark, no screens on the way, the cache cleared and the book reopened at the
+#    chapter start before it) is the clean "not stuck behind" check.
 - runFlow:
     file: ../../subflows/import_book.yaml
     env:
@@ -217,6 +280,8 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       childOf:
         id: "translation_0_0"
     timeout: 60000
+#   A pause, not a wait for something: the look-ahead below the first screen finishes before the
+#   cache is counted (the count is only logged).
 - extendedWaitUntil:
     visible: "J-TRN-10 look-ahead settles"
     timeout: 10000
@@ -265,13 +330,16 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       TIMEOUT: 15000
 - evalScript: ${output.landSecs = Math.round((Date.now() - output.flingEnd) / 1000)}
 - evalScript: ${console.log('J-TRN-10 step 5 - landing screen, ' + output.rows + ' rows translated ' + output.landSecs + ' s after the fling')}
-- assertTrue: ${output.rows >= 1}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 4 : 2)}"
 - assertTrue: ${output.landSecs <= 30}
 - takeScreenshot: J-TRN-10-step5-landed
 - runFlow: ../../subflows/leave_reader.yaml
 - runFlow: ../../subflows/cached_translations.yaml
 - evalScript: ${output.c1 = output.cached}
 - evalScript: ${console.log('J-TRN-10 step 5 - cache ' + output.c0 + ' before the fling, ' + output.c1 + ' after the landing')}
+#   Step 6's chapter start was translated (and cached) when the book was first opened: the cache
+#   is cleared, so the reopened reader has to translate it again after the fling back.
+- runFlow: ../../subflows/clear_translation_cache.yaml
 - scrollUntilVisible:
     element:
       id: "book_card_One Very Long Chapter"
@@ -284,8 +352,9 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       id: "original_0_${output.landP - 1}"
     timeout: 20000
 
-# 6. Bookmark this screen. Fling back to the chapter start -> the first screens translate, no
-#    stuck placeholders.
+# 6. Bookmark this screen. Fling back to the chapter start -> the first screens translate (new
+#    work: the cache was cleared above and this reader session opened at the landing), no stuck
+#    placeholders.
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -326,11 +395,56 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       FROM: 0
       PATTERN: ".*[а-яё]{3,}.*"
       TIMEOUT: 20000
-- assertTrue: ${output.rows >= 1}
+- evalScript: ${console.log('J-TRN-10 step 6 - chapter start, ' + output.rows + ' translated rows')}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 4 : 2)}"
 - assertNotVisible: "(Preparing translation|Translating)….*"
+#   The landing of step 7 was translated in this session (on the reopening above): leave, clear
+#   the cache, reopen — at the chapter start, where the reader now is.
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/clear_translation_cache.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_One Very Long Chapter"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_One Very Long Chapter"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
+#   The cache count before the jump: the reopened screen and its look-ahead translated, then
+#   counted. After the jump the count must have grown by at least the landing's rows — the proof
+#   that the landing was new work (with the landing translated before, it grows by ~0: the
+#   mutation without the cache clear fails there).
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "J-TRN-10 step 7 window settles"
+    timeout: 8000
+    optional: true
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${output.cPre = output.cached}
+- scrollUntilVisible:
+    element:
+      id: "book_card_One Very Long Chapter"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_One Very Long Chapter"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 20000
 
-# 7. Bookmarks -> the new bookmark -> the landing screen (≈ paragraph 400) translates without a
-#    scroll (TRN-021, TRN-022).
+# 7. Bookmarks -> the new bookmark -> the landing screen (≈ paragraph 400, translated nowhere
+#    yet) translates without a scroll, not stuck behind the chapter start the reader opened on
+#    (TRN-021, TRN-022).
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:
@@ -348,8 +462,24 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       FROM: ${output.bmP - 1}
       PATTERN: ".*[а-яё]{3,}.*"
       TIMEOUT: 15000
+- evalScript: ${console.log('J-TRN-10 step 7 - bookmark landing, ' + output.rows + ' translated rows')}
 - assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 4 : 2)}"
 - takeScreenshot: J-TRN-10-step7-bookmark-400
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow: ../../subflows/cached_translations.yaml
+- evalScript: ${console.log('J-TRN-10 step 7 - cache ' + output.cPre + ' before the jump, ' + output.cached + ' after it, ' + output.rows + ' landing rows')}
+- assertTrue: ${output.cached >= output.cPre + output.rows}
+- scrollUntilVisible:
+    element:
+      id: "book_card_One Very Long Chapter"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_One Very Long Chapter"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_${output.bmP - 1}"
+    timeout: 20000
 
 # 8. Fling ahead again, to about paragraph 480 -> the screen translates promptly, not stuck
 #    behind earlier paragraphs (TRN-022).
@@ -381,7 +511,7 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       TIMEOUT: 15000
 - evalScript: ${output.landSecs = Math.round((Date.now() - output.flingEnd) / 1000)}
 - evalScript: ${console.log('J-TRN-10 step 8 - ' + output.rows + ' rows translated ' + output.landSecs + ' s after the fling')}
-- assertTrue: ${output.rows >= 1}
+- assertTrue: "${output.rows >= (DEVICE_CLASS == 'tablet' ? 4 : 2)}"
 - assertTrue: ${output.landSecs <= 30}
 - runFlow: ../../subflows/leave_reader.yaml
 
@@ -416,6 +546,8 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
 - extendedWaitUntil:
     visible: "Nothing to read here"
     timeout: 20000
+#    An observation window before the negative checks: a banner or error that comes up late
+#    must have had time to show.
 - extendedWaitUntil:
     visible: "J-TRN-10 empty book settles"
     timeout: 8000
@@ -439,6 +571,7 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       - extendedWaitUntil:
           visible: ".*Pictures Only.*"
           timeout: 3000
+#    The same observation window.
 - extendedWaitUntil:
     visible: "J-TRN-10 picture book settles"
     timeout: 8000

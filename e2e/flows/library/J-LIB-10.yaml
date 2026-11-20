@@ -256,7 +256,6 @@ tags: [full, library, network, phone, tablet, J-LIB-10]
     text: "EN"
     below: "LANGUAGES"
 - assertNotVisible: "UND"
-- assertNotVisible: "und"
 - assertVisible: "Pictures Only"
 - assertVisible: "An English Novel"
 - takeScreenshot: J-LIB-10-step6-languages

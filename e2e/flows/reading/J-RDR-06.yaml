@@ -155,8 +155,8 @@ tags: [full, tablet, reading, J-RDR-06]
     below: "Justify text"
     above: "Align both edges of each line"
     rightOf: "Justify text"
-- assertNotVisible:
-    checked: true
+- assertVisible:
+    checked: false
     below: "Justify text"
     above: "Align both edges of each line"
     rightOf: "Justify text"
@@ -173,8 +173,8 @@ tags: [full, tablet, reading, J-RDR-06]
     below: "Justify text"
     above: "Align both edges of each line"
     rightOf: "Justify text"
-- assertNotVisible:
-    checked: true
+- assertVisible:
+    checked: false
     below: "Justify text"
     above: "Align both edges of each line"
     rightOf: "Justify text"
@@ -239,8 +239,8 @@ tags: [full, tablet, reading, J-RDR-06]
     element: "Justify text"
     direction: DOWN
     timeout: 15000
-- assertNotVisible:
-    checked: true
+- assertVisible:
+    checked: false
     below: "Justify text"
     above: "Align both edges of each line"
     rightOf: "Justify text"
@@ -318,8 +318,14 @@ tags: [full, tablet, reading, J-RDR-06]
     direction: DOWN
     timeout: 15000
 - assertVisible: "35 / 65"
-- assertNotVisible:
-    checked: true
+#   Justify is three rows above "Show translation": brought on screen, then read as off (an
+#   assertNotVisible of "checked" also passed with the row off screen).
+- scrollUntilVisible:
+    element: "Align both edges of each line"
+    direction: UP
+    timeout: 15000
+- assertVisible:
+    checked: false
     below: "Justify text"
     above: "Align both edges of each line"
     rightOf: "Justify text"

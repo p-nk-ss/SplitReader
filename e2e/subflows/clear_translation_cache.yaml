@@ -1,0 +1,38 @@
+appId: ${APP_ID}
+---
+# clear_translation_cache: Settings -> Storage -> "Cached translations: N" -> Clear -> confirm ->
+# "Cached translations: 0", then back to the Library. With the reader left (its engine and its
+# in-memory rows are gone with it), the next opening of a book translates everything anew: a
+# journey uses it before a check that must see NEW translation work (a jump that must translate
+# its landing, not find it done).
+# Start: any screen with the app's navigation, the reader left. End: the Library at "Open book".
+- tapOn: "Settings"
+#   Settings keeps its scroll position between visits: the row may be above (seen on the phone,
+#   left at About) or below. Up first (at once when it is on screen; up to 20 s spent when it is
+#   below), then down.
+- scrollUntilVisible:
+    element: "Cached translations: \\d+"
+    direction: UP
+    timeout: 20000
+    optional: true
+- scrollUntilVisible:
+    element: "Cached translations: \\d+"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    text: "Clear"
+    rightOf: "Cached translations: \\d+"
+- extendedWaitUntil:
+    visible: "Delete all \\d+ cached translations\\?.*"
+    timeout: 5000
+- tapOn:
+    text: "Clear"
+    below: "Delete all \\d+ cached translations\\?.*"
+- extendedWaitUntil:
+    visible: "Cached translations: 0"
+    timeout: 10000
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000

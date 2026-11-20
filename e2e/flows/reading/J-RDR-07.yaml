@@ -6,8 +6,10 @@ tags: [full, phone, reading, J-RDR-07]
 ---
 # J-RDR-07 — Phone: tuning the stacked reader at large font scale.
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-07.
-# run.sh sets the system font scale to 1.3 (the `# font_scale:` header) before this flow and
-# puts it back to 1.0 after it. Phone only, portrait: the reader is stacked — original on top
+# run.sh sets the system font scale to 1.3 (the `# font_scale:` header) before this flow, fails
+# the flow without running it when the device reads back another value, and puts it back to 1.0
+# after it. Step 2 also checks the scale itself: a one-line label of the Display dialog is
+# 105 px high at 1.3 (a run with plain `maestro test`, at 1.0, fails there). Phone only, portrait: the reader is stacked — original on top
 # (reader:verticalTopPane), translation below (reader:verticalBottomPane).
 # Fixtures: alice-illustrated.epub (F-ALICE: chapter index 0 opens with three pictures — the
 # 600x401 endpapers first — before its first text), classic-h2.mobi (F-MOBI, "Classic H2 Test").
@@ -76,6 +78,13 @@ tags: [full, phone, reading, J-RDR-07]
     text: "50 / 50"
     rightOf: "Vertical split"
 - assertNotVisible: "Split position"
+#    The font scale is applied (LAY-021): the "Vertical split" label, one line, is 105 px high at
+#    1.3 ([179,1618][461,1723], run 20261119T145806Z) and 78 px at 1.0 ([179,1900][392,1978],
+#    run 20261120T095340Z, the header mutated to 1.0: this assertion failed).
+- assertVisible:
+    text: "Vertical split"
+    height: 105
+    tolerance: 8
 
 # 3. Vertical split -> 35 / 65 -> the top pane gets shorter; Settings' (horizontal) "Split ratio"
 #    is still 50 / 50 (LAY-012). The slider has no tag: it is the row between its label and
@@ -215,7 +224,19 @@ tags: [full, phone, reading, J-RDR-07]
     tolerance: 40
 #    The chapter jump lands on the chapter's masthead, the first picture under it — but once (run
 #    20261119T135517Z) with original_0_0 at the top pane's edge and the pictures above it: then
-#    the top pane is pulled down to the pictures.
+#    the top pane is pulled down to the pictures. KNOWN-INTERMITTENT: whether the jump itself
+#    landed on the pictures is logged ("landed on the pictures - no" is that deviation from
+#    "a chapter jump targets the masthead"; look for it in maestro.log after a run).
+- evalScript: ${output.picAtJump = 'no'}
+- runFlow:
+    when:
+      visible:
+        id: "illustration"
+        childOf:
+          id: "reader:verticalTopPane"
+    commands:
+      - evalScript: ${output.picAtJump = 'yes'}
+- evalScript: ${console.log('J-RDR-07 step 6 - KNOWN-INTERMITTENT chapter jump landed on the pictures - ' + output.picAtJump)}
 - repeat:
     times: 10
     while:

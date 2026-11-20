@@ -55,7 +55,8 @@ tags: [full, library, phone, tablet, J-LIB-08]
 
 # 2. Import tiny.epub, open, Back -> the hero (see the correction above): the short first line is
 #    not the teaser, the first paragraph of 40+ characters is; "CONTINUE READING" on one line
-#    (one line of 11sp text is 52 px on the tablet, 2 px/dp, about 78 px on the phone, 3 px/dp;
+#    (the button with one line of 11sp text is 26dp: 52 px on the tablet, 2 px/dp, 78 px on the
+#    phone, 3 px/dp — and the 92 px of J-LIB-08b at 3.556 px/dp;
 #    the checks are under 60 and under 120 px; two lines would be about twice one); the "Last opened" card and the progress row
 #    are there (their size and position: screenshot, MANUAL) (LIB-019, LIB-020).
 - runFlow:
@@ -204,9 +205,27 @@ tags: [full, library, phone, tablet, J-LIB-08]
     timeout: 20000
 - assertNotVisible: ".*\\(s1\\)"
 - runFlow: ../../subflows/leave_reader.yaml
-- tapOn:
-    text: "Prose in One Chapter"
-    above: "by Test Author"
+#    The hero's title is the 28sp title (line 32sp): one line, 64 px, on the tablet, two lines,
+#    192 px, on the phone (the node Maestro tapped in runs 20261119T150319Z / 154308Z). The height
+#    pins it: a shelf card's title and the cover's drawn title are other sizes.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - tapOn:
+          text: "Prose in One Chapter"
+          above: "by Test Author"
+          height: 64
+          tolerance: 6
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn:
+          text: "Prose in One Chapter"
+          above: "by Test Author"
+          height: 192
+          tolerance: 6
 - extendedWaitUntil:
     visible:
       id: "original_0_2[6-9]"

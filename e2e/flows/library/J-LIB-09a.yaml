@@ -71,6 +71,9 @@ onFlowComplete:
 #    (so only the email is wrong) -> Create account -> inline "Enter a valid email address.";
 #    nothing submitted (ACC-002).
 - setAirplaneMode: enabled
+#    A safety margin, kept on purpose: setAirplaneMode returns once the setting is on, the radios
+#    go down after it, and the form below must never reach Firebase (a broken inline check would
+#    create a real account). There is nothing in the app to wait for before a submit.
 - extendedWaitUntil:
     visible: "J-LIB-09a radios going down"
     timeout: 8000

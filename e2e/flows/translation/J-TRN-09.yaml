@@ -178,6 +178,8 @@ tags: [full, network, tablet, translation, J-TRN-09]
           visible: "J-TRN-09 pause between screens"
           timeout: 3000
           optional: true
+#    A pause, not a wait for something: the hidden pane's work on the last screen finishes before
+#    the cache is counted.
 - extendedWaitUntil:
     visible: "J-TRN-09 pause before reading the cache"
     timeout: 8000
@@ -559,12 +561,25 @@ tags: [full, network, tablet, translation, J-TRN-09]
 - assertVisible: "EN → DE · \\d+ MB"
 - assertVisible: "EN → RU · \\d+ MB"
 - assertVisible: "EN → HI · \\d+ MB"
+#     Each row's own Delete: `rightOf:` constrains only x (any Delete on the screen passed), so
+#     each one is found between its neighbours' labels. The rows are sorted by pair id: EN → DE,
+#     EN → HI, EN → RU, RU → EN, then the total. A row's Delete is on its label's line, so it is
+#     below the label before it (that label's own Delete is not) and above the label after it.
 - assertVisible:
     text: "Delete"
-    rightOf: "RU → EN · \\d+ MB"
+    above: "EN → HI · \\d+ MB"
 - assertVisible:
     text: "Delete"
-    rightOf: "EN → DE · \\d+ MB"
+    below: "EN → DE · \\d+ MB"
+    above: "EN → RU · \\d+ MB"
+- assertVisible:
+    text: "Delete"
+    below: "EN → HI · \\d+ MB"
+    above: "RU → EN · \\d+ MB"
+- assertVisible:
+    text: "Delete"
+    below: "EN → RU · \\d+ MB"
+    above: "Total \\d+ MB · Models by Mozilla \\(MPL-2\\.0\\)"
 - copyTextFrom: "RU → EN · \\d+ MB"
 - evalScript: "${output.mbRuEn = parseInt(maestro.copiedText.split('· ').pop())}"
 - copyTextFrom: "EN → DE · \\d+ MB"
@@ -635,7 +650,11 @@ tags: [full, network, tablet, translation, J-TRN-09]
 - runFlow: ../../subflows/watch_translation_banner.yaml
 - evalScript: ${console.log('J-TRN-09 step 19 - banner readings under 100 ' + output.bnBelow100 + ', first ' + output.bnFirst + ', max ' + output.bnMax)}
 - assertTrue: ${output.bnBelow100 >= 2}
-- assertTrue: ${output.bnFirst >= 0 && output.bnFirst < 50}
+#     "From the start": the first reading of the new download is in its first few per cent (seen:
+#     0 in every run so far); a download that resumed a stale part (the OHQ-011 bug) starts
+#     higher. That only the RU → EN leg downloads is not visible to the flow (one banner for the
+#     pair): MANUAL.
+- assertTrue: ${output.bnFirst >= 0 && output.bnFirst <= 15}
 - assertTrue: ${output.bnDecreased == false}
 - extendedWaitUntil:
     visible:
