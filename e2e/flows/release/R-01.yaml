@@ -8,10 +8,10 @@ tags: [release, tablet, R-01]
 # (the release smoke is for the tablet, Tab_35_PixelTablet; tagged `tablet` only).
 #
 # What a release build can break that the debug suite does not see: R8 removes or renames code
-# reached only by reflection (Hilt view models, Room, Gson DTOs, the parsers' XML/Jsoup paths).
+# reached only by reflection (Hilt view models, Room, Play Billing, the parsers' XML/Jsoup paths).
 # Each screen is opened once — a stripped view model or DAO crashes on the first composition —
 # and the two non-EPUB parsers (FB2: Android XML parser, MOBI: hand-rolled PDB/PalmDOC) open a
-# book. R-02 covers EPUB + Offline HQ.
+# book. R-02 covers EPUB + Offline HQ, R-06 Retrofit (Quick Translate).
 #
 # The release-only check: Settings has no "Debug" section and no "Premium (debug)" toggle (they
 # are composed only when BuildConfig.DEBUG). Observed FAIL: this flow on a debug build.
@@ -42,12 +42,20 @@ tags: [release, tablet, R-01]
     visible: "Reading"
     timeout: 15000
 
-# 3. Settings -> Premium shows the free tier with Restore purchase (Billing classes survived R8);
-#    there is no Debug section and no "Premium (debug)" toggle anywhere down to About -> Version.
+# 3. Settings -> Premium shows the free tier with Restore purchase; tapping it runs a real Play
+#    Billing query (BillingClient survived R8) and its outcome comes back as a toast — any of the
+#    outcome texts (this emulator has no Play Store, so normally "Purchase failed. Please try
+#    again."); no crash. There is no Debug section and no "Premium (debug)" toggle anywhere down
+#    to About -> Version.
 - scrollUntilVisible:
     element: "Restore purchase"
     direction: DOWN
     timeout: 40000
+- assertVisible: "Free tier · up to 3 books"
+- tapOn: "Restore purchase"
+- extendedWaitUntil:
+    visible: "(Premium unlocked.*|Purchase pending.*|No previous purchase found\\.|Store isn't ready yet.*|Purchase failed\\. Please try again\\.)"
+    timeout: 15000
 - assertVisible: "Free tier · up to 3 books"
 - assertNotVisible: "Premium \\(debug\\)"
 - assertNotVisible: "Debug"

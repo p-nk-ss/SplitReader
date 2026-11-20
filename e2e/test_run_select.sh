@@ -379,6 +379,18 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "nothing is uninstalled"                     never_logged "$BOX/fake/adb.log" 'uninstall'
   check "maestro never ran"                          no_file "$BOX/fake/maestro.log"
   check "the emulator it started is killed"          logged "$BOX/fake/adb.log" 'emu kill'
+
+  # U. the same signature mismatch on an emulator this run did NOT start (--serial): its data
+  #    (someone's manual-test AVD) is not wiped — the run stops and says what to run by hand.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet; : > "$BOX/fake/always-up"
+  : > "$BOX/fake/install-incompatible"
+  LABEL="bash $version, --serial, app signed with another key"
+  run_box "$BASH_BIN" "$BOX" --serial emulator-5554 --tags J-TAB
+  check "exit code is non-zero"                      failed
+  check "nothing is uninstalled"                     never_logged "$BOX/fake/adb.log" 'uninstall'
+  check "says what to run by hand"                   says 'will not uninstall it from an emulator it did not start'
+  check "maestro never ran"                          no_file "$BOX/fake/maestro.log"
+  check "the attached emulator is not killed"        never_logged "$BOX/fake/adb.log" 'emu kill'
 done
 
 if [ "$FAILS" -gt 0 ]; then

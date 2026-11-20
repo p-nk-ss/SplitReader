@@ -126,6 +126,16 @@ class ReportTest(unittest.TestCase):
         text = report.write_summary(self.run_dir, meta).read_text(encoding="utf-8")
         self.assertIn("- Not run on this phone (tagged for the other device class): J-RDR-01, J-RDR-06", text)
 
+    def test_write_summary_shows_the_r8_check_of_a_release_run(self):
+        meta = dict(report.load_meta(self.run_dir), build_type="release",
+                    r8="0 ReaderViewModel class descriptors in 11403 classes of 1 dex files (app-release.apk)")
+        text = report.write_summary(self.run_dir, meta).read_text(encoding="utf-8")
+        self.assertIn("- R8: 0 ReaderViewModel class descriptors in 11403 classes", text)
+
+    def test_write_summary_without_r8_check_has_no_such_line(self):
+        text = report.write_summary(self.run_dir, report.load_meta(self.run_dir)).read_text(encoding="utf-8")
+        self.assertNotIn("- R8:", text)
+
     def test_write_summary_without_skipped_flows_has_no_such_line(self):
         meta = dict(report.load_meta(self.run_dir), device_class="phone", skipped_for_device=[])
         text = report.write_summary(self.run_dir, meta).read_text(encoding="utf-8")

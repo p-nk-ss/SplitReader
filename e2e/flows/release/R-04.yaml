@@ -12,8 +12,22 @@ tags: [release, tablet, network, R-04]
 # is therefore not asserted. Search "Walden": Standard Ebooks ranks "Poetry" (Ring Lardner) above
 # it, so the row is tapped by its unique author text, which is part of the row's clickable Read
 # area (J-LIB-02 step 6, Take 7/8).
-# A FAIL here caused by standardebooks.org being unreachable (the error/Retry state instead of
-# results) is void, not a build failure.
+# A FAIL caused by standardebooks.org being unreachable is void, not a build failure. Step 0 asks
+# the site from the host first; if it does not answer 200 the flow fails THERE, with the failing
+# step "… VOID - standardebooks.org did not answer 200 …" in summary/junit, before the app is
+# involved. A site that goes down between step 0 and the search still shows the app's
+# error/Retry state at step 1 — read such a FAIL as void too.
+- runScript:
+    file: ../../subflows/http_status.js
+    env:
+      URL: "https://standardebooks.org/"
+#    (A text that is never on screen, asserted only then: its failure message names it, which the
+#    label of an assertTrue does not — that one reads "Assertion is false: false is true".)
+- runFlow:
+    when:
+      true: ${output.httpStatus != 200}
+    commands:
+      - assertVisible: "VOID - standardebooks.org did not answer 200, an outside outage, not a build failure"
 - runFlow: ../../subflows/launch_clean.yaml
 
 # 1. Catalog -> Standard Ebooks -> search "Walden" -> the Thoreau row is listed.

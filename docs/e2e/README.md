@@ -13,14 +13,14 @@ Maestro-driven black-box journeys against the real app, traceable to the 458-cas
 | `manual` | not automatable (real sign-in/purchase, two Play builds, paid API keys, simulated failures, visual judgement) | manual checklist on a real device before larger releases |
 | `network` | needs internet (Offline HQ packs, ML Kit models, catalog) | |
 | `tablet` / `phone` / `rotation` | device-specific | |
-| `release` | release smoke, R-01 … R-05, on the signed R8-minified release APK | before **every** Play upload: tablet API 35 |
+| `release` | release smoke, R-01 … R-06, on the signed R8-minified release APK | before **every** Play upload: tablet API 35 |
 | `known-bug` | documents a known open bug; expected to fail until fixed | reported, never blocks |
 
 Priority: **P0** core flow or regression of a release-blocking bug (a failure blocks the release);
 **P1** important; **P2** minor/cosmetic.
 
 Release gate: all `smoke` cases pass on both devices, plus the release smoke on the signed release APK.
-The release smoke is `e2e/flows/release/R-01…R-05` (tag `release`, tablet API 35; see `e2e/README.md`
+The release smoke is `e2e/flows/release/R-01…R-06` (tag `release`, tablet API 35; see `e2e/README.md`
 "Release smoke" and `e2e_journeys.md` "Release smoke"). `--build release` copies the signing files in for the
 build only and removes them on exit.
 Results go to `releases/e2e-<versionName>-<versionCode>.md`.

@@ -112,6 +112,7 @@ TAGS=""
 KEEP_EMULATOR=0
 HEADLESS=0
 FLOW_TIMEOUT_MIN=20
+R8_CHECK=""   # release only: the minification check's one-line result (summary.md "R8:")
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -208,6 +209,7 @@ same_number() {
 MAIN_CHECKOUT="/Users/pankaz-mac/StudioProjects/SplitReader"
 COPIED_KEYSTORE_PROPS=""
 COPIED_JKS=""
+CREATED_JKS_DIR=""
 
 cleanup_signing_copies() {
   if [ -n "$COPIED_KEYSTORE_PROPS" ] && [ -f "$COPIED_KEYSTORE_PROPS" ]; then
@@ -218,6 +220,11 @@ cleanup_signing_copies() {
     rm -f "$COPIED_JKS"
     log "removed copied $COPIED_JKS"
   fi
+  # The directory `storeFile` named, if this run created it (rmdir: only when it is empty again).
+  if [ -n "$CREATED_JKS_DIR" ] && [ -d "$CREATED_JKS_DIR" ]; then
+    rmdir "$CREATED_JKS_DIR" 2>/dev/null && log "removed created directory $CREATED_JKS_DIR"
+  fi
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -327,6 +334,30 @@ trap 'on_signal INT' INT
 trap 'on_signal TERM' TERM
 trap 'on_signal HUP' HUP
 
+# r8_minified_check APK: prints one line about the APK's ReaderViewModel class descriptors and
+# succeeds only when there are none (R8 renamed it). Fails (with the reason) when the dex files
+# cannot be read, so a missing tool is never mistaken for a minified build.
+r8_minified_check() {
+  local apk="$1" dexdump="" bt dir n total=0 classes=0 dexes=0
+  for bt in "$HOME"/Library/Android/sdk/build-tools/*/dexdump; do [ -x "$bt" ] && dexdump="$bt"; done
+  [ -n "$dexdump" ] || { echo "no build-tools dexdump under $HOME/Library/Android/sdk/build-tools"; return 1; }
+  dir="$(mktemp -d)" || { echo "mktemp failed"; return 1; }
+  unzip -q -o "$apk" 'classes*.dex' -d "$dir" 2>/dev/null
+  for dex in "$dir"/classes*.dex; do
+    [ -f "$dex" ] || continue
+    dexes=$((dexes + 1))
+    n="$("$dexdump" "$dex" 2>/dev/null | grep -c "Class descriptor  : 'L.*ReaderViewModel")"
+    total=$((total + n))
+    classes=$((classes + $("$dexdump" "$dex" 2>/dev/null | grep -c "Class descriptor  :")))
+  done
+  rm -rf "$dir"
+  if [ "$dexes" -eq 0 ] || [ "$classes" -eq 0 ]; then
+    echo "could not read any class from $apk with $dexdump"; return 1
+  fi
+  echo "$total ReaderViewModel class descriptors in $classes classes of $dexes dex files ($(basename "$apk"))"
+  [ "$total" -eq 0 ]
+}
+
 # ---------------------------------------------------------------------------
 # 1. Build
 # ---------------------------------------------------------------------------
@@ -349,16 +380,32 @@ if [ "$BUILD_TYPE" = "release" ]; then
   [ -e "$DEST_PROPS" ] && die "refusing to overwrite pre-existing $DEST_PROPS — remove/move it yourself first (this run would otherwise copy over it, then its EXIT trap would delete it)"
   [ -e "$DEST_JKS" ] && die "refusing to overwrite pre-existing $DEST_JKS — remove/move it yourself first (this run would otherwise copy over it, then its EXIT trap would delete it)"
 
-  mkdir -p "$(dirname "$DEST_JKS")"
-  cp "$SRC_PROPS" "$DEST_PROPS"
+  # Each COPIED_* is set BEFORE its `cp`: an interrupt between the two must still leave the trap
+  # something to remove. Safe, because the checks above proved neither path existed before.
+  # Only the top directory `storeFile` needed that did not exist (if any) is recorded and rmdir'ed.
+  jks_dir="$(dirname "$DEST_JKS")"
+  if [ ! -d "$jks_dir" ]; then
+    first_missing="$jks_dir"
+    while [ ! -d "$(dirname "$first_missing")" ]; do first_missing="$(dirname "$first_missing")"; done
+    CREATED_JKS_DIR="$first_missing"
+    mkdir -p "$jks_dir"
+  fi
   COPIED_KEYSTORE_PROPS="$DEST_PROPS"
-  cp "$SRC_JKS" "$DEST_JKS"
+  cp "$SRC_PROPS" "$DEST_PROPS"
   COPIED_JKS="$DEST_JKS"
+  cp "$SRC_JKS" "$DEST_JKS"
   log "copied signing files into worktree root for the release build (will be removed on exit)"
 
   log "./gradlew :app:assembleRelease"
   ./gradlew :app:assembleRelease || die "assembleRelease failed"
   APK="$REPO_ROOT/app/build/outputs/apk/release/app-release.apk"
+  [ -f "$APK" ] || die "expected APK not found at $APK"
+  # The release smoke is only worth its name on a MINIFIED build: the flows behave the same on an
+  # unminified one, so a regression to isMinifyEnabled = false would pass them all. R8 renames
+  # ReaderViewModel (nothing keeps it by name), so its class descriptor must be absent from every
+  # classes*.dex of the APK; an unminified build has dozens (debug control: 42).
+  R8_CHECK="$(r8_minified_check "$APK")" || die "the release APK is NOT minified: $R8_CHECK"
+  log "R8: $R8_CHECK"
 else
   log "./gradlew :app:assembleDebug"
   ./gradlew :app:assembleDebug || die "assembleDebug failed"
@@ -486,12 +533,21 @@ log "adb install -r $APK"
 # emulator that last ran the other build type refuses the update
 # (INSTALL_FAILED_UPDATE_INCOMPATIBLE). That one failure is answered by uninstalling the app
 # from THIS emulator (SERIAL passed the ro.kernel.qemu check above) and installing again; every
-# flow starts from cleared app state anyway (launch_clean.yaml). Any other failure stops the run.
+# flow starts from cleared app state anyway (launch_clean.yaml). That drops the app's data on the
+# AVD, so it happens only on an emulator this run booted (--avd); with --serial the run stops with
+# the uninstall command to run by hand. Any other failure stops the run.
 INSTALL_OUT="$("$ADB" -s "$SERIAL" install -r "$APK" 2>&1)"
 INSTALL_RC=$?
 printf '%s\n' "$INSTALL_OUT" >&2
-if [ "$INSTALL_RC" -ne 0 ] && printf '%s' "$INSTALL_OUT" | grep -q 'INSTALL_FAILED_UPDATE_INCOMPATIBLE'; then
-  log "the app on $SERIAL is signed with another key (the other build type): adb uninstall $APP_ID, then install again"
+INCOMPATIBLE=0
+case "$INSTALL_OUT" in *INSTALL_FAILED_UPDATE_INCOMPATIBLE*) INCOMPATIBLE=1 ;; esac
+if [ "$INSTALL_RC" -ne 0 ] && [ "$INCOMPATIBLE" = "1" ]; then
+  # Uninstalling drops the app's data on that emulator (books, packs, account). Done only on an
+  # emulator this run booted itself; an attached one (--serial) may be someone's manual-test AVD.
+  if [ "$STARTED_EMULATOR" != "1" ]; then
+    die_after_boot "the app on $SERIAL is signed with another key (the other build type); this run will not uninstall it from an emulator it did not start (that would delete its Mirrolit data) — run: $ADB -s $SERIAL uninstall $APP_ID, or use --avd"
+  fi
+  log "the app on $SERIAL is signed with another key (the other build type): adb uninstall $APP_ID (its data on this emulator goes too), then install again"
   "$ADB" -s "$SERIAL" uninstall "$APP_ID" || die_after_boot "uninstall of $APP_ID failed"
   "$ADB" -s "$SERIAL" install -r "$APK"
   INSTALL_RC=$?
@@ -897,7 +953,7 @@ cat > "$RUN/meta.json" <<EOF
   "date": "$RUN_DATE",
   "device_class": "$DEVICE_CLASS",
   "skipped_for_device": $SKIPPED_JSON,
-  "tags": $TAGS_JSON$( [ -n "$COPY_TO" ] && printf ',\n  "copy_to": "%s"' "$COPY_TO" )
+  "tags": $TAGS_JSON$( [ -n "$R8_CHECK" ] && printf ',\n  "r8": "%s"' "$R8_CHECK" )$( [ -n "$COPY_TO" ] && printf ',\n  "copy_to": "%s"' "$COPY_TO" )
 }
 EOF
 

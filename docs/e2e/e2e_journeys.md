@@ -536,22 +536,26 @@ The system picker hands out a different uri for one file from its "Recent" and "
 
 **Covers:** ERR-009, ERR-010, ERR-011, ERR-012, ERR-013, ERR-014, ERR-015, ERR-017, PRM-005
 
-### Release smoke (R-01 … R-05) — the signed release APK
+### Release smoke (R-01 … R-06) — the signed release APK
 
 **Priority** P0 · **Tags** release, tablet, network · **Devices** tablet API 35 (Tab_35_PixelTablet) · **Build** signed, R8-minified `app-release.apk`
-**Fixtures** full-features.fb2, classic-h2.mobi, en-novel.epub · **Run** `e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release`
+**Fixtures** full-features.fb2, classic-h2.mobi, en-novel.epub, tiny.epub · **Run** `e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release`
 
-What the debug suite cannot see: code R8 strips or renames (Hilt view models, Room, Gson DTOs, the bergamot JNI bridge, Billing). One flow per file:
+What the debug suite cannot see: code R8 strips or renames (Hilt view models, Room, the bergamot JNI bridge, Play Billing, Retrofit). Same R8 and signing as the Play bundle, installed as the universal APK (the .aab's ABI/density splits are not exercised). One flow per file:
 
-1. **R-01** First launch → empty library; Almanac, Words, Catalog, Settings each open; Settings → Premium "Free tier · up to 3 books" + Restore purchase, and no "Debug" section / "Premium (debug)" down to About → Version 1.0 (PRM-005); full-features.fb2 and classic-h2.mobi open (4 chapters) → "· 2 VOLUMES".
+1. **R-01** First launch → empty library; Almanac, Words, Catalog, Settings each open; Settings → Premium "Free tier · up to 3 books"; Restore purchase answers with one of its outcome toasts (a real Billing query; "Purchase failed…" on the Play-Store-less emulator); no "Debug" section / "Premium (debug)" down to About → Version 1.0 (PRM-005); full-features.fb2 and classic-h2.mobi open (4 chapters) → "· 2 VOLUMES".
 2. **R-02** Import en-novel.epub → the EN→RU Offline HQ pack downloads, ≥ 6 rows of the first screen are Russian; language button EN → RU; no "translated by" strip, no ML KIT; picker: Offline HQ is the current (PaperInk) card; paragraph 12 has Offline HQ's "паромник"; Settings lists "EN → RU · N MB".
 3. **R-03** Long-press "river" → popup with its Russian translation → Save → "Saved to dictionary" → Words: "1 saved word", river + that translation.
-4. **R-04** Catalog → Standard Ebooks → "Walden" → tap the Thoreau row → the book downloads and opens ("Walden" in the top bar) → Library "· 1 VOLUME". (Standard Ebooks, not Gutenberg: an unreachable catalog site makes the run void, not a FAIL of the build.)
+4. **R-04** Catalog → Standard Ebooks → "Walden" → tap the Thoreau row → the book downloads and opens ("Walden" in the top bar) → Library "· 1 VOLUME". (Standard Ebooks, not Gutenberg. The flow first asks standardebooks.org from the host; no 200 → it fails at once on "VOID - standardebooks.org did not answer 200 …": void, not a FAIL of the build.)
 5. **R-05** Chapter 12, scrolled past its first paragraph, bookmarked to name the place → force-stop + relaunch → Library "CH 12 OF 22", "· 1 VOLUME" → reopen → chapter 12, not its first paragraph, "Remove bookmark here" with the same label.
 
-Plus, recorded per release: `apkanalyzer dex packages app-release.apk | grep -c ReaderViewModel` → 0 (ERR-011, minification half).
+6. **R-06** Settings → Translation → Change → Quick Translate (no key) → import tiny.epub → its three paragraphs are Russian (Retrofit service proxy + suspend call, OkHttp, scalars converter, Gson `JsonParser`), no "TRANSLATION FAILED", no "translated by" strip, no ML KIT; picker: Quick Translate is the current (PaperInk) card, Offline HQ an ordinary one; Settings still Quick Translate, no Offline HQ pack; Offline HQ chosen again at the end. A failed request (what an R8-broken Retrofit does) shows "TRANSLATION FAILED" and leaves the slots empty → FAIL at the first Cyrillic check (seen with aeroplane mode on). A "rate-limited" / "No internet" banner makes a FAIL void.
 
-**Covers:** PRM-005, ERR-011 (R8 half), OHQ-001, OHQ-004, POP-001, WRD-001, CAT-005, POS-013 — on the release build
+Plus, every `--build release` run: `run.sh` refuses an APK with any `ReaderViewModel` class descriptor in its dex (dexdump; R8 renames it) and writes "R8: 0 ReaderViewModel class descriptors …" into summary.md (ERR-011, minification half).
+
+Not covered here: the reflective Gson DTOs of DeepL / Google Cloud / Azure (need a real key), Gutenberg's Retrofit OPDS client, a real purchase, and Crashlytics (release-only collection, mapping upload: J-LIB-17 step 7, manual).
+
+**Covers:** PRM-005, ERR-011 (R8 half), OHQ-001, OHQ-004, POP-001, WRD-001, CAT-005, POS-013, ONL-021 (Quick Translate translates) — on the release build
 
 ### J-LIB-18 — Odd files that need a human eye
 

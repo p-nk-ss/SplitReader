@@ -53,6 +53,10 @@ tags: [release, tablet, network, R-03]
     above: "Listen"
 - evalScript: ${output.riverRu = maestro.copiedText}
 - evalScript: ${console.log('R-03 river = ' + output.riverRu)}
+#    Maestro reads a text as a regex: the translation is matched in step 4 with its regex
+#    characters escaped, so a translation with ".", "(" or "?" still matches itself. (No space
+#    after the ":" of the conditional: in a plain YAML scalar ": " would start a mapping.)
+- evalScript: ${output.riverRe = output.riverRu.split('').map(c => ('.()[]?*+|^\\'.indexOf(c) >= 0 ? '\\' + c :c)).join('')}
 - takeScreenshot: R-03-step2-popup
 
 # 3. Save -> "Saved to dictionary"; Close.
@@ -72,5 +76,5 @@ tags: [release, tablet, network, R-03]
     visible: "1 saved word"
     timeout: 10000
 - assertVisible: "river"
-- assertVisible: "${output.riverRu}"
+- assertVisible: "${output.riverRe}"
 - takeScreenshot: R-03-step4-words

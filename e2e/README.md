@@ -407,8 +407,10 @@ Tests: `python3 e2e/test_check_colours.py`.
 
 ## Release smoke (`e2e/flows/release/`, tag `release`)
 
-Five short flows run against the **signed, R8-minified release build** — what Play ships — on
-the tablet emulator only (tagged `tablet`):
+Six short flows run against the **signed, R8-minified release build** — the same R8 and signing
+as the bundle Play ships, installed as the universal `app-release.apk` (not the .aab's
+ABI/density splits that Play delivers: a split-only problem, e.g. the bergamot `.so` in an ABI
+split, is not seen here) — on the tablet emulator only (tagged `tablet`):
 
 ```
 caffeinate -d -i -s -u e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release
@@ -416,25 +418,36 @@ caffeinate -d -i -s -u e2e/run.sh --avd Tab_35_PixelTablet --headless --build re
 
 | Flow | What it proves on the release build |
 |---|---|
-| R-01 | First launch: empty library; Almanac, Words, Catalog, Settings open (no stripped view model/DAO); Settings has the free tier + Restore purchase and **no Debug section / "Premium (debug)"** (that check fails on a debug build); FB2 and MOBI books open |
+| R-01 | First launch: empty library; Almanac, Words, Catalog, Settings open (no stripped view model/DAO); Settings has the free tier, and Restore purchase runs a Play Billing query that answers with one of its outcome toasts (on this Play-Store-less emulator "Purchase failed…"); **no Debug section / "Premium (debug)"** (that check fails on a debug build); FB2 and MOBI books open |
 | R-02 | EPUB import; Offline HQ (bergamot JNI) translates the first screen into Russian — not ML Kit: no "translated by" strip, Offline HQ is the current picker card (colour crop), paragraph 12 has Offline HQ's "паромник"; the EN → RU pack is listed in Settings |
 | R-03 | Word popup on "river" (Tab_35 point, as J-TRN-02): translation, Save, the word in Words |
-| R-04 | Catalog: Standard Ebooks search "Walden" → download → reader → Library. Not Gutenberg ("Open Library"): a failure caused by the catalog site being unreachable is void, not a build result |
+| R-04 | Catalog: Standard Ebooks search "Walden" → download → reader → Library. Not Gutenberg ("Open Library"). The flow first asks standardebooks.org from the host: if it does not answer 200, it fails at once with the failing step "… VOID - standardebooks.org did not answer 200 …" — void, not a build result |
 | R-05 | Force-stop + relaunch: the book is still in the Library and reopens at the bookmarked-named place in chapter 12 (J-RDR-03 step 10's method) |
+| R-06 | Quick Translate (no key) chosen in Settings before the book is opened translates tiny.epub's three paragraphs into Russian: Retrofit's service proxy + suspend call, OkHttp, the scalars converter and Gson's `JsonParser`. No "translated by" strip, Quick Translate is the current picker card (colour crop), no Offline HQ pack downloaded; the default translator is put back at the end. A banner "rate-limited" / "No internet" makes a FAIL void |
+
+Not covered by the release smoke: the reflective Gson DTOs of DeepL / Google Cloud / Azure (they
+need a real key; `proguard-rules.pro` keeps `data.translator.api.**` whole), Gutenberg's
+Retrofit OPDS client, a real purchase, and Crashlytics (release-only collection + the R8 mapping
+upload) — that stays manual, J-LIB-17 step 7.
 
 `--build release` copies `keystore.properties` and the `.jks` it names from the main checkout
 into the worktree root for the build only and deletes them on every exit (EXIT trap). After a
 release run, `ls keystore.properties *.jks` in the worktree root must show nothing.
 
-Debug and release share the applicationId but not the signing key, so an emulator that last
-ran the other build type refuses `adb install -r` with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
-`run.sh` answers exactly that failure by `adb uninstall io.mirrolit.app` on the run's own
-emulator and installing again (every flow starts from cleared app state anyway); any other
-install failure still stops the run. Checked by `bash e2e/test_run_select.sh` (scenarios S, T).
-
-R8 evidence for a build (no `ReaderViewModel` class name in the dex; the debug APK has 42):
+`--build release` also refuses an APK that is not minified: R8 renames `ReaderViewModel`, so
+`run.sh` requires 0 `ReaderViewModel` class descriptors in the APK's `classes*.dex`
+(build-tools `dexdump`; the debug APK has 42) and stops the run otherwise. The line goes into
+summary.md as "R8: 0 ReaderViewModel class descriptors in N classes of M dex files". By hand:
 
 ```
 ~/Library/Android/sdk/cmdline-tools/latest/bin/apkanalyzer dex packages app/build/outputs/apk/release/app-release.apk | grep -c ReaderViewModel   # 0
 grep '^com.example.splitreader.presentation.reader.ReaderViewModel -> ' app/build/outputs/mapping/release/mapping.txt
 ```
+
+Debug and release share the applicationId but not the signing key, so an emulator that last
+ran the other build type refuses `adb install -r` with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+`run.sh` answers exactly that failure by `adb uninstall io.mirrolit.app` and installing again —
+**only on an emulator this run booted (`--avd`)**: the uninstall deletes the app's data on that
+AVD (imported books, packs, a signed-in account). With `--serial` (an emulator you started, maybe
+your manual-test AVD) the run stops instead and prints the uninstall command to run yourself.
+Any other install failure stops the run. Checked by `bash e2e/test_run_select.sh` (scenarios S, T, U).

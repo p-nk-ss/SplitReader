@@ -25,6 +25,7 @@ RUN_DIR must contain:
                     "device_class": "tablet" | "phone",
                     "skipped_for_device": ["J-RDR-01", ...],   # selected by the tags, skipped
                                                               # by the tablet / phone rule
+                    "r8": "<optional: the minification check's line>",  # --build release
                     "copy_to": "<optional absolute path>"   # set by run.sh for --build release
                                                               # or --tags smoke
                   }
@@ -231,6 +232,8 @@ def render_summary(run_dir, meta, cases):
         lines.append(f"- AVD: {meta.get('avd')}")
     lines.append(f"- API level: {meta.get('api', '-')}")
     lines.append(f"- Build type: {meta.get('build_type', '-')}")
+    if meta.get("r8"):
+        lines.append(f"- R8: {meta.get('r8')}")
     lines.append(f"- Version: {meta.get('version_name', '-')} ({meta.get('version_code', '-')})")
     lines.append(f"- Date: {meta.get('date', '-')}")
     tags = meta.get("tags") or []

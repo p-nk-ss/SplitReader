@@ -1,0 +1,147 @@
+appId: ${APP_ID}
+name: R-06 Release - Quick Translate (Retrofit) translates a book
+tags: [release, tablet, network, R-06]
+# books: tiny.epub
+---
+# R-06 — Release smoke: an online translator's request path in the signed, R8-minified build.
+# Quick Translate needs no key: Retrofit builds its service proxy from QuickTranslateApi's
+# annotations, resolves the suspend method's return type from generic Signature metadata
+# (proguard-rules.pro "Retrofit" block), goes out through OkHttp and the scalars converter, and
+# QuickTranslateProvider reads the reply with Gson's JsonParser. If R8 breaks any of that, the
+# request throws: the app shows "TRANSLATION FAILED" and the translation slots stay empty — there
+# is no fallback to another engine for a failed request (only an unconfigured/unsupported engine
+# falls back to ML Kit, with a "translated by ML Kit" strip). So "Cyrillic in the slots, Quick
+# Translate current, no strip, no Offline HQ pack" can only be Quick Translate's own work.
+# NOT covered: the reflective Gson DTOs of DeepL / Google Cloud / Azure (they need a real key).
+#
+# Fixture: tiny.epub ("Tiny Book": ONE chapter of three paragraphs — "A very short first line."
+# and two river paragraphs). Quick Translate rate-limits: the whole book is a handful of
+# requests. Ids: original_<chapter>_<paragraph>, translation_<chapter>_<paragraph>, 0-based.
+# Quick Translate is chosen in Settings BEFORE the book is opened, so no other engine ever
+# translates it (and no Offline HQ pack is downloaded — checked in step 4).
+# A FAIL whose banner says "rate-limited" or "No internet" is void (the outside service), not a
+# build failure; any other "TRANSLATION FAILED" message is.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Settings -> Translation -> Change -> Quick Translate; the Translation row names it.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, region and monthly usage\\."
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 5000
+- tapOn: "Quick Translate \\(free, online\\)"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "Quick Translate \\(free, online\\)"
+    above: "Manage providers, API keys, region and monthly usage\\."
+
+# 2. Open book -> tiny.epub; all three paragraphs are translated into Russian, with no error.
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "tiny.epub"
+      TITLE: "Tiny Book"
+      FIRST_TEXT: "A very short first line"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_2"
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_1"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 30000
+- assertNotVisible: "TRANSLATION FAILED"
+- assertNotVisible: "(Preparing translation|Translating)….*"
+
+# 3. The language button reads EN → RU; no "translated by" strip, no ML KIT. The picker draws
+#    Quick Translate as the current card (inverted: PaperInk) and Offline HQ as an ordinary one.
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "EN"
+          childOf:
+            id: "reader:languageChip"
+      - assertVisible:
+          text: "RU"
+          childOf:
+            id: "reader:languageChip"
+      - assertNotVisible: ".*translated by.*"
+      - assertNotVisible: ".*ML KIT.*"
+      - assertVisible:
+          id: "reader:languageChip"
+- takeScreenshot: R-06-step3-translated
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- assertVisible: "Quick Translate \\(free, online\\)"
+- takeScreenshot:
+    path: colour-check/step3-quick-translate__PaperInk
+    cropOn: "Quick Translate \\(free, online\\)"
+- takeScreenshot:
+    path: colour-check/step3-offline-hq__PaperBg2
+    cropOn: "Offline HQ"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+
+# 4. Settings: still Quick Translate, and no Offline HQ pack was downloaded. Then the default
+#    translator is put back (Offline HQ), so nothing after this flow inherits Quick Translate.
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Manage providers, API keys, region and monthly usage\\."
+    direction: DOWN
+    timeout: 40000
+- assertVisible:
+    text: "Quick Translate \\(free, online\\)"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- scrollUntilVisible:
+    element: "No Offline HQ packs downloaded yet\\..*"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Manage providers, API keys, region and monthly usage\\."
+    direction: UP
+    timeout: 10000
+- tapOn:
+    text: "Change"
+    below: "Translation"
+    above: "Manage providers, API keys, region and monthly usage\\."
+- extendedWaitUntil:
+    visible: "Choose provider"
+    timeout: 5000
+- tapOn: "Offline HQ"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+- assertVisible:
+    text: "Offline HQ"
+    above: "Manage providers, API keys, region and monthly usage\\."
