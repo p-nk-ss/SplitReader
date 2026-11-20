@@ -3,6 +3,7 @@ name: R-03 Release - word popup translates and saves a word
 tags: [release, tablet, network, R-03]
 # books: en-novel.epub
 ---
+# Covers, on the release build: POP-001, WRD-001.
 # R-03 — Release smoke: a long press on a word opens the popup with its Russian translation,
 # Save stores it (Room) and the Words screen lists it — in the signed, R8-minified build.
 # Fixture: en-novel.epub ("The River Crossing"); its first paragraph is "The old mill still stood

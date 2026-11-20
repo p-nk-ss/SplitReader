@@ -3,6 +3,7 @@ name: R-05 Release - force-stop and relaunch keep the book and the place
 tags: [release, tablet, R-05]
 # books: en-novel.epub
 ---
+# Covers, on the release build: POS-013.
 # R-05 — Release smoke: after a force-stop (`stopApp` = am force-stop: the app gets no chance to
 # save on the way out) and a relaunch, the library still has the book and the book reopens at the
 # place it was scrolled to — in the signed, R8-minified build (Room, ReadingProgressManager).

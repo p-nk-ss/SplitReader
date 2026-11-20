@@ -1,7 +1,8 @@
 # Mirrolit E2E release gate
 
-Maestro-driven black-box journeys against the real app, traceable to the 458-case catalog
-(`docs/e2e/e2e_test_cases.md`) via `docs/e2e/e2e_journeys.md` (55 journeys, 29 automated). Flows live in
+Maestro-driven black-box journeys against the real app, traceable to the 464-case catalog
+(`docs/e2e/e2e_test_cases.md`) via `docs/e2e/e2e_journeys.md` (55 journeys: 29 designed for Maestro, of which
+25 have a flow — J-LIB-04 … 07 have none yet, see "Coverage check" — and 26 manual). Flows live in
 `e2e/flows/`, shared steps in `e2e/subflows/`, fixtures in `e2e/books/`.
 
 ## How to use (tags)
@@ -86,6 +87,18 @@ headed `# APP BUG:` with the exact failure (step, expected, observed, build), ta
 it cannot pass meanwhile, and re-enable the block when the bug is fixed. Report the bug; the flow keeps
 the evidence.
 
+## Coverage check
+
+`python3 e2e/check_coverage.py` compares the catalog with the flows: every case tagged `smoke` / `full`
+(and not `manual`) must be named in a comment of some flow or subflow, and every case ID a flow names
+must exist in the catalog (exit 1 otherwise; each uncovered case is listed with its journey). Run it
+after adding a flow or changing a case's tags.
+
+Open gap (2026-11-20): J-LIB-04 (picture books / tables, debug Premium), J-LIB-05 (FB2 collection),
+J-LIB-06 (classic MOBI shelf) and J-LIB-07 (Words vocabulary, tab tour) are designed as automated
+`smoke` journeys but have no flow, so their 34 cases (IMP, PRS, WRD, LIB-003/021, ERR-001, ACC-016)
+are not covered by the automated gate; the check fails on them until the flows exist.
+
 ## Manual checklist
 
 The 26 non-automatable journeys (real sign-in/purchase, two-build updates, paid API keys, simulated
@@ -106,24 +119,24 @@ each closed-testing cycle: all).
 | BMK | Bookmarks | 14 |
 | ILL | Illustrations | 18 |
 | SYS | System UI (insets, bars) | 13 |
-| TRN | Translation | 27 |
+| TRN | Translation | 28 |
 | OHQ | Offline HQ | 26 |
 | POP | Word popup | 26 |
-| ONL | Online engines | 23 |
+| ONL | Online engines | 24 |
 | MLK | ML Kit | 11 |
 | LNG | Language detection | 9 |
-| SET | Settings | 17 |
-| LIB | Library | 27 |
+| SET | Settings | 18 |
+| LIB | Library | 29 |
 | IMP | Import | 14 |
 | PRS | Parsers | 25 |
 | ERR | Errors | 17 |
 | PRM | Premium | 15 |
 | ACC | Account | 21 |
-| CAT | Catalog | 16 |
+| CAT | Catalog | 17 |
 | WRD | Words | 14 |
 | UPD | Updates | 6 |
 | ALM | Almanac | 9 |
 | DAT | Data / upgrade | 7 |
-| | **Total** | **458** |
+| | **Total** | **464** |
 
 Full case detail: `docs/e2e/e2e_test_cases.md`. Step-by-step journeys: `docs/e2e/e2e_journeys.md`.

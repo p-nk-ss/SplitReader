@@ -3,6 +3,7 @@ name: R-01 Release - first launch, every screen, FB2 and MOBI open
 tags: [release, tablet, R-01]
 # books: full-features.fb2, classic-h2.mobi
 ---
+# Covers, on the release build: PRM-005 (no "Premium (debug)" in the release build). (ERR-011, R8 half: run.sh's dexdump check.)
 # R-01 — Release smoke: first launch of the SIGNED, R8-minified release build.
 # Run: e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release
 # (the release smoke is for the tablet, Tab_35_PixelTablet; tagged `tablet` only).

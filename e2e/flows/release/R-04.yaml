@@ -3,6 +3,7 @@ name: R-04 Release - catalog search, download and open
 tags: [release, tablet, network, R-04]
 # No `# books:` header: the book comes from the live catalog.
 ---
+# Covers, on the release build: CAT-005.
 # R-04 — Release smoke: the catalog searches, downloads an EPUB, adds it to the library and opens
 # it — in the signed, R8-minified build (OkHttp/Jsoup catalog clients, the EPUB download, parse,
 # AddBookToLibraryUseCase).

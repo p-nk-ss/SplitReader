@@ -2,8 +2,9 @@
 
 Real user journeys for release testing. Each journey is a whole session a reader goes through (10–25 steps);
 every verifying step carries a checkpoint "✓ … (IDs)" pointing at the atomic cases in `e2e_test_cases.md`.
-Built 2026-11-06. 55 journeys (29 automated with Maestro, 26 manual) cover all
-458 catalog cases.
+Built 2026-11-06. 55 journeys (29 designed for Maestro, 26 manual) cover all 464 catalog cases.
+J-LIB-04 … J-LIB-07 have no flow yet (2026-11-20): their cases are not covered by the automated gate
+(`python3 e2e/check_coverage.py`, `docs/e2e/README.md` "Coverage check").
 
 Gate: every `smoke` journey passes on tablet API 35 + phone before each Play upload; all automated journeys
 before larger releases (+ tablet API 26); manual journeys on a real device before larger releases.

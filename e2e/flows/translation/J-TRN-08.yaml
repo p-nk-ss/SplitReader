@@ -27,7 +27,7 @@ onFlowComplete:
 # (subflows/cached_translations.yaml). With the translation pane hidden,
 # reading must leave N exactly as it was — Offline HQ, which is not gated, adds 13–23 over the
 # same three screens (J-TRN-01 step 9), and so would a Quick Translate that worked in the
-# background. After "Show translation" is switched on N must grow.
+# background. After "Show translation" is switched on N must grow — read without a restart (SET-018).
 # TRN-027's second half (what is translated after switching on is the screen and what follows,
 # not the screens read while hidden): prose-one-chapter has 56 paragraphs in ONE chapter. The
 # flow reads which paragraph is on top when the pane comes on (g, counted from 0), then reads to
@@ -109,7 +109,7 @@ onFlowComplete:
 #    the text goes and what the model is: "On-device translation · no cloud calls" and
 #    "OFFLINE HQ · DOWNLOADED" (the EN→RU pack was just downloaded), nothing about an online
 #    translator (since versionCode 29; v28 always said "ML KIT · DOWNLOADED"). The reader's
-#    Translator picker has no LibreTranslate card either.
+#    Translator picker has no LibreTranslate card either. (TRN-028)
 - tapOn: "Library"
 - extendedWaitUntil:
     visible: "Open book"
@@ -276,7 +276,7 @@ onFlowComplete:
 - assertNotVisible: "(Preparing translation|Translating)….*"
 - takeScreenshot: J-TRN-08-step7-azure-key-not-set
 #    The language picker ("To" tab) says the text goes to Microsoft Azure, with no model line
-#    and no "no cloud calls" (since versionCode 29). Opening it sends and downloads nothing.
+#    and no "no cloud calls" (since versionCode 29). Opening it sends and downloads nothing. (TRN-028)
 #    The scroll gets 30 s: on the phone one swipe of the dialog took ~10 s to settle (run
 #    20261116T155952Z: the 10 s timeout ran out after that one swipe, the strip on screen).
 - runFlow:

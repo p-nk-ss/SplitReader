@@ -3,6 +3,7 @@ name: R-02 Release - import an EPUB, Offline HQ translates it
 tags: [release, tablet, network, R-02]
 # books: en-novel.epub
 ---
+# Covers, on the release build: OHQ-001, OHQ-004.
 # R-02 — Release smoke: an EPUB is imported and the default translator, Offline HQ (the bergamot
 # JNI library + its Kotlin bridge), translates it in the signed, R8-minified release build.
 # Fixture: en-novel.epub ("The River Crossing"). Ids: original_<chapter>_<paragraph>,

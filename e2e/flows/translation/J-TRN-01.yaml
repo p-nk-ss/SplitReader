@@ -19,7 +19,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 #
 # Work the engine does off screen (look-ahead below the page, a hidden translation pane) cannot
 # be seen in the reader. It is read from Settings -> "Cached translations: N"
-# (subflows/cached_translations.yaml): every translated paragraph is stored there.
+# (subflows/cached_translations.yaml): every translated paragraph is stored there. The count is
+# read several times in one process and must follow the reading without a restart (SET-018).
 #
 # The bars hide by themselves after 3.5 s: footer/chip checks come straight after
 # subflows/show_bars.yaml, top-bar buttons are tapped through subflows/tap_reader_button.yaml.

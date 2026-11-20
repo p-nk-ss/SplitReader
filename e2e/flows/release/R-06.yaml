@@ -3,6 +3,7 @@ name: R-06 Release - Quick Translate (Retrofit) translates a book
 tags: [release, tablet, network, R-06]
 # books: tiny.epub
 ---
+# Covers, on the release build: ONL-021 (Quick Translate translates).
 # R-06 — Release smoke: an online translator's request path in the signed, R8-minified build.
 # Quick Translate needs no key: Retrofit builds its service proxy from QuickTranslateApi's
 # annotations, resolves the suspend method's return type from generic Signature metadata
