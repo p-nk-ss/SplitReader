@@ -482,7 +482,21 @@ done
 # 3. Install
 # ---------------------------------------------------------------------------
 log "adb install -r $APK"
-"$ADB" -s "$SERIAL" install -r "$APK" || die_after_boot "install failed"
+# The debug and the release build share the applicationId but not the signing key, so an
+# emulator that last ran the other build type refuses the update
+# (INSTALL_FAILED_UPDATE_INCOMPATIBLE). That one failure is answered by uninstalling the app
+# from THIS emulator (SERIAL passed the ro.kernel.qemu check above) and installing again; every
+# flow starts from cleared app state anyway (launch_clean.yaml). Any other failure stops the run.
+INSTALL_OUT="$("$ADB" -s "$SERIAL" install -r "$APK" 2>&1)"
+INSTALL_RC=$?
+printf '%s\n' "$INSTALL_OUT" >&2
+if [ "$INSTALL_RC" -ne 0 ] && printf '%s' "$INSTALL_OUT" | grep -q 'INSTALL_FAILED_UPDATE_INCOMPATIBLE'; then
+  log "the app on $SERIAL is signed with another key (the other build type): adb uninstall $APP_ID, then install again"
+  "$ADB" -s "$SERIAL" uninstall "$APP_ID" || die_after_boot "uninstall of $APP_ID failed"
+  "$ADB" -s "$SERIAL" install -r "$APK"
+  INSTALL_RC=$?
+fi
+[ "$INSTALL_RC" -eq 0 ] || die_after_boot "install failed"
 
 API="$("$ADB" -s "$SERIAL" shell getprop ro.build.version.sdk | tr -d '\r\n')"
 log "device API level: $API"

@@ -77,6 +77,17 @@ case "$*" in
   "shell wm density "*) [ -f "$box/fake/density-stuck" ] || echo "$4" > "$box/fake/density_override" ;;
   "shell settings get system font_scale") if [ -f "$box/fake/font_scale" ]; then cat "$box/fake/font_scale"; else echo 1.0; fi ;;
   "shell settings put system font_scale "*) [ -f "$box/fake/font-scale-stuck" ] || echo "$6" > "$box/fake/font_scale" ;;
+  # The app on the device is signed with another key (a debug build where a release is going,
+  # or the other way round) until it is uninstalled: fake/install-incompatible. Any other
+  # install failure: fake/install-fails.
+  "install -r "*)
+    if [ -f "$box/fake/install-fails" ]; then echo "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]" >&2; exit 1; fi
+    if [ -f "$box/fake/install-incompatible" ] && [ ! -f "$box/fake/uninstalled" ]; then
+      echo "adb: failed to install app.apk: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package io.mirrolit.app signatures do not match newer version; ignoring!]" >&2
+      exit 1
+    fi
+    echo "Success" ;;
+  "uninstall "*) : > "$box/fake/uninstalled"; echo "Success" ;;
 esac
 exit 0
 SH
@@ -346,6 +357,28 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "the restore is logged"                      says 'restore (exit)'
   check "the emulator it started is killed"          logged "$BOX/fake/adb.log" 'emu kill'
   check "the hanging maestro is stopped"            process_gone "$BOX/fake/maestro.pid"
+
+  # S. the emulator has the app signed with the other key (debug where a release goes, or the
+  #    other way round): adb refuses the update, run.sh uninstalls it from that emulator and
+  #    installs again; the flows run.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet; : > "$BOX/fake/install-incompatible"
+  LABEL="bash $version, app on the emulator signed with another key"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags J-TAB
+  check "exit code is zero"                          passed
+  check "the app is uninstalled from the emulator"   logged "$BOX/fake/adb.log" '^-s emulator-5554 uninstall io.mirrolit.app$'
+  check "says why it uninstalled"                    says 'signed with another key'
+  check "installed twice (refused, then after the uninstall)" test "$(grep -c ' install -r ' "$BOX/fake/adb.log")" -eq 2
+  check "the flow ran"                               logged "$BOX/fake/maestro.log" 'J-TAB.yaml'
+
+  # T. any other install failure still stops the run, and nothing is uninstalled.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet; : > "$BOX/fake/install-fails"
+  LABEL="bash $version, install fails for another reason"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags J-TAB
+  check "exit code is non-zero"                      failed
+  check "says the install failed"                    says 'install failed'
+  check "nothing is uninstalled"                     never_logged "$BOX/fake/adb.log" 'uninstall'
+  check "maestro never ran"                          no_file "$BOX/fake/maestro.log"
+  check "the emulator it started is killed"          logged "$BOX/fake/adb.log" 'emu kill'
 done
 
 if [ "$FAILS" -gt 0 ]; then
