@@ -451,3 +451,10 @@ ran the other build type refuses `adb install -r` with `INSTALL_FAILED_UPDATE_IN
 AVD (imported books, packs, a signed-in account). With `--serial` (an emulator you started, maybe
 your manual-test AVD) the run stops instead and prints the uninstall command to run yourself.
 Any other install failure stops the run. Checked by `bash e2e/test_run_select.sh` (scenarios S, T, U).
+
+## What automation does not cover
+
+Real sign-in, Play Billing, in-app updates between two Play builds, paid API keys (DeepL, Google Cloud,
+Azure DTOs under R8), Gutenberg on the release build, the ML Kit model download, Crashlytics and device
+specifics (MIUI, Android 15, tablet taskbar, large books) are a manual pass:
+[`docs/e2e/manual_checklist.md`](../docs/e2e/manual_checklist.md).

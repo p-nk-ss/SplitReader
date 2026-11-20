@@ -58,7 +58,10 @@ copy to `releases/e2e-<versionName>-<versionCode>-<device>.md`.
 ## Manual checklist
 
 The 26 non-automatable journeys (real sign-in/purchase, two-build updates, paid API keys, simulated
-failures, visual judgement) live in `docs/e2e/manual_checklist.md` (Task 12).
+failures, visual judgement) live in `docs/e2e/manual_checklist.md`: a fill-in checklist per journey, plus the
+gaps the automation leaves (real-key online translators on the Play build, Gutenberg, ML Kit download,
+Crashlytics, ScrollHold re-anchoring, MIUI / Android 15 / taskbar / large books). Every release: none; larger
+releases: all P0; each closed-testing cycle: all.
 
 ## Catalog areas
 
