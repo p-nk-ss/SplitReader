@@ -1,0 +1,76 @@
+appId: ${APP_ID}
+name: R-03 Release - word popup translates and saves a word
+tags: [release, tablet, network, R-03]
+# books: en-novel.epub
+---
+# R-03 — Release smoke: a long press on a word opens the popup with its Russian translation,
+# Save stores it (Room) and the Words screen lists it — in the signed, R8-minified build.
+# Fixture: en-novel.epub ("The River Crossing"); its first paragraph is "The old mill still stood
+# at the bend of the river, though its wheel …". The long-press point of "river" inside
+# original_0_0 (57%, 16%) is Tab_35_PixelTablet's, default font, bars hidden — the same point
+# J-TRN-02 step 2 uses; a point that misses selects another word and fails the "river" check.
+# Needs the network (the EN→RU Offline HQ pack is downloaded on import).
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open book -> en-novel.epub; its first paragraph is translated before the popup is used.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 240000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+
+# 2. Long-press "river" -> the popup: WORD, the word "river", its Russian translation, Listen,
+#    Save. output.riverRu = the translation.
+- longPressOn:
+    id: "original_0_0"
+    point: "57%, 16%"
+- extendedWaitUntil:
+    visible:
+      text: "(?=.*[А-Яа-яЁё]).{1,40}"
+      below: "WORD"
+      above: "Listen"
+    timeout: 60000
+- assertVisible:
+    text: "river"
+    below: "WORD"
+    above: "Listen"
+- assertVisible: "Save"
+- assertNotVisible: "Translating…"
+- copyTextFrom:
+    text: "(?=.*[А-Яа-яЁё]).{1,40}"
+    below: "WORD"
+    above: "Listen"
+- evalScript: ${output.riverRu = maestro.copiedText}
+- evalScript: ${console.log('R-03 river = ' + output.riverRu)}
+- takeScreenshot: R-03-step2-popup
+
+# 3. Save -> "Saved to dictionary"; Close.
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 4. Words -> one saved word: "river" with the popup's translation.
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "1 saved word"
+    timeout: 10000
+- assertVisible: "river"
+- assertVisible: "${output.riverRu}"
+- takeScreenshot: R-03-step4-words

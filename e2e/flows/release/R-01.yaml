@@ -1,0 +1,107 @@
+appId: ${APP_ID}
+name: R-01 Release - first launch, every screen, FB2 and MOBI open
+tags: [release, tablet, R-01]
+# books: full-features.fb2, classic-h2.mobi
+---
+# R-01 — Release smoke: first launch of the SIGNED, R8-minified release build.
+# Run: e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release
+# (the release smoke is for the tablet, Tab_35_PixelTablet; tagged `tablet` only).
+#
+# What a release build can break that the debug suite does not see: R8 removes or renames code
+# reached only by reflection (Hilt view models, Room, Gson DTOs, the parsers' XML/Jsoup paths).
+# Each screen is opened once — a stripped view model or DAO crashes on the first composition —
+# and the two non-EPUB parsers (FB2: Android XML parser, MOBI: hand-rolled PDB/PalmDOC) open a
+# book. R-02 covers EPUB + Offline HQ.
+#
+# The release-only check: Settings has no "Debug" section and no "Premium (debug)" toggle (they
+# are composed only when BuildConfig.DEBUG). Observed FAIL: this flow on a debug build.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Launch -> the empty library (no onboarding).
+- assertVisible: "Your library is empty"
+- assertVisible: "Tap “Open book” to add an EPUB, FB2 or MOBI."
+
+# 2. Every tab opens: Almanac, Words, Catalog (its source pills; the Gutenberg list itself needs
+#    the network and is R-04's business), Settings.
+- tapOn: "Almanac"
+- extendedWaitUntil:
+    visible: "Open a book to start tracking your reading."
+    timeout: 15000
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "No saved words yet"
+    timeout: 15000
+- tapOn: "Catalog"
+- extendedWaitUntil:
+    visible: "Standard Ebooks"
+    timeout: 15000
+- assertVisible: "Open Library"
+- assertVisible: "Google Drive"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Reading"
+    timeout: 15000
+
+# 3. Settings -> Premium shows the free tier with Restore purchase (Billing classes survived R8);
+#    there is no Debug section and no "Premium (debug)" toggle anywhere down to About -> Version.
+- scrollUntilVisible:
+    element: "Restore purchase"
+    direction: DOWN
+    timeout: 40000
+- assertVisible: "Free tier · up to 3 books"
+- assertNotVisible: "Premium \\(debug\\)"
+- assertNotVisible: "Debug"
+- scrollUntilVisible:
+    element: "VERSION"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    text: "1\\.0"
+    rightOf: "VERSION"
+- assertNotVisible: "Premium \\(debug\\)"
+- assertNotVisible: "Debug"
+- takeScreenshot: R-01-step3-settings-about
+
+# 4. Open book -> full-features.fb2 opens on its first text, titled in the top bar (FB2 parser).
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "full-features.fb2"
+      TITLE: "The Complete Letters"
+      FIRST_TEXT: "The letter arrived on a grey morning, long after everyone had stopped expecting it"
+- runFlow: ../../subflows/leave_reader.yaml
+- assertVisible: "The Complete Letters"
+- assertVisible: "by First Last"
+
+# 5. Open book -> classic-h2.mobi opens on its first text; the Chapters list has its 4 chapters
+#    (MOBI parser).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "classic-h2.mobi"
+      TITLE: "Classic H2 Test"
+      FIRST_TEXT: "Chapter 1 opens here, on a quiet morning by the old mill"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- assertVisible: "Chapter 1"
+- assertVisible: "Chapter 4"
+- assertNotVisible: "Chapter 5"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 6. The Library holds both books.
+- scrollUntilVisible:
+    element: "· 2 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: R-01-step6-library

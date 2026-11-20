@@ -527,7 +527,7 @@ The system picker hands out a different uri for one file from its "Recent" and "
 1. Temporarily blank `billingPublicKey` in `keystore.properties`, run `./gradlew :app:bundleRelease` → ✓ the build fails with the documented guard (ERR-012). Restore the key.
 2. Run `./gradlew :app:bundleRelease` → ✓ the .aab is signed with the release keystore (`jarsigner -verify -verbose`), and the build has `isMinifyEnabled`/`isShrinkResources` true (mapping.txt present) (ERR-011).
 3. Install a release build (bundletool `install-apks`), `adb shell pm list packages | grep mirrolit` → ✓ `io.mirrolit.app`, never `com.example.splitreader` (ERR-010).
-4. Walk all Settings sections of the release build → ✓ no "Premium (debug)" toggle (PRM-005).
+4. Walk all Settings sections of the release build → ✓ no "Premium (debug)" toggle (PRM-005). *Automated on the release APK by the release smoke R-01 (`e2e/flows/release/`).*
 5. Unzip/decompile the release APK (jadx) and grep for API keys/tokens and `http://` → ✓ no secrets; all translator base URLs are HTTPS; the OkHttp logging interceptor is only in debug code (ERR-013).
 6. Search code for `READ_MEDIA_DOCUMENT_VISUAL_USER_SELECTED` → ✓ it has a real call site tied to the import picker on API 33+ (ERR-017).
 7. Trigger a non-fatal log on a debug build, then on the release build → ✓ Crashlytics shows only the release event; R8 mapping was uploaded for the release (ERR-014).
@@ -535,6 +535,23 @@ The system picker hands out a different uri for one file from its "Recent" and "
 9. Open the Play listing (or Play Console → App content → Privacy policy) and open the privacy policy URL → ✓ the page loads; contact email and content match the current policy (ERR-009).
 
 **Covers:** ERR-009, ERR-010, ERR-011, ERR-012, ERR-013, ERR-014, ERR-015, ERR-017, PRM-005
+
+### Release smoke (R-01 … R-05) — the signed release APK
+
+**Priority** P0 · **Tags** release, tablet, network · **Devices** tablet API 35 (Tab_35_PixelTablet) · **Build** signed, R8-minified `app-release.apk`
+**Fixtures** full-features.fb2, classic-h2.mobi, en-novel.epub · **Run** `e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release`
+
+What the debug suite cannot see: code R8 strips or renames (Hilt view models, Room, Gson DTOs, the bergamot JNI bridge, Billing). One flow per file:
+
+1. **R-01** First launch → empty library; Almanac, Words, Catalog, Settings each open; Settings → Premium "Free tier · up to 3 books" + Restore purchase, and no "Debug" section / "Premium (debug)" down to About → Version 1.0 (PRM-005); full-features.fb2 and classic-h2.mobi open (4 chapters) → "· 2 VOLUMES".
+2. **R-02** Import en-novel.epub → the EN→RU Offline HQ pack downloads, ≥ 6 rows of the first screen are Russian; language button EN → RU; no "translated by" strip, no ML KIT; picker: Offline HQ is the current (PaperInk) card; paragraph 12 has Offline HQ's "паромник"; Settings lists "EN → RU · N MB".
+3. **R-03** Long-press "river" → popup with its Russian translation → Save → "Saved to dictionary" → Words: "1 saved word", river + that translation.
+4. **R-04** Catalog → Standard Ebooks → "Walden" → tap the Thoreau row → the book downloads and opens ("Walden" in the top bar) → Library "· 1 VOLUME". (Standard Ebooks, not Gutenberg: an unreachable catalog site makes the run void, not a FAIL of the build.)
+5. **R-05** Chapter 12, scrolled past its first paragraph, bookmarked to name the place → force-stop + relaunch → Library "CH 12 OF 22", "· 1 VOLUME" → reopen → chapter 12, not its first paragraph, "Remove bookmark here" with the same label.
+
+Plus, recorded per release: `apkanalyzer dex packages app-release.apk | grep -c ReaderViewModel` → 0 (ERR-011, minification half).
+
+**Covers:** PRM-005, ERR-011 (R8 half), OHQ-001, OHQ-004, POP-001, WRD-001, CAT-005, POS-013 — on the release build
 
 ### J-LIB-18 — Odd files that need a human eye
 

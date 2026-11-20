@@ -1,0 +1,102 @@
+appId: ${APP_ID}
+name: R-02 Release - import an EPUB, Offline HQ translates it
+tags: [release, tablet, network, R-02]
+# books: en-novel.epub
+---
+# R-02 — Release smoke: an EPUB is imported and the default translator, Offline HQ (the bergamot
+# JNI library + its Kotlin bridge), translates it in the signed, R8-minified release build.
+# Fixture: en-novel.epub ("The River Crossing"). Ids: original_<chapter>_<paragraph>,
+# translation_<chapter>_<paragraph>, 0-based. Needs the network (the EN→RU pack, ~35 MB).
+#
+# What R8 could break here and how it would show: a renamed/stripped JNI bridge class makes the
+# native engine fail to load; the app then lets ML Kit translate and says so in a strip under
+# the top bar ("… translated by ML Kit") — so "translated" alone proves nothing about Offline HQ.
+# Offline HQ is proved three ways: no such strip with the bars up, the picker draws Offline HQ
+# as the current card (PaperInk background, e2e/check_colours.py), and paragraph 12 is in Offline
+# HQ's own wording ("паромник"; ML Kit says "паромчик", see J-TRN-01 step 7).
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open book -> en-novel.epub opens on its first paragraph, titled "The River Crossing".
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+
+# 2. The pack downloads and the first screen is translated into Russian: every translation slot
+#    on screen, from the first paragraph down, holds Cyrillic text (at least 6 on the tablet).
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 240000
+- runFlow:
+    file: ../../subflows/rows_translated.yaml
+    env:
+      CHAPTER: 0
+      FROM: 0
+      PATTERN: ".*[а-яё]{3,}.*"
+      TIMEOUT: 120000
+- evalScript: ${console.log('R-02 first screen - ' + output.rows + ' translated rows')}
+- assertTrue: ${output.rows >= 6}
+- assertNotVisible: "(Preparing translation|Translating)….*"
+
+# 3. The language button reads EN → RU; Offline HQ served (no "translated by" strip, no ML KIT).
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible:
+          text: "EN"
+          childOf:
+            id: "reader:languageChip"
+      - assertVisible:
+          text: "RU"
+          childOf:
+            id: "reader:languageChip"
+      - assertNotVisible: ".*translated by.*"
+      - assertNotVisible: ".*ML KIT.*"
+      - assertVisible:
+          id: "reader:languageChip"
+- takeScreenshot: R-02-step3-translated
+
+# 4. Translator picker -> Offline HQ is the current card (drawn inverted: PaperInk).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:translatorPickerButton"
+      OPENS: "Choose provider"
+- assertVisible: "Offline HQ"
+- takeScreenshot:
+    path: colour-check/step4-offline-hq__PaperInk
+    cropOn: "Offline HQ"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Choose provider"
+    timeout: 5000
+
+# 5. Paragraph 12 is in Offline HQ's wording ("паромник").
+- scrollUntilVisible:
+    element:
+      id: "translation_0_11"
+    direction: DOWN
+    speed: 30
+    visibilityPercentage: 60
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      text: ".*паромник.*"
+      childOf:
+        id: "translation_0_11"
+    timeout: 30000
+- takeScreenshot: R-02-step5-paragraph-12
+
+# 6. Settings -> Language packs lists the downloaded EN → RU pack.
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "EN → RU · \\d+ MB"
+    direction: DOWN
+    timeout: 40000

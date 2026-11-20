@@ -1,0 +1,114 @@
+appId: ${APP_ID}
+name: R-05 Release - force-stop and relaunch keep the book and the place
+tags: [release, tablet, R-05]
+# books: en-novel.epub
+---
+# R-05 — Release smoke: after a force-stop (`stopApp` = am force-stop: the app gets no chance to
+# save on the way out) and a relaunch, the library still has the book and the book reopens at the
+# place it was scrolled to — in the signed, R8-minified build (Room, ReadingProgressManager).
+# Fixture: en-novel.epub ("The River Crossing": 22 chapters; chapter 12's paragraphs end
+# "(ch12.1)" …). Ids: original_<chapter>_<paragraph>, 0-based. Same method as J-RDR-03 step 10:
+# the page is bookmarked before the kill only to NAME it — the label "Chapter 12 · ¶ N" says which
+# paragraph the app counts as the top one, and after the restart "Remove bookmark here" with the
+# same label says the reopened page is that paragraph.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Open book -> en-novel.epub.
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "en-novel.epub"
+      TITLE: "The River Crossing"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+
+# 2. Chapters -> chapter 12, then scroll on past its first paragraph without leaving the reader.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:11"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch12\\.1\\).*"
+    timeout: 15000
+- repeat:
+    times: 40
+    while:
+      visible:
+        id: "original_11_0"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 30%"
+          duration: 800
+- swipe:
+    start: "30%, 40%"
+    end: "30%, 30%"
+    duration: 800
+- assertNotVisible:
+    id: "original_11_0"
+
+# 3. Bookmark the page to name it; the label's paragraph is past the chapter's first.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page"
+- tapOn: "Bookmark this page"
+- extendedWaitUntil:
+    visible: "Chapter 12 · ¶ \\d+"
+    timeout: 5000
+- copyTextFrom: "Chapter 12 · ¶ \\d+"
+- evalScript: ${output.killLabel = maestro.copiedText}
+- evalScript: ${console.log('R-05 place before the kill - ' + output.killLabel)}
+- assertTrue: ${parseInt(output.killLabel.split('¶ ')[1]) >= 2}
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Remove bookmark here"
+    timeout: 5000
+- takeScreenshot: R-05-step3-before-kill
+
+# 4. Force-stop, relaunch -> the Library has the book, its Continue reading card in chapter 12.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 45000
+- scrollUntilVisible:
+    element: "CH 12 OF 22"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "· 1 VOLUME"
+    direction: DOWN
+    timeout: 10000
+
+# 5. Open the book -> chapter 12, past its first paragraph, and the bookmark dialog says this is
+#    the bookmarked page (same label).
+- scrollUntilVisible:
+    element:
+      id: "book_card_The River Crossing"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_The River Crossing"
+- extendedWaitUntil:
+    visible:
+      id: "original_11_.*"
+    timeout: 20000
+- assertNotVisible:
+    id: "original_11_0"
+- assertNotVisible: ".*downstream\\. \\(1\\).*"
+- takeScreenshot: R-05-step5-after-restart
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:bookmarksButton"
+      OPENS: "Bookmark this page|Remove bookmark here"
+- assertVisible: "Remove bookmark here"
+- assertVisible: "${output.killLabel}"
+- tapOn: "Close"

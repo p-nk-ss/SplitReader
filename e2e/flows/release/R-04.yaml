@@ -1,0 +1,62 @@
+appId: ${APP_ID}
+name: R-04 Release - catalog search, download and open
+tags: [release, tablet, network, R-04]
+# No `# books:` header: the book comes from the live catalog.
+---
+# R-04 — Release smoke: the catalog searches, downloads an EPUB, adds it to the library and opens
+# it — in the signed, R8-minified build (OkHttp/Jsoup catalog clients, the EPUB download, parse,
+# AddBookToLibraryUseCase).
+# Source: Standard Ebooks, not the default "Open Library" pill (the Gutenberg OPDS feed): this
+# machine has had HTTP 503 from gutenberg.org since 2026-11-19, and a step that can fail only on
+# an outside 503 would prove nothing about the build. The "Open Library" list the Catalog opens on
+# is therefore not asserted. Search "Walden": Standard Ebooks ranks "Poetry" (Ring Lardner) above
+# it, so the row is tapped by its unique author text, which is part of the row's clickable Read
+# area (J-LIB-02 step 6, Take 7/8).
+# A FAIL here caused by standardebooks.org being unreachable (the error/Retry state instead of
+# results) is void, not a build failure.
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Catalog -> Standard Ebooks -> search "Walden" -> the Thoreau row is listed.
+- tapOn: "Catalog"
+- extendedWaitUntil:
+    visible: "Standard Ebooks"
+    timeout: 15000
+- tapOn: "Standard Ebooks"
+- runFlow: ../../subflows/tap_catalog_search.yaml
+- inputText: "Walden"
+- pressKey: Enter
+- hideKeyboard:
+    optional: true
+- runFlow: ../../subflows/dismiss_stylus_popup.yaml
+- extendedWaitUntil:
+    visible: ".*Henry David Thoreau.*"
+    timeout: 60000
+- assertVisible: "Walden"
+- takeScreenshot: R-04-step1-results
+
+# 2. Read -> the book downloads, opens in the reader (the Catalog is gone), titled "Walden".
+- runFlow: ../../subflows/dismiss_stylus_popup.yaml
+- tapOn:
+    text: ".*Henry David Thoreau.*"
+- extendedWaitUntil:
+    notVisible: "Standard Ebooks"
+    timeout: 150000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible: ".*Walden.*"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 30000
+- takeScreenshot: R-04-step2-reader
+
+# 3. Back -> Library -> Walden is the one book.
+- runFlow: ../../subflows/leave_reader_from_catalog.yaml
+- assertVisible: "Walden"
+- scrollUntilVisible:
+    element: "· 1 VOLUME"
+    direction: DOWN
+    timeout: 10000

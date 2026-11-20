@@ -404,3 +404,37 @@ python3 e2e/check_colours.py e2e/flows/reading/J-RDR-05.yaml <test-output-dir> /
 ```
 
 Tests: `python3 e2e/test_check_colours.py`.
+
+## Release smoke (`e2e/flows/release/`, tag `release`)
+
+Five short flows run against the **signed, R8-minified release build** — what Play ships — on
+the tablet emulator only (tagged `tablet`):
+
+```
+caffeinate -d -i -s -u e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release
+```
+
+| Flow | What it proves on the release build |
+|---|---|
+| R-01 | First launch: empty library; Almanac, Words, Catalog, Settings open (no stripped view model/DAO); Settings has the free tier + Restore purchase and **no Debug section / "Premium (debug)"** (that check fails on a debug build); FB2 and MOBI books open |
+| R-02 | EPUB import; Offline HQ (bergamot JNI) translates the first screen into Russian — not ML Kit: no "translated by" strip, Offline HQ is the current picker card (colour crop), paragraph 12 has Offline HQ's "паромник"; the EN → RU pack is listed in Settings |
+| R-03 | Word popup on "river" (Tab_35 point, as J-TRN-02): translation, Save, the word in Words |
+| R-04 | Catalog: Standard Ebooks search "Walden" → download → reader → Library. Not Gutenberg ("Open Library"): a failure caused by the catalog site being unreachable is void, not a build result |
+| R-05 | Force-stop + relaunch: the book is still in the Library and reopens at the bookmarked-named place in chapter 12 (J-RDR-03 step 10's method) |
+
+`--build release` copies `keystore.properties` and the `.jks` it names from the main checkout
+into the worktree root for the build only and deletes them on every exit (EXIT trap). After a
+release run, `ls keystore.properties *.jks` in the worktree root must show nothing.
+
+Debug and release share the applicationId but not the signing key, so an emulator that last
+ran the other build type refuses `adb install -r` with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+`run.sh` answers exactly that failure by `adb uninstall io.mirrolit.app` on the run's own
+emulator and installing again (every flow starts from cleared app state anyway); any other
+install failure still stops the run. Checked by `bash e2e/test_run_select.sh` (scenarios S, T).
+
+R8 evidence for a build (no `ReaderViewModel` class name in the dex; the debug APK has 42):
+
+```
+~/Library/Android/sdk/cmdline-tools/latest/bin/apkanalyzer dex packages app/build/outputs/apk/release/app-release.apk | grep -c ReaderViewModel   # 0
+grep '^com.example.splitreader.presentation.reader.ReaderViewModel -> ' app/build/outputs/mapping/release/mapping.txt
+```
