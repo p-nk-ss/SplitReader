@@ -12,6 +12,42 @@ maestro --version
 
 Requires Java 17+ (the Homebrew cask pulls its own JDK if needed).
 
+## Commands
+
+Canonical command reference; the gate and process are in `docs/e2e/README.md`.
+
+```
+caffeinate -d -i -s -u e2e/run.sh --headless --avd <AVD> [--build debug|release] [--tags ...]
+```
+
+`caffeinate` keeps the Mac awake and its screen on (a locked screen makes a run crawl, see "A slow run").
+`--headless` boots the AVD without a window; `--build` defaults to debug; `--tags` is OR-selection
+(see "Tag selection"). Examples:
+
+```
+caffeinate -d -i -s -u e2e/run.sh --headless --avd Tab_35_PixelTablet --tags smoke
+caffeinate -d -i -s -u e2e/run.sh --headless --avd Pixel_10_Pro --tags smoke
+caffeinate -d -i -s -u e2e/run.sh --headless --avd Tab_35_PixelTablet --tags full
+caffeinate -d -i -s -u e2e/run.sh --headless --avd Tab_35_PixelTablet --build release --tags release
+```
+
+AVDs: `Tab_35_PixelTablet` (tablet, API 35) and `Pixel_10_Pro` (phone) are the two the gate runs and
+the ones the per-AVD timings and numbers in this file are for. `Tab_26_Nexus9` (API 26 tablet) is selected
+by the same tags (`full`) but is not covered by those numbers (its picker is `com.android.documentsui`).
+
+Reports: `e2e/reports/<UTC timestamp>/` (gitignored) holds one directory per flow plus `summary.md` and
+`meta.json`. A `--build release` run, or one whose tags include `smoke`, also copies `summary.md` to
+`releases/e2e-<versionName>-<versionCode>-<device>.md` (`mirrolit.releaseDir` in `local.properties`
+overrides `releases/`).
+
+Harness self-tests (no device needed; run after changing `run.sh`, `flow_select.sh` or `report.py`):
+
+```
+bash e2e/test_run_select.sh
+bash e2e/test_flow_select.sh
+python3 e2e/test_report.py
+```
+
 ## Where flows live
 
 - `e2e/flows/` — Maestro flow YAML files (one journey/case per file or subflow).
@@ -24,7 +60,7 @@ Every flow declares `appId: ${APP_ID}` — never hard-code the package name. Run
 maestro test -e APP_ID=io.mirrolit.app --device <emulator-serial> e2e/flows/<flow>.yaml
 ```
 
-See `docs/e2e/README.md` for the full release gate, tags and planned runner commands.
+See "Commands" above for the runner, and `docs/e2e/README.md` for the release gate, tags and how to add a journey.
 
 ## Per-journey fixtures (`# books:` header)
 
