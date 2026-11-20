@@ -72,10 +72,25 @@ whitespace, anywhere before the flow's commands):
 # wm_density: 569     # J-LIB-08b: `wm density 569` before the flow (Pixel_10_Pro = 360dp wide), `wm density reset` after
 ```
 
-The value is put back right after the flow, whatever its result, so no other flow runs with it;
-`run.sh` logs the value it read back from the device. A density changes every pixel number of
-the flow: a flow with `# wm_density:` is tagged for one device class and its widths are those of
-that AVD at that density.
+The header must be exactly `# font_scale: N` / `# wm_density: N` (a number, nothing after it):
+a line that looks like one of them but is not (`1,3`, `1.3x`, a trailing comment, `#font_scale:`)
+stops the run before the build. After setting the value `run.sh` reads it back; a device that
+reports another value gets a FAIL row for that flow ("device setting not applied") and the flow
+is not run — it would otherwise run, and maybe pass, at the default. A flow whose check depends
+on the setting should still assert it (J-RDR-07 step 2: a label's height at 1.3), so the flow
+also fails when run with plain `maestro test`.
+
+The value is put back right after the flow, whatever its result, so no other flow runs with it.
+The suite's baseline — font scale 1.0, no density override, aeroplane mode off, natural rotation
+(`user_rotation 0`) — is also put back at start-up (before the device class is read), after a
+flow the watchdog killed (its `onFlowComplete` never ran), and on every exit of `run.sh`,
+including Ctrl-C and SIGTERM (an EXIT trap; an interrupted run also stops its maestro and the
+emulator it started). Each restore is logged as `restore (<when>): …` with the value read back.
+A SIGKILL of `run.sh` itself cannot be trapped: the next run's start-up puts the baseline back.
+A `run.sh` started in the background by a script (`cmd &`, `nohup`) ignores SIGINT (bash does that
+to background jobs, and a trap cannot undo it): stop such a run with `kill -TERM <pid>`.
+A density changes every pixel number of the flow: a flow with `# wm_density:` is tagged for one
+device class and its widths are those of that AVD at that density.
 
 ## Tag selection (`--tags`)
 
@@ -223,7 +238,9 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
 - **A flow that turns the device or switches aeroplane mode** declares `onFlowComplete:`
   (`setAirplaneMode: disabled`, `setOrientation: PORTRAIT`) in its header, so a failure in
   between does not leave the emulator offline or turned for the flows after it (`J-LIB-02`,
-  `J-RDR-03`, `J-TRN-08`). On the tablet PORTRAIT is the natural (landscape) orientation and
+  `J-LIB-09a`, `J-RDR-03`, `J-RDR-08`, `J-TRN-08`). When maestro itself is killed (watchdog,
+  Ctrl-C) `onFlowComplete` does not run; `run.sh` then switches aeroplane mode off and sets the
+  natural rotation itself (see "Device settings for one flow"). On the tablet PORTRAIT is the natural (landscape) orientation and
   LANDSCAPE_LEFT the turn to portrait.
 
 ### Retries are reported

@@ -70,7 +70,13 @@ case "$*" in
   "shell getprop sys.boot_completed"|"shell getprop ro.kernel.qemu") echo 1 ;;
   "shell getprop ro.build.version.sdk") echo 35 ;;
   "shell wm size") cat "$box/fake/wm_size" ;;
-  "shell wm density") cat "$box/fake/wm_density" ;;
+  # Device settings keep state in fake/: font_scale and a density override. A "stuck" device
+  # ignores the change (fake/font-scale-stuck, fake/density-stuck).
+  "shell wm density") cat "$box/fake/wm_density"; [ -f "$box/fake/density_override" ] && echo "Override density: $(cat "$box/fake/density_override")" ;;
+  "shell wm density reset") rm -f "$box/fake/density_override" ;;
+  "shell wm density "*) [ -f "$box/fake/density-stuck" ] || echo "$4" > "$box/fake/density_override" ;;
+  "shell settings get system font_scale") if [ -f "$box/fake/font_scale" ]; then cat "$box/fake/font_scale"; else echo 1.0; fi ;;
+  "shell settings put system font_scale "*) [ -f "$box/fake/font-scale-stuck" ] || echo "$6" > "$box/fake/font_scale" ;;
 esac
 exit 0
 SH
@@ -78,6 +84,8 @@ SH
 #!/bin/sh
 box="$(cd "$(dirname "$0")/.." && pwd)"
 echo "$*" >> "$box/fake/maestro.log"
+# A flow that hangs (the runner is interrupted while it runs): exec, so the pid is the sleep.
+[ -f "$box/fake/maestro-hangs" ] && { echo $$ > "$box/fake/maestro.pid"; exec sleep 60; }
 out=""; flow=""
 while [ $# -gt 0 ]; do
   case "$1" in --output) out="$2"; shift ;; *.yaml) flow="$1" ;; esac
@@ -263,6 +271,81 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "no emulator was started"                    no_file "$BOX/fake/emulator.log"
   check "an emulator it did not start is not killed" never_logged "$BOX/fake/adb.log" 'emu kill'
   check "the flow ran"                               logged "$BOX/fake/maestro.log" 'J-TAB.yaml'
+
+  # Device-setting headers (`# font_scale:`, `# wm_density:`).
+  scaled_flow() { # scaled_flow BOX NAME HEADER-LINES
+    printf 'appId: ${APP_ID}\nname: %s\ntags: [full, phone, %s]\n%s---\n- launchApp\n' "$2" "$2" "$3" > "$1/e2e/flows/reading/$2.yaml"
+  }
+  last_font_scale_put() { grep 'settings put system font_scale' "$BOX/fake/adb.log" | tail -1 | grep -q -- "$1\$"; }
+  last_density_cmd()    { grep 'shell wm density [0-9r]' "$BOX/fake/adb.log" | tail -1 | grep -q -- "$1\$"; }
+
+  # N. both headers applied: set before the flow, read back, put back after it.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" phone
+  scaled_flow "$BOX" J-SCALED $'# font_scale: 1.3\n# wm_density: 569\n'
+  LABEL="bash $version, font_scale + wm_density applied"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Phone --tags J-SCALED
+  check "exit code is zero"                          passed
+  check "the flow ran"                               logged "$BOX/fake/maestro.log" 'J-SCALED.yaml'
+  check "font_scale 1.3 was set"                     logged "$BOX/fake/adb.log" 'settings put system font_scale 1.3$'
+  check "density 569 was set"                        logged "$BOX/fake/adb.log" 'shell wm density 569$'
+  check "font_scale is put back to 1.0 last"         last_font_scale_put '1.0'
+  check "density is reset last"                      last_density_cmd 'reset'
+  check "the restore is logged"                      says 'restore (after J-SCALED)'
+  check "the start-up baseline is logged"            says 'restore (start-up)'
+
+  # O. a malformed header: the run stops before the build, naming the flow and the header.
+  for bad in '# font_scale: 1,3' '# font_scale: 1.3x' '# font_scale: 1.3 # large' '#font_scale: 1.3' '# wm_density: 569dp'; do
+    N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" phone
+    scaled_flow "$BOX" J-BADHDR "$bad"$'\n'
+    LABEL="bash $version, malformed header [$bad]"
+    run_box "$BASH_BIN" "$BOX" --avd Fake_Phone --tags J-BADHDR
+    check "exit code is non-zero"                    failed
+    check "names the flow"                           says 'J-BADHDR.yaml: malformed'
+    check "nothing was built"                        no_file "$BOX/fake/gradle.log"
+  done
+
+  # P. the device does not take the font scale: the flow is a FAIL row and never runs.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" phone; : > "$BOX/fake/font-scale-stuck"
+  scaled_flow "$BOX" J-SCALED $'# font_scale: 1.3\n'
+  LABEL="bash $version, font_scale not applied"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Phone --tags J-SCALED,J-BOTH
+  check "exit code is non-zero"                      failed
+  check "says what was read back"                    says "reads back '1.0'"
+  check "the flow did not run"                       never_logged "$BOX/fake/maestro.log" 'J-SCALED.yaml'
+  check "the next flow still ran"                    logged "$BOX/fake/maestro.log" 'J-BOTH.yaml'
+  check "the summary has the flow as a FAIL"         summary_row 'J-SCALED.*FAIL'
+
+  # Q. the same for the density.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" phone; : > "$BOX/fake/density-stuck"
+  scaled_flow "$BOX" J-SCALED $'# wm_density: 569\n'
+  LABEL="bash $version, wm_density not applied"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Phone --tags J-SCALED
+  check "exit code is non-zero"                      failed
+  check "the flow did not run"                       never_logged "$BOX/fake/maestro.log" 'J-SCALED.yaml'
+  check "the summary has the flow as a FAIL"         summary_row 'J-SCALED.*FAIL'
+  check "density is reset last"                      last_density_cmd 'reset'
+
+  # R. the runner is stopped (SIGTERM) while a scaled flow runs: the device is put back, maestro
+  #    and the emulator this run started are stopped.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" phone; : > "$BOX/fake/maestro-hangs"
+  scaled_flow "$BOX" J-SCALED $'# font_scale: 1.3\n# wm_density: 569\n'
+  LABEL="bash $version, SIGTERM during a scaled flow"
+  HOME="$BOX/home" PATH="$BOX/bin:$PATH" "$BASH_BIN" "$BOX/e2e/run.sh" --avd Fake_Phone --tags J-SCALED > "$BOX/out.txt" 2>&1 &
+  runner=$!
+  for _ in $(seq 1 150); do [ -s "$BOX/fake/maestro.log" ] && break; sleep 0.2; done
+  sleep 1
+  kill -TERM "$runner"
+  wait "$runner"; EXIT_CODE=$?
+  OUTPUT="$(cat "$BOX/out.txt")"
+  check "exit code is non-zero"                      failed
+  check "the flow had started"                       logged "$BOX/fake/maestro.log" 'J-SCALED.yaml'
+  check "says it was interrupted"                    says 'interrupted (SIGTERM)'
+  check "font_scale is put back to 1.0 last"         last_font_scale_put '1.0'
+  check "density is reset last"                      last_density_cmd 'reset'
+  check "aeroplane mode is switched off again at exit" test "$(grep -c 'airplane-mode disable' "$BOX/fake/adb.log")" -ge 2
+  check "the restore is logged"                      says 'restore (exit)'
+  check "the emulator it started is killed"          logged "$BOX/fake/adb.log" 'emu kill'
+  check "the hanging maestro is stopped"            process_gone "$BOX/fake/maestro.pid"
 done
 
 if [ "$FAILS" -gt 0 ]; then

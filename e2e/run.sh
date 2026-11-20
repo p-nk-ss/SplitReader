@@ -78,6 +78,13 @@
 # crop that was not taken, a crop name the checker cannot read, and any error of the checker
 # itself: each is a FAIL row, never only an exit code.
 #
+# Device settings: a flow's `# font_scale: N` / `# wm_density: N` header is set with adb before
+# that flow, read back (a device that reads back another value fails the flow without running it)
+# and put back after it. A malformed header stops the run before the build. The baseline (font
+# scale 1.0, no density override, aeroplane mode off, natural rotation) is also put back at
+# start-up, after a watchdog kill, and on every exit including Ctrl-C / SIGTERM (EXIT trap); each
+# restore is logged as "restore (<when>): …". See "Device-global state" below.
+#
 # Exit code is non-zero if ANY selected flow failed (0 = every selected flow passed), so this
 # script is CI-usable as a gate. Report generation and cleanup (pushed fixtures removed, emulator
 # killed) still run even when one or more flows fail.
@@ -159,6 +166,40 @@ done
 [ "${#TAG_MATCHED_FLOWS[@]}" -gt 0 ] \
   || die "no flow selected: no flow under e2e/flows has any of the tags: $TAGS"
 
+# A flow's device-setting header (`# font_scale: 1.3`, `# wm_density: 569`; see e2e/README.md):
+# prints the value, nothing when the flow has no such line; returns 2 when a line that looks like
+# that header (any spacing, `#font_scale:`, `# wm_density :`) is not exactly `# KEY: VALUE` with a
+# number of the right form, or is there twice. A flow is never run at a value that was not read:
+# a mistyped header (`1,3`, `1.3x`, a trailing comment) used to be skipped without a word and the
+# flow passed at the default.
+flow_device_header() { # FILE KEY
+  local file="$1" key="$2" lines n value pattern
+  lines="$(grep -E "^[[:space:]]*#[[:space:]]*${key}[[:space:]]*:" "$file" || true)"
+  [ -n "$lines" ] || return 0
+  n="$(printf '%s\n' "$lines" | wc -l | tr -d ' ')"
+  [ "$n" = "1" ] || return 2
+  case "$key" in
+    font_scale) pattern='^# font_scale: [0-9]+(\.[0-9]+)?$' ;;
+    wm_density) pattern='^# wm_density: [1-9][0-9]*$' ;;
+    *) return 2 ;;
+  esac
+  printf '%s\n' "$lines" | grep -Eq "$pattern" || return 2
+  printf '%s\n' "${lines#*: }"
+}
+
+for f in "${TAG_MATCHED_FLOWS[@]}"; do
+  for key in font_scale wm_density; do
+    flow_device_header "$f" "$key" >/dev/null \
+      || die "$(basename "$f"): malformed \`# $key:\` header — it must be one line \`# $key: N\` ($( [ "$key" = font_scale ] && echo 'e.g. 1.3' || echo 'e.g. 569'), nothing after the number); the flow would otherwise run at the default"
+  done
+done
+
+# True when the number $1 read back from the device equals the requested $2 (font_scale "1.3" vs
+# "1.30"; density "569" vs "569").
+same_number() {
+  awk -v a="$1" -v b="$2" 'BEGIN { if (a !~ /^[0-9]+(\.[0-9]+)?$/) exit 1; d = a - b; exit !(d < 0.0005 && d > -0.0005) }'
+}
+
 # ---------------------------------------------------------------------------
 # Signed release build: copy signing files from the main checkout for the build only, and
 # ALWAYS remove the copies on exit, whatever happens afterwards (trap, not a tail cleanup step,
@@ -178,7 +219,113 @@ cleanup_signing_copies() {
     log "removed copied $COPIED_JKS"
   fi
 }
-trap cleanup_signing_copies EXIT
+
+# ---------------------------------------------------------------------------
+# Device-global state. A flow's `# font_scale:` / `# wm_density:` header changes a setting of the
+# whole device (it survives the app's clearState and a reboot of the AVD), and a flow that switches
+# aeroplane mode or turns the device puts it back only in its own `onFlowComplete`, which never runs
+# when maestro is killed. So the suite's baseline — font_scale 1.0, no density override, aeroplane
+# mode off, natural rotation — is put back:
+#   - once at start-up, before the device class is read (a run killed with SIGKILL, which no trap
+#     sees, leaves its settings for the next run to put back),
+#   - right after each flow that changed a setting, whatever its result,
+#   - after a flow the watchdog killed (aeroplane mode + rotation: its onFlowComplete never ran),
+#   - on every exit of this script: the EXIT trap, which INT/TERM/HUP reach through on_signal
+#     (Ctrl-C, a stopped session, `kill`). An interrupted run also stops its maestro and the
+#     emulator it started.
+# Each restore is idempotent (PENDING_* say what is still to put back) and logged as
+# "restore (<when>): …".
+# ---------------------------------------------------------------------------
+DEVICE_READY=0        # 1 once SERIAL is a booted emulator of this run (or the --serial one)
+PENDING_FONT_SCALE=0  # 1 while the device may be at a flow's font_scale
+PENDING_DENSITY=0     # 1 while the device may be at a flow's density
+FLOW_IN_PROGRESS=0    # 1 while a flow's maestro runs (its onFlowComplete may not have run)
+MAESTRO_PID=""
+INTERRUPTED=0
+STARTED_EMULATOR=0
+EMULATOR_PID=""
+
+adb_dev() { "$ADB" -s "$SERIAL" "$@" < /dev/null; }
+
+restore_device_settings() { # $1: when (for the log)
+  if [ "$PENDING_FONT_SCALE" = "1" ]; then
+    adb_dev shell settings put system font_scale 1.0 >/dev/null 2>&1
+    log "restore ($1): system font_scale put back to 1.0 (read back: $(adb_dev shell settings get system font_scale 2>/dev/null | tr -d '\r\n'))"
+    PENDING_FONT_SCALE=0
+  fi
+  if [ "$PENDING_DENSITY" = "1" ]; then
+    adb_dev shell wm density reset >/dev/null 2>&1
+    log "restore ($1): display density reset (read back: $(adb_dev shell wm density 2>/dev/null | tr -d '\r' | tr '\n' ' '))"
+    PENDING_DENSITY=0
+  fi
+}
+
+# What a flow's onFlowComplete (`setAirplaneMode: disabled`, `setOrientation: PORTRAIT`) puts back,
+# for when it did not run. `cmd connectivity airplane-mode` exists from API 28; older images get the
+# setting + broadcast.
+reset_flow_leftovers() { # $1: when (for the log)
+  if ! adb_dev shell cmd connectivity airplane-mode disable >/dev/null 2>&1; then
+    adb_dev shell settings put global airplane_mode_on 0 >/dev/null 2>&1
+    adb_dev shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1
+  fi
+  adb_dev shell settings put system user_rotation 0 >/dev/null 2>&1
+  log "restore ($1): aeroplane mode off (airplane_mode_on read back: $(adb_dev shell settings get global airplane_mode_on 2>/dev/null | tr -d '\r\n')), rotation natural (user_rotation 0)"
+}
+
+kill_emulator() {
+  if [ "$STARTED_EMULATOR" = "1" ] && [ "$KEEP_EMULATOR" != "1" ]; then
+    log "killing emulator $SERIAL (started by this run)"
+    "$ADB" -s "$SERIAL" emu kill 2>/dev/null || true
+    DEVICE_READY=0
+  elif [ "$STARTED_EMULATOR" = "1" ]; then
+    log "--keep-emulator: leaving $SERIAL running"
+  fi
+}
+
+stop_maestro() {
+  if [ -n "$MAESTRO_PID" ] && kill -0 "$MAESTRO_PID" 2>/dev/null; then
+    log "stopping maestro (pid $MAESTRO_PID)"
+    pkill -TERM -P "$MAESTRO_PID" 2>/dev/null
+    kill -TERM "$MAESTRO_PID" 2>/dev/null
+    sleep 2
+    pkill -KILL -P "$MAESTRO_PID" 2>/dev/null
+    kill -KILL "$MAESTRO_PID" 2>/dev/null
+  fi
+  MAESTRO_PID=""
+}
+
+on_exit() {
+  trap - INT TERM HUP
+  if [ "$DEVICE_READY" = "1" ]; then
+    restore_device_settings "exit"
+    if [ "$FLOW_IN_PROGRESS" = "1" ]; then
+      reset_flow_leftovers "exit during a flow"
+      FLOW_IN_PROGRESS=0
+    fi
+  fi
+  cleanup_signing_copies
+  if [ "$INTERRUPTED" = "1" ]; then
+    if [ "$DEVICE_READY" = "1" ]; then
+      kill_emulator
+    elif [ "$STARTED_EMULATOR" = "1" ] && [ "$KEEP_EMULATOR" != "1" ] && [ -n "$EMULATOR_PID" ]; then
+      log "killing the emulator process this run started (pid $EMULATOR_PID): interrupted before it booted"
+      pkill -P "$EMULATOR_PID" 2>/dev/null || true
+      kill "$EMULATOR_PID" 2>/dev/null || true
+    fi
+  fi
+}
+
+on_signal() { # $1: signal name
+  INTERRUPTED=1
+  log "interrupted (SIG$1): stopping, then putting the device back"
+  stop_maestro
+  case "$1" in INT) exit 130 ;; HUP) exit 129 ;; *) exit 143 ;; esac
+}
+
+trap on_exit EXIT
+trap 'on_signal INT' INT
+trap 'on_signal TERM' TERM
+trap 'on_signal HUP' HUP
 
 # ---------------------------------------------------------------------------
 # 1. Build
@@ -224,9 +371,6 @@ fi
 # ---------------------------------------------------------------------------
 # 2. Device: boot an AVD, or attach to an existing emulator serial
 # ---------------------------------------------------------------------------
-STARTED_EMULATOR=0
-EMULATOR_PID=""
-
 emulator_serials() {
   "$ADB" devices | awk 'NR>1 && $1!="" {print $1}'
 }
@@ -289,17 +433,17 @@ else
   fi
   log "AVD $AVD booted as $SERIAL"
 fi
+DEVICE_READY=1
 
-kill_emulator() {
-  if [ "$STARTED_EMULATOR" = "1" ] && [ "$KEEP_EMULATOR" != "1" ]; then
-    log "killing emulator $SERIAL (started by this run)"
-    "$ADB" -s "$SERIAL" emu kill 2>/dev/null || true
-  elif [ "$STARTED_EMULATOR" = "1" ]; then
-    log "--keep-emulator: leaving $SERIAL running"
-  fi
-}
 # From here on a fatal error must not leave the emulator this run started running.
 die_after_boot() { kill_emulator; die "$@"; }
+
+# The suite's baseline (see "Device-global state" above), before anything is read from the device:
+# a density override left behind would also change the device class read next.
+PENDING_FONT_SCALE=1
+PENDING_DENSITY=1
+restore_device_settings "start-up"
+reset_flow_leftovers "start-up"
 
 # Device class: tablet | phone (smallest width >= 600dp is a tablet). It decides which flows run
 # and which of a two-class flow's steps run (`when: ${DEVICE_CLASS == 'phone'}`), so without it
@@ -500,6 +644,25 @@ write_no_junit_junit() {
 XML
 }
 
+# A flow that was not run because the device did not take its `# font_scale:` / `# wm_density:`
+# value (read back differently): a FAIL row, so the run cannot pass at the default setting.
+# $1 output path, $2 flow stem, $3 what was requested and read back.
+write_setup_failed_junit() {
+  local out_path="$1" stem="$2" what
+  what="$(printf '%s' "$3" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g')"
+  local now; now="$(date -u +%Y-%m-%dT%H:%M:%S)"
+  cat > "$out_path" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="$stem" device="$SERIAL" tests="1" failures="1" time="0" timestamp="$now">
+    <testcase id="$stem" name="$stem" classname="$stem" file="$stem.yaml" time="0" timestamp="$now" status="ERROR">
+      <failure message="device setting not applied: $what">run.sh did not run this flow: $what. Its checks would have run at the default setting.</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
+XML
+}
+
 # The same for the colour check: a FAIL row for a checker that ended without writing its own
 # junit (python missing, a syntax error, a crash before the first line). Without a row the summary
 # would have no "<flow> colours" line and read "all passed" next to a non-zero exit code.
@@ -542,25 +705,47 @@ for flow in "${SELECTED_FLOWS[@]}"; do
     log "pushed ${#books[@]} fixture(s) for $stem: ${books[*]}"
   fi
 
-  # `# font_scale: N` (one line, e.g. J-RDR-07's 1.3): the system font scale this flow runs at.
-  # Maestro has no command for it, so it is set here with adb before the flow and put back to
-  # 1.0 right after it (whatever the result), so no other flow runs at it.
-  font_scale="$(sed -n 's/^# font_scale:[[:space:]]*\([0-9.]*\)[[:space:]]*$/\1/p' "$flow" | head -1)"
-  if [ -n "$font_scale" ]; then
-    "$ADB" -s "$SERIAL" shell settings put system font_scale "$font_scale" < /dev/null
-    log "$stem: system font_scale set to $font_scale (read back: $("$ADB" -s "$SERIAL" shell settings get system font_scale < /dev/null | tr -d '\r'))"
-  fi
-  # `# wm_density: N` (one line, e.g. J-LIB-08b's 569 = a 360dp-wide Pixel_10_Pro): the display
-  # density this flow runs at, set with `adb shell wm density N` and reset (`wm density reset`)
-  # right after it, whatever the result.
-  wm_density="$(sed -n 's/^# wm_density:[[:space:]]*\([0-9]*\)[[:space:]]*$/\1/p' "$flow" | head -1)"
-  if [ -n "$wm_density" ]; then
-    "$ADB" -s "$SERIAL" shell wm density "$wm_density" < /dev/null
-    log "$stem: display density set to $wm_density (read back: $("$ADB" -s "$SERIAL" shell wm density < /dev/null | tr -d '\r' | tr '\n' ' '))"
-  fi
-
   FLOW_RUN="$RUN/$stem"
   mkdir -p "$FLOW_RUN"
+
+  # `# font_scale: N` (e.g. J-RDR-07's 1.3): the system font scale this flow runs at. Maestro has
+  # no command for it, so it is set here with adb and put back to 1.0 right after the flow
+  # (whatever the result; on an interrupted run by the EXIT trap), so no other flow runs at it.
+  # `# wm_density: N` (e.g. J-LIB-08b's 569 = a 360dp-wide Pixel_10_Pro): the same for the display
+  # density (`wm density N`, then `wm density reset`). Both are read back: a device that does not
+  # report the requested value fails the flow (a FAIL row) without running it — its checks would
+  # otherwise run, and possibly pass, at the default.
+  font_scale="$(flow_device_header "$flow" font_scale)"
+  wm_density="$(flow_device_header "$flow" wm_density)"
+  setup_error=""
+  if [ -n "$font_scale" ]; then
+    PENDING_FONT_SCALE=1
+    adb_dev shell settings put system font_scale "$font_scale" >/dev/null 2>&1
+    got="$(adb_dev shell settings get system font_scale 2>/dev/null | tr -d '\r\n')"
+    if same_number "$got" "$font_scale"; then
+      log "$stem: system font_scale set to $font_scale (read back: $got)"
+    else
+      setup_error="system font_scale $font_scale was requested (# font_scale:), the device reads back '$got'"
+    fi
+  fi
+  if [ -n "$wm_density" ] && [ -z "$setup_error" ]; then
+    PENDING_DENSITY=1
+    adb_dev shell wm density "$wm_density" >/dev/null 2>&1
+    got_all="$(adb_dev shell wm density 2>/dev/null | tr -d '\r' | tr '\n' ' ')"
+    got="$(printf '%s' "$got_all" | sed -n 's/.*Override density:[[:space:]]*\([0-9]*\).*/\1/p')"
+    if same_number "$got" "$wm_density"; then
+      log "$stem: display density set to $wm_density (read back: $got_all)"
+    else
+      setup_error="display density $wm_density was requested (# wm_density:), the device reads back '$got_all'"
+    fi
+  fi
+  if [ -n "$setup_error" ]; then
+    log "$stem: NOT RUN — $setup_error — recording as FAIL"
+    write_setup_failed_junit "$FLOW_RUN/junit.xml" "$stem" "$setup_error"
+    OVERALL_EXIT=1
+    restore_device_settings "after $stem"
+    continue
+  fi
   # DEVICE_CLASS (tablet | phone) lets a flow that runs on both keep a phone-only step behind
   # `when: true: ${DEVICE_CLASS == 'phone'}`.
   MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" -e "DEVICE_CLASS=$DEVICE_CLASS" "$flow" \
@@ -573,8 +758,10 @@ for flow in "${SELECTED_FLOWS[@]}"; do
   # (2026-11-11) produced zero Maestro output for 63 minutes with nothing to stop it short of a
   # human killing the process by hand - see this flag's --help text above.
   log "maestro ${MAESTRO_ARGS[*]} (watchdog: ${FLOW_TIMEOUT_MIN}m)"
+  FLOW_IN_PROGRESS=1
   "$MAESTRO" "${MAESTRO_ARGS[@]}" &
   flow_pid=$!
+  MAESTRO_PID="$flow_pid"
   flow_start=$(date +%s)
   timed_out=0
   while kill -0 "$flow_pid" 2>/dev/null; do
@@ -594,11 +781,14 @@ for flow in "${SELECTED_FLOWS[@]}"; do
   done
   wait "$flow_pid" 2>/dev/null
   flow_exit=$?
+  MAESTRO_PID=""
 
   if [ "$timed_out" -eq 1 ]; then
     log "$stem: TIMED OUT after ${FLOW_TIMEOUT_MIN}m — recording as FAIL"
     write_timeout_junit "$FLOW_RUN/junit.xml" "$stem" "$FLOW_TIMEOUT_SEC"
     OVERALL_EXIT=1
+    # Its onFlowComplete never ran: aeroplane mode / rotation may be what the flow left.
+    reset_flow_leftovers "after $stem timed out"
   else
     log "$stem maestro exit code: $flow_exit"
     [ "$flow_exit" -eq 0 ] || OVERALL_EXIT=1
@@ -607,14 +797,8 @@ for flow in "${SELECTED_FLOWS[@]}"; do
       write_no_junit_junit "$FLOW_RUN/junit.xml" "$stem" "$flow_exit"
     fi
   fi
-  if [ -n "$font_scale" ]; then
-    "$ADB" -s "$SERIAL" shell settings put system font_scale 1.0 < /dev/null
-    log "$stem: system font_scale put back to 1.0"
-  fi
-  if [ -n "$wm_density" ]; then
-    "$ADB" -s "$SERIAL" shell wm density reset < /dev/null
-    log "$stem: display density reset"
-  fi
+  FLOW_IN_PROGRESS=0
+  restore_device_settings "after $stem"
 
   # Colour crops (see the header): checked here, reported as the row "<stem> colours". Its junit
   # goes into its own subdirectory of $RUN, which is where report.py looks for rows.
