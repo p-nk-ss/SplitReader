@@ -22,25 +22,38 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: "Show roots"
     timeout: 10000
-- extendedWaitUntil:
-    visible: "Recent files"
-    timeout: 3000
-    optional: true
+# The AOSP picker (PICKER=aosp, Tab_26_Nexus9) has no "Recent files": picker_root_aosp.yaml. Its Recent
+# root showed "No items" on API 26 (2026-11-20) even after a pick, so the scroll below can fail there.
+# Every other picker: the commands below, unchanged.
 - runFlow:
     when:
-      notVisible: "Recent files"
+      true: ${typeof PICKER !== 'undefined' && PICKER == 'aosp'}
+    file: picker_root_aosp.yaml
+    env:
+      ROOT: "Recent"
+- runFlow:
+    when:
+      true: ${typeof PICKER === 'undefined' || PICKER != 'aosp'}
     commands:
-      - tapOn: "Show roots"
       - extendedWaitUntil:
-          visible: "Open from"
-          timeout: 5000
-      - tapOn:
-          text: "Recent"
-          below: "Open from"
-- extendedWaitUntil:
-    visible: "Recent files"
-    timeout: 10000
-- assertNotVisible: "Files in Downloads"
+          visible: "Recent files"
+          timeout: 3000
+          optional: true
+      - runFlow:
+          when:
+            notVisible: "Recent files"
+          commands:
+            - tapOn: "Show roots"
+            - extendedWaitUntil:
+                visible: "Open from"
+                timeout: 5000
+            - tapOn:
+                text: "Recent"
+                below: "Open from"
+      - extendedWaitUntil:
+          visible: "Recent files"
+          timeout: 10000
+      - assertNotVisible: "Files in Downloads"
 - scrollUntilVisible:
     element: "${FILE}"
     direction: DOWN

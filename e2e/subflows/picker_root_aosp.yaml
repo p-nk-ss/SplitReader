@@ -1,0 +1,43 @@
+appId: ${APP_ID}
+---
+# picker_root_aosp (env ROOT: "Downloads" or "Recent"): with the system picker open, makes ${ROOT}
+# its current root - on the AOSP picker (`com.android.documentsui`, Tab_26_Nexus9 / API 26) only.
+# run.sh passes PICKER=aosp on such an image; the pick_file*.yaml subflows call this file then.
+#
+# Why the Google-picker path does not work there (run 20261120T153055Z: every import failed):
+#   - there is no "Files in Downloads" / "Recent files" header; the root's name is the toolbar
+#     title ("Downloads", "Recent"), and the drawer's own header is "Open from";
+#   - the picker remembers the last root across invocations, and a tap on the ALREADY-selected
+#     root in the drawer sometimes closes the drawer and sometimes leaves it open over the grid
+#     (both seen on 2026-11-20), so a `back` that is not gated on the open drawer leaves the
+#     picker for Mirrolit's Home.
+# So: open the drawer only when ${ROOT} is not already the title, close a drawer that stayed open
+# with `back` only while "Open from" is on screen, and end on ${ROOT} as the title, drawer closed.
+# With the drawer closed the root's name appears once, as the title (Maestro matches whole texts).
+- runFlow:
+    when:
+      notVisible: "${ROOT}"
+    commands:
+      - tapOn: "Show roots"
+      - extendedWaitUntil:
+          visible: "Open from"
+          timeout: 5000
+      - tapOn:
+          text: "${ROOT}"
+          below: "Open from"
+      - extendedWaitUntil:
+          notVisible: "Open from"
+          timeout: 5000
+          optional: true
+- runFlow:
+    when:
+      visible: "Open from"
+    commands:
+      - back
+- extendedWaitUntil:
+    notVisible: "Open from"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "${ROOT}"
+    timeout: 5000
+- assertVisible: "Show roots"

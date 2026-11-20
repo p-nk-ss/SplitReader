@@ -100,9 +100,27 @@ appId: ${APP_ID}
 # newer-tabbed picker builds) and retries the Show-roots-then-Downloads tap once if it doesn't
 # show up the first time, instead of ever assuming navigation succeeded or firing an unconditional
 # `back`.
+# The AOSP picker (PICKER=aosp, Tab_26_Nexus9 / API 26) has no "Files in Downloads" header and
+# reopens on the last root: picker_root_aosp.yaml goes to Downloads there. Every other picker: the
+# block after it, unchanged.
 - runFlow:
     when:
       visible: "Show roots"
+      true: ${typeof PICKER !== 'undefined' && PICKER == 'aosp'}
+    commands:
+      - runFlow:
+          file: picker_root_aosp.yaml
+          env:
+            ROOT: "Downloads"
+      - scrollUntilVisible:
+          element: "${FILE}"
+          direction: DOWN
+          timeout: 20000
+      - tapOn: "${FILE}"
+- runFlow:
+    when:
+      visible: "Show roots"
+      true: ${typeof PICKER === 'undefined' || PICKER != 'aosp'}
     commands:
       - tapOn: "Show roots"
       - extendedWaitUntil:

@@ -408,6 +408,22 @@ AOSP images (`Tab_26_Nexus9`) ship `com.android.documentsui` instead — never b
 image. Both `clearState` calls are `optional: true` so clearing the one package that isn't
 installed on a given device/image is a harmless no-op rather than a flow-aborting failure.
 
+### The AOSP picker (`PICKER=aosp`, Tab_26_Nexus9)
+
+`run.sh` tells every flow which picker the image has: `-e PICKER=aosp` when only
+`com.android.documentsui` is installed, else `PICKER=google` (logged as "file picker: …"). The
+AOSP picker of API 26 has no "Files in Downloads" / "Recent files" header (the root's name is the
+toolbar title; the drawer's header is "Open from"), reopens on the last root, and a tap on the
+already-selected root sometimes leaves the drawer open over the grid. The `pick_file*.yaml`
+subflows therefore go through `picker_root_aosp.yaml` when `PICKER == 'aosp'` and keep their
+Google-picker commands unchanged otherwise (a run without `PICKER` takes the Google path). Seen
+2026-11-20: without this every import on Tab_26_Nexus9 failed at "Files in Downloads"
+(run 20261120T153055Z); with it J-RDR-04 passed there.
+
+Limit: the API 26 picker's "Recent" root shows "No items" even after a pick, so a flow that picks
+from Recent (`pick_file_in_recent.yaml`: J-LIB-19, the Recent-vs-Downloads uri check) cannot run
+on Tab_26_Nexus9 and fails there at the scroll for the file.
+
 ## Exact colours (`colour-check/` crops, `e2e/check_colours.py`)
 
 A reader theme is only colours: no node says which theme is on, and Maestro's `assertScreenshot`

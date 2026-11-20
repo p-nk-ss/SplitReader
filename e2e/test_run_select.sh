@@ -69,6 +69,9 @@ case "$*" in
     elif [ -f "$box/fake/always-up" ] || grep -q '^start-server$' "$box/fake/adb.log"; then printf 'emulator-5554\tdevice\n'; fi ;;
   "shell getprop sys.boot_completed"|"shell getprop ro.kernel.qemu") echo 1 ;;
   "shell getprop ro.build.version.sdk") echo 35 ;;
+  # The system file picker: Google's unless fake/aosp-picker (then the AOSP one, as on API 26).
+  "shell pm list packages com.google.android.documentsui") [ -f "$box/fake/aosp-picker" ] || echo "package:com.google.android.documentsui" ;;
+  "shell pm list packages com.android.documentsui") [ -f "$box/fake/aosp-picker" ] && echo "package:com.android.documentsui" ;;
   "shell wm size") cat "$box/fake/wm_size" ;;
   # Device settings keep state in fake/: font_scale and a density override. A "stuck" device
   # ignores the change (fake/font-scale-stuck, fake/density-stuck).
@@ -187,6 +190,7 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "the tablet-only flow ran"                   logged "$BOX/fake/maestro.log" 'J-TAB.yaml'
   check "the two-class flow ran"                     logged "$BOX/fake/maestro.log" 'J-BOTH.yaml'
   check "the phone-only flow did not run"            never_logged "$BOX/fake/maestro.log" 'J-PHONE.yaml'
+  check "flows are told the Google picker"           logged "$BOX/fake/maestro.log" 'PICKER=google'
   check "flows are told the class"                   logged "$BOX/fake/maestro.log" 'DEVICE_CLASS=tablet'
   check "the emulator is killed at the end"          logged "$BOX/fake/adb.log" 'emu kill'
   SUMMARY="$(find "$BOX/e2e/reports" -name summary.md 2>/dev/null | head -1)"
@@ -391,6 +395,14 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "says what to run by hand"                   says 'will not uninstall it from an emulator it did not start'
   check "maestro never ran"                          no_file "$BOX/fake/maestro.log"
   check "the attached emulator is not killed"        never_logged "$BOX/fake/adb.log" 'emu kill'
+
+  # V. an AOSP image (com.android.documentsui only, as on Tab_26_Nexus9): flows are told PICKER=aosp.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet; : > "$BOX/fake/aosp-picker"
+  LABEL="bash $version, AOSP file picker"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags smoke
+  check "exit code is zero"                          passed
+  check "flows are told the AOSP picker"             logged "$BOX/fake/maestro.log" 'PICKER=aosp'
+  check "says which picker"                          says 'file picker: aosp'
 done
 
 if [ "$FAILS" -gt 0 ]; then

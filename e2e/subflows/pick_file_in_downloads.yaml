@@ -26,22 +26,21 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: "Show roots"
     timeout: 10000
-- extendedWaitUntil:
-    visible: "Files in Downloads"
-    timeout: 3000
-    optional: true
+# The AOSP picker (PICKER=aosp, Tab_26_Nexus9) has no "Files in Downloads": picker_root_aosp.yaml.
+# Every other picker: the commands below, unchanged.
 - runFlow:
     when:
-      notVisible: "Files in Downloads"
+      true: ${typeof PICKER !== 'undefined' && PICKER == 'aosp'}
+    file: picker_root_aosp.yaml
+    env:
+      ROOT: "Downloads"
+- runFlow:
+    when:
+      true: ${typeof PICKER === 'undefined' || PICKER != 'aosp'}
     commands:
-      - tapOn: "Show roots"
-      - extendedWaitUntil:
-          visible: "Downloads"
-          timeout: 5000
-      - tapOn: "Downloads"
       - extendedWaitUntil:
           visible: "Files in Downloads"
-          timeout: 5000
+          timeout: 3000
           optional: true
       - runFlow:
           when:
@@ -52,9 +51,22 @@ appId: ${APP_ID}
                 visible: "Downloads"
                 timeout: 5000
             - tapOn: "Downloads"
-- extendedWaitUntil:
-    visible: "Files in Downloads"
-    timeout: 10000
+            - extendedWaitUntil:
+                visible: "Files in Downloads"
+                timeout: 5000
+                optional: true
+            - runFlow:
+                when:
+                  notVisible: "Files in Downloads"
+                commands:
+                  - tapOn: "Show roots"
+                  - extendedWaitUntil:
+                      visible: "Downloads"
+                      timeout: 5000
+                  - tapOn: "Downloads"
+      - extendedWaitUntil:
+          visible: "Files in Downloads"
+          timeout: 10000
 - scrollUntilVisible:
     element: "${FILE}"
     direction: DOWN

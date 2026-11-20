@@ -509,6 +509,17 @@ case "$DEVICE_CLASS" in
   *) die_after_boot "cannot tell the device class of $SERIAL (tablet or phone) from \`wm size\` / \`wm density\` — no flow runs on a device of unknown class" ;;
 esac
 
+# Which system file picker the image ships (env PICKER for the flows): Google APIs images
+# (Tab_35_PixelTablet, Pixel_10_Pro) have com.google.android.documentsui -> "google"; AOSP images
+# (Tab_26_Nexus9) have com.android.documentsui -> "aosp", whose screens differ (no "Files in
+# Downloads" header; subflows/picker_root_aosp.yaml). Anything else is treated as google.
+PICKER=google
+if "$ADB" -s "$SERIAL" shell pm list packages com.android.documentsui 2>/dev/null | tr -d '\r' | grep -qx 'package:com.android.documentsui' \
+  && ! "$ADB" -s "$SERIAL" shell pm list packages com.google.android.documentsui 2>/dev/null | tr -d '\r' | grep -qx 'package:com.google.android.documentsui'; then
+  PICKER=aosp
+fi
+log "file picker: $PICKER"
+
 SELECTED_FLOWS=()
 SKIPPED_FOR_DEVICE=()
 for f in "${TAG_MATCHED_FLOWS[@]}"; do
@@ -818,7 +829,7 @@ for flow in "${SELECTED_FLOWS[@]}"; do
   fi
   # DEVICE_CLASS (tablet | phone) lets a flow that runs on both keep a phone-only step behind
   # `when: true: ${DEVICE_CLASS == 'phone'}`.
-  MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" -e "DEVICE_CLASS=$DEVICE_CLASS" "$flow" \
+  MAESTRO_ARGS=(--device "$SERIAL" test -e "APP_ID=$APP_ID" -e "DEVICE_CLASS=$DEVICE_CLASS" -e "PICKER=$PICKER" "$flow" \
     --format junit --output "$FLOW_RUN/junit.xml" --test-output-dir "$FLOW_RUN")
 
   # Per-flow watchdog: run maestro in the background under this script's own control (no
