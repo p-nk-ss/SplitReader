@@ -264,9 +264,14 @@ tags: [smoke, full, phone, reading, J-RDR-02]
 #    early would show chapter 2's last paragraph on top and the title under it)
 - assertNotVisible:
     id: "original_1_.*"
+#    …and once the translation has ARRIVED: Russian text inside the slot. (The slot itself,
+#    translation_2_0, is there with its placeholder before anything is translated — waiting for
+#    it returned at once and the checks below only repeated the ones above.)
 - extendedWaitUntil:
     visible:
-      id: "translation_2_0"
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_2_0"
     timeout: 120000
 - assertVisible:
     text: "Chapter 3 — The Long Crossing"

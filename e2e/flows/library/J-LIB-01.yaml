@@ -97,7 +97,14 @@ tags: [smoke, full, library, J-LIB-01]
 # alone never matches that longer string. Confirmed on-device (Task 7a); same reasoning applies
 # everywhere else below that addresses this card by title or by its book_card_<title> id.
 - tapOn: "Reading ·.*"
-- assertVisible: "Alice's Adventures in Wonderland.*"
+# The shelf's card (its id), not the title text: the Continue Reading hero shows the title under
+# every filter, so a title check passed whatever the filter listed.
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible: "No books match"
 - tapOn: "Unread ·.*"
 # Not assertNotVisible of the title: the Continue Reading hero above the shelf always shows the
 # last-opened book's title regardless of which shelf filter is active, so the title text is still

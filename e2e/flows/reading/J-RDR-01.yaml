@@ -230,9 +230,13 @@ tags: [smoke, full, tablet, reading, J-RDR-01]
           end: "30%, 45%"
           duration: 1200
 - assertVisible: "AUSTIN DOBSON\\."
+#    The translation's TEXT (Russian inside the slot), not the slot: translation_0_2 exists with
+#    its placeholder before anything is translated.
 - extendedWaitUntil:
     visible:
-      id: "translation_0_2"
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_2"
     timeout: 60000
 - assertVisible:
     id: "translation_0_2"

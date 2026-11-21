@@ -288,6 +288,36 @@ tags: [full, phone, reading, J-RDR-07]
     timeout: 10000
 - assertNotVisible:
     id: "illustration_row"
+#    The toggle re-anchors the reader on original_0_0 at the top: the place where the pictures
+#    were is ABOVE the screen then, so "no picture on screen" alone passed with the pictures still
+#    there. Scroll up to the chapter's masthead: with the pictures off, the first text follows it
+#    directly and no picture is on screen in either pane.
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- repeat:
+    times: 10
+    while:
+      notVisible:
+        text: "— 1 —"
+        childOf:
+          id: "reader:verticalTopPane"
+    commands:
+      - swipe:
+          start: "50%, 12%"
+          end: "50%, 30%"
+          duration: 800
+- assertVisible:
+    text: "— 1 —"
+    childOf:
+      id: "reader:verticalTopPane"
+- assertVisible:
+    id: "original_0_0"
+- assertNotVisible:
+    id: "illustration"
+- assertNotVisible:
+    id: "illustration_row"
 - takeScreenshot: J-RDR-07-step6-no-pictures
 
 # 7. On again -> the picture is back in the top pane and its space in the bottom one (ILL-016).

@@ -63,8 +63,14 @@ onFlowComplete:
 - hideKeyboard:
     optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
+# The search's own results, not the search field (it holds the typed "Pride and Prejudice") and
+# not the POPULAR list still on screen while the search runs (the list is kept until the results
+# replace it; its first row is Pride and Prejudice / Jane Austen): a SECOND Jane Austen row, which
+# only the results have (several editions).
 - extendedWaitUntil:
-    visible: "Pride and Prejudice"
+    visible:
+      text: ".*Jane Austen.*"
+      index: 1
     timeout: 60000
 
 # 4. Tap Read on the top result -> downloads, parses and opens in the reader (CAT-004)
@@ -173,6 +179,11 @@ onFlowComplete:
       BUTTON: "reader:bookmarksButton"
       OPENS: "Bookmark this page"
 - tapOn: "Bookmark this page"
+# The bookmark exists: the toggle row turns into "Remove bookmark here" (step 10 checks it is
+# still listed after the re-open).
+- extendedWaitUntil:
+    visible: "Remove bookmark here"
+    timeout: 5000
 - tapOn: "Close"
 - runFlow: ../../subflows/leave_reader_from_catalog.yaml
 - assertVisible: "Pride and Prejudice"
@@ -258,8 +269,14 @@ onFlowComplete:
 - hideKeyboard:
     optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
+# Not "Frankenstein" (the search field's own text) and not one Mary Wollstonecraft Shelley row:
+# the POPULAR list that eraseText brought back stays on screen until the results replace it, and
+# it has Frankenstein in row 2 (then Read index 0 would open its row 1, Pride and Prejudice). The
+# results have several Frankenstein editions: a second Shelley row.
 - extendedWaitUntil:
-    visible: "Frankenstein"
+    visible:
+      text: ".*Mary Wollstonecraft Shelley.*"
+      index: 1
     timeout: 60000
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - tapOn:
@@ -279,6 +296,12 @@ onFlowComplete:
 # `e2e/reports/20261111T084432Z`) - a no-op on tablet, where the header is already on screen.
 - scrollUntilVisible:
     element: "· 3 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+# …and the third volume is Frankenstein (its card), not some other row's book.
+- scrollUntilVisible:
+    element:
+      id: "book_card_Frankenstein.*"
     direction: DOWN
     timeout: 10000
 
@@ -345,8 +368,10 @@ onFlowComplete:
 - hideKeyboard:
     optional: true
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
+# The author, not "Pride and Prejudice" (the search field's own text); the list before it is
+# step 8's Moby Dick results, which have no Jane Austen.
 - extendedWaitUntil:
-    visible: "Pride and Prejudice"
+    visible: ".*Jane Austen.*"
     timeout: 60000
 - runFlow: ../../subflows/dismiss_stylus_popup.yaml
 - tapOn:
@@ -398,7 +423,11 @@ onFlowComplete:
     env:
       BUTTON: "reader:bookmarksButton"
       OPENS: "(Bookmark this page|Remove bookmark here)"
-- assertNotVisible: "No bookmarks yet"
+# A bookmark row ("<chapter title> · ¶ N", ReaderDialogs.kt) is listed, and the empty state is
+# not. The empty state is ONE text node, "No bookmarks yet. Tap “Bookmark this page” to add one."
+# — a bare "No bookmarks yet" never full-matches it, so the old negative passed with no bookmark.
+- assertVisible: ".* · ¶ \\d+"
+- assertNotVisible: "No bookmarks yet.*"
 - tapOn: "Close"
 - runFlow: ../../subflows/leave_reader.yaml
 
@@ -421,6 +450,7 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "No books found"
     timeout: 60000
+- assertNotVisible: "Retry"
 
 # 12. Turn network off, search "Dracula" -> error state with Retry (CAT-003)
 # NETWORK-FLAKY: airplane mode on the emulator is occasionally slow to take effect, and the error
@@ -442,6 +472,9 @@ onFlowComplete:
 # constraint: an airplane-mode step must never leave the emulator offline).
 - setAirplaneMode: disabled
 - tapOn: "Retry"
+# The author, not "Dracula" (the search field's own text: that wait passed with a Retry that did
+# nothing); and the error with its Retry is gone.
 - extendedWaitUntil:
-    visible: "Dracula"
+    visible: ".*Bram Stoker.*"
     timeout: 60000
+- assertNotVisible: "Retry"

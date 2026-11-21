@@ -192,20 +192,49 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
 - assertVisible:
     id: "original_7_0"
 
-# 3. Note two translated paragraphs of chapter 8; Library -> mixed-lang.epub -> only this book's
-#    translations appear; nothing of en-novel's shows (TRN-009). (The "not even briefly" half —
-#    a flash shorter than one look — is MANUAL.)
+# 3. Note two translated paragraphs; Library -> mixed-lang.epub -> only this book's translations
+#    appear; nothing of en-novel's shows (TRN-009). (The "not even briefly" half — a flash shorter
+#    than one look — is MANUAL.)
+#    The noted paragraphs are chapter 1's first two (chapter index 0), and the reader is left
+#    there, translated: mixed-lang.epub has only a chapter index 0, so a leak keyed by (chapter,
+#    paragraph) or by list position puts en-novel's (0, p) into mixed-lang's slot (0, p). Chapter
+#    8's paragraphs, which this step used to note, could land on no slot of mixed-lang at all.
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*downstream\\. \\(1\\).*"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_0"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_0_1"
+    timeout: 30000
 - copyTextFrom:
     text: ".*[а-яё]{3,}.*"
     childOf:
-      id: "translation_7_0"
+      id: "translation_0_0"
 - evalScript: ${output.enA = maestro.copiedText}
 - copyTextFrom:
     text: ".*[а-яё]{3,}.*"
     childOf:
-      id: "translation_7_1"
+      id: "translation_0_1"
 - evalScript: ${output.enB = maestro.copiedText}
-- evalScript: "${console.log('J-TRN-10 step 3 - en-novel ch8 - ' + output.enA.substring(0, 60) + ' | ' + output.enB.substring(0, 60))}"
+- evalScript: "${console.log('J-TRN-10 step 3 - en-novel ch1 - ' + output.enA.substring(0, 60) + ' | ' + output.enB.substring(0, 60))}"
 - runFlow: ../../subflows/leave_reader.yaml
 - runFlow:
     file: ../../subflows/import_book.yaml
@@ -229,10 +258,39 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
       id: "translation_0_0"
 - evalScript: ${output.mixA = maestro.copiedText}
 - assertTrue: ${output.mixA != output.enA && output.mixA != output.enB}
+#    The German (2) and French (4) letters are never translated here (no DE/FR pack: J-TRN-04):
+#    their slots hold the letter itself, no Russian — where a leaked en-novel row would stay. On
+#    the tablet both are on screen; on the phone each is checked when it is.
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "translation_0_2"
+      - assertVisible:
+          id: "translation_0_4"
+- runFlow:
+    when:
+      visible:
+        id: "translation_0_2"
+    commands:
+      - assertNotVisible:
+          text: ".*[А-Яа-яЁё]{3,}.*"
+          childOf:
+            id: "translation_0_2"
+- runFlow:
+    when:
+      visible:
+        id: "translation_0_4"
+    commands:
+      - assertNotVisible:
+          text: ".*[А-Яа-яЁё]{3,}.*"
+          childOf:
+            id: "translation_0_4"
 - takeScreenshot: J-TRN-10-step3-mixed-lang
 
-# 4. Library -> reopen en-novel.epub -> it opens in chapter 8 with its own translations; nothing
-#    of mixed-lang's leaks in (TRN-009).
+# 4. Library -> reopen en-novel.epub -> it opens where it was left, in chapter 1, with its own
+#    translations; nothing of mixed-lang's leaks in (TRN-009).
 - runFlow: ../../subflows/leave_reader.yaml
 - scrollUntilVisible:
     element:
@@ -242,18 +300,18 @@ tags: [full, network, phone, tablet, translation, J-TRN-10]
 - tapOn:
     id: "book_card_The River Crossing"
 - extendedWaitUntil:
-    visible: ".*\\(ch8\\.\\d+\\).*"
+    visible: ".*downstream\\. \\(1\\).*"
     timeout: 20000
 - assertNotVisible: "${output.mixA}"
 - extendedWaitUntil:
     visible:
       text: ".*[а-яё]{3,}.*"
       childOf:
-        id: "translation_7_0"
+        id: "translation_0_0"
     timeout: 30000
 - assertVisible: "${output.enA}"
 - assertNotVisible: "${output.mixA}"
-- assertNotVisible: ".*\\(ch[1-79]\\.\\d+\\).*"
+- assertNotVisible: ".*\\(ch\\d+\\.\\d+\\).*"
 - runFlow: ../../subflows/leave_reader.yaml
 
 # 5. long-chapter.epub (520 paragraphs in one chapter): fling far ahead (to about paragraph 400)

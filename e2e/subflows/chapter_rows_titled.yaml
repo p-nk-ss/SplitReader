@@ -5,6 +5,9 @@ appId: ${APP_ID}
 # non-space character (PRS-016: never blank). A row without one fails here; a title of the
 # fallback form "Chapter N" passes (it is a readable title). Scrolls to each row (a long list
 # does not fit the dialog). Does not close the dialog.
+# The current chapter's row has a third text, the badge "READING" (ReaderDialogs.kt): it is not
+# a title, so the pattern excludes it — otherwise a blank title on that row left "I", "READING"
+# as the row's texts and index 1 matched the badge.
 - evalScript: ${output.titledRow = 0}
 - repeat:
     times: ${ROWS}
@@ -15,7 +18,7 @@ appId: ${APP_ID}
           direction: DOWN
           timeout: 10000
       - assertVisible:
-          text: ".*\\S.*"
+          text: "(?!READING$).*\\S.*"
           childOf:
             id: "reader:chapterRow:${output.titledRow}"
           index: 1

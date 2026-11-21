@@ -188,14 +188,9 @@ onFlowComplete:
     times: 4
     commands:
       - setOrientation: LANDSCAPE_LEFT
-      - extendedWaitUntil:
-          visible:
-            id: "original_7_${output.p}"
-          timeout: 15000
-      - assertNotVisible:
-          id: "original_7_${output.prev}"
-      - assertNotVisible: ".*downstream\\. \\(1\\).*"
-      # …and the screen did turn: the paragraph has the turned layout's width.
+      # FIRST the screen did turn: the paragraph has the turned layout's width (assertVisible
+      # waits for it). Only then are the "not the paragraph before" and "not the start of the
+      # book" checks about the turned screen — checked before it, they passed on the old one.
       - runFlow:
           when:
             true: ${DEVICE_CLASS == 'phone'}
@@ -212,13 +207,6 @@ onFlowComplete:
                 id: "original_7_${output.p}"
                 width: 712
                 tolerance: 6
-      - runFlow:
-          when:
-            true: ${DEVICE_CLASS == 'phone'}
-          commands:
-            - assertNotVisible:
-                id: "reader:verticalTopPane"
-      - setOrientation: PORTRAIT
       - extendedWaitUntil:
           visible:
             id: "original_7_${output.p}"
@@ -226,7 +214,14 @@ onFlowComplete:
       - assertNotVisible:
           id: "original_7_${output.prev}"
       - assertNotVisible: ".*downstream\\. \\(1\\).*"
-      # …and it turned back.
+      - runFlow:
+          when:
+            true: ${DEVICE_CLASS == 'phone'}
+          commands:
+            - assertNotVisible:
+                id: "reader:verticalTopPane"
+      - setOrientation: PORTRAIT
+      # FIRST it turned back (the width), then the same checks on the turned-back screen.
       - runFlow:
           when:
             true: ${DEVICE_CLASS == 'phone'}
@@ -243,6 +238,13 @@ onFlowComplete:
                 id: "original_7_${output.p}"
                 width: 1192
                 tolerance: 6
+      - extendedWaitUntil:
+          visible:
+            id: "original_7_${output.p}"
+          timeout: 15000
+      - assertNotVisible:
+          id: "original_7_${output.prev}"
+      - assertNotVisible: ".*downstream\\. \\(1\\).*"
       - runFlow:
           when:
             true: ${DEVICE_CLASS == 'phone'}
@@ -287,17 +289,8 @@ onFlowComplete:
 - assertNotVisible:
     id: "translation_7_.*"
 - setOrientation: LANDSCAPE_LEFT
-- extendedWaitUntil:
-    visible:
-      id: "original_7_${output.p}"
-    timeout: 15000
-- assertNotVisible:
-    id: "original_7_${output.prev}"
-- assertNotVisible:
-    id: "translation_7_.*"
-- assertNotVisible:
-    id: "reader:verticalBottomPane"
-#     …turned, and one column: the paragraph spans the turned screen.
+#     FIRST turned, and one column: the paragraph spans the turned screen. Then the checks below
+#     are about the turned screen, not the one before the turn.
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'phone'}
@@ -314,8 +307,6 @@ onFlowComplete:
           id: "original_7_${output.p}"
           width: 1472
           tolerance: 6
-- takeScreenshot: J-RDR-03-step6a-turned-one-column
-- setOrientation: PORTRAIT
 - extendedWaitUntil:
     visible:
       id: "original_7_${output.p}"
@@ -326,7 +317,9 @@ onFlowComplete:
     id: "translation_7_.*"
 - assertNotVisible:
     id: "reader:verticalBottomPane"
-#     …turned back, still one column.
+- takeScreenshot: J-RDR-03-step6a-turned-one-column
+- setOrientation: PORTRAIT
+#     FIRST turned back, still one column; then the checks on that screen.
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'phone'}
@@ -343,6 +336,16 @@ onFlowComplete:
           id: "original_7_${output.p}"
           width: 2432
           tolerance: 6
+- extendedWaitUntil:
+    visible:
+      id: "original_7_${output.p}"
+    timeout: 15000
+- assertNotVisible:
+    id: "original_7_${output.prev}"
+- assertNotVisible:
+    id: "translation_7_.*"
+- assertNotVisible:
+    id: "reader:verticalBottomPane"
 - runFlow:
     file: ../../subflows/tap_reader_button.yaml
     env:

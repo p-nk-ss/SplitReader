@@ -1280,8 +1280,8 @@ Translating → Ready transition, no intermediate results) until one is added; t
 **Steps**
 1. Open `en-novel.epub` in chapter 1; open Bookmarks and tap the chapter-5 bookmark. → ✓ the landing screen fills with translations without any scroll (TRN-021).
 2. Open the chapter picker and pick chapter 8. → ✓ the landing screen translates without a scroll (TRN-021).
-3. Note two translated paragraphs. Go back to the Library and open `mixed-lang.epub`. → ✓ only this book's translations appear; nothing from `en-novel` shows, even briefly (TRN-009).
-4. Go back to the Library and reopen `en-novel.epub`. → ✓ it opens at chapter 8 with its own translations; nothing from `mixed-lang` leaks in (TRN-009).
+3. Go to chapter 1 and note its first two translated paragraphs (chapter index 0, the only chapter `mixed-lang.epub` has: a leak keyed by chapter and paragraph would land there). Go back to the Library and open `mixed-lang.epub`. → ✓ only this book's translations appear; nothing from `en-novel` shows, even briefly, and its German and French letters stay untranslated (TRN-009).
+4. Go back to the Library and reopen `en-novel.epub`. → ✓ it opens at chapter 1, where it was left, with its own translations; nothing from `mixed-lang` leaks in (TRN-009).
 5. Open `long-chapter.epub` (500+ paragraphs). Fling far ahead (about paragraph 400) and stop. → ✓ the landing screen translates within a few seconds — at most ~8 paragraphs are processed before it — and is not stuck behind the earlier part of the chapter (TRN-022).
 6. Add a bookmark at this screen. Fling back to the chapter start. → ✓ the first screens translate, no stuck shimmers.
 7. Open Bookmarks and tap the new bookmark. → ✓ the landing screen (≈ paragraph 400) translates without a scroll (TRN-021, TRN-022).
