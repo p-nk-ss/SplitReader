@@ -460,7 +460,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 - assertVisible: "WORD"
 - assertVisible: "Save"
 - copyTextFrom:
-    text: "(?!Close$)[A-Za-z'’-]+"
+    text: "(?!(Close|WORD|SENTENCE|Listen|Save)$)[A-Za-z'’-]+"
     childOf:
       id: "reader:wordPopup"
 - evalScript: ${output.word = maestro.copiedText}

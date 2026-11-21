@@ -401,7 +401,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
         id: "reader:wordPopup"
     timeout: 60000
 - copyTextFrom:
-    text: "(?!Close$)[A-Za-z'’-]+"
+    text: "(?!(Close|WORD|SENTENCE|Listen|Save)$)[A-Za-z'’-]+"
     childOf:
       id: "reader:wordPopup"
 - evalScript: ${output.word2 = maestro.copiedText}

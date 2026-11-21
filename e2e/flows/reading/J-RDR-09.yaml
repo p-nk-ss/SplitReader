@@ -17,7 +17,8 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
 # on where the lines break on the device, so the flow reads each word from the popup
 # (output.w1 … output.w3) and uses those in the Words screen. In the popup the word is the Latin
 # text inside reader:wordPopup (the translation is Cyrillic; the popup's "Close" button also
-# answers a text selector, hence the `(?!Close$)`).
+# answers a text selector, and the popup's own labels WORD, Listen, Save are Latin too, hence the
+# `(?!(Close|WORD|SENTENCE|Listen|Save)$)`).
 # Each destination is recognised by a text only that screen has: Catalog "Standard Ebooks",
 # Almanac "All time", Words "Search words…", Settings "Preferences", Library "Open book".
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-RDR-09.
@@ -178,7 +179,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
         id: "reader:wordPopup"
     timeout: 240000
 - copyTextFrom:
-    text: "(?!Close$)[A-Za-z'’-]+"
+    text: "(?!(Close|WORD|SENTENCE|Listen|Save)$)[A-Za-z'’-]+"
     childOf:
       id: "reader:wordPopup"
 - evalScript: ${output.w1 = maestro.copiedText}
@@ -196,7 +197,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
         id: "reader:wordPopup"
     timeout: 240000
 - copyTextFrom:
-    text: "(?!Close$)[A-Za-z'’-]+"
+    text: "(?!(Close|WORD|SENTENCE|Listen|Save)$)[A-Za-z'’-]+"
     childOf:
       id: "reader:wordPopup"
 - evalScript: ${output.w2 = maestro.copiedText}
@@ -215,7 +216,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
         id: "reader:wordPopup"
     timeout: 240000
 - copyTextFrom:
-    text: "(?!Close$)[A-Za-z'’-]+"
+    text: "(?!(Close|WORD|SENTENCE|Listen|Save)$)[A-Za-z'’-]+"
     childOf:
       id: "reader:wordPopup"
 - evalScript: ${output.w3 = maestro.copiedText}
