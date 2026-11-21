@@ -37,8 +37,15 @@ by the same tags (`full`) but is not covered by those numbers (its picker is `co
 
 Reports: `e2e/reports/<UTC timestamp>/` (gitignored) holds one directory per flow plus `summary.md` and
 `meta.json`. A `--build release` run, or one whose tags include `smoke`, also copies `summary.md` to
-`releases/e2e-<versionName>-<versionCode>-<device>.md` (`mirrolit.releaseDir` in `local.properties`
-overrides `releases/`).
+`releases/e2e-<versionName>-<versionCode>-<device>-<build>-<tags>.md` (tags joined with `+`), e.g.
+`e2e-1.0-29-Tab_35_PixelTablet-debug-smoke.md` and `e2e-1.0-29-Tab_35_PixelTablet-release-release.md`:
+one file per kind of run, so the gate's smoke and release runs on one AVD never overwrite each
+other (`mirrolit.releaseDir` in `local.properties` overrides `releases/`).
+
+Run **one `run.sh` at a time** on a machine: each `--avd` run restarts the adb server
+(`adb kill-server`), which cuts every other run's Maestro off its emulator. A run adopts only an
+emulator that reports its own AVD name (`adb emu avd name`), so an AVD someone starts from Android
+Studio while it boots is never cleared, uninstalled from or killed.
 
 Harness self-tests (no device needed; run after changing `run.sh`, `flow_select.sh` or `report.py`):
 
@@ -233,7 +240,8 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
 - **A pack download** is the banner "Preparing translation… N%" (`watch_translation_banner.yaml`);
   it lasts about 5 s, so the command before the watch must be the tap that starts it, by point
   or with `waitToSettleTimeoutMs: 100`.
-- **The word popup.** Wait for the translation's text between "WORD" and "Listen", not for
+- **The word popup.** Its texts are children of `reader:wordPopup` (a test tag on the popup):
+  wait for the translation's text `childOf: {id: "reader:wordPopup"}`, not for
   `{text: "Save", enabled: true}`: the Save text node reads enabled in every state.
 - **The popup while it still translates.** With an installed pack that state is shorter than one
   command. A pack that is NOT installed holds it for the ~5 s of its download (the popup reads
@@ -258,9 +266,10 @@ The earlier `open_bars.yaml`, `back_to_library.yaml` and `back_to_library_from_c
   rows "FR → EN · N MB" and the total), which must also be seen to change once a button is tapped.
 - **Button texts are reported in capitals** ("DOWNLOAD AND TRANSLATE", "DOWNLOADING… 20%").
   Maestro's text match ignores case; JavaScript on `maestro.copiedText` does not.
-- **The popup by position.** `below: "WORD"` / `above: "Listen"` are vertical bands: a page text
-  in that band matches too. Bound the length, or read the result back another way (J-TRN-05
-  saves the poem and reads it in Words).
+- **The popup by position.** Never `below: "WORD"` / `above: "Listen"`: those are screen-wide
+  bands, and a page text in that band matches too — on the tablet the translation pane's short
+  Russian rows sit at the popup's height, so a "translated" wait passed before the popup had
+  translated. Use `childOf: {id: "reader:wordPopup"}`.
 - **The default target is English.** A clean install translates a Japanese book into English
   ("JA → EN"); `target_russian.yaml` first.
 - **A heavy book** (a 6,000-character paragraph being translated: `rashomon-ja.epub`): one look
@@ -490,9 +499,11 @@ need a real key; `proguard-rules.pro` keeps `data.translator.api.**` whole), Gut
 Retrofit OPDS client, a real purchase, and Crashlytics (release-only collection + the R8 mapping
 upload) — that stays manual, J-LIB-17 step 7.
 
-`--build release` copies `keystore.properties` and the `.jks` it names from the main checkout
-into the worktree root for the build only and deletes them on every exit (EXIT trap). After a
-release run, `ls keystore.properties *.jks` in the worktree root must show nothing.
+`--build release` in the main checkout uses its own `keystore.properties` and the `.jks` it names
+in place (never removed). In a worktree it copies them in from `$E2E_SIGNING_DIR`, else from the
+main checkout (found at run time: the parent of `git rev-parse --git-common-dir`), for the build
+only, and deletes the copies on every exit (EXIT trap). After a release run in a worktree,
+`ls keystore.properties *.jks` in the worktree root must show nothing.
 
 `--build release` also refuses an APK that is not minified: R8 renames `ReaderViewModel`, so
 `run.sh` requires 0 `ReaderViewModel` class descriptors in the APK's `classes*.dex`

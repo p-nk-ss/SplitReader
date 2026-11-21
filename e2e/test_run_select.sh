@@ -46,8 +46,18 @@ make_sandbox() { # make_sandbox DIR
 box="$(cd "$(dirname "$0")" && pwd)"
 echo "$*" >> "$box/fake/gradle.log"
 case "$*" in *assembleDebug*) mkdir -p "$box/app/build/outputs/apk/debug"; : > "$box/app/build/outputs/apk/debug/app-debug.apk" ;; esac
+# A release build is signed with what is in the root at build time (recorded for the checks) and
+# is an APK with one minified classes.dex (the fake dexdump below reads it).
+case "$*" in *assembleRelease*)
+  { [ -f "$box/keystore.properties" ] && echo "signing: $(sed -n 's/^storeFile=//p' "$box/keystore.properties")"; } >> "$box/fake/gradle.log"
+  d="$box/app/build/outputs/apk/release"; mkdir -p "$d"; echo dex > "$d/classes.dex"
+  (cd "$d" && rm -f app-release.apk && zip -q app-release.apk classes.dex && rm classes.dex) ;;
+esac
 exit 0
 SH
+  mkdir -p "$box/home/Library/Android/sdk/build-tools/99.0.0"
+  printf '#!/bin/sh\necho "Class descriptor  : \x27La/b;\x27"\n' > "$box/home/Library/Android/sdk/build-tools/99.0.0/dexdump"
+  chmod +x "$box/home/Library/Android/sdk/build-tools/99.0.0/dexdump"
   cat > "$box/home/Library/Android/sdk/emulator/emulator" <<'SH'
 #!/bin/sh
 box="$(cd "$(dirname "$0")/../../../../.." && pwd)"
@@ -69,6 +79,13 @@ case "$*" in
     elif [ -f "$box/fake/always-up" ] || grep -q '^start-server$' "$box/fake/adb.log"; then printf 'emulator-5554\tdevice\n'; fi ;;
   "shell getprop sys.boot_completed"|"shell getprop ro.kernel.qemu") echo 1 ;;
   "shell getprop ro.build.version.sdk") echo 35 ;;
+  # The emulator console's AVD name: the one booted (from the fake emulator's log), or another
+  # AVD that someone started meanwhile (fake/avd_name).
+  "emu avd name")
+    if [ -f "$box/fake/avd_name" ]; then cat "$box/fake/avd_name"
+    else sed -n 's/^-avd \([^ ]*\).*/\1/p' "$box/fake/emulator.log" 2>/dev/null | tail -1
+    fi
+    echo OK ;;
   # The system file picker: Google's unless fake/aosp-picker (then the AOSP one, as on API 26).
   "shell pm list packages com.google.android.documentsui") [ -f "$box/fake/aosp-picker" ] || echo "package:com.google.android.documentsui" ;;
   "shell pm list packages com.android.documentsui") [ -f "$box/fake/aosp-picker" ] && echo "package:com.android.documentsui" ;;
@@ -343,7 +360,8 @@ for BASH_BIN in "${BASHES[@]}"; do
   # R. the runner is stopped (SIGTERM) while a scaled flow runs: the device is put back, maestro
   #    and the emulator this run started are stopped.
   N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" phone; : > "$BOX/fake/maestro-hangs"
-  scaled_flow "$BOX" J-SCALED $'# font_scale: 1.3\n# wm_density: 569\n'
+  scaled_flow "$BOX" J-SCALED $'# font_scale: 1.3\n# wm_density: 569\n# books: fixture-r.epub\n'
+  : > "$BOX/e2e/books/fixture-r.epub"
   LABEL="bash $version, SIGTERM during a scaled flow"
   HOME="$BOX/home" PATH="$BOX/bin:$PATH" "$BASH_BIN" "$BOX/e2e/run.sh" --avd Fake_Phone --tags J-SCALED > "$BOX/out.txt" 2>&1 &
   runner=$!
@@ -361,6 +379,8 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "the restore is logged"                      says 'restore (exit)'
   check "the emulator it started is killed"          logged "$BOX/fake/adb.log" 'emu kill'
   check "the hanging maestro is stopped"            process_gone "$BOX/fake/maestro.pid"
+  check "the flow's fixture was pushed"              logged "$BOX/fake/adb.log" 'push .*fixture-r.epub'
+  check "the flow's fixture is removed at exit"      logged "$BOX/fake/adb.log" "rm -f '/sdcard/Download/fixture-r.epub'"
 
   # S. the emulator has the app signed with the other key (debug where a release goes, or the
   #    other way round): adb refuses the update, run.sh uninstalls it from that emulator and
@@ -403,6 +423,78 @@ for BASH_BIN in "${BASHES[@]}"; do
   check "exit code is zero"                          passed
   check "flows are told the AOSP picker"             logged "$BOX/fake/maestro.log" 'PICKER=aosp'
   check "says which picker"                          says 'file picker: aosp'
+
+  # W. the summary copies in releases/: one file per kind of run, so the gate's smoke run and
+  #    release run on one AVD do not overwrite each other.
+  #    (A fresh box per run — a box's fake emulator stays "connected" after its run — and one
+  #    shared releases directory, set the way the gate sets it: mirrolit.releaseDir.)
+  REL="$TMP/releases$N"; mkdir -p "$REL"
+  LABEL="bash $version, smoke and release copies on one AVD"
+  for kind in smoke release smoke+full; do
+    N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+    printf 'storeFile=up.jks\n' > "$BOX/keystore.properties"; : > "$BOX/up.jks"
+    printf 'mirrolit.releaseDir=%s\n' "$REL" > "$BOX/local.properties"
+    case "$kind" in
+      smoke) run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags smoke ;;
+      release) run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --build release --tags J-TAB ;;
+      smoke+full) run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags 'smoke,full' ;;
+    esac
+    check "the $kind run passes"                     passed
+  done
+  check "the smoke copy is named for build and tags" test -f "$REL/e2e-1.0-28-Fake_Tablet-debug-smoke.md"
+  check "the release copy is named for build and tags" test -f "$REL/e2e-1.0-28-Fake_Tablet-release-J-TAB.md"
+  check "several tags are joined with +"             test -f "$REL/e2e-1.0-28-Fake_Tablet-debug-smoke+full.md"
+  check "three copies, none overwritten"             test "$(ls "$REL" | wc -l | tr -d ' ')" -eq 3
+
+  # X1. --build release in a checkout that has its own signing files (the main checkout after
+  #     the merge): they are used in place and are still there afterwards.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+  printf 'storeFile=up.jks\n' > "$BOX/keystore.properties"; : > "$BOX/up.jks"
+  LABEL="bash $version, release build with signing files in place"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --build release --tags J-TAB
+  check "exit code is zero"                          passed
+  check "says it uses them in place"                 says 'using the signing files already in'
+  check "the release build was signed"               logged "$BOX/fake/gradle.log" '^signing: up.jks$'
+  check "keystore.properties is still there"         test -f "$BOX/keystore.properties"
+  check "the .jks is still there"                    test -f "$BOX/up.jks"
+
+  # X2. a checkout without them: copied from E2E_SIGNING_DIR for the build, removed at exit.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet
+  mkdir -p "$TMP/signing$N"; printf 'storeFile=up.jks\n' > "$TMP/signing$N/keystore.properties"; : > "$TMP/signing$N/up.jks"
+  LABEL="bash $version, release build, signing files from E2E_SIGNING_DIR"
+  E2E_SIGNING_DIR="$TMP/signing$N" run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --build release --tags J-TAB
+  check "exit code is zero"                          passed
+  check "the release build was signed"               logged "$BOX/fake/gradle.log" '^signing: up.jks$'
+  check "the copied keystore.properties is removed"  no_file "$BOX/keystore.properties"
+  check "the copied .jks is removed"                 no_file "$BOX/up.jks"
+  check "the source files are untouched"             test -f "$TMP/signing$N/up.jks"
+
+  # X3. a git worktree without them: copied from the repository's main checkout (found with git,
+  #     no path written into run.sh), removed at exit.
+  N=$((N + 1)); BOX="$TMP/box$N"; MAIN="$TMP/main$N"
+  mkdir -p "$MAIN"; git -C "$MAIN" init -q; : > "$MAIN/README"; git -C "$MAIN" add README
+  git -C "$MAIN" -c user.name=t -c user.email=t@example.com commit -q -m init
+  git -C "$MAIN" worktree add -q "$BOX" 2>/dev/null
+  make_sandbox "$BOX"; device "$BOX" tablet
+  printf 'storeFile=keys/up.jks\n' > "$MAIN/keystore.properties"; mkdir -p "$MAIN/keys"; : > "$MAIN/keys/up.jks"
+  LABEL="bash $version, release build in a worktree, signing files from the main checkout"
+  run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --build release --tags J-TAB
+  check "exit code is zero"                          passed
+  check "the release build was signed"               logged "$BOX/fake/gradle.log" '^signing: keys/up.jks$'
+  check "the copied keystore.properties is removed"  no_file "$BOX/keystore.properties"
+  check "the copied .jks and its directory are removed" no_file "$BOX/keys"
+  check "the main checkout's files are untouched"    test -f "$MAIN/keys/up.jks"
+
+  # Y. another AVD (started by someone else) appears while this run's AVD boots: it is never
+  #    adopted — no install, no flow, no `emu kill` on it.
+  N=$((N + 1)); BOX="$TMP/box$N"; make_sandbox "$BOX"; device "$BOX" tablet; echo Someone_Elses_AVD > "$BOX/fake/avd_name"
+  LABEL="bash $version, a foreign AVD appears during the boot"
+  E2E_BOOT_WAIT_TRIES=1 run_box "$BASH_BIN" "$BOX" --avd Fake_Tablet --tags smoke
+  check "exit code is non-zero"                      failed
+  check "says its AVD did not boot"                  says 'did not finish booting'
+  check "nothing is installed"                       never_logged "$BOX/fake/adb.log" 'install'
+  check "maestro never ran"                          no_file "$BOX/fake/maestro.log"
+  check "the foreign emulator is not killed"         never_logged "$BOX/fake/adb.log" 'emu kill'
 done
 
 if [ "$FAILS" -gt 0 ]; then

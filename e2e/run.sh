@@ -17,9 +17,11 @@
 #                      "1" — this script is emulator-only, by design decision; it never installs,
 #                      uninstalls or otherwise touches a real device.
 #   --build TYPE       debug (default) or release. release builds a SIGNED app-release.apk: the
-#                      signing files (keystore.properties + the .jks it references) are copied in
-#                      from the main checkout only for the build and ALWAYS removed afterwards
-#                      (trap on EXIT), never staged into git.
+#                      signing files (keystore.properties + the .jks it references) are used in
+#                      place when this checkout has them (the main checkout); a worktree gets them
+#                      copied in from $E2E_SIGNING_DIR, else the main checkout (found with git),
+#                      only for the build, and ALWAYS removed afterwards (trap on EXIT), never
+#                      staged into git.
 #   --tags TAGLIST      Selects which flow FILES run, by matching each flow's own `tags: [...]`
 #                      header (OR semantics — a flow runs if it has ANY tag in TAGLIST; same
 #                      semantics as `maestro test --include-tags`, but applied by this script
@@ -67,7 +69,9 @@
 # Every run writes e2e/reports/<timestamp>/<flow-stem>/{junit.xml,...} (one subdirectory per
 # flow that ran) plus a single top-level summary.md/meta.json merging every flow (gitignored).
 # For `--build release` or a --tags value that contains "smoke", summary.md is additionally
-# copied to <releases dir>/e2e-<versionName>-<versionCode>-<device>.md, where <releases dir> is
+# copied to <releases dir>/e2e-<versionName>-<versionCode>-<device>-<build>-<tags>.md (one file
+# per kind of run: the gate's smoke and release runs on one AVD never overwrite each other), where
+# <releases dir> is
 # resolved exactly like app/build.gradle.kts resolves `releaseDir` for copyReleaseBundle:
 # `mirrolit.releaseDir` in local.properties if set, else `<repo root>/releases`.
 #
@@ -202,11 +206,19 @@ same_number() {
 }
 
 # ---------------------------------------------------------------------------
-# Signed release build: copy signing files from the main checkout for the build only, and
-# ALWAYS remove the copies on exit, whatever happens afterwards (trap, not a tail cleanup step,
+# Signed release build. When this checkout's root already has keystore.properties and the .jks it
+# names (the main checkout), they are used in place and left alone. Otherwise (a worktree) they
+# are copied from the signing directory — $E2E_SIGNING_DIR, else the main checkout, found at run
+# time from git (the parent of `git rev-parse --git-common-dir`) — for the build only, and the
+# copies are ALWAYS removed on exit, whatever happens afterwards (trap, not a tail cleanup step,
 # so a crash or an early `die` still cleans up).
 # ---------------------------------------------------------------------------
-MAIN_CHECKOUT="/Users/pankaz-mac/StudioProjects/SplitReader"
+main_checkout_dir() { # prints the main checkout of the repository REPO_ROOT belongs to
+  local common
+  common="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  [ -n "$common" ] || return 1
+  (cd "$common/.." 2>/dev/null && pwd)
+}
 COPIED_KEYSTORE_PROPS=""
 COPIED_JKS=""
 CREATED_JKS_DIR=""
@@ -309,6 +321,8 @@ on_exit() {
       reset_flow_leftovers "exit during a flow"
       FLOW_IN_PROGRESS=0
     fi
+    # An interrupted run must not leave its fixtures for the next run's picker.
+    [ -n "${PUSHED_LIST:-}" ] && [ -f "$PUSHED_LIST" ] && remove_pushed_fixtures
   fi
   cleanup_signing_copies
   if [ "$INTERRUPTED" = "1" ]; then
@@ -363,12 +377,24 @@ r8_minified_check() {
 # ---------------------------------------------------------------------------
 cd "$REPO_ROOT"
 
-if [ "$BUILD_TYPE" = "release" ]; then
-  SRC_PROPS="$MAIN_CHECKOUT/keystore.properties"
-  [ -f "$SRC_PROPS" ] || die "release build requested but $SRC_PROPS is missing"
-  JKS_REL="$(sed -n 's/^storeFile=//p' "$SRC_PROPS" | head -1 | tr -d '\r')"
+store_file_of() { # prints the storeFile= value of a keystore.properties
+  sed -n 's/^storeFile=//p' "$1" | head -1 | tr -d '\r'
+}
+
+if [ "$BUILD_TYPE" = "release" ] && [ -f "$REPO_ROOT/keystore.properties" ] \
+  && [ -n "$(store_file_of "$REPO_ROOT/keystore.properties")" ] \
+  && [ -f "$REPO_ROOT/$(store_file_of "$REPO_ROOT/keystore.properties")" ]; then
+  # This checkout has its own signing files (the main checkout): used in place, never copied
+  # over and never removed (nothing is registered for cleanup_signing_copies).
+  log "using the signing files already in $REPO_ROOT (not copied, not removed)"
+elif [ "$BUILD_TYPE" = "release" ]; then
+  SIGNING_DIR="${E2E_SIGNING_DIR:-$(main_checkout_dir || true)}"
+  [ -n "$SIGNING_DIR" ] || die "release build: cannot find the main checkout (git rev-parse --git-common-dir); set E2E_SIGNING_DIR to the directory that holds keystore.properties"
+  SRC_PROPS="$SIGNING_DIR/keystore.properties"
+  [ -f "$SRC_PROPS" ] || die "release build requested but $SRC_PROPS is missing (set E2E_SIGNING_DIR to the directory that holds keystore.properties)"
+  JKS_REL="$(store_file_of "$SRC_PROPS")"
   [ -n "$JKS_REL" ] || die "storeFile= not found in $SRC_PROPS"
-  SRC_JKS="$MAIN_CHECKOUT/$JKS_REL"
+  SRC_JKS="$SIGNING_DIR/$JKS_REL"
   [ -f "$SRC_JKS" ] || die "signing key $SRC_JKS (from storeFile=$JKS_REL) is missing"
 
   DEST_PROPS="$REPO_ROOT/keystore.properties"
@@ -394,8 +420,10 @@ if [ "$BUILD_TYPE" = "release" ]; then
   cp "$SRC_PROPS" "$DEST_PROPS"
   COPIED_JKS="$DEST_JKS"
   cp "$SRC_JKS" "$DEST_JKS"
-  log "copied signing files into worktree root for the release build (will be removed on exit)"
+  log "copied signing files from $SIGNING_DIR into $REPO_ROOT for the release build (will be removed on exit)"
+fi
 
+if [ "$BUILD_TYPE" = "release" ]; then
   log "./gradlew :app:assembleRelease"
   ./gradlew :app:assembleRelease || die "assembleRelease failed"
   APK="$REPO_ROOT/app/build/outputs/apk/release/app-release.apk"
@@ -459,7 +487,10 @@ else
       esac
       boot="$("$ADB" -s "$s" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n')"
       qemu="$("$ADB" -s "$s" shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r\n')"
-      if [ "$boot" = "1" ] && [ "$qemu" = "1" ]; then
+      # …and it is THIS run's AVD: an emulator someone started from Android Studio during the boot
+      # window (maybe their manual-test AVD) must never be cleared, uninstalled from or killed.
+      avd_name="$("$ADB" -s "$s" emu avd name 2>/dev/null | head -1 | tr -d '\r\n')"
+      if [ "$boot" = "1" ] && [ "$qemu" = "1" ] && [ "$avd_name" = "$AVD" ]; then
         SERIAL="$s"
         break
       fi
@@ -928,7 +959,11 @@ if [ "$BUILD_TYPE" = "release" ] || [ "$NEEDS_COPY" = "1" ]; then
   RELEASE_DIR="$(sed -n 's/^mirrolit\.releaseDir=//p' "$REPO_ROOT/local.properties" 2>/dev/null | head -1 | tr -d '\r')"
   [ -n "$RELEASE_DIR" ] || RELEASE_DIR="$REPO_ROOT/releases"
   mkdir -p "$RELEASE_DIR"
-  COPY_TO="$RELEASE_DIR/e2e-${VERSION_NAME}-${VERSION_CODE}-${DEVICE_SLUG}.md"
+  # One file per kind of run, so the gate's runs on one device never overwrite each other:
+  # e2e-<v>-<c>-<device>-<build>-<tags>.md (tags joined with "+"; "all" without --tags), e.g.
+  # …-Tab_35_PixelTablet-debug-smoke.md and …-Tab_35_PixelTablet-release-release.md.
+  TAG_SLUG="$(printf '%s' "${TAGS:-all}" | tr -d ' ' | tr ',' '+' | tr -c 'A-Za-z0-9_+.-' '_')"
+  COPY_TO="$RELEASE_DIR/e2e-${VERSION_NAME}-${VERSION_CODE}-${DEVICE_SLUG}-${BUILD_TYPE}-${TAG_SLUG}.md"
 fi
 
 SKIPPED_JSON="[]"

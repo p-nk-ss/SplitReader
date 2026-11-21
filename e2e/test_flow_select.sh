@@ -84,6 +84,8 @@ TAGS="rotation,library"
 expect yes "--tags is OR: rotation"                   flow_matches_tags "$BOTH"
 expect yes "--tags is OR: library"                    flow_matches_tags "$NEITHER"
 expect no  "--tags is OR: neither tag"                flow_matches_tags "$TABLET_ONLY"
+TAGS="rotation, library"
+expect yes "a space after the comma is ignored"       flow_matches_tags "$NEITHER"
 
 if [ "$FAILS" -gt 0 ]; then
   printf '%d of %d checks failed\n' "$FAILS" "$CHECKS"

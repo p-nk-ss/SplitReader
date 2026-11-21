@@ -23,8 +23,9 @@ Priority: **P0** core flow or regression of a release-blocking bug (a failure bl
 Release gate: all `smoke` cases pass on both devices, plus the release smoke on the signed release APK.
 The release smoke is `e2e/flows/release/R-01…R-06` (tag `release`, tablet API 35; see `e2e/README.md`
 "Release smoke" and `e2e_journeys.md` "Release smoke"). `--build release` copies the signing files in for the
-build only and removes them on exit.
-Results go to `releases/e2e-<versionName>-<versionCode>-<device>.md` (see "The release gate" below).
+build only and removes them on exit (in the main checkout it uses the signing files in place).
+Results go to `releases/e2e-<versionName>-<versionCode>-<device>-<build>-<tags>.md` (see "The release
+gate" below).
 
 ## Install
 
@@ -44,8 +45,11 @@ the gate and the process. Every flow/subflow declares `appId: ${APP_ID}`; never 
 Before uploading a bundle to Play:
 
 1. `smoke` on Tab_35_PixelTablet and on Pixel_10_Pro, both `--build debug`; for a larger release also
-   `full` on both (and Tab_26_Nexus9 once per closed-testing cycle).
+   `full` on both (and Tab_26_Nexus9 once per closed-testing cycle). Evidence:
+   `releases/e2e-<v>-<c>-Tab_35_PixelTablet-debug-smoke.md` and `…-Pixel_10_Pro-debug-smoke.md`.
 2. `--build release --tags release` on Tab_35_PixelTablet (R-01 … R-06 on the signed, R8-minified APK).
+   Evidence: `releases/e2e-<v>-<c>-Tab_35_PixelTablet-release-release.md` — its own file, so it never
+   replaces step 1's tablet smoke summary.
 3. The manual checklist (`docs/e2e/manual_checklist.md`) per its "When to run what" table.
 
 Every run must be all PASS. A FAIL passes the gate only when it is explained as **void**: caused by an

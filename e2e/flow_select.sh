@@ -41,7 +41,7 @@ flow_matches_tags() {
   [ -z "${TAGS:-}" ] && return 0
   local ft wt
   local want_tags=()
-  IFS=',' read -r -a want_tags <<< "$TAGS"
+  IFS=',' read -r -a want_tags <<< "${TAGS//[[:space:]]/}" # "smoke, full" = "smoke,full"
   while IFS= read -r ft; do
     [ -z "$ft" ] && continue
     for wt in "${want_tags[@]}"; do
