@@ -120,8 +120,8 @@ tags: [smoke, full, library, J-LIB-05]
 # preamble epigraph at the very start of chapter 1, and the section's epigraph + author line
 # immediately followed by its own body. Cause: Fb2DocumentBuilder.emitSection inserts the
 # preamble at the head of the section's directParagraphs, and the chapter is epigraphParagraphs +
-# directParagraphs (each half is unit-tested on its own, the two together are not). Observed:
-# the assertion below fails with `Assertion is false: "Even the shortest letter carries the whole
+# directParagraphs (each half is unit-tested on its own, the two together are not). Observed with
+# the block enabled (Pixel_10_Pro, run 20261121T101949Z): `Assertion is false: "Even the shortest letter carries the whole
 # weight of the one who wrote it\.", Below "Every letter is a kind of arrival, however long
 # delayed by weather, distance or doubt\." is visible`. Re-enable when fixed:
 #- assertVisible:
