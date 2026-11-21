@@ -40,9 +40,11 @@
 <section>
 <title><p>The Second Letter</p></title>
 <p>Unlike the first, this letter was short, and its handwriting suggested it had been written standing up, perhaps at a window, perhaps in a hurry.</p>
+<image l:href="#plate.png" xmlns:l="http://www.w3.org/1999/xlink"/>
 <p>Still, it ended the way all the good ones did, with a promise to write again before the month was out.</p>
 </section>
 </section>
 </body>
 <binary id="cover.png" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mOQczgBAAGmASfeGDAJAAAAAElFTkSuQmCC</binary>
+<binary id="plate.png" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mM4oaAAAAK8AQkN9Q7lAAAAAElFTkSuQmCC</binary>
 </FictionBook>

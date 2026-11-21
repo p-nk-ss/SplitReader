@@ -577,6 +577,20 @@ def build_tiny(out_dir: str) -> str:
     return name
 
 
+def build_vocabulary(out_dir: str) -> str:
+    """F-VOCAB (J-LIB-07): an English book whose words to save are paragraphs of their own —
+    "sister", "rabbit", "pictures", "bank" and a lone em dash — so a long press on a paragraph's
+    centre selects exactly that word on any screen (no per-device pixel points). Prose around them
+    makes the book detect as English."""
+    name = "vocabulary.epub"
+    words = ["sister", "rabbit", "pictures", "bank", "\u2014"]
+    paras = RIVER_PARAGRAPHS[:1] + words + RIVER_PARAGRAPHS[1:] + RIVER_PARAGRAPHS
+    build_simple_epub(os.path.join(out_dir, name), "mirrolit-e2e-vocabulary", "A Small Vocabulary",
+                       "Test Author", "en", [("Chapter 1", paras)],
+                       description="Single-word paragraphs to save to Words.")
+    return name
+
+
 def build_cover_b(out_dir: str) -> str:
     """F-COVER-B: small EPUB with its own, visibly different (blue) cover."""
     name = "cover-b.epub"
@@ -772,11 +786,13 @@ FULL_FEATURES_FB2 = """<?xml version="1.0" encoding="utf-8"?>
 <section>
 <title><p>The Second Letter</p></title>
 <p>Unlike the first, this letter was short, and its handwriting suggested it had been written standing up, perhaps at a window, perhaps in a hurry.</p>
+<image l:href="#plate.png" xmlns:l="http://www.w3.org/1999/xlink"/>
 <p>Still, it ended the way all the good ones did, with a promise to write again before the month was out.</p>
 </section>
 </section>
 </body>
 <binary id="cover.png" content-type="image/png">__COVER_B64__</binary>
+<binary id="plate.png" content-type="image/png">__PLATE_B64__</binary>
 </FictionBook>
 """
 
@@ -823,7 +839,8 @@ RUSSIAN_1251_FB2 = """<?xml version="1.0" encoding="windows-1251"?>
 
 def _full_features_fb2_text() -> str:
     import base64
-    return FULL_FEATURES_FB2.replace("__COVER_B64__", base64.b64encode(PNG_1X1_BLUE).decode("ascii"))
+    return (FULL_FEATURES_FB2.replace("__COVER_B64__", base64.b64encode(PNG_1X1_BLUE).decode("ascii"))
+            .replace("__PLATE_B64__", base64.b64encode(PNG_1X1_RED).decode("ascii")))
 
 
 def build_full_features_fb2(out_dir: str) -> str:
@@ -1082,6 +1099,7 @@ def build_all(out_dir: str) -> list[str]:
     built.append(build_no_description(out_dir))
     built.append(build_tiny(out_dir))
     built.append(build_cover_b(out_dir))
+    built.append(build_vocabulary(out_dir))
     built.append(build_image_chapter(out_dir))
     built.append(build_pictures_only(out_dir))
     built.append(build_empty_first_chapter(out_dir))

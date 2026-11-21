@@ -1,6 +1,6 @@
 # Fixture books — sources, hashes, and journey coverage
 
-Built by `build_fixtures.py` (synthetic, committed — total ≈ 100.5 KB, well under the 200 KB
+Built by `build_fixtures.py` (synthetic, committed — total ≈ 102.8 KB, well under the 200 KB
 budget) and `fetch_fixtures.sh` (real Gutenberg books, downloaded on demand into `fetched/`,
 **gitignored, never committed**). Two large pathological fixtures (`zipbomb.epub`, `oversized.fb2`)
 are also generated locally, never committed — see the `--large` flag and the note under "Large,
@@ -28,6 +28,7 @@ point).
 | File | Size | sha256 | dc:title / book title | First paragraph (~60 chars) | Journeys |
 |---|---|---|---|---|---|
 | `cover-b.epub` | 1923 | `137f6490100090fa670b7263491bbc8955af539f264952ca12f5d65964e88c92` | The Blue Cover Book | "The old mill still stood at the bend of the river…" | F-COVER-B (J-LIB-04) |
+| `vocabulary.epub` | 1933 | `9a141cda3d51d6d685fd80806fc5099c8e650df951039206307b28f1f4bfa1f0` | A Small Vocabulary | "The old mill still stood…", then one-word paragraphs "sister", "rabbit", "pictures", "bank", "—" | F-VOCAB (J-LIB-07) |
 | `image-chapter.epub` | 2167 | `393ac1c05468bbade55db1c90f9eff539324157854b66643059b73cf9039cc1d` | Image Chapter Book | (ch1 is image-only) ch2: "The old mill still stood…" | F-IMGCH/F-IMGFILES (J-LIB-04, J-RDR-08/13) |
 | `pictures-only.epub` | 1703 | `c8fc529e3c7f5bdc7853be85445577ad9e9c3bae88cb3f5621e910dbcef8c321` | Pictures Only | (no text; two images, no `dc:language`) | F-PICS/F-IMGONLY (J-LIB-04, J-RDR-08, J-TRN-10) |
 | `no-description.epub` | 2560 | `c510d2c9ed95ccee1403e2ad5f505dc0c6fd053c3a21aa647281b7830e27d987` | No Description Here | "The old mill still stood at the bend of the river…" | F-NODESC (J-LIB-01, J-LIB-08) |
@@ -53,8 +54,8 @@ point).
 | `empty-first-chapter.epub` / `empty-chapter.epub` | 1961 (each) | `749621b8cf132631a825612866a644afe7a0a29a273552458c239dc865c50eb8` | Empty First Chapter | (ch1: heading only, 0 paragraphs; ch2 has text) | F-EMPTY-CH1 / `empty-chapter.epub` (J-LIB-18, J-TRN-10) |
 | `short-header.epub` | 4 | `8dcc7e601606217f3b754766511182a916b17e9a26a94c9d887104eba92e9bb2` | — | n/a (4 bytes, shorter than the header-sniff length) | F-SHORT (library/ERR-008) (J-LIB-03) |
 | `corrupt.epub` | 68 | `7872b98743fa0c180b527523f73538a88121f2e30b122eb4f9f85e46d3b74ea8` | — | n/a (truncated/broken zip) | F-CORRUPT-EPUB (J-LIB-03) |
-| `full-features.fb2` | 9122 | `471cd6bf9da3e4624b4a59d5116a54c3858694f3274d7f68d93962aca9e2bf09` | The Complete Letters | "The letter arrived on a grey morning, long after…" | F-FB2 (J-LIB-01/05, J-RDR-08) |
-| `full-features.xml` | 9122 | `471cd6bf9da3e4624b4a59d5116a54c3858694f3274d7f68d93962aca9e2bf09` | The Complete Letters | "The letter arrived on a grey morning, long after…" | F-FB2-XML (J-LIB-18, PRS-015) |
+| `full-features.fb2` | 9340 | `690ad5060f48c6e9313d42001e5a4d627270ede36d6bedff30ffbf42f9006ff3` | The Complete Letters | "The letter arrived on a grey morning, long after…" | F-FB2 (J-LIB-01/05, J-RDR-08) |
+| `full-features.xml` | 9340 | `690ad5060f48c6e9313d42001e5a4d627270ede36d6bedff30ffbf42f9006ff3` | The Complete Letters | "The letter arrived on a grey morning, long after…" | F-FB2-XML (J-LIB-18, PRS-015) |
 | `no-chapters.fb2` | 487 | `c61f3d52e7ffcfc0d3f789bdafab9fd72fa9e4db3752b8c8a89c58123892e688` | No Qualifying Chapters | (sections exist, none has a paragraph) | F-FB2-NOCH (J-LIB-03) |
 | `russian-1251.fb2` | 611 | `f4cc6881583da3f367a9b5a4accb85dc08d95245717e4d7e14418dfce0d5de4b` | Ветер над рекой | "В тот вечер над городом долго висел тёплый туман…" | F-FB2-1251 (J-LIB-05) |
 | `corrupt.fb2` | 120 | `281175d43e0e900b45073774e03b65af01cfceb27c16ae4205898a95e98905a5` | — | n/a (cut off mid-tag, no closing tags) | F-CORRUPT-FB2 (J-LIB-03) |
@@ -165,6 +166,9 @@ byte-for-byte deterministic writes (no timestamps involved).
   narrative opening — Task 5 (actual device imports) should record what the app's hero
   excerpt/first-chapter text actually shows for each, since `EpubParser`/`HtmlChapterExtractor`
   may or may not treat that title page as its own chapter.
+- `full-features.fb2`/`.xml` got an inline `<image l:href="#plate.png"/>` (a 1×1 #C82020 `<binary>`)
+  between the two paragraphs of "The Second Letter" on 2026-11-21 for J-LIB-05 (IMP-004, PRS-024):
+  a picture is not a paragraph, so every paragraph index stays as it was.
 - `full-features.fb2`'s long `<cite>` is a repeated-sentence block well past 5000 characters (by
   construction, not hand-written prose) — matches the spec's letter ("a cite > 5000 chars") but
   isn't naturalistic text.
