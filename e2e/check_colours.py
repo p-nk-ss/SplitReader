@@ -12,7 +12,10 @@ Paper, nor AMOLED from Night). So a flow that has to prove a theme takes small c
         path: colour-check/<label>__<Constant>      # e.g. colour-check/step7-display__SepiaBg
         cropOn: "Display"
 
-where <Constant> is the name of a colour in the app's presentation/theme/Color.kt. After the flow
+where <Constant> is the name of a colour in the app's presentation/theme/Color.kt. A colour that is
+not in the palette (a fixture book's own cover, J-LIB-04/05) is written as a literal, `x1E40C8`; and
+`notx1E40C8` requires the crop's most frequent pixel NOT to be that colour (a book card that must not
+show another book's cover). After the flow
 e2e/run.sh calls this script, which reads the list of crops from the flow file itself and requires
 for every one of them that
 
@@ -50,6 +53,7 @@ MIN_SHARE = 0.5
 _CROP_RE = re.compile(r"^\s*path:\s*[\"']?" + CROP_DIR + r"/([A-Za-z0-9-]+)__([A-Za-z0-9]+)[\"']?\s*$", re.M)
 # Every line that takes a crop into the folder, whatever follows the folder name (comments apart).
 _CROP_LINE_RE = re.compile(r"^(?!\s*#).*" + CROP_DIR + r"/.*$", re.M)
+_LITERAL_RE = re.compile(r"^(not)?x([0-9A-Fa-f]{6})$")
 _COLOR_RE = re.compile(r"^val\s+(\w+)\s*=\s*Color\(0xFF([0-9A-Fa-f]{6})\)", re.M)
 
 
@@ -136,7 +140,9 @@ def check(flow_yaml, flow_run_dir, color_kt=DEFAULT_COLOR_KT):
     if not crops and not problems:
         problems.append(f"no colour crop found in {Path(flow_yaml).name}: nothing was checked")
     for label, constant in crops:
-        want = palette.get(constant)
+        literal = _LITERAL_RE.match(constant)
+        negated = bool(literal and literal.group(1))
+        want = literal.group(2).upper() if literal else palette.get(constant)
         if want is None:
             problems.append(f"{label}: no colour named {constant} in {Path(color_kt).name}")
             continue
@@ -148,6 +154,10 @@ def check(flow_yaml, flow_run_dir, color_kt=DEFAULT_COLOR_KT):
             got, share = dominant_colour(found[-1])
         except Exception as error:  # noqa: BLE001 — whatever a broken file does, it is a FAIL row
             problems.append(f"{label}: cannot read {found[-1].name}: {error!r}")
+            continue
+        if negated:
+            if got == want:
+                problems.append(f"{label}: expected anything but #{want}, the crop is mostly #{got}, {share:.0%} of it")
             continue
         if got != want or share < MIN_SHARE:
             known = f" ({names[got]})" if got in names else ""

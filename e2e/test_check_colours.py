@@ -129,6 +129,26 @@ class CheckColoursTest(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("step7-display", problems[0])
 
+    def test_a_literal_colour_is_checked_exactly(self):
+        self.flow.write_text(FLOW.replace("__NightBg", "__x1E40C8"), encoding="utf-8")
+        png(self.crops / "step7-display__SepiaBg.png", 20, 10, mostly(SEPIA))
+        png(self.crops / "step9-library__x1E40C8.png", 20, 10, mostly((0x1E, 0x40, 0xC8)))
+        self.assertEqual(self.check(), [])
+        png(self.crops / "step9-library__x1E40C8.png", 20, 10, mostly((0x1F, 0x40, 0xC8)))
+        problems = self.check()
+        self.assertEqual(len(problems), 1)
+        self.assertIn("#1E40C8", problems[0])
+
+    def test_a_negated_literal_fails_only_on_that_colour(self):
+        self.flow.write_text(FLOW.replace("__NightBg", "__notx1E40C8"), encoding="utf-8")
+        png(self.crops / "step7-display__SepiaBg.png", 20, 10, mostly(SEPIA))
+        png(self.crops / "step9-library__notx1E40C8.png", 20, 10, mostly(PAPER))
+        self.assertEqual(self.check(), [])
+        png(self.crops / "step9-library__notx1E40C8.png", 20, 10, mostly((0x1E, 0x40, 0xC8)))
+        problems = self.check()
+        self.assertEqual(len(problems), 1)
+        self.assertIn("anything but #1E40C8", problems[0])
+
     def test_unknown_constant_fails(self):
         self.flow.write_text(FLOW.replace("__NightBg", "__MidnightBg"), encoding="utf-8")
         png(self.crops / "step7-display__SepiaBg.png", 20, 10, mostly(SEPIA))
