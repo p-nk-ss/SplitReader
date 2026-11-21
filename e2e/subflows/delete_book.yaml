@@ -1,0 +1,26 @@
+appId: ${APP_ID}
+---
+# delete_book (env CARD): on the Library, deletes the book whose card id matches ${CARD}
+# ("book_card_<title>", a pattern) with the card's delete icon and the dialog's "Delete", leaving
+# "Also delete my reading progress, bookmarks and notes" as it is (un-ticked: a Removed book, its
+# data kept). Waits until the card is gone. The scroll first: right after a return to the
+# Library the card's lower part (where the icon is) can be below the fold (J-LIB-01 step 13).
+- scrollUntilVisible:
+    element:
+      text: "Delete book"
+      childOf:
+        id: "${CARD}"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "Delete book"
+    childOf:
+      id: "${CARD}"
+- extendedWaitUntil:
+    visible: ".*will be removed from your library\\..*"
+    timeout: 5000
+- tapOn: "Delete"
+- extendedWaitUntil:
+    notVisible:
+      id: "${CARD}"
+    timeout: 10000

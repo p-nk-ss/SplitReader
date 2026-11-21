@@ -3,8 +3,8 @@
 Real user journeys for release testing. Each journey is a whole session a reader goes through (10–25 steps);
 every verifying step carries a checkpoint "✓ … (IDs)" pointing at the atomic cases in `e2e_test_cases.md`.
 Built 2026-11-06. 55 journeys (29 designed for Maestro, 26 manual) cover all 464 catalog cases.
-J-LIB-04 … J-LIB-07 have no flow yet (2026-11-20): their cases are not covered by the automated gate
-(`python3 e2e/check_coverage.py`, `docs/e2e/README.md` "Coverage check").
+J-LIB-04 … J-LIB-07 got their flows on 2026-11-21; `python3 e2e/check_coverage.py` (`docs/e2e/README.md`
+"Coverage check") passes.
 
 Gate: every `smoke` journey passes on tablet API 35 + phone before each Play upload; all automated journeys
 before larger releases (+ tablet API 26); manual journeys on a real device before larger releases.
@@ -245,6 +245,8 @@ position-based selector when it isn't showing.
 
 **Covers:** PRM-013, IMP-001, IMP-002, IMP-003, IMP-008, IMP-009, IMP-014, PRS-001, PRS-002, PRS-003, PRS-004, PRS-005, PRS-014, PRS-016, LIB-003, LIB-021
 
+**Automated:** `e2e/flows/library/J-LIB-04.yaml` (tablet + phone, debug build). Differences from the text above, from the v29 source: the EPUB cover is never a page of the book (an image-only cover page is dropped; the cover is the card's picture), so IMP-002 is "chapter 1 opens on its masthead and then the 600×401 endpapers, not the 350×500 cover" — read from the first picture's size. Step 4 runs in chapter 1 before step 3: Alice's drop cap is the picture `a.png` + "LICE was…"; the paragraph reads "ALICE was beginning…" (a full match) and a long press on its first word selects "ALICE". Image-only spine files never become chapters, so image-chapter.epub's picker lists ONE chapter, "Chapter One", that opens with the plate (IMP-014's "not dropped"). Pictures-only: two picture rows, one chapter; their ORDER (red, blue) cannot be read — the pictures are 1×1 dp and their clipped colours are blended (MANUAL, C-01). R.U.R. is one chapter (J-RDR-08); the Iliad's line 5 is a full match without its stray "5". "Never a swapped cover": colour crops of the cards (`e2e/check_colours.py` literal colours) — cover-b's card is mostly exactly #1E40C8, Alice's is not, and has no placeholder — after the first import and after each of two delete/re-import cycles. PRS-003's "scroll through all chapters" is a picker jump to each of Alice's 14 chapters (masthead + text or picture each). **APP BUG (PRS-016):** Alice's chapter XIII (the part of the last file before its "THE END" heading) and a pictures-only book's one chapter have a **blank title** in the picker (EpubParser gives such chapters `title = ""`; the picker falls back only on null) — disabled `# APP BUG:` block in the flow. PRM-013 is `manual` in the catalog (a debug-only toggle) but is exercised here at steps 1 and 13.
+
 ### J-LIB-05 — Reading an FB2 collection: structure, verse, epigraphs, images, encodings
 
 **Priority** P0 · **Tags** smoke, full, tablet, phone · **Devices** tablet API 35, phone emulator
@@ -265,6 +267,8 @@ position-based selector when it isn't showing.
 
 **Covers:** PRS-012, PRS-013, PRS-016, PRS-017, PRS-019, PRS-020, PRS-021, PRS-022, PRS-023, PRS-024, IMP-004, LIB-022
 
+**Automated:** `e2e/flows/library/J-LIB-05.yaml` (tablet + phone). `full-features.fb2` got the inline `<image>` this journey needs (2026-11-21: a 1×1 #C82020 picture between the two paragraphs of "The Second Letter"; no paragraph index moved). The card's cover is a colour crop (#1E40C8, the `<coverpage>`); the picker shows "Part One · The First Letter" and "Part One · The Second Letter", no "Part One"; the 6,600-character `<cite>` is read whole with `copyTextFrom` (length > 6,500, ends with "…for that reason alone."). **APP BUG (PRS-019):** when the first section has its own epigraph, chapter 1 reads section epigraph, "Unknown", THEN the body-level epigraph, then the body — the preamble is not at the very start and the section epigraph is not immediately followed by its body (Fb2DocumentBuilder.emitSection; disabled `# APP BUG:` block). Steps 2 and 4 are one place in this fixture (the section with its own epigraph is chapter 1).
+
 ### J-LIB-06 — Classic MOBI shelf: every chapter-splitting rule
 
 **Priority** P0 · **Tags** smoke, full, tablet · **Devices** tablet API 35 (phone optional)
@@ -282,6 +286,8 @@ position-based selector when it isn't showing.
 8. Settings → Premium (debug) off.
 
 **Covers:** PRS-006, PRS-007, PRS-008, PRS-009, PRS-010, PRS-011, PRS-016, PRS-017
+
+**Automated:** `e2e/flows/library/J-LIB-06.yaml` (tablet only). Chapter counts are the picker's rows (`reader:chapterRow:<i>`, the next index absent); "starts at its heading / break" is the chapter's own first paragraph after picking its row (`original_<i>_0`, or for the short PB+H2 book, whose three chapters share one screen, the chapter index in the paragraph's id); PRS-016 is `e2e/subflows/chapter_rows_titled.yaml` (a second, non-blank text in every row). Titles seen: classic-h2 "Chapter 1…4" (its `<h2>`s), pagebreaks and plain the fallback "Chapter N", h1-h2 "Book 1…3".
 
 ### J-LIB-07 — Signed-out reader builds a vocabulary (Words), then a crash-free tab tour
 
@@ -305,6 +311,8 @@ position-based selector when it isn't showing.
 13. Almanac → ✓ shows a session for today; still never signed in, nothing gated except Drive/sync (ACC-016).
 
 **Covers:** ACC-016, WRD-001, WRD-002, WRD-004, WRD-005, WRD-006, WRD-008, WRD-010, WRD-012, WRD-013, WRD-014, ERR-001
+
+**Automated:** `e2e/flows/library/J-LIB-07.yaml` (tablet + phone, network). Correction: the words are saved from `vocabulary.epub` (F-VOCAB, new 2026-11-21: "sister", "rabbit", "pictures", "bank" and "—" are one-word paragraphs, so a long press on the node hits that word on any screen); Alice is opened signed out for step 1 and in the tab tour. Step 5: a long press on "—" opens **no popup** (a long press keeps only letters and digits, J-TRN-02 step 11), so nothing is saved (3 words after step 6); the "Nothing to save" toast itself is unreachable by a long press (MANUAL, C-01). Step 11 (WRD-006) is not in this flow: a paid engine cannot be made current without a key (tapping it opens its key dialog, SET-003); the keyless Save is automated in J-TRN-08 step 8 (Azure). Step 12 returns from the background with `launchApp: stopApp: false` and expects the screen it left (Settings). WRD-004's "no blank band" is a screenshot (MANUAL, C-01).
 
 ### J-LIB-08 — Arranging the shelf on tablet and phone: hero, filters, search, grid
 
@@ -579,6 +587,8 @@ Not covered here: the reflective Gson DTOs of DeepL / Google Cloud / Azure (need
 | ID | Bug | Where exercised | Expected until fixed |
 |---|---|---|---|
 | IMP-011 | A book with one very large chapter (Iliad, ~12,700 lines) takes ~15 s–1.5 min to become interactive on emulators although parsing takes ~169 ms | J-LIB-04 step 8 (90 s timeout), J-LIB-14 step 8, J-LIB-18 step 4 | Record the time on real tablet hardware; report, never block |
+| PRS-016 | Found by E2E 2026-11-21 (v29): a chapter with no heading of its own gets a blank title in the chapter picker and on its masthead — Alice's chapter XIII (the part of the last file before "THE END"), a pictures-only book's one chapter. EpubParser gives such chapters `title = ""`; ReaderDialogs.kt falls back to "Chapter N" only on null | J-LIB-04 step 3 (disabled `# APP BUG:` block) | Fix, then re-enable the block |
+| PRS-019 | Found by E2E 2026-11-21 (v29): an FB2 whose first section has its own epigraph reads section epigraph, its author, THEN the body-level epigraph, then the body (Fb2DocumentBuilder.emitSection puts the preamble at the head of the section's body, after the section epigraph) | J-LIB-05 step 2 (disabled `# APP BUG:` block) | Fix, then re-enable the block |
 
 ## Coverage index
 

@@ -1,0 +1,22 @@
+appId: ${APP_ID}
+---
+# chapter_rows_titled (env ROWS): in the open Chapters dialog, rows reader:chapterRow:0 …
+# ROWS-1 each have a title — a second text child (after the row's numeral "I", "II", …) with a
+# non-space character (PRS-016: never blank). A row without one fails here; a title of the
+# fallback form "Chapter N" passes (it is a readable title). Scrolls to each row (a long list
+# does not fit the dialog). Does not close the dialog.
+- evalScript: ${output.titledRow = 0}
+- repeat:
+    times: ${ROWS}
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "reader:chapterRow:${output.titledRow}"
+          direction: DOWN
+          timeout: 10000
+      - assertVisible:
+          text: ".*\\S.*"
+          childOf:
+            id: "reader:chapterRow:${output.titledRow}"
+          index: 1
+      - evalScript: ${output.titledRow = output.titledRow + 1}

@@ -1,8 +1,8 @@
 # Mirrolit E2E release gate
 
 Maestro-driven black-box journeys against the real app, traceable to the 464-case catalog
-(`docs/e2e/e2e_test_cases.md`) via `docs/e2e/e2e_journeys.md` (55 journeys: 29 designed for Maestro, of which
-25 have a flow — J-LIB-04 … 07 have none yet, see "Coverage check" — and 26 manual). Flows live in
+(`docs/e2e/e2e_test_cases.md`) via `docs/e2e/e2e_journeys.md` (55 journeys: 29 designed for Maestro, all with a
+flow, and 26 manual). Flows live in
 `e2e/flows/`, shared steps in `e2e/subflows/`, fixtures in `e2e/books/`.
 
 ## How to use (tags)
@@ -94,10 +94,10 @@ the evidence.
 must exist in the catalog (exit 1 otherwise; each uncovered case is listed with its journey). Run it
 after adding a flow or changing a case's tags.
 
-Open gap (2026-11-20): J-LIB-04 (picture books / tables, debug Premium), J-LIB-05 (FB2 collection),
-J-LIB-06 (classic MOBI shelf) and J-LIB-07 (Words vocabulary, tab tour) are designed as automated
-`smoke` journeys but have no flow, so their 34 cases (IMP, PRS, WRD, LIB-003/021, ERR-001, ACC-016)
-are not covered by the automated gate; the check fails on them until the flows exist.
+J-LIB-04 … J-LIB-07 (picture books / tables, FB2, classic MOBI, Words) got their flows on 2026-11-21;
+the check exits 0. Two APP BUG blocks came with them (PRS-016 blank chapter title, PRS-019 FB2 epigraph
+order): the steps are disabled in the flows, the cases are still named there, so the check cannot show
+them — they are listed in `e2e_journeys.md` "Known bugs".
 
 ## Manual checklist
 

@@ -1,0 +1,719 @@
+appId: ${APP_ID}
+name: J-LIB-04 Picture books and tables with an unlimited (debug Premium) library
+tags: [smoke, full, library, J-LIB-04]
+# books: alice-illustrated.epub, image-chapter.epub, pictures-only.epub, rur-cs.epub, iliad-el.epub, cover-b.epub, no-description.epub, plain-prose.epub, tiny.epub
+---
+# J-LIB-04 — Picture books and tables with an unlimited (debug Premium) library.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-04. Debug build only ("Premium
+# (debug)" exists only with BuildConfig.DEBUG), which is what smoke/full run.
+# Fixtures: alice-illustrated.epub (F-ALICE, Gutenberg 28885), image-chapter.epub (F-IMGCH),
+# pictures-only.epub (F-PICS), rur-cs.epub (F-RUR), iliad-el.epub (F-ILIAD), cover-b.epub
+# (F-COVER-B: a 1×1 cover of exactly #1E40C8), no-description.epub (F-NODESC), plain-prose.epub
+# (F-PROSE), tiny.epub (F-TINY).
+#
+# What the app does with these books (v29 source, seen on Tab_35_PixelTablet):
+# - The EPUB cover is never a page of the book: an image-only cover page is dropped (EpubParser,
+#   coverKey), the cover is the Library card's picture. Alice's spine opens with a cover wrapper
+#   (an SVG around cover.jpg, 350×500): the reader's chapter 1 opens on the masthead and then the
+#   ENDPAPERS (600×401 — one image pixel is one dp, so a landscape picture 1200 px wide on the
+#   tablet), never on a portrait 350×500 cover.
+# - Image-only spine files never become chapters (CLAUDE.md "EPUB images & chapter numbering"):
+#   image-chapter.epub's plate file opens its next text chapter, so the picker lists ONE chapter,
+#   "Chapter One", whose first row is the plate. That is IMP-014's "not merged/dropped" today.
+# - Book pictures are id "illustration" (one per picture), paragraphs original_<ch>_<p>.
+# - A book card's real cover is an Image described by the book's title; a card WITHOUT a cover
+#   draws a placeholder with the title and the plain author name ("Lewis Carroll"), which a card
+#   with a cover never shows (its byline is "by Lewis Carroll"). The cover's colour is checked by
+#   `colour-check/` crops (e2e/check_colours.py, literal colours `x1E40C8` / `notx1E40C8`).
+#
+# APP BUG (PRS-016) — see the disabled block at step 3: Alice's chapter XIII and the
+# pictures-only book's one chapter have a BLANK title in the chapter picker.
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Settings -> Premium (debug) on -> Settings shows "Premium active · unlimited library"
+#    (PRM-013)
+- runFlow: ../../subflows/premium_debug.yaml
+- assertVisible: "Premium active · unlimited library"
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 2. Import alice-illustrated.epub, open it from the very start -> chapter 1 opens on its masthead
+#    and then the endpapers (landscape), not the portrait cover: the cover is shown once, on the
+#    card, and not repeated as the first page of chapter 1 (IMP-002, PRS-003).
+#    Opened like J-LIB-03 step 13 (a 1.4 MB book: wait for it to open before the portrait hint).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+- extendedWaitUntil:
+    visible: "— 1 —|GOT IT"
+    timeout: 120000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: "— 1 —"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+    timeout: 30000
+- assertVisible:
+    id: "illustration"
+    below: "— 1 —"
+#   The first picture below the masthead is 600×401 dp (endpapers), not 350×500 (the cover):
+#   tablet (density 2) 1200×802 px; phone (density 3) capped at the page width between the 32dp
+#   margins, 1088×727 px (the cover would be 1050 px wide and 1500 high).
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'tablet'}
+    commands:
+      - assertVisible:
+          id: "illustration"
+          index: 0
+          width: 1200
+          height: 802
+          tolerance: 4
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - assertVisible:
+          id: "illustration"
+          index: 0
+          width: 1088
+          height: 727
+          tolerance: 4
+- takeScreenshot: J-LIB-04-step2-alice-start
+
+# 4. (before 3: it is in chapter 1) The decorative drop cap: chapter I's first letter "A" is a
+#    picture in the file (a.png, alt "A") followed by "LICE was beginning…". The paragraph reads
+#    "ALICE was beginning…" as one text — the letter is not swallowed as decoration — and a long
+#    press on the paragraph's first word selects "ALICE" (readable, selectable text) (PRS-004).
+#    A text selector full-matches a node: "LICE was…" would not match.
+#   Centred, so the paragraph's first line is on screen (on the phone a plain scroll left it cut
+#   by the top pane's edge and the press hit the line below, "into").
+- scrollUntilVisible:
+    element: "ALICE was beginning to get very tired of sitting by her sister on the bank.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 120000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- longPressOn:
+    text: "ALICE was beginning to get very tired of sitting by her sister on the bank.*"
+    point: "3%, 8%"
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 10000
+- assertVisible:
+    text: "ALICE"
+    below: "WORD"
+    above: "Listen"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 3. Chapter 2 ("Pool of Tears") has a plate after "…reaching half down the hall." -> the picture
+#    sits inside the chapter at its place: below that paragraph, above the next one (IMP-001).
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:1"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- scrollUntilVisible:
+    element: ".*reaching half down the hall\\."
+    direction: DOWN
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- swipe:
+    start: "30%, 70%"
+    end: "30%, 40%"
+    duration: 1500
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+    timeout: 10000
+- assertVisible:
+    id: "illustration"
+    below: ".*reaching half down the hall\\."
+- scrollUntilVisible:
+    element: "After a time she heard a little pattering of feet in the distance.*"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    text: "After a time she heard a little pattering of feet in the distance.*"
+    below:
+      id: "illustration"
+- takeScreenshot: J-LIB-04-step3-plate-in-place
+
+#    Then every chapter through the picker, to "THE END" (row 13): each one opens on its
+#    masthead with text or a picture under it, no crash and no gap where an unsupported SVG (the
+#    cover wrapper) was skipped (PRS-003); every picker row has a title next to its numeral
+#    (PRS-016) — except row 12, see the APP BUG block below.
+- evalScript: ${output.row = 1}
+- repeat:
+    times: 12
+    commands:
+      - evalScript: ${output.row = output.row + 1}
+      - evalScript: ${console.log('J-LIB-04 Alice chapter row ' + output.row)}
+      - runFlow:
+          file: ../../subflows/tap_reader_button.yaml
+          env:
+            BUTTON: "reader:chaptersButton"
+            OPENS: "Chapters"
+      - scrollUntilVisible:
+          element:
+            id: "reader:chapterRow:${output.row}"
+          direction: DOWN
+          timeout: 15000
+      - runFlow:
+          when:
+            true: ${output.row != 12}
+          commands:
+            - assertVisible:
+                text: ".*\\S.*"
+                childOf:
+                  id: "reader:chapterRow:${output.row}"
+                index: 1
+      - tapOn:
+          id: "reader:chapterRow:${output.row}"
+      - extendedWaitUntil:
+          notVisible: "Chapters"
+          timeout: 5000
+      - extendedWaitUntil:
+          visible: "— ${output.row + 1} —"
+          timeout: 15000
+      - extendedWaitUntil:
+          visible:
+            id: "original_${output.row}_0|illustration"
+          timeout: 15000
+- assertVisible: "THE END"
+# APP BUG (PRS-016, v29 versionCode 29, debug build, Tab_35_PixelTablet 2026-11-21): Alice's
+# chapter picker row 12 (numeral "XIII") has NO title — only the numeral; the reader's masthead
+# for it is "— 13 —" with no title either. The chapter is the part of the last file
+# (28885-h-12) before its "THE END" heading: EpubParser adds pre-heading content as a chapter
+# with title = "" and ReaderDialogs.kt shows `chapter.title ?: "Chapter ${index + 1}"`, which
+# only falls back on null. The same "" title is given to a pictures-only book's one chapter
+# (step 6). Expected (PRS-016): every entry has a readable, non-blank title. Observed: the
+# assertion below fails with `Assertion is false: ".*\S.*", Child of: id: reader:chapterRow:12,
+# Index: 1 is visible`. Re-enable when fixed:
+#- runFlow:
+#    file: ../../subflows/tap_reader_button.yaml
+#    env:
+#      BUTTON: "reader:chaptersButton"
+#      OPENS: "Chapters"
+#- scrollUntilVisible:
+#    element:
+#      id: "reader:chapterRow:12"
+#    direction: DOWN
+#    timeout: 15000
+#- assertVisible:
+#    text: ".*\\S.*"
+#    childOf:
+#      id: "reader:chapterRow:12"
+#    index: 1
+#- tapOn: "Close"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 5. Import image-chapter.epub -> Chapter Picker: the image-only file is not a chapter of its
+#    own and is not dropped: the one chapter, "Chapter One" (a non-blank title), starts with the
+#    plate; selecting it shows the illustration above the chapter's first paragraph (IMP-014,
+#    PRS-002, PRS-016).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "image-chapter.epub"
+      TITLE: "Image Chapter Book"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- assertVisible:
+    text: "Chapter One"
+    childOf:
+      id: "reader:chapterRow:0"
+- assertNotVisible:
+    id: "reader:chapterRow:1"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+    timeout: 15000
+- assertVisible:
+    id: "illustration"
+    below: "Chapter One"
+- assertVisible:
+    id: "original_0_0"
+    below:
+      id: "illustration"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 6. Import pictures-only.epub -> it opens (not blank, no error) and shows both pictures (IMP-003);
+#    the Chapter Picker lists exactly one chapter, with both pictures in it, one under the other
+#    (PRS-005).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "pictures-only.epub"
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 20000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible:
+      id: "illustration"
+    timeout: 20000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- assertVisible:
+    id: "illustration"
+    index: 1
+#   (Their order cannot be read: both are 1×1-dp pictures whose clipped colours are blended —
+#   the two rows are one under the other, as the source's two <img>.)
+- assertVisible:
+    id: "illustration_row"
+    index: 1
+    below: "— 1 —"
+- assertNotVisible: "Nothing to read here"
+- assertNotVisible: "Can't open this book"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- assertVisible:
+    id: "reader:chapterRow:0"
+- assertNotVisible:
+    id: "reader:chapterRow:1"
+- tapOn:
+    id: "reader:chapterRow:0"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- assertVisible:
+    id: "illustration"
+    index: 1
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 7. Import rur-cs.epub (one chapter, see J-RDR-08's header) -> the play's first act opens as
+#    dialogue line by line ("Character — line"), each speech a paragraph of its own, not an empty
+#    chapter (PRS-001, IMP-008). Same check as J-RDR-08 step 2, in the prologue.
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "rur-cs.epub"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 30000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- scrollUntilVisible:
+    element: "Předehra"
+    direction: DOWN
+    timeout: 120000
+- scrollUntilVisible:
+    element: "Sulla — Ano\\."
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    text: "Sulla — Ano\\."
+    below: "Domin — \\(diktuje\\).*"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 8. Import iliad-el.epub (one ~14,000-row table chapter; slow to open, known bug IMP-011: up to
+#    90 s) -> book 1 ("Α") reads verse by verse, and the stray line numbers of the source's second
+#    column are gone: line 5 is exactly "κι' όλα τα όρνια (του Διός έτσι είχε η γνώμη ορίσει)," —
+#    a full match, so a trailing " 5" fails it (PRS-001, IMP-008).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "iliad-el.epub"
+- extendedWaitUntil:
+    visible:
+      id: "original_0_0"
+    timeout: 90000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- scrollUntilVisible:
+    element: "Μούσα, τραγούδα το θυμό του ξακουστού Αχιλέα,"
+    direction: DOWN
+    timeout: 120000
+- scrollUntilVisible:
+    element: "κι' όλα τα όρνια \\(του Διός έτσι είχε η γνώμη ορίσει\\),"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    text: "κι' όλα τα όρνια \\(του Διός έτσι είχε η γνώμη ορίσει\\),"
+    below: "Μούσα, τραγούδα το θυμό του ξακουστού Αχιλέα,"
+- assertNotVisible: ".*ορίσει\\),\\s*5"
+- takeScreenshot: J-LIB-04-step8-iliad-verse
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 9. Import cover-b.epub, then no-description.epub -> "7 VOLUMES", the limit dialog never came
+#    (LIB-003).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "cover-b.epub"
+      TITLE: "The Blue Cover Book"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- assertNotVisible: "Library is full"
+# 10 (part). cover-b's own pages show no picture: its cover is not repeated in the book (PRS-014).
+- assertNotVisible:
+    id: "illustration"
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "no-description.epub"
+      TITLE: "No Description Here"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- assertNotVisible: "Library is full"
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element: "· 7 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+
+# 10. Library grid -> the Alice card shows a cover of its own (no placeholder: no plain
+#     "Lewis Carroll" node in it) and it is not cover-b's blue; cover-b's card is mostly exactly
+#     #1E40C8 (its 1×1 cover) (LIB-021, PRS-014). cover-b's own pages showed no picture (step 9).
+#     Each card is cropped right after it is scrolled fully on screen (on the phone the two can
+#     be a screen apart).
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_The Blue Cover Book"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    text: "Test Author"
+    childOf:
+      id: "book_card_The Blue Cover Book"
+- takeScreenshot:
+    path: colour-check/step10-cover-b__x1E40C8
+    cropOn:
+      id: "book_card_The Blue Cover Book"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    text: "Lewis Carroll"
+    childOf:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+- takeScreenshot:
+    path: colour-check/step10-alice__notx1E40C8
+    cropOn:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+
+# 11. Delete Alice and cover-b (the default delete: Removed book, data kept); re-import cover-b
+#     first, then Alice; the cycle twice -> each time "7 VOLUMES" and the cards keep their own
+#     covers, never swapped or shared (LIB-021, PRS-014).
+#     Cycle 1.
+- runFlow:
+    file: ../../subflows/delete_book.yaml
+    env:
+      CARD: "book_card_Alice's Adventures in Wonderland.*"
+- runFlow:
+    file: ../../subflows/delete_book.yaml
+    env:
+      CARD: "book_card_The Blue Cover Book"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element: "· 5 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "cover-b.epub"
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 20000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible:
+      id: "original_0_\\d+"
+    timeout: 30000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 60000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+|illustration"
+    timeout: 60000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element: "· 7 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible: "Library is full"
+#     Each card is cropped right after it is scrolled fully on screen (on the phone the two can
+#     be a screen apart).
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_The Blue Cover Book"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    text: "Test Author"
+    childOf:
+      id: "book_card_The Blue Cover Book"
+- takeScreenshot:
+    path: colour-check/step11-cycle1-cover-b__x1E40C8
+    cropOn:
+      id: "book_card_The Blue Cover Book"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    text: "Lewis Carroll"
+    childOf:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+- takeScreenshot:
+    path: colour-check/step11-cycle1-alice__notx1E40C8
+    cropOn:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+#     Cycle 2.
+- runFlow:
+    file: ../../subflows/delete_book.yaml
+    env:
+      CARD: "book_card_Alice's Adventures in Wonderland.*"
+- runFlow:
+    file: ../../subflows/delete_book.yaml
+    env:
+      CARD: "book_card_The Blue Cover Book"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element: "· 5 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "cover-b.epub"
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 20000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible:
+      id: "original_0_\\d+"
+    timeout: 30000
+- runFlow: ../../subflows/leave_reader.yaml
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+- extendedWaitUntil:
+    notVisible: "Catalog"
+    timeout: 60000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+|illustration"
+    timeout: 60000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element: "· 7 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible: "Library is full"
+#     Each card is cropped right after it is scrolled fully on screen (on the phone the two can
+#     be a screen apart).
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_The Blue Cover Book"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    text: "Test Author"
+    childOf:
+      id: "book_card_The Blue Cover Book"
+- takeScreenshot:
+    path: colour-check/step11-cycle2-cover-b__x1E40C8
+    cropOn:
+      id: "book_card_The Blue Cover Book"
+- scrollUntilVisible:
+    element: "Open book"
+    direction: UP
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    text: "Lewis Carroll"
+    childOf:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+- takeScreenshot:
+    path: colour-check/step11-cycle2-alice__notx1E40C8
+    cropOn:
+      id: "book_card_Alice's Adventures in Wonderland.*"
+
+# 12. Import plain-prose.epub; Chapter 3 via the picker, read to its middle ("(ch3.7)" of 14 at
+#     the top), Back, reopen from the card -> the same chapter and paragraph; the layout is that of
+#     a normal book (no table parsing: one paragraph per node, in order) (IMP-009).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "plain-prose.epub"
+      TITLE: "Plain Prose"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- tapOn:
+    id: "reader:chapterRow:2"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: ".*\\(ch3\\.1\\)"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+#   Small swipes until paragraph 7 (original_2_6) is the top one: first until it is on screen (the
+#   phone's top pane holds only the first few), then until paragraph 6 is gone.
+- repeat:
+    times: 40
+    while:
+      notVisible:
+        id: "original_2_6"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 30%"
+          duration: 800
+- repeat:
+    times: 40
+    while:
+      visible:
+        id: "original_2_5"
+    commands:
+      - swipe:
+          start: "30%, 40%"
+          end: "30%, 30%"
+          duration: 800
+- assertVisible:
+    id: "original_2_6"
+- assertVisible:
+    text: ".*\\(ch3\\.8\\)"
+    below: ".*\\(ch3\\.7\\)"
+- runFlow: ../../subflows/leave_reader.yaml
+- scrollUntilVisible:
+    element:
+      id: "book_card_Plain Prose"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_Plain Prose"
+- extendedWaitUntil:
+    notVisible: "Open book"
+    timeout: 15000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible:
+      id: "original_2_6"
+    timeout: 20000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- assertVisible: ".*\\(ch3\\.7\\)"
+- assertNotVisible:
+    id: "original_2_4"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 13. Settings -> Premium (debug) off -> "Free tier · up to 3 books". Import tiny.epub -> the
+#     library-limit dialog is back; after Got it no "Tiny Book" card, still 8 volumes (PRM-013).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "settings_debug_premium_switch"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "settings_debug_premium_switch"
+- extendedWaitUntil:
+    visible: "Free tier · up to 3 books"
+    timeout: 10000
+- assertNotVisible: ".*Premium active.*"
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "tiny.epub"
+- extendedWaitUntil:
+    visible: "Library is full"
+    timeout: 10000
+- tapOn: "Got it"
+- assertNotVisible: "Library is full"
+- scrollUntilVisible:
+    element: "· 8 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+- assertNotVisible:
+    id: "book_card_Tiny Book"

@@ -199,6 +199,9 @@ starts when the book opens and is over before `pick_file.yaml` returns.)
 | `tap_catalog_search.yaml` | Focus the Catalog's search field. |
 | `dismiss_stylus_popup.yaml` | Close the emulator's stylus-handwriting popup if it is up. |
 | `premium_debug.yaml` | Turn on Settings -> "Premium (debug)". |
+| `delete_book.yaml` (CARD) | Library: delete the book whose card id matches CARD (card's delete icon, dialog "Delete", the "Also delete…" box left un-ticked); waits until the card is gone. |
+| `chapter_rows_titled.yaml` (ROWS) | In the open Chapters dialog, rows 0 … ROWS-1 each have a non-blank title next to their numeral (PRS-016). |
+| `save_word.yaml` (WORD) | Long-press the text node that is exactly WORD (a one-word paragraph of `vocabulary.epub`), wait for the popup's translation, tap Save; the popup stays open. |
 
 ### The reader's bars: never `when: notVisible:`
 
@@ -438,7 +441,12 @@ and names the palette colour the background must have:
 ```
 
 The name is `colour-check/<label>__<constant in Color.kt>`; the label is letters, digits and `-`,
-and nothing may follow the name on its line (no comment). A crop line the checker cannot read
+and nothing may follow the name on its line (no comment). A colour that is not in the palette — a
+fixture book's own cover (J-LIB-04, J-LIB-05: `cover-b.epub` and `full-features.fb2` have a 1×1
+#1E40C8 cover, which fills a Library card exactly) — is written as a literal, `__x1E40C8`; and
+`__notx1E40C8` requires the crop's most frequent pixel NOT to be that colour (a card that must not
+show the other book's cover). Pictures inside a book are drawn one image pixel per dp and clipped
+with rounded corners: a 1×1 picture is a 2–3 px blend, so its colour cannot be checked. A crop line the checker cannot read
 that way is not skipped: it fails the row.
 
 After such a flow `run.sh` runs `e2e/check_colours.py`: it reads the list of crops from the flow

@@ -584,6 +584,11 @@ noted). Cases in brackets. Source: the "MANUAL" notes inside `docs/e2e/e2e_journ
 | 23 | J-TRN-09 | Device where Bergamot cannot run | Offline HQ's own strip "Offline HQ isn't available on this device — translated by ML Kit" (see J-TRN-14 steps 9-10) | ☐ | ☐ | |
 | 24 | J-TRN-04 | Paragraph in another language | popup translates "from" that language, not the book's (POP-024); Language packs lists five packs | ☐ | ☐ | |
 | 25 | J-TRN-10 | Fast fling of a huge book to a landing | at most ~8 paragraphs processed before the landing (TRN-022) | ☐ | ☐ | |
+| 26 | J-LIB-04 | `pictures-only.epub`: the two pictures | red first, then blue, one under the other (PRS-005 "in order"; the 1×1-dp pictures are blended at their edges, so a crop cannot tell) | ☐ | ☐ | |
+| 27 | J-LIB-04 | Alice from the start (screenshot `J-LIB-04-step2-alice-start`) and every chapter | the cover shows only on the card, never as a page; no gap where the cover's SVG wrapper was skipped (IMP-002, PRS-003) | ☐ | ☐ | |
+| 28 | J-LIB-07 | Words search field with the keyboard up (screenshot `J-LIB-07-step7-words-search-keyboard`) | no blank band between the list and the keyboard (WRD-004) | ☐ | ☐ | |
+| 29 | J-LIB-07 | A selection that normalizes to nothing, e.g. drag a selection over a lone "—" and Save | "Nothing to save", no entry (WRD-014; a long press on "—" opens no popup, which the flow checks) | ☐ | ☐ | |
+| 30 | J-LIB-07 | A paid engine (DeepL) chosen with its key field left empty, Save a word | not possible from a clean install (choosing DeepL asks for its key); the keyless Save is J-TRN-08 step 8 (Azure) (WRD-006) | ☐ | ☐ | |
 
 ---
 

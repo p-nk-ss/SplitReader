@@ -1,0 +1,346 @@
+appId: ${APP_ID}
+name: J-LIB-07 Signed-out reader builds a vocabulary, then a crash-free tab tour
+tags: [smoke, full, network, library, J-LIB-07]
+# books: alice-illustrated.epub, vocabulary.epub
+---
+# J-LIB-07 — Signed-out reader builds a vocabulary (Words), then a crash-free tab tour.
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-07. Runs on the phone and on the
+# tablet; needs the network (the EN → RU Offline HQ pack is downloaded on the first open).
+# Fixtures: alice-illustrated.epub (F-ALICE) for "a real book opens and translates signed out" and
+# the tab tour; vocabulary.epub (F-VOCAB, "A Small Vocabulary") for the words. Correction to the
+# journey: the words are saved from vocabulary.epub, not from Alice's text. There "sister",
+# "rabbit", "pictures" and "bank" are each a paragraph of their own, so `longPressOn: text:` hits
+# exactly that word on any screen; in Alice a long press on one word needs a pixel point per AVD
+# (J-TRN-02), several screens down the front matter.
+# The word popup: "WORD", the word, its translation, "Listen", "Save" — the translation is the
+# Cyrillic text between "WORD" and "Listen" (J-TRN-02's header). Words screen: "N saved word(s)",
+# "Search words…"; on a phone a word's detail replaces the list ("Back to word list"), on a
+# tablet it is shown beside it.
+#
+# Step 11 (WRD-006, a paid engine without a key) is not in this flow: a paid engine cannot be
+# made current without a key here — tapping DeepL with no key opens its key dialog (J-TRN-07
+# step 1, SET-003) — and the keyless-Save case is automated in J-TRN-08 step 8 (Azure with no
+# key: Save disabled, nothing reaches Words).
+- assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Never signed in. Import alice-illustrated.epub -> the book opens and its translation side
+#    resolves (Russian text in a translation slot) with no sign-in prompt anywhere (ACC-016).
+- runFlow:
+    file: ../../subflows/pick_file.yaml
+    env:
+      FILE: "alice-illustrated.epub"
+- extendedWaitUntil:
+    visible: "— 1 —|GOT IT"
+    timeout: 120000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- scrollUntilVisible:
+    element: ".*So she was considering in her own mind.*"
+    direction: DOWN
+    timeout: 120000
+- extendedWaitUntil:
+    visible:
+      text: ".*[а-яё]{3,}.*"
+      childOf:
+        id: "translation_\\d+_\\d+"
+    timeout: 240000
+- assertNotVisible: "Continue with Google"
+- assertNotVisible: ".*[Ss]ign in to .*"
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 2. Import vocabulary.epub; long-press "sister", wait for its translation, Save -> "Saved to
+#    dictionary" (WRD-001).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "vocabulary.epub"
+      TITLE: "A Small Vocabulary"
+      FIRST_TEXT: "The old mill still stood at the bend of the river"
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- runFlow:
+    file: ../../subflows/save_word.yaml
+    env:
+      WORD: "sister"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 3. Words -> "1 saved word" (singular) (WRD-002); the entry is "sister" with a Russian
+#    translation (WRD-001).
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "1 saved word"
+    timeout: 10000
+- assertVisible: "sister"
+- assertVisible: ".*[а-яё]{3,}.*"
+
+# 4. Back to the book, long-press "sister" again, Save -> "Already in your dictionary", not a
+#    failure; still one entry (WRD-008).
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "book_card_A Small Vocabulary"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "book_card_A Small Vocabulary"
+- extendedWaitUntil:
+    notVisible: "Open book"
+    timeout: 15000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    visible: "sister"
+    timeout: 20000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- extendedWaitUntil:
+    notVisible:
+      id: "reader:languageChip"
+    timeout: 8000
+- runFlow:
+    file: ../../subflows/save_word.yaml
+    env:
+      WORD: "sister"
+- extendedWaitUntil:
+    visible: "Already in your dictionary"
+    timeout: 5000
+- assertNotVisible: ".*(failed|interrupted|Nothing to save).*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+
+# 5. Long-press the punctuation-only paragraph "—" -> nothing to save: no word popup opens (a
+#    long press keeps only the letters and digits of the token, J-TRN-02 step 11), so no entry is
+#    created (counted in step 6: 3 words) (WRD-014). The "Nothing to save" toast itself is for a
+#    selection that normalizes to nothing and cannot be reached by a long press: MANUAL (C-01).
+- longPressOn: "—"
+- extendedWaitUntil:
+    visible: "WORD"
+    timeout: 4000
+    optional: true
+- assertNotVisible: "WORD"
+
+# 6. Save "rabbit" and "pictures" the same way -> Words shows "3 saved words".
+- runFlow:
+    file: ../../subflows/save_word.yaml
+    env:
+      WORD: "rabbit"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- runFlow:
+    file: ../../subflows/save_word.yaml
+    env:
+      WORD: "pictures"
+- extendedWaitUntil:
+    visible: "Saved to dictionary"
+    timeout: 5000
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "WORD"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "3 saved words"
+    timeout: 10000
+- assertNotVisible: "—"
+
+# 7. Tap the search field -> the keyboard comes up (no blank band between list and keyboard:
+#    screenshot, C-01) (WRD-004); type "rab" -> only "rabbit" is listed (WRD-010). Clear it.
+- tapOn: "Search words…"
+- inputText: "rab"
+- extendedWaitUntil:
+    visible: "rabbit"
+    timeout: 5000
+- assertNotVisible: "sister"
+- assertNotVisible: "pictures"
+- takeScreenshot: J-LIB-07-step7-words-search-keyboard
+#   Cleared, then the keyboard closed first: on the tablet it covers all but the list's first row.
+- eraseText: 3
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "sister"
+    timeout: 5000
+- assertVisible: "pictures"
+- assertVisible: "rabbit"
+
+# 8. Open "rabbit" -> Add note -> "white, with a waistcoat" -> Save -> "Note saved"; Home and
+#    back to Words, reopen "rabbit" -> the note is still shown (WRD-012).
+- tapOn: "rabbit"
+- extendedWaitUntil:
+    visible: "Add note"
+    timeout: 5000
+- tapOn: "Add note"
+- extendedWaitUntil:
+    visible: "Edit note"
+    timeout: 5000
+- inputText: "white, with a waistcoat"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Note saved"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "white, with a waistcoat"
+    timeout: 5000
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+- tapOn: "Words"
+- extendedWaitUntil:
+    visible: "3 saved words|Back to word list"
+    timeout: 10000
+- runFlow:
+    when:
+      visible: "Back to word list"
+    commands:
+      - tapOn: "Back to word list"
+      - extendedWaitUntil:
+          visible: "3 saved words"
+          timeout: 5000
+- tapOn: "rabbit"
+- extendedWaitUntil:
+    visible: "white, with a waistcoat"
+    timeout: 5000
+
+# 9. (Phone) Tap "sister" -> its detail replaces the list full-screen; system Back -> the list
+#    returns, the app is not left (WRD-005).
+- runFlow:
+    when:
+      true: ${DEVICE_CLASS == 'phone'}
+    commands:
+      - tapOn: "Back to word list"
+      - extendedWaitUntil:
+          visible: "3 saved words"
+          timeout: 5000
+      - tapOn: "sister"
+      - extendedWaitUntil:
+          visible: "Back to word list"
+          timeout: 5000
+      - assertNotVisible: "3 saved words"
+      - assertNotVisible: "Search words…"
+      - back
+      - extendedWaitUntil:
+          visible: "3 saved words"
+          timeout: 5000
+      - assertNotVisible: "Back to word list"
+      - assertVisible: "Search words…"
+
+# 10. Open "pictures" -> Delete -> confirm -> "Word deleted"; it is gone from the list (WRD-013).
+#     The detail's Delete is the action chip right of "Pronounce" (on a tablet every list row also
+#     has a "Delete" icon, left of the detail).
+- tapOn: "pictures"
+- extendedWaitUntil:
+    visible: "Pronounce"
+    timeout: 5000
+- tapOn:
+    text: "Delete"
+    rightOf: "Pronounce"
+- extendedWaitUntil:
+    visible: "Delete word"
+    timeout: 5000
+- tapOn:
+    text: "Delete"
+    rightOf: "Cancel"
+- extendedWaitUntil:
+    visible: "Word deleted"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "2 saved words"
+    timeout: 5000
+- assertNotVisible: "pictures"
+- assertVisible: "sister"
+- assertVisible: "rabbit"
+
+# 12. Tab tour, twice: Library -> Catalog -> Words -> Almanac -> Settings -> open Alice, a
+#     translated paragraph on screen -> Back. Then Home, 10 s in the background, back to the app
+#     -> no crash or ANR, the navigation works in every tab, and the app comes back where it was
+#     (ERR-001). Each destination is recognised by a text only it has (J-RDR-09).
+- repeat:
+    times: 2
+    commands:
+      - tapOn: "Library"
+      - extendedWaitUntil:
+          visible: "Open book"
+          timeout: 10000
+      - tapOn: "Catalog"
+      - extendedWaitUntil:
+          visible: "Standard Ebooks"
+          timeout: 15000
+      - tapOn: "Words"
+      - extendedWaitUntil:
+          visible: "Search words…"
+          timeout: 15000
+      - tapOn: "Almanac"
+      - extendedWaitUntil:
+          visible: "All time"
+          timeout: 15000
+      - tapOn: "Settings"
+      - extendedWaitUntil:
+          visible: "Preferences"
+          timeout: 15000
+      - tapOn: "Library"
+      - extendedWaitUntil:
+          visible: "Open book"
+          timeout: 10000
+      - scrollUntilVisible:
+          element:
+            id: "book_card_Alice's Adventures in Wonderland.*"
+          direction: DOWN
+          timeout: 10000
+      - tapOn:
+          id: "book_card_Alice's Adventures in Wonderland.*"
+      - extendedWaitUntil:
+          notVisible: "Open book"
+          timeout: 15000
+      - runFlow: ../../subflows/dismiss_portrait_hint.yaml
+      - extendedWaitUntil:
+          visible:
+            text: ".*[а-яё]{3,}.*"
+            childOf:
+              id: "translation_\\d+_\\d+"
+          timeout: 60000
+      - runFlow: ../../subflows/leave_reader.yaml
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Preferences"
+    timeout: 15000
+- pressKey: Home
+- extendedWaitUntil:
+    visible: "J-LIB-07 ten seconds in the background"
+    timeout: 10000
+    optional: true
+#   stopApp: false — launchApp otherwise force-stops the app first, and a fresh process opens on
+#   the Library (seen: run 20261121T085826Z), which is not "back from the background".
+- launchApp:
+    clearState: false
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Preferences"
+    timeout: 20000
+
+# 13. Almanac -> today's reading is there (not the empty state); still never signed in: the
+#     navigation offers "Sign in" / the avatar, nothing asked for it (ACC-016).
+- tapOn: "Almanac"
+- extendedWaitUntil:
+    visible: "All time"
+    timeout: 15000
+- assertNotVisible: "Open a book to start tracking your reading."
+- takeScreenshot: J-LIB-07-step13-almanac

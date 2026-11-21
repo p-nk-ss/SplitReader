@@ -1,0 +1,224 @@
+appId: ${APP_ID}
+name: J-LIB-06 Classic MOBI shelf - every chapter-splitting rule
+tags: [smoke, full, library, tablet, J-LIB-06]
+# books: classic-h2.mobi, pagebreaks.mobi, pagebreaks-and-h2.mobi, h1-h2.mobi, plain.mobi
+---
+# J-LIB-06 — Classic MOBI shelf: every chapter-splitting rule (MobiChapterSplitter).
+# Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-LIB-06. Tablet only (as the journey);
+# five books, so "Premium (debug)" is on for the journey (debug build only).
+# Fixtures (synthetic, e2e/books/build_fixtures.py; book titles are the PDB names):
+#   classic-h2.mobi        "Classic H2 Test"  4 × <h2>Chapter N</h2>, no page breaks (F-MOBI)
+#   pagebreaks.mobi        "Pagebreaks Test"  "Section 1…4: the ferry crossed at dawn…", 3 <mbp:pagebreak> (F-MOBI-PB)
+#   pagebreaks-and-h2.mobi "PB+H2 Test"       3 regions, 2 page breaks, an <h2> in each (F-MOBI-PBH)
+#   h1-h2.mobi             "H1 H2 Test"       3 × <h1>Book N</h1><h2>Section N.1</h2> (F-MOBI-H1H2)
+#   plain.mobi             "Plain MOBI Test"  two paragraphs, no heading, no page break (F-MOBI-PLAIN)
+# A chapter row is id reader:chapterRow:<i>; its children are the numeral and the title, so
+# "a readable title" is a second text child with a non-space character (PRS-016). "Each chapter
+# starts at its heading / break" is shown by the chapter's own first paragraph (original_<i>_0)
+# after picking that row.
+- assertTrue: ${DEVICE_CLASS == 'tablet'}
+- runFlow: ../../subflows/launch_clean.yaml
+- runFlow: ../../subflows/premium_debug.yaml
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Open book"
+    timeout: 10000
+
+# 1. Import classic-h2.mobi -> Chapter Picker: 4 chapters, one per <h2> ("Chapter 1" … "Chapter 4");
+#    without native markers it fell back to heading detection, not one giant chapter (PRS-007,
+#    PRS-006). Chapter 4 opens on its own text (it starts at its heading).
+# 2. Chapter 1's first paragraph is exactly the fixture's opening sentence (PRS-017).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "classic-h2.mobi"
+      TITLE: "Classic H2 Test"
+      FIRST_TEXT: "Chapter 1 opens here, on a quiet morning by the old mill"
+- assertVisible:
+    text: "Chapter 1 opens here, on a quiet morning by the old mill, where nothing much happened for a very long time\\."
+    childOf:
+      id: "original_0_0"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- assertVisible:
+    text: "Chapter 1"
+    childOf:
+      id: "reader:chapterRow:0"
+- assertVisible:
+    text: "Chapter 2"
+    childOf:
+      id: "reader:chapterRow:1"
+- assertVisible:
+    text: "Chapter 3"
+    childOf:
+      id: "reader:chapterRow:2"
+- assertVisible:
+    text: "Chapter 4"
+    childOf:
+      id: "reader:chapterRow:3"
+- assertNotVisible:
+    id: "reader:chapterRow:4"
+- tapOn:
+    id: "reader:chapterRow:3"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      text: "Chapter 4 opens here, on a bright morning.*"
+      childOf:
+        id: "original_3_0"
+    timeout: 10000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 3. Import pagebreaks.mobi -> 4 chapters (3 page breaks + 1), each starting where a break was:
+#    chapter k opens on "Section k: …" (PRS-008). No headings: the titles are the fallback
+#    "Chapter k", never blank (PRS-016).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "pagebreaks.mobi"
+      TITLE: "Pagebreaks Test"
+      FIRST_TEXT: "Section 1: the ferry crossed at dawn"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- runFlow:
+    file: ../../subflows/chapter_rows_titled.yaml
+    env:
+      ROWS: "4"
+- assertNotVisible:
+    id: "reader:chapterRow:4"
+- tapOn:
+    id: "reader:chapterRow:2"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      text: "Section 3: the ferry crossed at dawn.*"
+      childOf:
+        id: "original_2_0"
+    timeout: 10000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 4. Import pagebreaks-and-h2.mobi -> 3 chapters (page breaks only); the <h2> inside each region
+#    does not subdivide it: chapter 2 holds "Region 2 begins…" (PRS-011).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "pagebreaks-and-h2.mobi"
+      TITLE: "PB\\+H2 Test"
+      FIRST_TEXT: "Region 1 begins with its own h2 heading"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- runFlow:
+    file: ../../subflows/chapter_rows_titled.yaml
+    env:
+      ROWS: "3"
+- assertNotVisible:
+    id: "reader:chapterRow:3"
+- tapOn:
+    id: "reader:chapterRow:1"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+#    The three chapters are short and all on one screen, so the region's CHAPTER is read from
+#    the paragraph ids (original_<chapter>_<paragraph>): region 2 is in chapter index 1.
+- extendedWaitUntil:
+    visible:
+      text: "Region 2 begins with its own h2 heading.*"
+      childOf:
+        id: "original_1_\\d+"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: "Region 3 begins with its own h2 heading.*"
+      childOf:
+        id: "original_2_\\d+"
+    direction: DOWN
+    timeout: 15000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 5. Import h1-h2.mobi -> 3 chapters, one per <h1> ("Book 1" … "Book 3"); the nested <h2>s add
+#    none (PRS-010).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "h1-h2.mobi"
+      TITLE: "H1 H2 Test"
+      FIRST_TEXT: "The first section of book 1 starts here"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- runFlow:
+    file: ../../subflows/chapter_rows_titled.yaml
+    env:
+      ROWS: "3"
+- assertNotVisible:
+    id: "reader:chapterRow:3"
+- assertVisible:
+    text: "Book 3"
+    childOf:
+      id: "reader:chapterRow:2"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 6. Import plain.mobi -> exactly one chapter; the book opens at its start, no crash (PRS-009).
+- runFlow:
+    file: ../../subflows/import_book.yaml
+    env:
+      FILE: "plain.mobi"
+      TITLE: "Plain MOBI Test"
+      FIRST_TEXT: "There are no headings and no page breaks anywhere"
+- assertVisible:
+    id: "original_0_0"
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- runFlow:
+    file: ../../subflows/chapter_rows_titled.yaml
+    env:
+      ROWS: "1"
+- assertNotVisible:
+    id: "reader:chapterRow:1"
+- tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- runFlow: ../../subflows/leave_reader.yaml
+
+# 7. Every entry of the five pickers had a readable, non-blank title (the checks above:
+#    chapter_rows_titled.yaml for books 2-5, the "Chapter N" rows of book 1) (PRS-016).
+- scrollUntilVisible:
+    element: "· 5 VOLUMES"
+    direction: DOWN
+    timeout: 10000
+
+# 8. Settings -> Premium (debug) off -> "Free tier · up to 3 books".
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "settings_debug_premium_switch"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    id: "settings_debug_premium_switch"
+- extendedWaitUntil:
+    visible: "Free tier · up to 3 books"
+    timeout: 10000
