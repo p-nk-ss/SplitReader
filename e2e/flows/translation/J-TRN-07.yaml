@@ -261,12 +261,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
 - assertVisible: "WORD"
 - assertVisible:
     text: "Every"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible:
     text: "Invalid DeepL API key"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
 - assertVisible:
     enabled: false
@@ -304,8 +304,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
     timeout: 30000
 - assertVisible:
     text: "Nobody"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
 - tapOn: "Close"
 - extendedWaitUntil:
@@ -512,8 +512,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
     timeout: 30000
 - assertVisible:
     text: "Every"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Switch translator"
 - extendedWaitUntil:
     visible: "Choose provider"
@@ -531,8 +531,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-07]
 - assertVisible: "WORD"
 - assertVisible:
     text: "Every"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible: "Invalid DeepL API key"
 - assertVisible: "Invalid DeepL API key — tap Switch translator to update it"
 - takeScreenshot: J-TRN-07-step11-popup-survives-reselect

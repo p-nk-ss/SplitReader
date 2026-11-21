@@ -36,8 +36,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 # What the popup then says ("river", a download line) checks them. Elsewhere "river" is pressed
 # by its place inside original_0_0 (57%, 16% on the tablet, 93%, 12% on the phone).
 # The popup's Save TEXT node reads enabled in every state (the disabled flag is on its parent,
-# the button: step 13a reads it there): the flow waits for the translation's text between
-# "WORD" and "Listen".
+# the button: step 13a reads it there): the flow waits for the translation's text inside
+# reader:wordPopup.
 # Source of steps/checkpoints: docs/e2e/e2e_journeys.md J-TRN-03.
 # The tags say phone and tablet; the pixel points are those of Tab_35_PixelTablet and
 # Pixel_10_Pro — on another tablet (Tab_26_Nexus9) the point gestures miss and the flow fails
@@ -97,17 +97,17 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.riverRu = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-03 river in Russian = ' + output.riverRu)}
 - runFlow:
@@ -131,8 +131,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - assertVisible: "WORD"
 - assertVisible:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 #    Now for real. The language button must be tapped within the 3.5 s the bars stay, so the
 #    attempt is retried, each time from a freshly opened, translated popup: a tap that comes too
 #    late lands on the page and closes the popup, and the next attempt opens it again. Between
@@ -157,8 +157,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
       - extendedWaitUntil:
           visible:
             text: "(?=.*[А-Яа-яЁё]).{1,40}"
-            below: "WORD"
-            above: "Listen"
+            childOf:
+              id: "reader:wordPopup"
           timeout: 60000
       - runFlow:
           when:
@@ -222,13 +222,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - extendedWaitUntil:
     visible:
       text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 #    …a short text that is not Cyrillic, between the word and "Listen": the German for it.
 #    "Short Latin text" alone would also be an error line or a leftover of another language, so
 #    the text is kept (output.riverDe): it must not read like one of the popup's error lines
@@ -236,13 +236,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 #    it is not step 2's Russian (no Cyrillic), and step 5 requires the French to differ from it.
 - assertNotVisible:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
 - copyTextFrom:
     text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.riverDe = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-03 river in German = ' + output.riverDe)}
 - assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.riverDe)}
@@ -376,25 +376,25 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - extendedWaitUntil:
     visible:
       text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 #    …and it is French, not the German of step 3 left over (a selection made right after the
 #    target change that still used the old target would read output.riverDe) and not an error
 #    line (asked after the popup wait).
 - assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
 - copyTextFrom:
     text: "(?!river$)(?!Close$)(?!Listen$)(?!Save$)(?!WORD$)[A-Za-zÀ-ÿ' -]{2,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.riverFr = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-03 river in French = ' + output.riverFr + ' (German was ' + output.riverDe + ')')}
 - assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.riverFr)}
@@ -919,8 +919,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - assertVisible: "Downloading language model… \\d+%"
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
@@ -973,49 +973,51 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     commands:
       - assertVisible:
           text: "the"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'phone'}
     commands:
       - assertVisible:
           text: "before"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - assertNotVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - extendedWaitUntil:
     visible:
       text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
 - copyTextFrom:
     text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.w2Es = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-03 step 13 - second word in Spanish = ' + output.w2Es)}
+#    A real word, not an error line in the popup (a raw error message is Latin text too).
+- assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.w2Es)}
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
     commands:
       - assertVisible:
           text: "the"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'phone'}
     commands:
       - assertVisible:
           text: "before"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "WORD"
@@ -1041,20 +1043,22 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - extendedWaitUntil:
     visible:
       text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
 - copyTextFrom:
     text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.riverEs = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-03 step 13 - river in Spanish = ' + output.riverEs)}
+#    A real word, not an error line in the popup (a raw error message is Latin text too).
+- assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.riverEs)}
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertTrue: ${output.w2Es != output.riverEs}
 - assertNotVisible:
     enabled: false
@@ -1132,49 +1136,51 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
     commands:
       - assertVisible:
           text: "the"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'phone'}
     commands:
       - assertVisible:
           text: "before"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - assertNotVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - extendedWaitUntil:
     visible:
       text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
 - copyTextFrom:
     text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.w2It = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-03 step 13 - second word in Italian = ' + output.w2It)}
+#    A real word, not an error line in the popup (a raw error message is Latin text too).
+- assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.w2It)}
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
     commands:
       - assertVisible:
           text: "the"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'phone'}
     commands:
       - assertVisible:
           text: "before"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "WORD"
@@ -1200,20 +1206,22 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-03]
 - extendedWaitUntil:
     visible:
       text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - assertNotVisible: ".*(corrupt|Translation failed|TRANSLATION FAILED).*"
 - copyTextFrom:
     text: "(?!(river|the|before|Close|Listen|Save|WORD)$)[A-Za-zÀ-ÿ' -]{2,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.riverIt = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-03 step 13 - river in Italian = ' + output.riverIt)}
+#    A real word, not an error line in the popup (a raw error message is Latin text too).
+- assertTrue: ${!/fail|error|corrupt|interrupt|unavailable|support|internet|network|download|translat/i.test(output.riverIt)}
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertTrue: ${output.w2It != output.riverIt && output.riverIt != output.riverEs}
 - tapOn: "Close"
 - extendedWaitUntil:

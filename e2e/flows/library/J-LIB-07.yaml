@@ -13,7 +13,7 @@ tags: [smoke, full, network, library, J-LIB-07]
 # exactly that word on any screen; in Alice a long press on one word needs a pixel point per AVD
 # (J-TRN-02), several screens down the front matter.
 # The word popup: "WORD", the word, its translation, "Listen", "Save" — the translation is the
-# Cyrillic text between "WORD" and "Listen" (J-TRN-02's header). Words screen: "N saved word(s)",
+# Cyrillic text inside reader:wordPopup (J-TRN-02's header). Words screen: "N saved word(s)",
 # "Search words…"; on a phone a word's detail replaces the list ("Back to word list"), on a
 # tablet it is shown beside it.
 #

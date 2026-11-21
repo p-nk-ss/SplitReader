@@ -317,8 +317,8 @@ onFlowComplete:
 - assertVisible: "WORD"
 - assertVisible:
     text: "Every"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible: ".*[А-Яа-яЁё]{3,}.*"
 - assertVisible:
     enabled: false
@@ -400,6 +400,20 @@ onFlowComplete:
 - evalScript: ${console.log('J-TRN-08 paragraph 12, Quick Translate - ' + output.qtText)}
 - assertTrue: ${output.qtText != output.hqText}
 - assertNotVisible: "TRANSLATION FAILED"
+#     "Not Offline HQ's text" is also what ML Kit would give, had Quick Translate not served and
+#     the app fallen back: then the strip "… — translated by ML Kit" is under the top bar while the
+#     bars are up (J-TRN-01 step 2's look). The language button right after it proves the bars
+#     were still up when the strip was looked for.
+- evalScript: ${output.qtStripAttempt = 0}
+- retry:
+    maxRetries: 2
+    commands:
+      - evalScript: ${output.qtStripAttempt = output.qtStripAttempt + 1}
+      - evalScript: ${console.log('J-TRN-08 step 10 no translated-by strip - attempt ' + output.qtStripAttempt)}
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertNotVisible: ".*translated by.*"
+      - assertVisible:
+          id: "reader:languageChip"
 - extendedWaitUntil:
     notVisible:
       id: "reader:languageChip"
@@ -410,13 +424,13 @@ onFlowComplete:
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "Every"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - takeScreenshot: J-TRN-08-step10-quick-translate
 - tapOn: "Close"
 - extendedWaitUntil:

@@ -39,19 +39,19 @@ tags: [release, tablet, network, R-03]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible: "Save"
 - assertNotVisible: "Translating…"
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.riverRu = maestro.copiedText}
 - evalScript: ${console.log('R-03 river = ' + output.riverRu)}
 #    Maestro reads a text as a regex: the translation is matched in step 4 with its regex

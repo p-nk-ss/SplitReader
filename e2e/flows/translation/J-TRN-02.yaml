@@ -14,7 +14,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 # text, one line of state — "Release to translate" (a handle is being dragged), "Translating…" /
 # "Downloading language model… N%", the translation, or an error — then "Listen" and, for a WORD
 # only, "Save" (enabled once the translation is there). The selected text and its translation are
-# read as the texts between the popup's heading and "Listen".
+# read as texts inside the popup (`childOf: {id: "reader:wordPopup"}`), never by a screen band.
 #
 # Where the gestures go. A long press selects the word under the finger. The selection has a
 # handle under its first and under its last letter (not drawn — those two letters are underlined;
@@ -98,21 +98,21 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible: "WORD"
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible: "Listen"
 - assertVisible: "Save"
 - assertNotVisible: "Translating…"
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.riverRu = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-02 river = ' + output.riverRu)}
 - takeScreenshot: J-TRN-02-step2-popup-ready
@@ -155,13 +155,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
@@ -183,20 +183,20 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
     timeout: 5000
 - assertVisible:
     text: "river, though its"
-    below: "SENTENCE"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
-      below: "SENTENCE"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 30000
 - assertNotVisible: "Release to translate"
 - assertNotVisible: "Translating…"
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
-    below: "SENTENCE"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.phraseRu = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-02 phrase = ' + output.phraseRu)}
 - assertTrue: ${output.phraseRu != output.riverRu}
@@ -230,25 +230,25 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "river, though its wheel had not turned since the summer.*"
-      below: "SENTENCE"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 5000
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
-      below: "SENTENCE"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 30000
 - assertNotVisible: "Release to translate"
 - copyTextFrom:
     text: "river, though its wheel.*"
-    below: "SENTENCE"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.longPhrase = maestro.copiedText}
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]{3,}).*(?<!\\d\\))"
-    below: "SENTENCE"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.longRu = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-02 long phrase = ' + output.longPhrase + ' = ' + output.longRu)}
 - assertTrue: ${output.longRu != output.phraseRu}
@@ -287,8 +287,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - runFlow:
     when:
@@ -307,12 +307,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - assertVisible: "WORD"
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible: "Translating…"
 - runFlow:
     when:
@@ -335,12 +335,12 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - assertVisible: "WORD"
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible: "Translating…"
 - tapOn: "Close"
 - extendedWaitUntil:
@@ -367,13 +367,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - runFlow:
     when:
       true: ${DEVICE_CLASS == 'tablet'}
@@ -391,31 +391,31 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     notVisible:
       text: "river"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 10000
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.word2 = maestro.copiedText}
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.word2Ru = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-02 second word = ' + output.word2 + ' = ' + output.word2Ru)}
 - assertTrue: ${output.word2 != 'river' && output.word2Ru != output.riverRu}
 - assertNotVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - takeScreenshot: J-TRN-02-step8-second-paragraph
 - tapOn: "Close"
 - extendedWaitUntil:
@@ -468,23 +468,23 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "${output.word2}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 10000
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "${output.word2Ru}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "WORD"
@@ -552,21 +552,21 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "${output.word2}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible:
     text: "${output.word2Ru}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertNotVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "WORD"
@@ -625,8 +625,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
           timeout: 10000
       - assertVisible:
           text: "river"
-          below: "WORD"
-          above: "Listen"
+          childOf:
+            id: "reader:wordPopup"
       - evalScript: ${output.selTitleStart = Date.now()}
       - runFlow:
           when:
@@ -704,17 +704,17 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - assertVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "Saved to dictionary"
@@ -743,13 +743,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible:
     text: "river"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "Already in your dictionary"
@@ -758,8 +758,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-02]
 - assertNotVisible: ".*(failed|interrupted|Nothing to save).*"
 - assertVisible:
     text: "${output.riverRu}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "WORD"

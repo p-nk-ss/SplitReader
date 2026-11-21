@@ -102,23 +102,23 @@ tags: [full, library, network, phone, tablet, J-LIB-10]
     timeout: 10000
 - assertVisible:
     text: "Mon|cher"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - copyTextFrom:
     text: "Mon|cher"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.frWord = maestro.copiedText}
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.frRu = maestro.copiedText}
 - evalScript: ${console.log('J-LIB-10 step 3 - ' + output.frWord + ' = ' + output.frRu)}
 - tapOn: "Save"

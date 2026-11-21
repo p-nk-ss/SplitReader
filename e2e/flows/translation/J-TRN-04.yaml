@@ -270,25 +270,25 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
     timeout: 10000
 - assertVisible:
     text: "Lieber"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - copyTextFrom:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.lieberRu = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-04 step 5 - Lieber = ' + output.lieberRu)}
 - assertTrue: ${output.lieberRu.toLowerCase().indexOf('дорог') == 0}
 - assertVisible:
     text: "(?i)дорог.*"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - takeScreenshot: J-TRN-04-step5-german-word
 
 # 6. Save, then Words -> the entry is tagged DE as its source language, not EN (POP-025,
@@ -377,18 +377,18 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
     timeout: 10000
 - assertVisible:
     text: "Arma"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - extendedWaitUntil:
     visible:
       text: "Latin isn't supported for translation"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 10000
 - assertNotVisible:
     text: "(?=.*[А-Яа-яЁё]).{1,40}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - takeScreenshot: J-TRN-04-step8-latin-word
 - tapOn: "Close"
 - extendedWaitUntil:
@@ -568,13 +568,13 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-04]
     timeout: 10000
 - assertVisible:
     text: "And"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - extendedWaitUntil:
     visible:
       text: "(?i)и.{0,10}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - takeScreenshot: J-TRN-04-step12-english-word
 - tapOn: "Close"

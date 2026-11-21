@@ -422,7 +422,7 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 
 # 10. "Show translation" off again; long-press a word in the original text -> the popup opens
 #     with the word and its Russian translation although the pane is hidden (POP-002, POP-001).
-#     The word is the Latin text between "WORD" and "Listen" (the "Close" button also answers a
+#     The word is the Latin text inside reader:wordPopup (the "Close" button also answers a
 #     text selector), the translation the Cyrillic text there; with the pane off nothing else on
 #     screen is Cyrillic. The wait is for that text, not for "Save is active": the Save text
 #     node reads enabled=true in every state (its greyed-out look is opacity only). MANUAL: the "Translating…" line in between lasts a fraction of a second
@@ -454,20 +454,20 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-01]
 - extendedWaitUntil:
     visible:
       text: ".*[А-Яа-яЁё].*"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - assertVisible: "WORD"
 - assertVisible: "Save"
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.word = maestro.copiedText}
 - copyTextFrom:
     text: ".*[А-Яа-яЁё].*"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.translation = maestro.copiedText}
 - evalScript: ${console.log('J-TRN-01 popup - ' + output.word + ' = ' + output.translation)}
 - takeScreenshot: J-TRN-01-step10-popup-pane-hidden

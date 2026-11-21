@@ -16,7 +16,7 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
 # the same word as the second's). Which words those are depends
 # on where the lines break on the device, so the flow reads each word from the popup
 # (output.w1 … output.w3) and uses those in the Words screen. In the popup the word is the Latin
-# text between "WORD" and "Listen" (the translation is Cyrillic; the popup's "Close" button also
+# text inside reader:wordPopup (the translation is Cyrillic; the popup's "Close" button also
 # answers a text selector, hence the `(?!Close$)`).
 # Each destination is recognised by a text only that screen has: Catalog "Standard Ebooks",
 # Almanac "All time", Words "Search words…", Settings "Preferences", Library "Open book".
@@ -167,20 +167,20 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
     timeout: 8000
 - longPressOn:
     id: "original_0_0"
-#   The popup is ready when its translation is there: a short Cyrillic text between "WORD" and
-#   "Listen" (the first one also waits out the EN→RU pack download). `text: "Save", enabled: true`
+#   The popup is ready when its translation is there: a short Cyrillic text in reader:wordPopup
+#   (the first one also waits out the EN→RU pack download). `text: "Save", enabled: true`
 #   is no wait — the Save text node reads enabled in every state (the greyed-out look is opacity
 #   on its parent), and a Save tapped before the translation stores nothing.
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.w1 = maestro.copiedText}
 - tapOn: "Save"
 - tapOn: "Close"
@@ -192,13 +192,13 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.w2 = maestro.copiedText}
 - tapOn: "Save"
 - tapOn: "Close"
@@ -211,13 +211,13 @@ tags: [smoke, full, phone, tablet, reading, J-RDR-09]
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - copyTextFrom:
     text: "(?!Close$)[A-Za-z'’-]+"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - evalScript: ${output.w3 = maestro.copiedText}
 - tapOn: "Save"
 - tapOn: "Close"

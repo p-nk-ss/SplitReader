@@ -101,6 +101,9 @@ internal fun originalParagraphTag(chapterIndex: Int, paragraphIndex: Int): Strin
 internal fun translationParagraphTag(chapterIndex: Int, paragraphIndex: Int): String =
     "translation_${chapterIndex}_$paragraphIndex"
 
+/** E2E test tag of the word popup ([TranslationBubble]): its texts are addressed `childOf` it. */
+internal const val WORD_POPUP_TAG = "reader:wordPopup"
+
 // ── Page gutter ───────────────────────────────────────────────────────────
 
 @Composable
@@ -151,6 +154,7 @@ internal fun TranslationBubble(
 
     Column(
         modifier = modifier
+            .testTag(WORD_POPUP_TAG)
             .fillMaxWidth()
             .clip(RoundedCornerShape(radii.lg))
             .background(palette.bg2)

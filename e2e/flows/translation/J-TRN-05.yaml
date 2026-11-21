@@ -143,10 +143,10 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-05]
       id: "original_1_0"
 
 # 3. Long-press inside a poem -> the popup translates it from Japanese into Russian (POP-001).
-#    A Japanese line has no spaces, so the "word" under the finger is the whole poem. Other
-#    lines of the page lie between the popup's heading and its buttons too, so the popup is not
-#    read by position: the poem is saved and read back in Words — the entry is the poem, tagged
-#    JA, with a Russian translation, the same one the page shows for that poem.
+#    A Japanese line has no spaces, so the "word" under the finger is the whole poem. The popup's
+#    translation is read inside reader:wordPopup (the page's own translation of the poem is the
+#    same text, so a screen band would match it), and the poem is saved and read back in Words —
+#    the entry is the poem, tagged JA, with a Russian translation, the same one the page shows.
 - copyTextFrom:
     text: ".*[а-яё]{3,}.*"
     childOf:
@@ -162,8 +162,8 @@ tags: [smoke, full, phone, tablet, network, translation, J-TRN-05]
 - extendedWaitUntil:
     visible:
       text: "${output.poemRu}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 60000
 - takeScreenshot: J-TRN-05-step3-poem-popup
 - tapOn: "Save"

@@ -112,8 +112,8 @@ tags: [smoke, full, library, J-LIB-04]
     timeout: 10000
 - assertVisible:
     text: "ALICE"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Close"
 - extendedWaitUntil:
     notVisible: "WORD"

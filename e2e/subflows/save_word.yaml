@@ -2,7 +2,8 @@ appId: ${APP_ID}
 ---
 # save_word (env WORD): in the open reader, long-presses the text node that is exactly ${WORD}
 # (a one-word paragraph of vocabulary.epub, J-LIB-07: its centre is the word), waits until the
-# popup shows that word and its translation (a short Cyrillic text between "WORD" and "Listen";
+# popup shows that word and its translation (a short Cyrillic text inside reader:wordPopup — not
+# a screen band, where the tablet's translation pane has short Russian rows of its own;
 # up to 240 s, the first one may wait out the EN → RU pack download) and taps Save. Asserts nothing
 # about what Save did: the caller waits for the toast. The popup stays open (caller closes it).
 # The reader's bars must be hidden (they move the page): the caller waits for that first.
@@ -10,11 +11,11 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible:
       text: "(?=.*[А-Яа-яЁё]).{1,40}"
-      below: "WORD"
-      above: "Listen"
+      childOf:
+        id: "reader:wordPopup"
     timeout: 240000
 - assertVisible:
     text: "${WORD}"
-    below: "WORD"
-    above: "Listen"
+    childOf:
+      id: "reader:wordPopup"
 - tapOn: "Save"
