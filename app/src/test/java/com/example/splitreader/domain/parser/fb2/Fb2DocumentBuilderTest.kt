@@ -86,6 +86,60 @@ class Fb2DocumentBuilderTest {
         assertEquals(listOf("An epigraph", "Prose"), doc.chapters[0].paragraphs)
     }
 
+    // PRS-019: the body-level epigraph opens the book, its author line kept, and it is styled as an
+    // epigraph; the first section's own epigraph follows it, then the section's text.
+    @Test fun preambleAndSectionEpigraph_preambleFirst_authorsKept_bothCountAsEpigraph() {
+        val doc = build(
+            start("body"),
+            start("epigraph"), start("p"), text("An old saying"), end("p"),
+            start("text-author"), text("Folk wisdom"), end("text-author"), end("epigraph"),
+            start("section"), start("title"), text("Ch 1"), end("title"),
+            start("epigraph"), start("p"), text("Section epigraph"), end("p"),
+            start("text-author"), text("Section author"), end("text-author"), end("epigraph"),
+            start("p"), text("Prose"), end("p"),
+            end("section"),
+            end("body"),
+        )
+        val ch = doc.chapters[0]
+        assertEquals(listOf("An old saying", "Folk wisdom", "Section epigraph", "Section author", "Prose"), ch.paragraphs)
+        assertEquals(4, ch.epigraphCount)
+    }
+
+    @Test fun preambleEpigraphOnly_authorKept_countsAsEpigraph() {
+        val doc = build(
+            start("body"),
+            start("epigraph"), start("p"), text("An old saying"), end("p"),
+            start("text-author"), text("Folk wisdom"), end("text-author"), end("epigraph"),
+            start("section"), start("title"), text("Ch 1"), end("title"),
+            start("p"), text("Prose"), end("p"),
+            end("section"),
+            end("body"),
+        )
+        assertEquals(listOf("An old saying", "Folk wisdom", "Prose"), doc.chapters[0].paragraphs)
+        assertEquals(2, doc.chapters[0].epigraphCount)
+    }
+
+    @Test fun preambleAndSectionEpigraph_imageStaysOnItsBodyParagraph() {
+        val b = Fb2DocumentBuilder(writeBinary = { id, _, _ -> "saved:$id" })
+        listOf(
+            start("body"),
+            start("epigraph"), start("p"), text("An old saying"), end("p"),
+            start("text-author"), text("Folk wisdom"), end("text-author"), end("epigraph"),
+            start("section"), start("title"), text("Ch 1"), end("title"),
+            start("epigraph"), start("p"), text("Section epigraph"), end("p"), end("epigraph"),
+            start("p"), text("Before"), end("p"),
+            start("image", href = "img1"), end("image"),
+            start("p"), text("After"), end("p"),
+            end("section"),
+            end("body"),
+            start("binary", id = "img1"), text("aGVsbG8="), end("binary"),
+        ).forEach(b::accept)
+        val ch = b.finish().chapters[0]
+        val (anchor, id) = ch.imageRefs.single()
+        assertEquals("img1", id)
+        assertEquals("image renders right before \"After\"", "After", ch.paragraphs[anchor])
+    }
+
     @Test fun sectionEpigraph_goesToEpigraphParagraphsFirst() {
         val doc = build(*section("Ch",
             start("epigraph"),

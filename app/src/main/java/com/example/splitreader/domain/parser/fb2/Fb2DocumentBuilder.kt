@@ -138,7 +138,8 @@ class Fb2DocumentBuilder(
             "last-name" -> lastName = flush()
             "text-author" -> {
                 val v = flush()
-                if (v.isNotBlank() && elementStack.contains("epigraph")) top()?.epigraphParagraphs?.add(v)
+                // Routed like the epigraph's text, so a body-level epigraph keeps its author too.
+                if (v.isNotBlank() && elementStack.contains("epigraph")) addParagraph(v)
             }
             "title" -> {
                 val v = flush()
@@ -199,26 +200,27 @@ class Fb2DocumentBuilder(
     private fun emitSection() {
         val frame = sectionStack.removeLastOrNull() ?: return
         if (frame.directParagraphs.isEmpty()) return   // wrapper section: children already emitted
-        var preShift = 0
-        if (!preambleFlushed && preambleParagraphs.isNotEmpty()) {
-            preShift = preambleParagraphs.size
-            frame.directParagraphs.addAll(0, preambleParagraphs)
-            preambleParagraphs.clear()
+        // The body-level (preamble) epigraph opens the first chapter, before the section's own
+        // epigraph, and is styled as an epigraph too: chapter = preamble + epigraph + body.
+        val preamble = if (!preambleFlushed && preambleParagraphs.isNotEmpty()) {
             preambleFlushed = true
+            preambleParagraphs.toList().also { preambleParagraphs.clear() }
+        } else {
+            emptyList()
         }
-        val allParagraphs = frame.epigraphParagraphs + frame.directParagraphs
-        if (allParagraphs.isEmpty()) return
+        val epigraph = preamble + frame.epigraphParagraphs
+        val allParagraphs = epigraph + frame.directParagraphs
         val prefix = sectionStack
             .filter { it.title != "Chapter ${it.index + 1}" }
             .joinToString("") { "${it.title} · " }
-        val epiShift = frame.epigraphParagraphs.size
         chapters.add(
             Fb2ChapterData(
                 index = chapterIndex,
                 title = prefix + frame.title,
                 paragraphs = allParagraphs,
-                epigraphCount = frame.epigraphParagraphs.size,
-                imageRefs = frame.imageRefs.map { (a, id) -> (epiShift + preShift + a) to id },
+                epigraphCount = epigraph.size,
+                // Image anchors count body paragraphs; everything before the body shifts them.
+                imageRefs = frame.imageRefs.map { (a, id) -> (epigraph.size + a) to id },
             ),
         )
         chapterIndex++
