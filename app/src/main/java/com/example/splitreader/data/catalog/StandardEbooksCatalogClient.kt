@@ -38,7 +38,10 @@ class StandardEbooksCatalogClient @Inject constructor(
             if (query.isNotBlank()) urlBuilder.addQueryParameter("query", query)
             val request = Request.Builder().url(urlBuilder.build()).build()
             val html = httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw IOException("Search failed: HTTP ${response.code}")
+                if (!response.isSuccessful) {
+                    throwIfUnavailable(source, response.code)
+                    throw IOException("Search failed: HTTP ${response.code}")
+                }
                 response.body?.string() ?: throw IOException("Empty response body")
             }
             CatalogPage(books = parseListing(html), hasNext = false)

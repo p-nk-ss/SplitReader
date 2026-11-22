@@ -40,6 +40,7 @@ class EpubDownloader @Inject constructor(
         val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
+                throwIfUnavailable(source, response.code)
                 throw IOException("Download failed: HTTP ${response.code}")
             }
             val body = response.body ?: throw IOException("Empty response body")

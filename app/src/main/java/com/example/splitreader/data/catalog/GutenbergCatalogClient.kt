@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import org.jsoup.Jsoup
 import org.jsoup.parser.Parser
+import retrofit2.HttpException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,7 +31,13 @@ class GutenbergCatalogClient @Inject constructor(
     override suspend fun search(query: String, page: Int): CatalogPage =
         withContext(Dispatchers.IO) {
             // No query → show the most-downloaded books so the screen is useful on first open.
-            val body = if (query.isBlank()) api.popularBooks() else api.searchBooks(query)
+            val body = try {
+                if (query.isBlank()) api.popularBooks() else api.searchBooks(query)
+            } catch (e: HttpException) {
+                // 503 + a maintenance page while Gutenberg is down: say so, not "HTTP 503".
+                throwIfUnavailable(source, e.code())
+                throw e
+            }
             CatalogPage(books = parseOpds(body.string()), hasNext = false)
         }
 
