@@ -88,10 +88,9 @@ tags: [smoke, full, library, J-LIB-05]
     id: "reader:chapterRow:2"
 - assertNotVisible: "Part One"
 
-# 2 + 4. Chapter 1 from its start: the body epigraph and the first section's own epigraph with
-#    its author line, then the section's body, whose first paragraph is exactly the source's
-#    (PRS-017). The section epigraph ("Even the shortest letter…") is followed by "Unknown"
-#    (PRS-019). See the APP BUG block below for the ORDER of the two epigraphs.
+# 2 + 4. Chapter 1 from its start: the body epigraph with its author line ("An old saying"),
+#    then the first section's own epigraph with its author line ("Unknown"), then the section's
+#    body, whose first paragraph is exactly the source's (PRS-017, PRS-019; order fixed in v30).
 - tapOn:
     id: "reader:chapterRow:0"
 - extendedWaitUntil:
@@ -113,20 +112,21 @@ tags: [smoke, full, library, J-LIB-05]
     text: "The letter arrived on a grey morning.*"
     below: "Unknown"
 - takeScreenshot: J-LIB-05-step2-epigraphs
-# APP BUG (PRS-019, v29 versionCode 29, debug build, Tab_35_PixelTablet 2026-11-21): when the
-# first section has an epigraph of its own, chapter 1 reads: the SECTION's epigraph ("Even the
-# shortest letter…"), "Unknown", THEN the body-level (preamble) epigraph ("Every letter is a kind
-# of arrival…"), then the body (screenshot J-LIB-05-step2-epigraphs). Expected (PRS-019): the
-# preamble epigraph at the very start of chapter 1, and the section's epigraph + author line
-# immediately followed by its own body. Cause: Fb2DocumentBuilder.emitSection inserts the
-# preamble at the head of the section's directParagraphs, and the chapter is epigraphParagraphs +
-# directParagraphs (each half is unit-tested on its own, the two together are not). Observed with
-# the block enabled (Pixel_10_Pro, run 20261121T101949Z): `Assertion is false: "Even the shortest letter carries the whole
-# weight of the one who wrote it\.", Below "Every letter is a kind of arrival, however long
-# delayed by weather, distance or doubt\." is visible`. Re-enable when fixed:
-#- assertVisible:
-#    text: "Even the shortest letter carries the whole weight of the one who wrote it\\."
-#    below: "Every letter is a kind of arrival, however long delayed by weather, distance or doubt\\."
+# PRS-019 (fixed in v30): v29 read the SECTION's epigraph, "Unknown", THEN the body-level epigraph
+# (without its "An old saying"), then the body: Fb2DocumentBuilder.emitSection put the preamble at
+# the head of the section's body, and dropped a body-level <text-author>. Seen failing on v29
+# (Pixel_10_Pro, run 20261121T101949Z): `Assertion is false: "Even the shortest letter carries the
+# whole weight of the one who wrote it\.", Below "Every letter is a kind of arrival, however long
+# delayed by weather, distance or doubt\." is visible`. The "An old saying" check, seen failing
+# with only the dropped-author half of the bug restored (Tab_35_PixelTablet, run 20261122T072741Z):
+# `Assertion is false: "An old saying", Below "Every letter is a kind of arrival, however long
+# delayed by weather, distance or doubt\." is visible`.
+- assertVisible:
+    text: "An old saying"
+    below: "Every letter is a kind of arrival, however long delayed by weather, distance or doubt\\."
+- assertVisible:
+    text: "Even the shortest letter carries the whole weight of the one who wrote it\\."
+    below: "An old saying"
 
 # 6. The poem: its title and each <v> line are paragraphs of their own, in source order, none
 #    merged (PRS-021, PRS-012).

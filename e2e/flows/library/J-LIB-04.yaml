@@ -26,8 +26,8 @@ tags: [smoke, full, library, J-LIB-04]
 #   with a cover never shows (its byline is "by Lewis Carroll"). The cover's colour is checked by
 #   `colour-check/` crops (e2e/check_colours.py, literal colours `x1E40C8` / `notx1E40C8`).
 #
-# APP BUG (PRS-016) — see the disabled block at step 3: Alice's chapter XIII and the
-# pictures-only book's one chapter have a BLANK title in the chapter picker.
+# PRS-016 (fixed in v30): Alice's chapter XIII (no heading of its own) reads "Chapter 13" and the
+# pictures-only book's one chapter "Chapter 1" in the picker — they were blank in v29.
 - assertTrue: ${DEVICE_CLASS == 'phone' || DEVICE_CLASS == 'tablet'}
 - runFlow: ../../subflows/launch_clean.yaml
 
@@ -163,7 +163,7 @@ tags: [smoke, full, library, J-LIB-04]
 #    Then every chapter through the picker, to "THE END" (row 13): each one opens on its
 #    masthead with text or a picture under it, no crash and no gap where an unsupported SVG (the
 #    cover wrapper) was skipped (PRS-003); every picker row has a title next to its numeral
-#    (PRS-016) — except row 12, see the APP BUG block below.
+#    (PRS-016); row 12 is "Chapter 13", checked after the loop.
 - evalScript: ${output.row = 1}
 - repeat:
     times: 12
@@ -180,15 +180,11 @@ tags: [smoke, full, library, J-LIB-04]
             id: "reader:chapterRow:${output.row}"
           direction: DOWN
           timeout: 15000
-      - runFlow:
-          when:
-            true: ${output.row != 12}
-          commands:
-            - assertVisible:
-                text: ".*\\S.*"
-                childOf:
-                  id: "reader:chapterRow:${output.row}"
-                index: 1
+      - assertVisible:
+          text: ".*\\S.*"
+          childOf:
+            id: "reader:chapterRow:${output.row}"
+          index: 1
       - tapOn:
           id: "reader:chapterRow:${output.row}"
       - extendedWaitUntil:
@@ -202,31 +198,34 @@ tags: [smoke, full, library, J-LIB-04]
             id: "original_${output.row}_0|illustration"
           timeout: 15000
 - assertVisible: "THE END"
-# APP BUG (PRS-016, v29 versionCode 29, debug build, Tab_35_PixelTablet 2026-11-21): Alice's
-# chapter picker row 12 (numeral "XIII") has NO title — only the numeral; the reader's masthead
-# for it is "— 13 —" with no title either. The chapter is the part of the last file
-# (28885-h-12) before its "THE END" heading: EpubParser adds pre-heading content as a chapter
-# with title = "" and ReaderDialogs.kt shows `chapter.title ?: "Chapter ${index + 1}"`, which
-# only falls back on null. The same "" title is given to a pictures-only book's one chapter
-# (step 6). Expected (PRS-016): every entry has a readable, non-blank title. Observed with the
-# block enabled (Pixel_10_Pro, run 20261121T101949Z): `Assertion is false: ".*\S.*", Index: 1,
-# Child of: id: reader:chapterRow:12 is visible`. Re-enable when fixed:
-#- runFlow:
-#    file: ../../subflows/tap_reader_button.yaml
-#    env:
-#      BUTTON: "reader:chaptersButton"
-#      OPENS: "Chapters"
-#- scrollUntilVisible:
-#    element:
-#      id: "reader:chapterRow:12"
-#    direction: DOWN
-#    timeout: 15000
-#- assertVisible:
-#    text: ".*\\S.*"
-#    childOf:
-#      id: "reader:chapterRow:12"
-#    index: 1
-#- tapOn: "Close"
+# PRS-016 (fixed in v30): Alice's picker row 12 (numeral "XIII") is the part of the last file
+# (28885-h-12) before its "THE END" heading. v29 gave it title "" (EpubParser's pre-heading
+# chapter; the picker fell back on null only): the row showed the numeral alone. Seen failing on
+# v29 (Pixel_10_Pro, run 20261121T101949Z): `Assertion is false: ".*\S.*", Index: 1, Child of:
+# id: reader:chapterRow:12 is visible`. Now it is named by its number, in the picker and on its
+# masthead (the dialog's Close has scrolled away with its header: the row is tapped instead):
+- runFlow:
+    file: ../../subflows/tap_reader_button.yaml
+    env:
+      BUTTON: "reader:chaptersButton"
+      OPENS: "Chapters"
+- scrollUntilVisible:
+    element:
+      id: "reader:chapterRow:12"
+    direction: DOWN
+    timeout: 15000
+- assertVisible:
+    text: "Chapter 13"
+    childOf:
+      id: "reader:chapterRow:12"
+- tapOn:
+    id: "reader:chapterRow:12"
+- extendedWaitUntil:
+    notVisible: "Chapters"
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "Chapter 13"
+    timeout: 15000
 - runFlow: ../../subflows/leave_reader.yaml
 
 # 5. Import image-chapter.epub -> Chapter Picker: the image-only file is not a chapter of its
@@ -269,8 +268,10 @@ tags: [smoke, full, library, J-LIB-04]
 - runFlow: ../../subflows/leave_reader.yaml
 
 # 6. Import pictures-only.epub -> it opens (not blank, no error) and shows both pictures (IMP-003);
-#    the Chapter Picker lists exactly one chapter, with both pictures in it, one under the other
-#    (PRS-005).
+#    the Chapter Picker lists exactly one chapter, "Chapter 1", with both pictures in it, one
+#    under the other (PRS-005). PRS-016: blank in v29; seen failing with v29's "" title and
+#    null-only picker fallback restored (Tab_35_PixelTablet, run 20261122T073430Z): `Assertion is
+#    false: "Chapter 1", Child of: id: reader:chapterRow:0 is visible`.
 - runFlow:
     file: ../../subflows/pick_file.yaml
     env:
@@ -302,6 +303,10 @@ tags: [smoke, full, library, J-LIB-04]
       OPENS: "Chapters"
 - assertVisible:
     id: "reader:chapterRow:0"
+- assertVisible:
+    text: "Chapter 1"
+    childOf:
+      id: "reader:chapterRow:0"
 - assertNotVisible:
     id: "reader:chapterRow:1"
 - tapOn:
