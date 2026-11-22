@@ -19,6 +19,7 @@ import com.example.splitreader.domain.usecase.ParseBookUseCase
 import com.example.splitreader.fakes.FakeBookParser
 import com.example.splitreader.fakes.FakeCrashReporter
 import com.example.splitreader.presentation.reader.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -55,8 +56,13 @@ class CatalogViewModelTest {
     private class FakeCatalogRepository(private val dir: File) : CatalogRepository {
         val downloadCalls = mutableListOf<CatalogBook>()
         var cancelDownload = false
-        override suspend fun search(query: String, source: CatalogSource, page: Int): CatalogPage =
-            CatalogPage(emptyList(), false)
+        /** When set, every search waits for it (a slow source), so a newer search cancels the older one. */
+        var searchGate: CompletableDeferred<CatalogPage>? = null
+        val searches = mutableListOf<String>()
+        override suspend fun search(query: String, source: CatalogSource, page: Int): CatalogPage {
+            searches += query
+            return searchGate?.await() ?: CatalogPage(emptyList(), false)
+        }
         override suspend fun downloadEpub(book: CatalogBook): Uri {
             downloadCalls += book
             if (cancelDownload) throw kotlinx.coroutines.CancellationException("cancelled")
@@ -214,6 +220,28 @@ class CatalogViewModelTest {
 
         assertEquals("cancellation must not show an error", null, vm.uiState.value.errorMessage)
         assertTrue("cancellation must not be reported as a crash: ${crash.recorded}", crash.recorded.isEmpty())
+    }
+
+    @Test
+    fun `a search cancelled by a newer one shows no error and keeps loading`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-6").apply { mkdirs() })
+        val gate = CompletableDeferred<CatalogPage>()
+        repo.searchGate = gate
+        val vm = viewModel(repo, FakeLibrary())   // init: the default listing, still waiting
+        runCurrent()
+
+        vm.retry()                                 // a newer search cancels the waiting one
+        runCurrent()
+
+        assertEquals(listOf("", ""), repo.searches)
+        assertEquals("a cancelled search is not an error", null, vm.uiState.value.errorMessage)
+        assertTrue("the newer search is still loading", vm.uiState.value.isLoading)
+        assertFalse("nothing was searched to completion yet", vm.uiState.value.hasSearched)
+        gate.complete(CatalogPage(listOf(catalogBook()), false))
+        runCurrent()
+        assertEquals(listOf("1661"), vm.uiState.value.books.map { it.id })
+        assertFalse(vm.uiState.value.isLoading)
     }
 
     // runCurrent, not advanceUntilIdle: ParseBookUseCase/download run on the real Dispatchers.IO,

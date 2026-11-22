@@ -85,6 +85,9 @@ class CatalogViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(books = page.books, isLoading = false, hasSearched = true)
                 }
+            } catch (e: CancellationException) {
+                // A newer search replaced this one: its state is the newer search's, not an error.
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
