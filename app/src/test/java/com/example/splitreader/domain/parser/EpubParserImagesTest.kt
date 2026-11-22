@@ -130,6 +130,22 @@ class EpubParserImagesTest {
         assertEquals(2, book.chapters[0].images.size)
     }
 
+    // PRS-016: a chapter without a heading of its own is named by its number, never left blank
+    // (the picker showed an empty row XIII for Alice #28885's text before "THE END").
+    @Test
+    fun `text before a heading is a chapter named by its number`() = runTest {
+        val book = parse(epub("<h1>One</h1>" + p(2, "A"), p(1, "Lead") + "<h1>THE END</h1>" + p(1, "B")))
+        assertEquals(listOf("One", "Chapter 2", "THE END"), book.chapters.map { it.title })
+        assertEquals(listOf(0, 1, 2), book.chapters.map { it.index })
+        assertEquals(1, book.chapters[1].paragraphs.size)
+    }
+
+    @Test
+    fun `a book of only images has a chapter named by its number`() = runTest {
+        val book = parse(epub(img("a.png"), img("b.png")))
+        assertEquals("Chapter 1", book.chapters.single().title)
+    }
+
     @Test
     fun `only images the old parser produced are marked as legacy layout`() = runTest {
         val book = parse(epub(

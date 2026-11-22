@@ -594,7 +594,7 @@ internal fun ChapterPickerDialog(
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = chapter.title ?: "Chapter ${index + 1}",
+                        text = chapter.title.ifBlank { "Chapter ${index + 1}" },
                         fontFamily = Newsreader,
                         fontSize = 15.sp,
                         color = if (index < currentChapterIndex) palette.ink3 else palette.ink,

@@ -43,7 +43,7 @@ class MobiParserOwnedFilesTest {
     private fun u32(v: Int) = byteArrayOf((v shr 24).toByte(), (v shr 16).toByte(), (v shr 8).toByte(), v.toByte())
 
     /** A classic uncompressed MOBI 6: record 0 (PalmDOC + MOBI + EXTH with cover offset 0), one text record, the cover image. */
-    private fun mobi(): Uri {
+    private fun mobi(html: String = "<h1>One</h1><p>Hello there, a paragraph with enough words.</p>"): Uri {
         val mobiHeaderLength = 0x74
         val rec0 = ByteArrayOutputStream().apply {
             // PalmDOC header: compression 1, unused, text length, 1 text record, record size, encryption 0, unused
@@ -60,7 +60,7 @@ class MobiParserOwnedFilesTest {
             write("EXTH".toByteArray()); write(u32(12 + 12)); write(u32(1))
             write(u32(201)); write(u32(12)); write(u32(0))
         }.toByteArray()
-        val text = "<h1>One</h1><p>Hello there, a paragraph with enough words.</p>".toByteArray()
+        val text = html.toByteArray()
         val records = listOf(rec0, text, newCover)
         val out = ByteArrayOutputStream()
         val header = ByteArray(78)
@@ -101,6 +101,16 @@ class MobiParserOwnedFilesTest {
         val book = MobiParser().parse(uri, context)
         assertEquals(1, book.chapters.size)
         assertEquals(coverFile(uri).absolutePath, book.coverPath)
+    }
+
+    // PRS-016: text before a heading is a chapter named by its number, never left blank.
+    @Test
+    fun `text before a heading is a chapter named by its number`() = runTest {
+        val book = MobiParser().parse(mobi(
+            "<h1>One</h1><p>Hello there, a paragraph with enough words.</p><mbp:pagebreak/>" +
+                "<p>A lead paragraph with enough words to count as text.</p><h1>Two</h1><p>Second chapter with enough words.</p>",
+        ), context)
+        assertEquals(listOf("One", "Chapter 2", "Two"), book.chapters.map { it.title })
     }
 
     @Test

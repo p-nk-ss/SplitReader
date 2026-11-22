@@ -153,7 +153,7 @@ class MobiParser @Inject constructor(
             if (result.preHeadingParagraphs.isNotEmpty()) {
                 chapters.add(Chapter(
                     index = chapters.size,
-                    title = "",
+                    title = "Chapter ${chapters.size + 1}",
                     paragraphs = result.preHeadingParagraphs,
                 ))
             }

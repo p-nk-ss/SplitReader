@@ -173,11 +173,11 @@ class EpubParser @Inject constructor(
                 return@forEach
             }
 
-            // Content before the chapter heading -> standalone chapter (no title)
+            // Content before the chapter heading -> standalone chapter, named by its number
             if (result.preHeadingParagraphs.isNotEmpty()) {
                 chapters.add(Chapter(
                     index = chapters.size,
-                    title = "",
+                    title = "Chapter ${chapters.size + 1}",
                     paragraphs = result.preHeadingParagraphs,
                     images = leading(),
                 ))
@@ -199,7 +199,7 @@ class EpubParser @Inject constructor(
             }
         }
         // Image-only files after the last text: they close the book. A book of only images (a
-        // picture book) gets one untitled chapter — it had none before, so nothing is renumbered.
+        // picture book) gets one chapter, "Chapter 1" — it had none before, so nothing is renumbered.
         if (pendingImages.isNotEmpty()) {
             if (chapters.isNotEmpty()) {
                 val last = chapters.last()
@@ -207,7 +207,7 @@ class EpubParser @Inject constructor(
                     images = last.images + pendingImages.map { ChapterImage(last.paragraphs.size, it, inLegacyLayout = false) },
                 )
             } else {
-                chapters.add(Chapter(index = 0, title = "", paragraphs = emptyList(), images = leading()))
+                chapters.add(Chapter(index = 0, title = "Chapter 1", paragraphs = emptyList(), images = leading()))
             }
         }
 
