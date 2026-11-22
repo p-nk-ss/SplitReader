@@ -62,7 +62,8 @@ class CatalogUnavailableTest {
         fail("expected a failure"); error("unreachable")
     }
 
-    private val gutenbergDown = "Project Gutenberg is temporarily unavailable. Try again later."
+    // The tab label, not "Project Gutenberg": that name is kept out of the UI (CatalogSource).
+    private val gutenbergDown = "Open Library is temporarily unavailable. Try again later."
     private val standardDown = "Standard Ebooks is temporarily unavailable. Try again later."
 
     @Test fun `a Gutenberg search answered 503 says Gutenberg is temporarily unavailable`() = runTest {
