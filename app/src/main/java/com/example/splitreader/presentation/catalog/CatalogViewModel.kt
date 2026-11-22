@@ -3,6 +3,7 @@ package com.example.splitreader.presentation.catalog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitreader.domain.CrashReporter
+import com.example.splitreader.domain.catalog.CatalogUnavailableException
 import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogSource
 import com.example.splitreader.domain.model.ParseResult
@@ -15,6 +16,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -89,6 +91,10 @@ class CatalogViewModel @Inject constructor(
                 // A newer search replaced this one: its state is the newer search's, not an error.
                 throw e
             } catch (e: Exception) {
+                // Superseded, yet its call failed anyway: a blocking call (OkHttp execute()) is not
+                // interrupted by cancellation, so it can throw a real IOException afterwards. The
+                // state belongs to the newer search; rethrow instead of writing an error over it.
+                ensureActive()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -135,6 +141,9 @@ class CatalogViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 _uiState.update { it.copy(downloadingId = null) }
                 throw e
+            } catch (e: CatalogUnavailableException) {
+                // The source is down (maintenance): expected, not a crash, so it is not reported.
+                _uiState.update { it.copy(downloadingId = null, errorMessage = e.message) }
             } catch (e: Exception) {
                 crashReporter.recordNonFatal(e, "Catalog download failed: ${book.id}")
                 _uiState.update {

@@ -62,29 +62,31 @@ class CatalogUnavailableTest {
         fail("expected a failure"); error("unreachable")
     }
 
-    // The tab label, not "Project Gutenberg": that name is kept out of the UI (CatalogSource).
-    private val gutenbergDown = "Open Library is temporarily unavailable. Try again later."
-    private val standardDown = "Standard Ebooks is temporarily unavailable. Try again later."
+    // Neutral for every source: "Open Library" is a real, separate service (openlibrary.org), and
+    // the Project Gutenberg name is kept out of the UI (CatalogSource).
+    private val catalogDown = "This catalog is temporarily unavailable. Try again later."
+    private val gutenbergDown = catalogDown
+    private val standardDown = catalogDown
 
-    @Test fun `a Gutenberg search answered 503 says Gutenberg is temporarily unavailable`() = runTest {
+    @Test fun `a Gutenberg search answered 503 says the catalog is temporarily unavailable`() = runTest {
         val e = messageOf { gutenberg(503).search("", 1) }
         assertEquals(gutenbergDown, e.message)
         assertEquals(CatalogUnavailableException::class, e::class)
     }
 
-    @Test fun `a Gutenberg query answered 500 says Gutenberg is temporarily unavailable`() = runTest {
+    @Test fun `a Gutenberg query answered 500 says the catalog is temporarily unavailable`() = runTest {
         assertEquals(gutenbergDown, messageOf { gutenberg(500).search("dickens", 1) }.message)
     }
 
-    @Test fun `a Gutenberg download answered 503 says Gutenberg is temporarily unavailable`() = runTest {
+    @Test fun `a Gutenberg download answered 503 says the catalog is temporarily unavailable`() = runTest {
         assertEquals(gutenbergDown, messageOf { gutenberg(503).downloadEpub(book(CatalogSource.GUTENBERG, "9999501")) }.message)
     }
 
-    @Test fun `a Standard Ebooks search answered 503 says Standard Ebooks is temporarily unavailable`() = runTest {
+    @Test fun `a Standard Ebooks search answered 503 says the catalog is temporarily unavailable`() = runTest {
         assertEquals(standardDown, messageOf { standardEbooks(503).search("", 1) }.message)
     }
 
-    @Test fun `a Standard Ebooks download answered 502 says Standard Ebooks is temporarily unavailable`() = runTest {
+    @Test fun `a Standard Ebooks download answered 502 says the catalog is temporarily unavailable`() = runTest {
         assertEquals(standardDown, messageOf { standardEbooks(502).downloadEpub(book(CatalogSource.STANDARD_EBOOKS, "a/b502")) }.message)
     }
 

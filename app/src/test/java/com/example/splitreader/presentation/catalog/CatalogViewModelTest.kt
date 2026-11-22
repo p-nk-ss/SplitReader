@@ -5,6 +5,7 @@ import com.example.splitreader.fakes.sameBookFor
 import android.app.Application
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.example.splitreader.domain.catalog.CatalogUnavailableException
 import com.example.splitreader.domain.model.Book
 import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogPage
@@ -56,16 +57,30 @@ class CatalogViewModelTest {
     private class FakeCatalogRepository(private val dir: File) : CatalogRepository {
         val downloadCalls = mutableListOf<CatalogBook>()
         var cancelDownload = false
+        /** When set, every download fails with it (e.g. the source is down for maintenance). */
+        var downloadFailure: Exception? = null
+        /**
+         * When set, a search cancelled while waiting on [searchGate] surfaces this instead of the
+         * cancellation, like a blocking call (OkHttp execute()) that times out after being superseded.
+         */
+        var failureAfterCancel: Exception? = null
         /** When set, every search waits for it (a slow source), so a newer search cancels the older one. */
         var searchGate: CompletableDeferred<CatalogPage>? = null
         val searches = mutableListOf<String>()
         override suspend fun search(query: String, source: CatalogSource, page: Int): CatalogPage {
             searches += query
-            return searchGate?.await() ?: CatalogPage(emptyList(), false)
+            val gate = searchGate ?: return CatalogPage(emptyList(), false)
+            val failure = failureAfterCancel ?: return gate.await()
+            try {
+                return gate.await()
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                throw failure
+            }
         }
         override suspend fun downloadEpub(book: CatalogBook): Uri {
             downloadCalls += book
             if (cancelDownload) throw kotlinx.coroutines.CancellationException("cancelled")
+            downloadFailure?.let { throw it }
             val file = fileFor(book)
             if (!file.exists()) file.writeBytes(ByteArray(8))
             return Uri.fromFile(file)
@@ -242,6 +257,59 @@ class CatalogViewModelTest {
         runCurrent()
         assertEquals(listOf("1661"), vm.uiState.value.books.map { it.id })
         assertFalse(vm.uiState.value.isLoading)
+    }
+
+    // M2: an outage is expected, not a crash; it shows the readable message and is not reported.
+    @Test
+    fun `a download from a catalog that is down shows its message and is not reported`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-7").apply { mkdirs() })
+        val down = CatalogUnavailableException(CatalogSource.GUTENBERG)
+        repo.downloadFailure = down
+        val vm = viewModel(repo, FakeLibrary())
+
+        vm.downloadAndOpen(catalogBook())
+        awaitReal { vm.uiState.value.errorMessage != null }
+
+        assertEquals(down.message, vm.uiState.value.errorMessage)
+        assertEquals(null, vm.uiState.value.downloadingId)
+        assertTrue("an outage must not be reported as a crash: ${crash.recorded}", crash.recorded.isEmpty())
+    }
+
+    // M5: typing cancels the waiting search, and no newer search starts until the debounce ends, so
+    // an error written by the cancelled one would stay on screen for the whole debounce.
+    @Test
+    fun `typing while a search is waiting shows no error during the debounce`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-8").apply { mkdirs() })
+        repo.searchGate = CompletableDeferred()
+        val vm = viewModel(repo, FakeLibrary())   // init: the default listing, still waiting
+        runCurrent()
+
+        vm.onQueryChange("x")                      // cancels it; the new search waits for the debounce
+        runCurrent()
+
+        assertEquals("no newer search has started yet", listOf(""), repo.searches)
+        assertEquals("a cancelled search is not an error", null, vm.uiState.value.errorMessage)
+        assertFalse(vm.uiState.value.hasSearched)
+    }
+
+    // M7: a superseded search whose call fails anyway (a blocking call is not interrupted by
+    // cancellation) must not write its error over the newer search.
+    @Test
+    fun `a superseded search that then fails shows no error`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-9").apply { mkdirs() })
+        repo.searchGate = CompletableDeferred()
+        repo.failureAfterCancel = java.io.IOException("timeout")
+        val vm = viewModel(repo, FakeLibrary())
+        runCurrent()
+
+        vm.onQueryChange("x")
+        runCurrent()
+
+        assertEquals("a superseded search's failure is not shown", null, vm.uiState.value.errorMessage)
+        assertFalse(vm.uiState.value.hasSearched)
     }
 
     // runCurrent, not advanceUntilIdle: ParseBookUseCase/download run on the real Dispatchers.IO,
