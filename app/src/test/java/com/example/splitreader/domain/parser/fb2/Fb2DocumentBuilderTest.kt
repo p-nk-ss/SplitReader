@@ -86,9 +86,10 @@ class Fb2DocumentBuilderTest {
         assertEquals(listOf("An epigraph", "Prose"), doc.chapters[0].paragraphs)
     }
 
-    // PRS-019: the body-level epigraph opens the book, its author line kept, and it is styled as an
-    // epigraph; the first section's own epigraph follows it, then the section's text.
-    @Test fun preambleAndSectionEpigraph_preambleFirst_authorsKept_bothCountAsEpigraph() {
+    // PRS-019: the body-level epigraph opens the book, its author line kept, and it is counted in
+    // epigraphCount (not yet rendered differently); the first section's own epigraph follows it,
+    // then the section's text.
+    @Test fun preambleAndSectionEpigraph_preambleFirst_authorsKept_bothCountedInEpigraphCount() {
         val doc = build(
             start("body"),
             start("epigraph"), start("p"), text("An old saying"), end("p"),
@@ -105,7 +106,7 @@ class Fb2DocumentBuilderTest {
         assertEquals(4, ch.epigraphCount)
     }
 
-    @Test fun preambleEpigraphOnly_authorKept_countsAsEpigraph() {
+    @Test fun preambleEpigraphOnly_authorKept_countedInEpigraphCount() {
         val doc = build(
             start("body"),
             start("epigraph"), start("p"), text("An old saying"), end("p"),

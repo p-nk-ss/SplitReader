@@ -201,7 +201,8 @@ class Fb2DocumentBuilder(
         val frame = sectionStack.removeLastOrNull() ?: return
         if (frame.directParagraphs.isEmpty()) return   // wrapper section: children already emitted
         // The body-level (preamble) epigraph opens the first chapter, before the section's own
-        // epigraph, and is styled as an epigraph too: chapter = preamble + epigraph + body.
+        // epigraph, and is counted in epigraphCount too (not yet rendered differently):
+        // chapter = preamble + epigraph + body.
         val preamble = if (!preambleFlushed && preambleParagraphs.isNotEmpty()) {
             preambleFlushed = true
             preambleParagraphs.toList().also { preambleParagraphs.clear() }

@@ -678,7 +678,7 @@ internal fun BookmarksDialog(
             )
         } else {
             bookmarks.forEach { bm ->
-                val chapterTitle = book.chapters.getOrNull(bm.chapterIndex)?.title
+                val chapterTitle = book.chapters.getOrNull(bm.chapterIndex)?.title?.ifBlank { null }
                     ?: "Chapter ${bm.chapterIndex + 1}"
                 val preview = book.chapters.getOrNull(bm.chapterIndex)
                     ?.paragraphs?.getOrNull(bm.paragraphIndex)
