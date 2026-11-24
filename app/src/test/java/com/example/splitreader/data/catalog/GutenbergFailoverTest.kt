@@ -7,6 +7,8 @@ import com.example.splitreader.domain.catalog.CatalogUnavailableException
 import com.example.splitreader.domain.model.CatalogBook
 import com.example.splitreader.domain.model.CatalogPage
 import com.example.splitreader.domain.model.CatalogSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -15,6 +17,8 @@ import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.internal.http2.ErrorCode
+import okhttp3.internal.http2.StreamResetException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,11 +29,18 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.EOFException
 import java.io.File
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLHandshakeException
 
 /**
  * gutenberg.org was down for maintenance (503 + Retry-After) for over a week. The Gutenberg tab
@@ -291,7 +302,7 @@ class GutenbergFailoverTest {
                 id = "98",
                 title = "A Tale of Two Cities",
                 author = "Charles Dickens",
-                languages = listOf("en"),
+                languages = emptyList(), // as gutenberg.org's OPDS rows: no language chip (M-4)
                 coverUrl = "https://gutenberg.pglaf.org/cache/epub/98/pg98.cover.medium.jpg",
                 epubUrl = "https://gutenberg.pglaf.org/cache/epub/98/pg98-images.epub",
             ),
@@ -302,7 +313,10 @@ class GutenbergFailoverTest {
         assertEquals("John Forster", page.books.single { it.id == "25851" }.author)
     }
 
-    @Test fun `author names read first name first, as the OPDS feed shows them`() = runTest {
+    // gutenberg.org's OPDS rows (autocat3 BaseSearcher.format_author) are libgutenberg's
+    // DublinCore.make_pretty_name per author (split on ", ", reverse, join with spaces, drop
+    // "(…)", squeeze spaces) joined by DublinCore.strunk ("A and B", "A, B, and C"). Same here.
+    @Test fun `author names read as gutenberg_org's OPDS feed shows them`() = runTest {
         hosts[primaryHost] = status(503)
         hosts[fallbackHost] = json(resource("gutendex-popular.json"))
 
@@ -313,8 +327,20 @@ class GutenbergFailoverTest {
         assertEquals("Arthur Conan Doyle", authors["1661"])
         assertEquals("F. Scott Fitzgerald", authors["64317"])
         assertEquals("graf Leo Tolstoy", authors["2600"])
-        assertEquals("Alexandre Dumas, Auguste Maquet", authors["1184"])
+        assertEquals("Alexandre Dumas and Auguste Maquet", authors["1184"])
         assertEquals("Homer", authors["1727"])
+    }
+
+    @Test fun `names with a suffix and three authors read as gutenberg_org shows them`() {
+        assertEquals("Jr. Martin Luther King", displayName("King, Martin Luther, Jr."))
+        assertEquals("Emperor of Rome Marcus Aurelius", displayName("Marcus Aurelius, Emperor of Rome"))
+        assertEquals("E. M. Forster", displayName("Forster, E. M. (Edward Morgan)"))
+        assertEquals("Jane Austen", authorLine(listOf("Austen, Jane")))
+        assertEquals(
+            "Mark Twain, Charles Dudley Warner, and Jane Austen",
+            authorLine(listOf("Twain, Mark", "Warner, Charles Dudley", "Austen, Jane")),
+        )
+        assertEquals("Unknown author", authorLine(emptyList()))
     }
 
     // ── downloads ────────────────────────────────────────────────────────────────────────────
@@ -343,16 +369,35 @@ class GutenbergFailoverTest {
         assertEquals(epubBytes, File(uri.path!!).readText())
     }
 
-    @Test fun `a book listed from Gutendex downloads from the mirror only`() = runTest {
+    // M-6: where a download goes is decided by the breaker, not by which backend listed the book.
+    @Test fun `a book listed from Gutendex downloads from gutenberg_org once the breaker is closed`() = runTest {
         hosts[primaryHost] = status(503)
         hosts[fallbackHost] = json(resource("gutendex-search-dickens.json"))
         hosts[mirrorHost] = fileServer
-        val book = client.search("dickens", 1).books.first().copy(id = "9990098", epubUrl = "https://gutenberg.pglaf.org/cache/epub/9990098/pg9990098-images.epub")
-        nowMs += 60 * 60_000L // breaker closed again: the listed book still goes to the mirror
-        hosts[primaryHost] = primaryUp
+        val book = client.search("dickens", 1).books.first().copy(id = "9990098", epubUrl = mirrorEpubUrl("9990098"))
+        nowMs += 60 * 60_000L // breaker closed again
+        hosts[primaryHost] = fileServer
         requests.clear()
 
         client.downloadEpub(book)
+
+        assertEquals(listOf("https://www.gutenberg.org/ebooks/9990098.epub.images"), requests.map { it.toString() })
+    }
+
+    @Test fun `a book listed from Gutendex goes to the mirror when gutenberg_org fails again`() = runTest {
+        hosts[primaryHost] = status(503)
+        hosts[mirrorHost] = fileServer
+
+        client.downloadEpub(gutenbergBook("9990097").copy(epubUrl = mirrorEpubUrl("9990097")))
+
+        assertEquals(listOf(primaryHost, mirrorHost), requests.map { it.host })
+    }
+
+    @Test fun `while the breaker is open a book listed from Gutendex downloads from the mirror`() = runTest {
+        openBreaker()
+        hosts[mirrorHost] = fileServer
+
+        client.downloadEpub(gutenbergBook("9990096").copy(epubUrl = mirrorEpubUrl("9990096")))
 
         assertEquals(listOf(mirrorHost), requests.map { it.host })
     }
@@ -394,5 +439,153 @@ class GutenbergFailoverTest {
 
         assertEquals(UnknownHostException::class, e::class)
         assertEquals("Unable to resolve host \"$primaryHost\"", e.message)
+    }
+
+    // ── I-1: three kinds of failure (5xx / offline / timeout-reset-stream-TLS) ───────────────
+
+    private suspend fun openBreaker() {
+        hosts[primaryHost] = status(503)
+        hosts[fallbackHost] = json(resource("gutendex-search-dickens.json"))
+        client.search("dickens", 1)
+        assertTrue(breaker.isOpen)
+        requests.clear()
+    }
+
+    @Test fun `while the breaker is open a Gutendex timeout is the neutral error, not a network error`() = runTest {
+        openBreaker()
+        hosts[fallbackHost] = failing(SocketTimeoutException("timeout"))
+
+        val e = failureOf { client.search("dracula", 1) }
+
+        assertEquals(CatalogUnavailableException::class, e::class)
+        assertTrue("still open", breaker.isOpen)
+        assertEquals(emptyList<HttpUrl>(), requestsTo(primaryHost))
+    }
+
+    @Test fun `while the breaker is open a mirror download that times out is the neutral error`() = runTest {
+        openBreaker()
+        hosts[mirrorHost] = failing(SocketTimeoutException("timeout"))
+
+        val e = failureOf { client.downloadEpub(gutenbergBook("9990601")) }
+
+        assertEquals(CatalogUnavailableException::class, e::class)
+        assertEquals(emptyList<HttpUrl>(), requestsTo(primaryHost))
+    }
+
+    @Test fun `gutenberg_org hanging and Gutendex timing out opens the breaker`() = runTest {
+        hosts[primaryHost] = failing(SocketTimeoutException("timeout"))
+        hosts[fallbackHost] = failing(SocketTimeoutException("timeout"))
+
+        val e = failureOf { client.search("dickens", 1) }
+
+        assertEquals(CatalogUnavailableException::class, e::class)
+        // The next search goes straight to Gutendex: no second 30 s wait on gutenberg.org.
+        hosts[fallbackHost] = json(resource("gutendex-search-dickens.json"))
+        assertEquals("A Tale of Two Cities", client.search("dickens", 1).books.first().title)
+        assertEquals("gutenberg.org asked once", 1, requestsTo(primaryHost).size)
+    }
+
+    @Test fun `gutenberg_org offline and Gutendex timing out is the neutral error`() = runTest {
+        hosts[fallbackHost] = failing(SocketTimeoutException("timeout")) // gutenberg.org: unknown host
+
+        val e = failureOf { client.search("dickens", 1) }
+
+        assertEquals(CatalogUnavailableException::class, e::class)
+        assertTrue("Gutendex was reached: the device is online", breaker.isOpen)
+    }
+
+    @Test fun `timeouts, resets, broken streams and TLS failures on gutenberg_org fall back`() = runTest {
+        hosts[fallbackHost] = json(resource("gutendex-search-dickens.json"))
+        val failures = listOf<IOException>(
+            // OkHttp's Http1ExchangeCodec when the server closes the connection before answering.
+            IOException("unexpected end of stream on https://www.gutenberg.org/...", EOFException("\\n not found: limit=0")),
+            StreamResetException(ErrorCode.REFUSED_STREAM),
+            SSLHandshakeException("Chain validation failed"),
+            SocketException("Connection reset"),
+            InterruptedIOException("timeout"), // OkHttp's call timeout
+            SocketTimeoutException("timeout"),
+        )
+        for (failure in failures) {
+            nowMs += 2 * GutenbergBreaker.OPEN_FOR_MS
+            requests.clear()
+            hosts[primaryHost] = failing(failure)
+
+            val page = runCatching { client.search("dickens", 1) }
+
+            assertEquals(page.toString(), "A Tale of Two Cities", page.getOrNull()?.books?.first()?.title)
+            assertEquals(failure.toString(), listOf(primaryHost, fallbackHost), requests.map { it.host })
+            assertTrue(failure.toString(), breaker.isOpen)
+        }
+    }
+
+    @Test fun `with no network every offline kind keeps the network error`() = runTest {
+        for (offline in listOf(UnknownHostException("dns"), ConnectException("refused"), NoRouteToHostException("no route"))) {
+            hosts[primaryHost] = failing(offline)
+            hosts[fallbackHost] = failing(UnknownHostException("Unable to resolve host \"gutendex.com\""))
+
+            val e = failureOf { client.search("dickens", 1) }
+
+            // The primary's own error (a copy: coroutines' stack-trace recovery re-creates it).
+            assertEquals("$offline -> $e", offline.javaClass to offline.message, e.javaClass to e.message)
+            assertFalse("$offline", breaker.isOpen)
+        }
+    }
+
+    // ── I-3: any other failure is not "unavailable" ──────────────────────────────────────────
+
+    @Test fun `while the breaker is open a book missing on the mirror keeps its own error`() = runTest {
+        openBreaker()
+        hosts[mirrorHost] = status(404)
+
+        val e = failureOf { client.downloadEpub(gutenbergBook("9990404")) }
+
+        assertFalse(e.toString(), e is CatalogUnavailableException)
+        assertEquals("Download failed: HTTP 404", e.message)
+    }
+
+    @Test fun `a Gutendex answer that is not JSON keeps its own error`() = runTest {
+        hosts[primaryHost] = status(503)
+        hosts[fallbackHost] = { response(it, 200, "<html>Cloudflare</html>", "text/html") }
+
+        val e = failureOf { client.search("dickens", 1) }
+
+        assertFalse(e.toString(), e is CatalogUnavailableException)
+        assertTrue(e.toString(), e is com.google.gson.stream.MalformedJsonException)
+        assertTrue("gutenberg.org answered 503: the breaker opens", breaker.isOpen)
+    }
+
+    @Test fun `a bug in the fallback keeps its own error`() = runTest {
+        openBreaker()
+        hosts[mirrorHost] = { throw IllegalStateException("bug") }
+
+        val e = failureOf { client.downloadEpub(gutenbergBook("9990500")) }
+
+        assertEquals(IllegalStateException::class, e::class)
+        assertEquals("bug", e.message)
+    }
+
+    // ── M-1: cancellation ────────────────────────────────────────────────────────────────────
+
+    // A blocking call (EpubDownloader's execute()) is not interrupted by cancellation: it can fail
+    // with a real timeout after the caller is gone. That is the cancellation, not an outage.
+    @Test fun `a download cancelled during the gutenberg_org call never reaches the mirror or opens the breaker`() = runTest {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        hosts[primaryHost] = {
+            entered.countDown()
+            release.await(5, TimeUnit.SECONDS)
+            throw SocketTimeoutException("timeout")
+        }
+        hosts[mirrorHost] = fileServer
+
+        val job = launch(Dispatchers.IO) { client.downloadEpub(gutenbergBook("9990700")) }
+        assertTrue(entered.await(5, TimeUnit.SECONDS))
+        job.cancel()
+        release.countDown()
+        job.join()
+
+        assertTrue(job.isCancelled)
+        assertEquals(emptyList<HttpUrl>(), requestsTo(mirrorHost))
+        assertFalse("a cancellation must not open the breaker", breaker.isOpen)
     }
 }

@@ -27,8 +27,6 @@ internal fun mirrorEpubUrl(id: String) = "$GUTENBERG_MIRROR/cache/epub/$id/pg$id
 
 internal fun mirrorCoverUrl(id: String) = "$GUTENBERG_MIRROR/cache/epub/$id/pg$id.cover.medium.jpg"
 
-internal fun isMirrorUrl(url: String) = url.startsWith("$GUTENBERG_MIRROR/")
-
 /**
  * The Gutenberg tab's fallback while gutenberg.org is down: metadata from Gutendex, files and
  * covers from the gutenberg.pglaf.org mirror. Same [CatalogSource] and ids as
@@ -64,16 +62,15 @@ class GutendexCatalogClient @Inject constructor(
         if (copyright == true || mediaType != "Text") return null
         if (formats.orEmpty()["application/epub+zip"].isNullOrBlank()) return null
         val title = title?.takeIf { it.isNotBlank() } ?: return null
-        val author = authors.orEmpty()
-            .mapNotNull { it.name?.let(::displayName)?.takeIf(String::isNotBlank) }
-            .joinToString(", ")
-            .ifBlank { "Unknown author" }
+        val author = authorLine(authors.orEmpty().mapNotNull { it.name })
         return CatalogBook(
             source = source,
             id = id,
             title = title,
             author = author,
-            languages = languages.orEmpty(),
+            // gutenberg.org's OPDS rows carry no languages, so no language chip: a row looks the
+            // same whichever backend listed it.
+            languages = emptyList(),
             coverUrl = mirrorCoverUrl(id),
             epubUrl = mirrorEpubUrl(id),
         )
@@ -87,14 +84,24 @@ class GutendexCatalogClient @Inject constructor(
 
 /**
  * Gutendex names are catalogue-style ("Shelley, Mary Wollstonecraft", "Tolstoy, Leo, graf",
- * "Fitzgerald, F. Scott (Francis Scott)"); the OPDS feed shows them first name first ("Mary
- * Wollstonecraft Shelley", "graf Leo Tolstoy", "F. Scott Fitzgerald"): drop the parenthesised full
- * form and reverse the comma-separated parts.
+ * "Fitzgerald, F. Scott (Francis Scott)"). gutenberg.org's OPDS rows (autocat3
+ * `BaseSearcher.format_author`) show each through libgutenberg's `DublinCore.make_pretty_name` and
+ * join them with `DublinCore.strunk`; this is the same, so a row reads the same from either
+ * backend: "Mary Wollstonecraft Shelley", "graf Leo Tolstoy", "Alexandre Dumas and Auguste Maquet",
+ * and, as on gutenberg.org, "Jr. Martin Luther King". No author: "Unknown author", as the primary.
  */
+internal fun authorLine(catalogueNames: List<String>): String {
+    val names = catalogueNames.map(::displayName).filter(String::isNotBlank)
+    return when (names.size) {
+        0 -> "Unknown author"
+        1, 2 -> names.joinToString(" and ")
+        else -> names.dropLast(1).joinToString(", ") + ", and " + names.last()
+    }
+}
+
+/** `make_pretty_name`: reverse the ", "-separated parts, drop "(…)", squeeze spaces. */
 internal fun displayName(catalogueName: String): String =
-    catalogueName.replace(Regex("""\s*\([^)]*\)"""), "")
-        .split(',')
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
-        .reversed()
-        .joinToString(" ")
+    catalogueName.split(", ").reversed().joinToString(" ")
+        .replace(Regex("""\(.*\)"""), "")
+        .replace(Regex("""\s+"""), " ")
+        .trim()

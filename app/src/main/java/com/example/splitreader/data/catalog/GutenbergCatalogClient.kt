@@ -18,6 +18,9 @@ import javax.inject.Singleton
 /** Pulls the numeric Gutenberg book id out of an OPDS `<id>`/href, e.g. `…/ebooks/1661.opds` → 1661. */
 private val EBOOK_ID_REGEX = Regex("""ebooks/(\d+)""")
 
+/** gutenberg.org's EPUB for "older e-readers" (`pg<id>-images.epub`) — the mirror serves the same file. */
+internal fun gutenbergEpubUrl(id: String) = "https://www.gutenberg.org/ebooks/$id.epub.images"
+
 /** Project Gutenberg catalog: OPDS search/popular feed parsed with Jsoup, deterministic EPUB/cover URLs. */
 @Singleton
 class GutenbergCatalogClient @Inject constructor(
@@ -60,7 +63,7 @@ class GutenbergCatalogClient @Inject constructor(
                 author = author,
                 languages = emptyList(),
                 coverUrl = "https://www.gutenberg.org/cache/epub/$id/pg$id.cover.medium.jpg",
-                epubUrl = "https://www.gutenberg.org/ebooks/$id.epub.images",
+                epubUrl = gutenbergEpubUrl(id),
             )
         }
     }
