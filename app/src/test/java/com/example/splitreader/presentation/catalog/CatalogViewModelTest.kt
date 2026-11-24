@@ -83,8 +83,11 @@ class CatalogViewModelTest {
                 throw failure
             }
         }
+        /** When set, every download waits for it (a slow mirror) before failing or finishing. */
+        var downloadGate: CompletableDeferred<Unit>? = null
         override suspend fun downloadEpub(book: CatalogBook): Uri {
             downloadCalls += book
+            downloadGate?.await()
             if (cancelDownload) throw kotlinx.coroutines.CancellationException("cancelled")
             downloadFailure?.let { throw it }
             val file = fileFor(book)
@@ -389,6 +392,30 @@ class CatalogViewModelTest {
 
         vm.dismissError()
         assertEquals(null, vm.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `a download that fails after a failed search shows no search Retry`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-14").apply { mkdirs() })
+        repo.listing = listOf(catalogBook())
+        val vm = viewModel(repo, FakeLibrary())
+        runCurrent()
+        repo.downloadGate = CompletableDeferred()
+        repo.downloadFailure = java.io.IOException("Download failed: HTTP 404")
+        vm.downloadAndOpen(catalogBook())
+        awaitReal { vm.uiState.value.downloadingId != null }
+
+        // While the slow download runs, a search fails…
+        repo.searchFailure = java.net.SocketTimeoutException("timeout")
+        vm.retry()
+        runCurrent()
+        assertTrue(vm.uiState.value.searchFailed)
+        // …then the download fails: its banner must not offer Retry (that would re-run the search).
+        repo.downloadGate!!.complete(Unit)
+        awaitReal { vm.uiState.value.errorMessage == "Download failed: HTTP 404" }
+
+        assertFalse("a download error has no search Retry", vm.uiState.value.searchFailed)
     }
 
     @Test

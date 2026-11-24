@@ -143,7 +143,7 @@ class CatalogViewModel @Inject constructor(
                             }
                         }
                         is ParseResult.Error -> _uiState.update {
-                            it.copy(downloadingId = null, errorMessage = result.message)
+                            it.copy(downloadingId = null, errorMessage = result.message, searchFailed = false)
                         }
                         is ParseResult.Idle -> _uiState.update { it.copy(downloadingId = null) }
                     }
@@ -153,11 +153,11 @@ class CatalogViewModel @Inject constructor(
                 throw e
             } catch (e: CatalogUnavailableException) {
                 // The source is down (maintenance): expected, not a crash, so it is not reported.
-                _uiState.update { it.copy(downloadingId = null, errorMessage = e.message) }
+                _uiState.update { it.copy(downloadingId = null, errorMessage = e.message, searchFailed = false) }
             } catch (e: Exception) {
                 crashReporter.recordNonFatal(e, "Catalog download failed: ${book.id}")
                 _uiState.update {
-                    it.copy(downloadingId = null, errorMessage = e.message ?: "Download failed")
+                    it.copy(downloadingId = null, errorMessage = e.message ?: "Download failed", searchFailed = false)
                 }
             }
         }
