@@ -476,7 +476,7 @@ Tests: `python3 e2e/test_check_colours.py`.
 
 ## Release smoke (`e2e/flows/release/`, tag `release`)
 
-Six short flows run against the **signed, R8-minified release build** — the same R8 and signing
+Seven short flows run against the **signed, R8-minified release build** — the same R8 and signing
 as the bundle Play ships, installed as the universal `app-release.apk` (not the .aab's
 ABI/density splits that Play delivers: a split-only problem, e.g. the bergamot `.so` in an ABI
 split, is not seen here) — on the tablet emulator only (tagged `tablet`):
@@ -493,10 +493,11 @@ caffeinate -d -i -s -u e2e/run.sh --avd Tab_35_PixelTablet --headless --build re
 | R-04 | Catalog: Standard Ebooks search "Walden" → download → reader → Library. Not Gutenberg ("Open Library"). The flow first asks standardebooks.org from the host: if it does not answer 200, it fails at once with the failing step "… VOID - standardebooks.org did not answer 200 …" — void, not a build result |
 | R-05 | Force-stop + relaunch: the book is still in the Library and reopens at the bookmarked-named place in chapter 12 (J-RDR-03 step 10's method) |
 | R-06 | Quick Translate (no key) chosen in Settings before the book is opened translates tiny.epub's three paragraphs into Russian: Retrofit's service proxy + suspend call, OkHttp, the scalars converter and Gson's `JsonParser`. No "translated by" strip, Quick Translate is the current picker card (colour crop), no Offline HQ pack downloaded; the default translator is put back at the end. A banner "rate-limited" / "No internet" makes a FAIL void |
+| R-07 | Catalog, "Open Library" (Gutenberg) tab: POPULAR list (not "temporarily unavailable") → its Frankenstein / Mary Wollstonecraft Shelley row (row 2 on either backend; no search: Gutendex's search did not answer within 105–120 s on 2026-11-24) → reader with text → Library "· 1 VOLUME". While gutenberg.org is down this runs on the v31 fallback — Gutendex JSON through Gson into `data.catalog.gutendex` DTOs (an R8-stripped DTO reads as an empty list) and the EPUB from gutenberg.pglaf.org; when it is up, on the OPDS client. Which backend served it is not asserted. The flow first asks gutendex.com from the host (never gutenberg.org): no 200 → "… VOID - gutendex.com did not answer 200 …" |
 
 Not covered by the release smoke: the reflective Gson DTOs of DeepL / Google Cloud / Azure (they
-need a real key; `proguard-rules.pro` keeps `data.translator.api.**` whole), Gutenberg's
-Retrofit OPDS client, a real purchase, and Crashlytics (release-only collection + the R8 mapping
+need a real key; `proguard-rules.pro` keeps `data.translator.api.**` whole), whichever Gutenberg
+backend R-07 did not use (OPDS while gutenberg.org is down, Gutendex while it is up), a real purchase, and Crashlytics (release-only collection + the R8 mapping
 upload) — that stays manual, J-LIB-17 step 7.
 
 `--build release` in the main checkout uses its own `keystore.properties` and the `.jks` it names

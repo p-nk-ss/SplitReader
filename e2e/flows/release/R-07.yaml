@@ -1,0 +1,71 @@
+appId: ${APP_ID}
+name: R-07 Release - Open Library list, download and open
+tags: [release, tablet, network, R-07]
+# No `# books:` header: the book comes from the live catalog.
+---
+# Covers, on the release build: CAT-004 (the "Open Library" = Gutenberg tab).
+# R-07 — Release smoke for the Gutenberg tab: its popular list, a download that opens — in the
+# signed, R8-minified build. While gutenberg.org is down (HTTP 503 since 2026-11-19) the tab is
+# served by its fallback (FailoverGutenbergClient, v31): Gutendex JSON read by Gson into the
+# data.catalog.gutendex DTOs (kept by proguard-rules.pro) and the EPUB from gutenberg.pglaf.org.
+# An R8-stripped DTO reads as an empty list ("No books found"), so step 1/2's waits fail.
+# When gutenberg.org is up the same steps run on the primary (Retrofit OPDS + Jsoup) instead —
+# also R8 coverage; which one served the list is not asserted (summary.md cannot tell).
+# A FAIL caused by gutendex.com being unreachable while gutenberg.org is down is void, not a build
+# failure. Step 0 asks gutendex.com from the host first (never gutenberg.org: no probing a site
+# under maintenance); no 200 → the flow fails THERE on "VOID - gutendex.com did not answer 200 …".
+- runScript:
+    file: ../../subflows/http_status.js
+    env:
+      URL: "https://gutendex.com/books/?ids=84"
+- runFlow:
+    when:
+      true: ${output.httpStatus != 200}
+    commands:
+      - assertVisible: "VOID - gutendex.com did not answer 200, an outside outage, not a build failure"
+- runFlow: ../../subflows/launch_clean.yaml
+
+# 1. Catalog opens on the Open Library pill with its POPULAR list (not the "temporarily
+#    unavailable" message gutenberg.org's 503 alone would give).
+- tapOn: "Catalog"
+- extendedWaitUntil:
+    visible: "POPULAR"
+    timeout: 60000
+- assertNotVisible: "This catalog is temporarily unavailable.*"
+- takeScreenshot: R-07-step1-popular
+
+# 2. The list has Frankenstein / Mary Wollstonecraft Shelley (row 2 of both backends' popular
+#    lists). No search on purpose: Gutendex's search answered in 105 s, then not within 120 s,
+#    on 2026-11-24 while its popular page answered in 0.3 s - a step that only an outside slow
+#    search can fail proves nothing about the build. Parsing this list is the same Gson/DTO path.
+- extendedWaitUntil:
+    visible: ".*Mary Wollstonecraft Shelley.*"
+    timeout: 60000
+- takeScreenshot: R-07-step2-frankenstein
+
+# 3. Tap the Shelley row (its author text is part of the row's clickable Read area, R-04) ->
+#    downloads, opens in the reader (the Catalog is gone), with text.
+- tapOn:
+    text: ".*Mary Wollstonecraft Shelley.*"
+- extendedWaitUntil:
+    notVisible: "Standard Ebooks"
+    timeout: 150000
+- runFlow: ../../subflows/dismiss_portrait_hint.yaml
+- retry:
+    maxRetries: 2
+    commands:
+      - runFlow: ../../subflows/show_bars.yaml
+      - assertVisible: ".*Frankenstein.*"
+- extendedWaitUntil:
+    visible:
+      id: "original_\\d+_\\d+"
+    timeout: 30000
+- takeScreenshot: R-07-step3-reader
+
+# 4. Back -> Library -> Frankenstein is the one book.
+- runFlow: ../../subflows/leave_reader_from_catalog.yaml
+- assertVisible: ".*Frankenstein.*"
+- scrollUntilVisible:
+    element: "· 1 VOLUME"
+    direction: DOWN
+    timeout: 10000

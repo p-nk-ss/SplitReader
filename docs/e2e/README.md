@@ -14,14 +14,14 @@ flow, and 26 manual). Flows live in
 | `manual` | not automatable (real sign-in/purchase, two Play builds, paid API keys, simulated failures, visual judgement) | manual checklist on a real device before larger releases |
 | `network` | needs internet (Offline HQ packs, ML Kit models, catalog) | |
 | `tablet` / `phone` / `rotation` | device-specific | |
-| `release` | release smoke, R-01 … R-06, on the signed R8-minified release APK | before **every** Play upload: tablet API 35 |
+| `release` | release smoke, R-01 … R-07, on the signed R8-minified release APK | before **every** Play upload: tablet API 35 |
 | `known-bug` | documents a known open bug; expected to fail until fixed | reported, never blocks |
 
 Priority: **P0** core flow or regression of a release-blocking bug (a failure blocks the release);
 **P1** important; **P2** minor/cosmetic.
 
 Release gate: all `smoke` cases pass on both devices, plus the release smoke on the signed release APK.
-The release smoke is `e2e/flows/release/R-01…R-06` (tag `release`, tablet API 35; see `e2e/README.md`
+The release smoke is `e2e/flows/release/R-01…R-07` (tag `release`, tablet API 35; see `e2e/README.md`
 "Release smoke" and `e2e_journeys.md` "Release smoke"). `--build release` copies the signing files in for the
 build only and removes them on exit (in the main checkout it uses the signing files in place).
 Results go to `releases/e2e-<versionName>-<versionCode>-<device>-<build>-<tags>.md` (see "The release
@@ -47,7 +47,7 @@ Before uploading a bundle to Play:
 1. `smoke` on Tab_35_PixelTablet and on Pixel_10_Pro, both `--build debug`; for a larger release also
    `full` on both (and Tab_26_Nexus9 once per closed-testing cycle). Evidence:
    `releases/e2e-<v>-<c>-Tab_35_PixelTablet-debug-smoke.md` and `…-Pixel_10_Pro-debug-smoke.md`.
-2. `--build release --tags release` on Tab_35_PixelTablet (R-01 … R-06 on the signed, R8-minified APK).
+2. `--build release --tags release` on Tab_35_PixelTablet (R-01 … R-07 on the signed, R8-minified APK).
    Evidence: `releases/e2e-<v>-<c>-Tab_35_PixelTablet-release-release.md` — its own file, so it never
    replaces step 1's tablet smoke summary.
 3. The manual checklist (`docs/e2e/manual_checklist.md`) per its "When to run what" table.

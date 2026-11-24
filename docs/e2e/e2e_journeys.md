@@ -162,6 +162,21 @@ Accounts: `ACC_EXISTING` (pre-created email/password Firebase account, password 
 
 **Steps**
 
+**Either Gutenberg backend (v31):** while gutenberg.org is down (HTTP 503 since 2026-11-19) the
+"Open Library" pill is served by its fallback — Gutendex for the lists, gutenberg.pglaf.org for
+the EPUBs (`FailoverGutenbergClient`). The steps check the same things on either backend: the
+POPULAR list (Gutendex's popular page also opens with Pride and Prejudice then Frankenstein, as the
+OPDS feed did — checked 2026-11-24), several Austen/Shelley editions in the results, the George
+Allen illustrated Pride and Prejudice (the mirror serves `pg1342-images.epub`, the file
+gutenberg.org names for `ebooks/1342.epub.images` — expected to be the same, so its "CHAPTER
+XLIV." row too; not verifiable while gutenberg.org is down). No step depends on which backend
+answered; while gutenberg.org was down, steps 1+ failed at `"POPULAR" is visible` ("This catalog
+is temporarily unavailable"). On 2026-11-24 the fallback itself was slow: a cold Gutendex search
+took 105 s (the app times out at 30 s and keeps the POPULAR list on screen, relabelled RESULTS,
+with no error — the existing error-only-when-empty rule) and the mirror sent about 47 KB/s, so
+step 4's 24.9 MB download outlasts the 150 s wait. Such a FAIL is an outside slowness (void),
+like a Gutenberg 503.
+
 Corrected from an earlier draft (verified against `CatalogScreen.kt`/`CatalogViewModel.kt`): the two
 sources are separate pills, searched one at a time — "Open Library" (default; backed by the
 Project Gutenberg OPDS feed under a different display label, see `CatalogSource.kt`) and
@@ -545,7 +560,7 @@ The system picker hands out a different uri for one file from its "Recent" and "
 
 **Covers:** ERR-009, ERR-010, ERR-011, ERR-012, ERR-013, ERR-014, ERR-015, ERR-017, PRM-005
 
-### Release smoke (R-01 … R-06) — the signed release APK
+### Release smoke (R-01 … R-07) — the signed release APK
 
 **Priority** P0 · **Tags** release, tablet, network · **Devices** tablet API 35 (Tab_35_PixelTablet) · **Build** signed, R8-minified `app-release.apk`
 **Fixtures** full-features.fb2, classic-h2.mobi, en-novel.epub, tiny.epub · **Run** `e2e/run.sh --avd Tab_35_PixelTablet --headless --build release --tags release`
@@ -559,12 +574,13 @@ What the debug suite cannot see: code R8 strips or renames (Hilt view models, Ro
 5. **R-05** Chapter 12, scrolled past its first paragraph, bookmarked to name the place → force-stop + relaunch → Library "CH 12 OF 22", "· 1 VOLUME" → reopen → chapter 12, not its first paragraph, "Remove bookmark here" with the same label.
 
 6. **R-06** Settings → Translation → Change → Quick Translate (no key) → import tiny.epub → its three paragraphs are Russian (Retrofit service proxy + suspend call, OkHttp, scalars converter, Gson `JsonParser`), no "TRANSLATION FAILED", no "translated by" strip, no ML KIT; picker: Quick Translate is the current (PaperInk) card, Offline HQ an ordinary one; Settings still Quick Translate, no Offline HQ pack; Offline HQ chosen again at the end. A failed request (what an R8-broken Retrofit does) shows "TRANSLATION FAILED" and leaves the slots empty → FAIL at the first Cyrillic check (seen with aeroplane mode on). A "rate-limited" / "No internet" banner makes a FAIL void.
+7. **R-07** (v31) Catalog → the "Open Library" (Gutenberg) pill shows its POPULAR list, not "This catalog is temporarily unavailable" → its Frankenstein / Mary Wollstonecraft Shelley row (row 2 of both backends' popular lists) → tap it → the reader with text, "Frankenstein" in the top bar → Library "· 1 VOLUME". While gutenberg.org is down this runs on the fallback (Gutendex JSON → Gson → the `data.catalog.gutendex` DTOs, kept by `proguard-rules.pro`; an R8-stripped DTO reads as an empty list, so the POPULAR/Shelley waits fail; no search step, because Gutendex's search did not answer within 105–120 s on 2026-11-24 while its popular page answered in 0.3 s; the EPUB from gutenberg.pglaf.org); when gutenberg.org is up, on the OPDS client. The flow first asks gutendex.com from the host (never gutenberg.org); no 200 → "… VOID - gutendex.com did not answer 200 …": void, not a FAIL of the build.
 
 Plus, every `--build release` run: `run.sh` refuses an APK with any `ReaderViewModel` class descriptor in its dex (dexdump; R8 renames it) and writes "R8: 0 ReaderViewModel class descriptors …" into summary.md (ERR-011, minification half).
 
-Not covered here: the reflective Gson DTOs of DeepL / Google Cloud / Azure (need a real key), Gutenberg's Retrofit OPDS client, a real purchase, and Crashlytics (release-only collection, mapping upload: J-LIB-17 step 7, manual).
+Not covered here: the reflective Gson DTOs of DeepL / Google Cloud / Azure (need a real key), whichever Gutenberg backend R-07 did not use (the OPDS client while gutenberg.org is down, Gutendex while it is up), a real purchase, and Crashlytics (release-only collection, mapping upload: J-LIB-17 step 7, manual).
 
-**Covers:** PRM-005, ERR-011 (R8 half), OHQ-001, OHQ-004, POP-001, WRD-001, CAT-005, POS-013, ONL-021 (Quick Translate translates) — on the release build
+**Covers:** PRM-005, ERR-011 (R8 half), OHQ-001, OHQ-004, POP-001, WRD-001, CAT-004, CAT-005, POS-013, ONL-021 (Quick Translate translates) — on the release build
 
 ### J-LIB-18 — Odd files that need a human eye
 

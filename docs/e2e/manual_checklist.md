@@ -27,7 +27,7 @@ Per-journey device fields below name the device class; write the actual OS versi
 
 | Release kind | Run |
 |---|---|
-| Every release (hotfix, small fix, versionCode bump) | none (the automated suite and release smoke R-01..R-06 are enough) |
+| Every release (hotfix, small fix, versionCode bump) | none (the automated suite and release smoke R-01..R-07 are enough) |
 | Larger release (new feature, parser/translator/DB/billing/auth change, new target SDK, R8 or dependency bump) | all **P0** manual journeys (column "When" = L) |
 | Closed-testing cycle (start of each 12-tester / 14-day cycle) | all journeys, P0 first, then P1, P2, known-bug probe |
 
@@ -596,6 +596,6 @@ noted). Cases in brackets. Source: the "MANUAL" notes inside `docs/e2e/e2e_journ
 
 - All 26 manual journeys of the catalogue (J-LIB-09, J-LIB-11..18, J-RDR-10..20, J-TRN-11..16) have a section.
 - J-LIB-09: only steps 1-3, 6, 12 have an automated screens-only twin (J-LIB-09a).
-- The release smoke R-01..R-06 is automated; its "not covered" items are M-01 (DeepL, Google, Azure DTOs),
+- The release smoke R-01..R-07 is automated; its "not covered" items are M-01 (DeepL, Google, Azure DTOs),
   M-02 (Gutenberg), J-LIB-11/12 (real purchase) and M-04 (Crashlytics).
 - Known bugs (IMP-011, MLK-005, MLK-009, POP-026, LNG-008, BMK-011..014, ILL-010, SYS-011) are recorded, never blocking.
