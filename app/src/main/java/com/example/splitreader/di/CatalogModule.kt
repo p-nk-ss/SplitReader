@@ -1,7 +1,8 @@
 package com.example.splitreader.di
 
-import com.example.splitreader.data.catalog.GutenbergCatalogClient
+import com.example.splitreader.data.catalog.FailoverGutenbergClient
 import com.example.splitreader.data.catalog.GutenbergOpdsApi
+import com.example.splitreader.data.catalog.gutendex.GutendexApi
 import com.example.splitreader.data.catalog.StandardEbooksCatalogClient
 import com.example.splitreader.data.repository.CatalogRepositoryImpl
 import com.example.splitreader.domain.catalog.CatalogSourceClient
@@ -17,10 +18,12 @@ import dagger.multibindings.IntoMap
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class GutenbergRetrofit
+@Qualifier @Retention(AnnotationRetention.BINARY) annotation class GutendexRetrofit
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class GutenbergClient
 @Qualifier @Retention(AnnotationRetention.BINARY) annotation class StandardEbooksClient
 
@@ -78,6 +81,20 @@ object CatalogNetworkModule {
     @Provides @Singleton
     fun provideGutenbergApi(@GutenbergRetrofit retrofit: Retrofit): GutenbergOpdsApi =
         retrofit.create(GutenbergOpdsApi::class.java)
+
+    // The Gutenberg tab's fallback while gutenberg.org is down (FailoverGutenbergClient). Same
+    // identifying User-Agent as gutenberg.org (the @GutenbergClient OkHttpClient); JSON via Gson.
+    @Provides @Singleton @GutendexRetrofit
+    fun provideGutendexRetrofit(@GutenbergClient client: OkHttpClient): Retrofit =
+        Retrofit.Builder()
+            .baseUrl("https://gutendex.com/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+    @Provides @Singleton
+    fun provideGutendexApi(@GutendexRetrofit retrofit: Retrofit): GutendexApi =
+        retrofit.create(GutendexApi::class.java)
 }
 
 @Module
@@ -90,7 +107,7 @@ abstract class CatalogBindingsModule {
     @Binds
     @IntoMap
     @CatalogSourceKey(CatalogSource.GUTENBERG)
-    abstract fun bindGutenbergClient(impl: GutenbergCatalogClient): CatalogSourceClient
+    abstract fun bindGutenbergClient(impl: FailoverGutenbergClient): CatalogSourceClient
 
     @Binds
     @IntoMap

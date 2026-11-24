@@ -39,6 +39,8 @@
 }
 # Translator request/response models (com.example.splitreader.data.translator.api.*Api.kt).
 -keep class com.example.splitreader.data.translator.api.** { *; }
+# Gutendex (the Gutenberg tab's fallback catalog) response models, read by Gson.
+-keep class com.example.splitreader.data.catalog.gutendex.** { *; }
 
 # ── Retrofit ──────────────────────────────────────────────────────────────────
 # Retrofit and OkHttp ship consumer rules, but suspend-fun service methods rely on
