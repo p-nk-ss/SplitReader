@@ -7,6 +7,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -37,7 +38,9 @@ import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.example.splitreader.R
 import com.example.splitreader.presentation.theme.FadeInOnAppear
@@ -83,6 +87,9 @@ import com.example.splitreader.presentation.ui.LibraryLimitDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URL
+
+/** The error banner above the list (a failed download, or a failed search with a list showing). */
+internal const val CATALOG_ERROR_BANNER_TAG = "catalog_error_banner"
 
 // ── Entry point ─────────────────────────────────────────────────────────
 
@@ -147,6 +154,7 @@ internal fun CatalogRoute(
         onRetry = viewModel::retry,
         onPickFromDrive = { driveViewModel.onPickFromDriveClicked(activity) },
         onSignInWithGoogle = onNavigateToAuth,
+        onDismissError = viewModel::dismissError,
     )
 }
 
@@ -160,6 +168,7 @@ internal fun CatalogScreen(
     onRetry: () -> Unit,
     onPickFromDrive: () -> Unit,
     onSignInWithGoogle: () -> Unit,
+    onDismissError: () -> Unit = {},
 ) {
     val sp = LocalSpacing.current
     val palette = LocalReaderPalette.current
@@ -210,6 +219,18 @@ internal fun CatalogScreen(
             SearchField(query = uiState.query, onQueryChange = onQueryChange)
             Spacer(Modifier.height(sp.md))
 
+            // With no list the error is the centred message below (with Retry). With a list on
+            // screen (every download starts from a row; a failed search keeps the shown list) it
+            // is a banner above the list — otherwise it would never be seen.
+            if (uiState.errorMessage != null && uiState.books.isNotEmpty()) {
+                ErrorBanner(
+                    message = uiState.errorMessage,
+                    onRetry = if (uiState.searchFailed) onRetry else null,
+                    onDismiss = onDismissError,
+                )
+                Spacer(Modifier.height(sp.md))
+            }
+
             when {
                 uiState.errorMessage != null && uiState.books.isEmpty() ->
                     CenteredMessage(
@@ -237,7 +258,7 @@ internal fun CatalogScreen(
                 ) {
                     item(key = "section-label") {
                         Text(
-                            text = if (uiState.query.isBlank()) "POPULAR" else "RESULTS",
+                            text = uiState.listLabel,
                             fontFamily = JetBrainsMono,
                             fontWeight = FontWeight.Medium,
                             fontSize = 11.sp,
@@ -659,6 +680,68 @@ private sealed interface ThumbState {
     data object Loading : ThumbState
     data class Loaded(val bmp: ImageBitmap) : ThumbState
     data object Failed : ThumbState
+}
+
+/**
+ * An error while a list is on screen: the message, Dismiss, and Retry when [onRetry] is given (a
+ * failed search). Same surface as the Home update banner (bg2 + edge border), same accent pill as
+ * the centred message's Retry.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ErrorBanner(message: String, onRetry: (() -> Unit)?, onDismiss: () -> Unit) {
+    val sp = LocalSpacing.current
+    val palette = LocalReaderPalette.current
+    FadeInOnAppear {
+        Surface(
+            modifier = Modifier.fillMaxWidth().testTag(CATALOG_ERROR_BANNER_TAG),
+            shape = RoundedCornerShape(LocalRadii.current.md),
+            color = palette.bg2,
+            border = BorderStroke(1.dp, palette.edge),
+        ) {
+            // FlowRow: on a phone the actions wrap under the message instead of squeezing it.
+            FlowRow(
+                modifier = Modifier.padding(horizontal = sp.md, vertical = sp.sm),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(sp.xs),
+            ) {
+                Text(
+                    text = message,
+                    fontFamily = Newsreader,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 15.sp,
+                    color = palette.ink,
+                    modifier = Modifier.align(Alignment.CenterVertically).padding(end = sp.sm),
+                )
+                Row(
+                    modifier = Modifier.align(Alignment.CenterVertically).weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(sp.sm, Alignment.End),
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Dismiss", fontFamily = Newsreader, color = palette.ink2)
+                    }
+                    if (onRetry != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(LocalRadii.current.sm))
+                                .background(palette.accent)
+                                .clickable(onClick = onRetry)
+                                .padding(horizontal = sp.lg, vertical = sp.xs),
+                        ) {
+                            Text(
+                                text = "Retry",
+                                fontFamily = JetBrainsMono,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 12.sp,
+                                color = palette.bg,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

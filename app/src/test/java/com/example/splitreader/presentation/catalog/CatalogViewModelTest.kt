@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -67,9 +68,14 @@ class CatalogViewModelTest {
         /** When set, every search waits for it (a slow source), so a newer search cancels the older one. */
         var searchGate: CompletableDeferred<CatalogPage>? = null
         val searches = mutableListOf<String>()
+        /** What a search without [searchGate] answers. */
+        var listing: List<CatalogBook> = emptyList()
+        /** When set, every search fails with it. */
+        var searchFailure: Exception? = null
         override suspend fun search(query: String, source: CatalogSource, page: Int): CatalogPage {
             searches += query
-            val gate = searchGate ?: return CatalogPage(emptyList(), false)
+            searchFailure?.let { throw it }
+            val gate = searchGate ?: return CatalogPage(listing, false)
             val failure = failureAfterCancel ?: return gate.await()
             try {
                 return gate.await()
@@ -310,6 +316,97 @@ class CatalogViewModelTest {
 
         assertEquals("a superseded search's failure is not shown", null, vm.uiState.value.errorMessage)
         assertFalse(vm.uiState.value.hasSearched)
+    }
+
+    // I-2 (v31 review): a failed search used to leave the popular list on screen relabelled
+    // "RESULTS", with its error hidden behind the list. The list keeps the label of what it is, and
+    // the error (with a Retry, it is a search) is in the state for the banner above the list.
+    @Test
+    fun `a failed search keeps the popular list labelled POPULAR, with its error and a retry`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-10").apply { mkdirs() })
+        repo.listing = listOf(catalogBook())
+        val vm = viewModel(repo, FakeLibrary())
+        runCurrent()
+        assertEquals("POPULAR", vm.uiState.value.listLabel)
+
+        val down = CatalogUnavailableException(CatalogSource.GUTENBERG)
+        repo.searchFailure = down
+        vm.onQueryChange("dickens")
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val state = vm.uiState.value
+        assertEquals(listOf("1661"), state.books.map { it.id })
+        assertEquals(down.message, state.errorMessage)
+        assertEquals("the list on screen is still the popular one", "POPULAR", state.listLabel)
+        assertTrue("a failed search offers Retry", state.searchFailed)
+
+        repo.searchFailure = null
+        repo.listing = listOf(catalogBook(id = "98"))
+        vm.retry()
+        runCurrent()
+        assertEquals(listOf("98"), vm.uiState.value.books.map { it.id })
+        assertEquals("RESULTS", vm.uiState.value.listLabel)
+        assertEquals(null, vm.uiState.value.errorMessage)
+        assertFalse(vm.uiState.value.searchFailed)
+    }
+
+    @Test
+    fun `while a search is loading the shown list keeps its own label`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-11").apply { mkdirs() })
+        repo.listing = listOf(catalogBook())
+        val vm = viewModel(repo, FakeLibrary())
+        runCurrent()
+        repo.searchGate = CompletableDeferred()
+
+        vm.onQueryChange("dickens")
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertEquals("POPULAR", vm.uiState.value.listLabel)
+    }
+
+    @Test
+    fun `a failed download with a list on screen keeps the list and its message, no retry`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-12").apply { mkdirs() })
+        repo.listing = listOf(catalogBook())
+        repo.downloadFailure = java.io.IOException("Download failed: HTTP 404")
+        val vm = viewModel(repo, FakeLibrary())
+        runCurrent()
+
+        vm.downloadAndOpen(catalogBook())
+        awaitReal { vm.uiState.value.errorMessage != null }
+
+        val state = vm.uiState.value
+        assertEquals("Download failed: HTTP 404", state.errorMessage)
+        assertEquals(listOf("1661"), state.books.map { it.id })
+        assertFalse("Retry re-runs the search: not for a download", state.searchFailed)
+        assertEquals("not an outage: reported", 1, crash.recorded.size)
+
+        vm.dismissError()
+        assertEquals(null, vm.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `dismissing a search error clears its retry`() = runTest(main.dispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val repo = FakeCatalogRepository(File(context.cacheDir, "catalog-test-13").apply { mkdirs() })
+        repo.listing = listOf(catalogBook())
+        val vm = viewModel(repo, FakeLibrary())
+        runCurrent()
+        repo.searchFailure = java.net.SocketTimeoutException("timeout")
+        vm.retry()
+        runCurrent()
+        assertTrue(vm.uiState.value.searchFailed)
+
+        vm.dismissError()
+
+        assertEquals(null, vm.uiState.value.errorMessage)
+        assertFalse(vm.uiState.value.searchFailed)
     }
 
     // runCurrent, not advanceUntilIdle: ParseBookUseCase/download run on the real Dispatchers.IO,

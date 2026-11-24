@@ -35,7 +35,14 @@ data class CatalogUiState(
     val downloadingId: String? = null,
     val hasSearched: Boolean = false,
     val showLimitDialog: Boolean = false,
-)
+    /** The query [books] was loaded for: while a newer search loads or after it fails, not [query]. */
+    val listQuery: String = "",
+    /** [errorMessage] is a failed search (the screen offers Retry), not a failed download. */
+    val searchFailed: Boolean = false,
+) {
+    /** What the list on screen is: labelled by the query it was loaded for, not the field's text. */
+    val listLabel: String get() = if (listQuery.isBlank()) "POPULAR" else "RESULTS"
+}
 
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
@@ -71,7 +78,7 @@ class CatalogViewModel @Inject constructor(
     /** Switches the active catalog source, clearing the current list and re-running the query under it. */
     fun onSourceSelected(source: CatalogSource) {
         if (source == _uiState.value.selectedSource) return
-        _uiState.update { it.copy(selectedSource = source, books = emptyList(), hasSearched = false) }
+        _uiState.update { it.copy(selectedSource = source, books = emptyList(), listQuery = "", hasSearched = false) }
         runSearch(_uiState.value.query)
     }
 
@@ -81,11 +88,11 @@ class CatalogViewModel @Inject constructor(
         searchJob?.cancel()
         val source = _uiState.value.selectedSource
         searchJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, searchFailed = false) }
             try {
                 val page = catalogRepository.search(query, source = source, page = 1)
                 _uiState.update {
-                    it.copy(books = page.books, isLoading = false, hasSearched = true)
+                    it.copy(books = page.books, listQuery = query, isLoading = false, hasSearched = true)
                 }
             } catch (e: CancellationException) {
                 // A newer search replaced this one: its state is the newer search's, not an error.
@@ -95,11 +102,14 @@ class CatalogViewModel @Inject constructor(
                 // interrupted by cancellation, so it can throw a real IOException afterwards. The
                 // state belongs to the newer search; rethrow instead of writing an error over it.
                 ensureActive()
+                // A list already on screen stays, labelled by its own query (listQuery); the error
+                // shows above it, with Retry.
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         hasSearched = true,
                         errorMessage = e.message ?: "Search failed",
+                        searchFailed = true,
                     )
                 }
             }
@@ -119,7 +129,7 @@ class CatalogViewModel @Inject constructor(
                 _uiState.update { it.copy(showLimitDialog = true) }
                 return@launch
             }
-            _uiState.update { it.copy(downloadingId = book.id, errorMessage = null) }
+            _uiState.update { it.copy(downloadingId = book.id, errorMessage = null, searchFailed = false) }
             try {
                 val uri = catalogRepository.downloadEpub(book)
                 parseBookUseCase(uri).collect { result ->
@@ -154,7 +164,7 @@ class CatalogViewModel @Inject constructor(
     }
 
     fun dismissError() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update { it.copy(errorMessage = null, searchFailed = false) }
     }
 
     fun dismissLimitDialog() {
