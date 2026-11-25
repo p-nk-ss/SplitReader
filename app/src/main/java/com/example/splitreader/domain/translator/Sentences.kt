@@ -60,7 +60,11 @@ object Sentences {
         var rest = sentence
         while (rest.length > maxChars) {
             val window = rest.substring(0, maxChars)
-            var at = window.indexOfLast { it in BREAKS }.takeIf { it >= maxChars / 2 }?.plus(1) ?: maxChars
+            // Strongest break in the second half of the window: a clause, then a comma, then a space.
+            // A cut at a plain space mid-clause ("to take | possession") comes back with a full stop.
+            var at = BREAKS.firstNotNullOfOrNull { tier ->
+                window.indexOfLast { it in tier }.takeIf { it >= maxChars / 2 }?.plus(1)
+            } ?: maxChars
             // Never between the halves of a character outside the BMP (rarer CJK ideographs):
             // the engine would get, and give back, two broken halves ("�").
             if (Character.isHighSurrogate(rest[at - 1]) && Character.isLowSurrogate(rest[at])) at--
@@ -71,5 +75,5 @@ object Sentences {
         return pieces
     }
 
-    private const val BREAKS = "，、；：,;: 　"
+    private val BREAKS = listOf("；：;:—", "，、,", " 　")
 }
