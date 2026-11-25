@@ -1,0 +1,590 @@
+{
+ "en": [
+  {
+   "id": "en-1",
+   "work": "Pride and Prejudice",
+   "author": "Jane Austen",
+   "text": "“Why, my dear, you must know, Mrs. Long says that Netherfield is taken by a young man of large fortune from the north of England; that he came down on Monday in a chaise and four to see the place, and was so much delighted with it that he agreed with Mr. Morris immediately; that he is to take possession before Michaelmas, and some of his servants are to be in the house by the end of next week.”"
+  },
+  {
+   "id": "en-2",
+   "work": "The Adventures of Sherlock Holmes (A Case of Identity)",
+   "author": "Arthur Conan Doyle",
+   "text": "“A certain selection and discretion must be used in producing a realistic effect,” remarked Holmes. “This is wanting in the police report, where more stress is laid, perhaps, upon the platitudes of the magistrate than upon the details, which to an observer contain the vital essence of the whole matter. Depend upon it, there is nothing so unnatural as the commonplace.”"
+  },
+  {
+   "id": "en-3",
+   "work": "Great Expectations",
+   "author": "Charles Dickens",
+   "text": "Saving for the one weird smile at first, I should have felt almost sure that Miss Havisham’s face could not smile. It had dropped into a watchful and brooding expression—most likely when all the things about her had become transfixed—and it looked as if nothing could ever lift it up again. Her chest had dropped, so that she stooped; and her voice had dropped, so that she spoke low, and with a dead lull upon her; altogether, she had the appearance of having dropped body and soul, within and without, under the weight of a crushing blow."
+  },
+  {
+   "id": "en-4",
+   "work": "The Adventures of Tom Sawyer",
+   "author": "Mark Twain",
+   "text": "But it transpired that this was a request which Joe had just been going to make of Tom, and had come to hunt him up for that purpose. His mother had whipped him for drinking some cream which he had never tasted and knew nothing about; it was plain that she was tired of him and wished him to go; if she felt that way, there was nothing for him to do but succumb; he hoped she would be happy, and never regret having driven her poor boy out into the unfeeling world to suffer and die."
+  },
+  {
+   "id": "en-5",
+   "work": "Frankenstein",
+   "author": "Mary Shelley",
+   "text": "I see by your eagerness, and the wonder and hope which your eyes express, my friend, that you expect to be informed of the secret with which I am acquainted; that cannot be: listen patiently until the end of my story, and you will easily perceive why I am reserved upon that subject. I will not lead you on, unguarded and ardent as I then was, to your destruction and infallible misery. Learn from me, if not by my precepts, at least by my example, how dangerous is the acquirement of knowledge, and how much happier that man is who believes his native town to be the world, than he who aspires to become greater than his nature will allow."
+  },
+  {
+   "id": "en-6",
+   "work": "Moby-Dick",
+   "author": "Herman Melville",
+   "text": "And as for those who, previously hearing of the White Whale, by chance caught sight of him; in the beginning of the thing they had every one of them, almost, as boldly and fearlessly lowered for him, as for any other whale of that species. But at length, such calamities did ensue in these assaults—not restricted to sprained wrists and ankles, broken limbs, or devouring amputations—but fatal to the last degree of fatality; those repeated disastrous repulses, all accumulating and piling their terrors upon Moby Dick; those things had gone far to shake the fortitude of many brave hunters, to whom the story of the White Whale had eventually come."
+  },
+  {
+   "id": "en-7",
+   "work": "The Call of the Wild",
+   "author": "Jack London",
+   "text": "But Buck was neither house-dog nor kennel-dog. The whole realm was his. He plunged into the swimming tank or went hunting with the Judge’s sons; he escorted Mollie and Alice, the Judge’s daughters, on long twilight or early morning rambles; on wintry nights he lay at the Judge’s feet before the roaring library fire; he carried the Judge’s grandsons on his back, or rolled them in the grass, and guarded their footsteps through wild adventures down to the fountain in the stable yard, and even beyond, where the paddocks were, and the berry patches. Among the terriers he stalked imperiously, and Toots and Ysabel he utterly ignored, for he was king—king over all creeping, crawling, flying things of Judge Miller’s place, humans included."
+  }
+ ],
+ "ru": [
+  {
+   "id": "ru-1",
+   "work": "Каштанка",
+   "author": "Антон Чехов",
+   "text": "Когда она опомнилась, музыка уже не играла и полка не было. Она перебежала дорогу к тому месту, где оставила хозяина, но, увы! столяра уже там не было. Она бросилась вперёд, потом назад, ещё раз перебежала дорогу, но столяр точно сквозь землю провалился… Каштанка стала обнюхивать тротуар, надеясь найти хозяина по запаху его следов, но раньше какой-то негодяй прошёл в новых резиновых калошах, и теперь все тонкие запахи мешались с острою каучуковою вонью, так что ничего нельзя было разобрать."
+  },
+  {
+   "id": "ru-2",
+   "work": "Каштанка",
+   "author": "Антон Чехов",
+   "text": "Не больше как через полчаса она уже сидела на полу в большой, светлой комнате и, склонив голову набок, с умилением и с любопытством глядела на незнакомца, который сидел за столом и обедал. Он ел и бросал ей кусочки… Сначала он дал ей хлеба и зелёную корочку сыра, потом кусочек мяса, полпирожка, куриных костей, а она с голодухи всё это съела так быстро, что не успела разобрать вкуса. И чем больше она ела, тем сильнее чувствовался голод."
+  },
+  {
+   "id": "ru-3",
+   "work": "Каштанка",
+   "author": "Антон Чехов",
+   "text": "Прошло немного времени, сколько его требуется на то, чтобы обглодать хорошую кость; крик не повторялся. Тётка мало-помалу успокоилась и задремала. Ей приснились две большие чёрные собаки с клочьями прошлогодней шерсти на бёдрах и на боках; они из большой лохани с жадностью ели помои, от которых шёл белый пар и очень вкусный запах; изредка они оглядывались на Тётку, скалили зубы и ворчали: «А тебе мы не дадим!» Но из дому выбежал мужик в шубе и прогнал их кнутом; тогда Тётка подошла к лохани и стала кушать, но, как только мужик ушёл за ворота, обе чёрные собаки с рёвом бросились на неё, и вдруг опять раздался пронзительный крик."
+  },
+  {
+   "id": "ru-4",
+   "work": "Смерть Ивана Ильича",
+   "author": "Лев Толстой",
+   "text": "Иван Ильич был сотоварищ собравшихся господ, и все любили его. Он болел уже несколько недель; говорили, что болезнь его неизлечима. Место оставалось за ним, но было соображение о том, что в случае его смерти Алексеев может быть назначен на его место, на место же Алексеева — или Винников, или Штабель. Так что, услыхав о смерти Ивана Ильича, первая мысль каждого из господ, собравшихся в кабинете, была и том, какое значение может иметь эта смерть на перемещения или повышения самих членов или их знакомых."
+  },
+  {
+   "id": "ru-5",
+   "work": "Смерть Ивана Ильича",
+   "author": "Лев Толстой",
+   "text": "Знаменитый доктор простился с серьезным, но не с безнадежным видом. И на робкий вопрос, который с поднятыми к нему блестящими страхом и надеждой глазами Обратил Иван Ильич, есть ли возможность выздоровления, отвечал, что ручаться нельзя, но возможность есть. Взгляд надежды, с которым Иван Ильич проводил доктора, был так жалок, что, увидав его, Прасковья Федоровна даже заплакала, выходя из дверей кабинета, чтобы передать гонорар знаменитому доктору."
+  }
+ ],
+ "uk": [
+  {
+   "id": "uk-1",
+   "work": "Тіні забутих предків",
+   "author": "Михайло Коцюбинський",
+   "text": "Звідси дивився на гори, близькі й далекі верхи, що голубіли на небі, на смерекові чорні ліси з їх синім диханням, на ясну зелень царинок, що мов дзеркала блищали в рамах дерев. Під ним, в долині, кипів холодний Черемош. По далеких горбах дрімали на сонці самотні оселі. Було так тихо і сумно, чорні смереки безперестанку спускали сум свій в Черемош, а він ніс його долом й оповідав."
+  },
+  {
+   "id": "uk-2",
+   "work": "Тіні забутих предків",
+   "author": "Михайло Коцюбинський",
+   "text": "Але в Івановій пам'яті татова смерть не так довго жила, як знайомість з дівчам, що, скривджене ним безневинно, повним довір'я рухом подало йому половину цукерка. В його давній і безпричинний смуток влилась нова течійка. Вона несвідомо тягла його в гори, носила по сусідніх кичерах, лісах і долинах, де б він міг стріти Марічку. І він стрівся нарешті з нею: пасла ягнята."
+  },
+  {
+   "id": "uk-3",
+   "work": "Тіні забутих предків",
+   "author": "Михайло Коцюбинський",
+   "text": "Так поволі тягнеться час. Гірське повітря прополокало груди, хочеться їсти. І як самотньо! Стоїш тут маленький, як бадилина у полі. Під ногами зелений острів, що його обливають блакитні води далеких гір. А там, по суворих диких верхах, десь в бе́зводах, в бе́зслихах, гніздиться всяка мара, ворожа сила, з якою тяжко боротись. Лиш одно — сокотися…"
+  },
+  {
+   "id": "uk-4",
+   "work": "Intermezzo",
+   "author": "Михайло Коцюбинський",
+   "text": "А коли приходив той прекрасний брат смерти і брав мене до себе — люди і там чигали на мене. Вони сплітали своє існування з моїм в химерну сітку, намагались налити мої вуха та моє серце тим, чим самі були повні… Слухай но, слухай! Ти й тут несеш до мене свої страждання? Своє мерзенство? Моє серце не може більше вмістити. Воно повне ущерть. Дай мені спокій…"
+  },
+  {
+   "id": "uk-5",
+   "work": "Intermezzo",
+   "author": "Михайло Коцюбинський",
+   "text": "Трепов! Оверко! Пава! Чотири пальці у рот — і дикий степовий свист. Біжать. Як троє білих ведмедів. Може вони мене роздеруть, а може приймуть запросини в поле. Хо-хо! Той Оверко не може без штук. Стрибає, наче дурне теля, і скоса наводить червоне око. Трепов гордо несе свою вовну і ставить ноги, наче білі колони. Його підрізані вуха стрижуть. Пава ступає поважно, меланхолійно хитає задом і одстає. Я йду за ними і мені видно легке гойдання всіх трьох крислатих хребтів, м'яких, вовнистих і звіряче сильних."
+  }
+ ],
+ "de": [
+  {
+   "id": "de-1",
+   "work": "Die Verwandlung",
+   "author": "Franz Kafka",
+   "text": "»Was ist mit mir geschehen?« dachte er. Es war kein Traum, sein Zimmer, ein richtiges, nur etwas zu kleines Menschenzimmer, lag ruhig zwischen den vier wohlbekannten Wänden, über dem Tisch, auf dem eine auseinandergepackte Musterkollektion von Tuchwaren ausgebreitet war – Samsa war Reisender –, hing das Bild, das er vor kurzem aus einer illustrierten Zeitschrift ausgeschnitten und in einem hübschen, vergoldeten Rahmen untergebracht hatte. Es stellte eine Dame dar, die, mit einem Pelzhut und einer Pelzboa versehen, aufrecht dasaß und einen schweren Pelzmuff, in dem ihr ganzer Unterarm verschwunden war, dem Beschauer entgegenhob."
+  },
+  {
+   "id": "de-2",
+   "work": "Die Verwandlung",
+   "author": "Franz Kafka",
+   "text": "Er versuchte es daher, zuerst den Oberkörper aus dem Bett zu bekommen, und drehte vorsichtig den Kopf dem Bettrand zu. Dies gelang auch leicht, und trotz ihrer Breite und Schwere folgte schließlich die Körpermasse langsam der Wendung des Kopfes. Aber als er den Kopf endlich außerhalb des Bettes in der freien Luft hielt, bekam er Angst, weiter auf diese Weise vorzurücken, denn wenn er sich schließlich so fallen ließ, mußte geradezu ein Wunder geschehen, wenn der Kopf nicht verletzt werden sollte. Und die Besinnung durfte er gerade jetzt um keinen Preis verlieren; da wollte er lieber im Bett bleiben."
+  },
+  {
+   "id": "de-3",
+   "work": "Die Verwandlung",
+   "author": "Franz Kafka",
+   "text": "»Und ist es dann nicht so,« schloß die Mutter ganz leise, wie sie überhaupt fast flüsterte, als wolle sie vermeiden, daß Gregor, dessen genauen Aufenthalt sie ja nicht kannte, auch nur den Klang der Stimme höre, denn daß er die Worte nicht verstand, davon war sie überzeugt, »und ist es nicht so, als ob wir durch die Entfernung der Möbel zeigten, daß wir jede Hoffnung auf Besserung aufgeben und ihn rücksichtslos sich selbst überlassen? Ich glaube, es wäre das beste, wir suchen das Zimmer genau in dem Zustand zu erhalten, in dem es früher war, damit Gregor, wenn er wieder zu uns zurückkommt, alles unverändert findet und umso leichter die Zwischenzeit vergessen kann.«"
+  },
+  {
+   "id": "de-4",
+   "work": "Das Urteil",
+   "author": "Franz Kafka",
+   "text": "„Du weißt doch, Vater, daß ich ihm meine Verlobung zuerst verschweigen wollte. Aus Rücksichtnahme, aus keinem anderen Grunde sonst. Du weißt selbst, er ist ein schwieriger Mensch. Ich sagte mir, von anderer Seite kann er von meiner Verlobung wohl erfahren, wenn das auch bei seiner einsamen Lebensweise kaum wahrscheinlich ist — das kann ich nicht hindern —, aber von mir selbst soll er es nun einmal nicht erfahren.“"
+  },
+  {
+   "id": "de-5",
+   "work": "Das Urteil",
+   "author": "Franz Kafka",
+   "text": "Georg sah zum Schreckbild seines Vaters auf. Der Petersburger Freund, den der Vater plötzlich so gut kannte, ergriff ihn, wie noch nie. Verloren im weiten Rußland sah er ihn. An der Türe des leeren, ausgeraubten Geschäftes sah er ihn. Zwischen den Trümmern der Regale, den zerfetzten Waren, den fallenden Gasarmen stand er gerade noch. Warum hatte er so weit wegfahren müssen!"
+  }
+ ],
+ "fr": [
+  {
+   "id": "fr-1",
+   "work": "Boule de Suif",
+   "author": "Guy de Maupassant",
+   "text": "La Garde nationale qui, depuis deux mois, faisait des reconnaissances très prudentes dans les bois voisins, fusillant parfois ses propres sentinelles, et se préparant au combat quand un petit lapin remuait sous des broussailles, était rentrée dans ses foyers. Ses armes, ses uniformes, tout son attirail meurtrier, dont elle épouvantait naguère les bornes des routes nationales à trois lieues à la ronde, avaient subitement disparu."
+  },
+  {
+   "id": "fr-2",
+   "work": "Boule de Suif",
+   "author": "Guy de Maupassant",
+   "text": "L’homme reparut, avec sa lanterne, tirant au bout d’une corde un cheval triste qui ne venait pas volontiers. Il le plaça contre le timon, attacha les traits, tourna longtemps autour pour assurer les harnais, car il ne pouvait se servir que d’une main, l’autre portant sa lumière. Comme il allait chercher la seconde bête, il remarqua tous ces voyageurs immobiles, déjà blancs de neige, et leur dit : — « Pourquoi ne montez-vous pas dans la voiture, vous serez à l’abri, au moins. »"
+  },
+  {
+   "id": "fr-3",
+   "work": "Boule de Suif",
+   "author": "Guy de Maupassant",
+   "text": "La femme, une de celles appelées galantes, était célèbre par son embonpoint précoce qui lui avait valu le surnom de Boule de Suif. Petite, ronde de partout, grasse à lard, avec des doigts bouffis, étranglés aux phalanges, pareils à des chapelets de courtes saucisses ; avec une peau luisante et tendue, une gorge énorme qui saillait sous sa robe, elle restait cependant appétissante et courue, tant sa fraîcheur faisait plaisir à voir. Sa figure était une pomme rouge, un bouton de pivoine prêt à fleurir ; et là-dedans s’ouvraient, en haut, deux yeux noirs magnifiques, ombragés de grands cils épais qui mettaient une ombre dedans ; en bas, une bouche charmante, étroite, humide pour le baiser, meublée de quenottes luisantes et microscopiques."
+  },
+  {
+   "id": "fr-4",
+   "work": "Un cœur simple",
+   "author": "Gustave Flaubert",
+   "text": "Cette maison, revêtue d’ardoises, se trouvait entre un passage et une ruelle aboutissant à la rivière. Elle avait intérieurement des différences de niveau qui faisaient trébucher. Un vestibule étroit séparait la cuisine de la salle où M Aubain se tenait tout le long du jour, assise près de la croisée dans un fauteuil de paille. Contre le lambris, peint en blanc, s’alignaient huit chaises d’acajou. Un vieux piano supportait, sous un baromètre, un tas pyramidal de boîtes et de cartons. Deux bergères de tapisserie flanquaient la cheminée en marbre jaune et de style Louis XV. La pendule, au milieu, représentait un temple de Vesta, — et tout l’appartement sentait un peu le moisi, car le plancher était plus bas que le jardin."
+  },
+  {
+   "id": "fr-5",
+   "work": "Un cœur simple",
+   "author": "Gustave Flaubert",
+   "text": "Félicité retirait de son cabas des tranches de viande froide, et on déjeunait dans un appartement faisant suite à la laiterie. Il était le seul reste d’une habitation de plaisance, maintenant disparue. Le papier de la muraille en lambeaux tremblait aux courants d’air. M Aubain penchait son front, accablée de souvenirs ; les enfants n’osaient plus parler."
+  }
+ ],
+ "es": [
+  {
+   "id": "es-1",
+   "work": "Don Quijote de la Mancha",
+   "author": "Miguel de Cervantes",
+   "text": "Cuenta el sabio Cide Hamete Benengeli que, así como don Quijote se despidió de sus huéspedes y de todos los que se hallaron al entierro del pastor Grisóstomo, él y su escudero se entraron por el mesmo bosque donde vieron que se había entrado la pastora Marcela; y, habiendo andado más de dos horas por él, buscándola por todas partes sin poder hallarla, vinieron a parar a un prado lleno de fresca yerba, junto del cual corría un arroyo apacible y fresco; tanto, que convidó y forzó a pasar allí las horas de la siesta, que rigurosamente comenzaba ya a entrar."
+  },
+  {
+   "id": "es-2",
+   "work": "Don Quijote de la Mancha",
+   "author": "Miguel de Cervantes",
+   "text": "— Vuestra merced sí que es escudero fiel y legal, moliente y corriente, magnífico y grande, como lo muestra este banquete, que si no ha venido aquí por arte de encantamento, parécelo, a lo menos; y no como yo, mezquino y malaventurado, que sólo traigo en mis alforjas un poco de queso, tan duro que pueden descalabrar con ello a un gigante, a quien hacen compañía cuatro docenas de algarrobas y otras tantas de avellanas y nueces, mercedes a la estrecheza de mi dueño, y a la opinión que tiene y orden que guarda de que los caballeros andantes no se han de mantener y sustentar sino con frutas secas y con las yerbas del campo."
+  },
+  {
+   "id": "es-3",
+   "work": "Marianela",
+   "author": "Benito Pérez Galdós",
+   "text": "La persona de Dios representábasele terrible y ceñuda, más propia para infundir respeto que cariño. Todo lo bueno venía de la Virgen María, y a la Virgen debía pedirse todo lo que han menester las criaturas. Dios reñía y ella sonreía. Dios castigaba y ella perdonaba. No es esta última idea tan rara para que llame la atención. Casi rige en absoluto a las clases menesterosas y rurales de nuestro país."
+  },
+  {
+   "id": "es-4",
+   "work": "Marianela",
+   "author": "Benito Pérez Galdós",
+   "text": "—Dicen que hace trece años. Dicen que mi madre me recogió despues de la caida. Mi padre cayó enfermo, y como mi madre no le quiso asistir, porque era malo, él fué al hospital donde dicen que se murió. Entónces vino mi madre á trabajar á las minas. Dicen que un dia la despidió el jefe porque habia bebido mucho aguardiente..."
+  },
+  {
+   "id": "es-5",
+   "work": "Marianela",
+   "author": "Benito Pérez Galdós",
+   "text": "—Sí, señor; yo le digo todo. Él me pregunta cómo es una estrella, y yo se la pinto de tal modo hablando, que para él es lo mismito que si la viera. Yo le explico todo, cómo son las yerbas, las nubes, el cielo, el agua y los relámpagos, las veletas, las mariposas, el humo, los caracoles, el cuerpo y la cara de las personas y de los animales. Yo le digo lo que es feo y lo que es bonito, y así se va enterando de todo."
+  }
+ ],
+ "it": [
+  {
+   "id": "it-1",
+   "work": "I Malavoglia",
+   "author": "Giovanni Verga",
+   "text": "Ecco perchè la casa del nespolo prosperava, e padron ’Ntoni passava per testa quadra, al punto che a Trezza l’avrebbero fatto consigliere comunale, se don Silvestro, il segretario, il quale la sapeva lunga, non avesse predicato che era un codino marcio, un reazionario di quelli che proteggono i Borboni, e che cospirava pel ritorno di Franceschello, onde poter spadroneggiare nel villaggio, come spadroneggiava in casa propria."
+  },
+  {
+   "id": "it-2",
+   "work": "I Malavoglia",
+   "author": "Giovanni Verga",
+   "text": "Poi il treno era partito fischiando e strepitando in modo da mangiarsi i canti e gli addii. E dopo che i curiosi si furono dileguati, non rimasero che alcune donnicciuole, e qualche povero diavolo, che si tenevano ancora stretti ai pali dello stecconato, senza saper perchè. Quindi a poco a poco si sbrancarono anch’essi, e padron ’Ntoni, indovinando che la nuora dovesse avere la bocca amara, le pagò due centesimi di acqua col limone."
+  },
+  {
+   "id": "it-3",
+   "work": "I Malavoglia",
+   "author": "Giovanni Verga",
+   "text": "La Santuzza, all’ultimo tocco di campana, aveva affidata l’osteria a suo padre, e se n’era andata in chiesa, tirandosi dietro gli avventori. Lo zio Santoro, poveretto, era cieco, e non faceva peccato se non andava a messa; così non perdevano tempo all’osteria, e dall’uscio poteva tener d’occhio il banco, sebbene non ci vedesse, chè gli avventori li conosceva tutti ad uno ad uno soltanto al sentirli camminare, quando venivano a bere un bicchiere."
+  },
+  {
+   "id": "it-4",
+   "work": "I Malavoglia",
+   "author": "Giovanni Verga",
+   "text": "La sera scese triste e fredda; di tanto in tanto soffiava un buffo di tramontana, e faceva piovere una spruzzatina d’acqua fina e cheta: una di quelle sere in cui, quando si ha la barca al sicuro, colla pancia all’asciutto sulla sabbia, si gode a vedersi fumare la pentola dinanzi, col marmocchio fra le gambe, e sentire le ciabatte della donna per la casa, dietro le spalle. I fannulloni preferivano godersi all’osteria quella domenica che prometteva di durare anche il lunedì, e fin gli stipiti erano allegri della fiamma del focolare, tanto che lo zio Santoro, messo lì fuori colla mano stesa e il mento sui ginocchi, s’era tirato un po’ in qua, per scaldarsi la schiena anche lui."
+  },
+  {
+   "id": "it-5",
+   "work": "Le avventure di Pinocchio",
+   "author": "Carlo Collodi",
+   "text": "— Ma di dove sarà uscita questa vocina che ha detto ohi?... Eppure qui non c’è anima viva. Che sia per caso questo pezzo di legno che abbia imparato a piangere e a lamentarsi come un bambino? Io non lo posso credere. Questo legno eccolo qui; è un pezzo di legno da caminetto, come tutti gli altri, e a buttarlo sul fuoco, c’è da far bollire una pentola di fagioli.... O dunque? Che ci sia nascosto dentro qualcuno? Se c’è nascosto qualcuno, tanto peggio per lui. Ora l’accomodo io! —"
+  }
+ ],
+ "pt": [
+  {
+   "id": "pt-1",
+   "work": "Dom Casmurro",
+   "author": "Machado de Assis",
+   "text": "Contando aquela crise do meu amor adolescente, sinto uma coisa que não sei se explico bem, e é que as dores daquela quadra, a tal ponto se espiritualizaram com o tempo, que chegam a diluir-se no prazer. Não é claro isto, mas nem tudo é claro na vida ou nos livros. A verdade é que sinto um gosto particular em referir tal aborrecimento, quando é certo que ele me lembra outros que não quisera lembrar por nada."
+  },
+  {
+   "id": "pt-2",
+   "work": "Dom Casmurro",
+   "author": "Machado de Assis",
+   "text": "Mocetona é vulgar; José Dias achou melhor. Foi a única pessoa cá de baixo que nos visitou na Tijuca, levando abraços dos nossos e palavras suas, mas palavras que eram músicas verdadeiras; não as ponho aqui para ir poupando papel, mas foram deliciosas. Um dia, comparou-nos a aves criadas em dois vãos de telhados contíguos. Imagina o resto, as aves emplumando as asas e subindo ao céu, e o céu agora mais largo para poder contê-las também. Nenhum de nós riu; ambos escutávamos comovidos e convencidos, esquecendo tudo, desde a tarde de 1857... A felicidade tem boa alma."
+  },
+  {
+   "id": "pt-3",
+   "work": "O Primo Basílio",
+   "author": "Eça de Queirós",
+   "text": "Pelas três horas da tarde, Juliana entrou na cozinha e atirou-se para uma cadeira, derreada. Não se tinha nas pernas de debilidade! Desde as duas horas que andava a arrumar a sala! Estava um chiqueiro. O peralta na véspera até deixara cinza de tabaco por cima das mesas! A negra é que as pagava. E que calor! Era de derreter! Uf!"
+  },
+  {
+   "id": "pt-4",
+   "work": "O Primo Basílio",
+   "author": "Eça de Queirós",
+   "text": "Pareceu-lhe que se arrastava uma cadeira, depois que se fechava uma vidraça. Os olhos faiscavam-lhe. Uma risada de Luísa sobressaiu; em seguida um silêncio; e as vozes recomeçaram num tom sereno e contínuo. De repente o sujeito ergueu a fala, e entre as palavras que dizia, de pé decerto, passeando, Juliana ouviu claramente: \"Tu, foste tu!\""
+  },
+  {
+   "id": "pt-5",
+   "work": "O Primo Basílio",
+   "author": "Eça de Queirós",
+   "text": "Ao outro dia era domingo. Logo pela manhã cedo, quando Juliana ia para a missa, Luísa chamou-a da porta do quarto, deu-lhe uma carta para levar a D. Felicidade. Ordinariamente mandava um recado; - e a curiosidade de Juliana acendeu-se logo diante daquele sobrescrito fechado e lacrado com o sinete de Luísa, um L gótico dentro de uma coroa de rosas."
+  }
+ ],
+ "nl": [
+  {
+   "id": "nl-1",
+   "work": "Max Havelaar",
+   "author": "Multatuli",
+   "text": "— Dat is nu juist een zaak die me verdrietig maakt, zei Havelaar. Ik zou zoo heel ongaarne Lebak verlaten…dit zal ik je uitleggen. Geloof je niet dat we nog meer van onzen Max hielden na zyn ziekte? Nu, zóó ook zal ik dat arme Lebak liefhebben na de genezing van den kanker waaraan ’t lydt sedert zooveel jaren. De gedachte aan bevordering doet me schrikken: ik kan hier niet gemist worden, Tine! En toch, aan den anderen kant, als ik weer bedenk dat we schulden hebben…"
+  },
+  {
+   "id": "nl-2",
+   "work": "Max Havelaar",
+   "author": "Multatuli",
+   "text": "Zóó meende ik, beschaamd over de schending myner toezegging van hulp, myn denkbeelden in overeenstemming te brengen met myn plicht omtrent het Bestuur dat my nog deze maand betaalt, en ik zou aldus tot de komst van myn opvolger zyn voortgegaan, indien niet een byzonder voorval my heden in de noodzakelykheid bracht aan die dubbelzinnige verhouding een eind te maken."
+  },
+  {
+   "id": "nl-3",
+   "work": "Max Havelaar",
+   "author": "Multatuli",
+   "text": "Nog éénmaal vraag ik om een oogenblik gehoor, zy het dezen nacht, zy het morgen vroeg! En alweder vraag ik dit niet voor my, maar voor de zaak die ik voorsta, de zaak van rechtvaardigheid en menschelykheid, die tevens de zaak is van welbegrepen politiek."
+  },
+  {
+   "id": "nl-4",
+   "work": "Max Havelaar",
+   "author": "Multatuli",
+   "text": "Dat de Europeaan, die in zulke verhouding aan den winnenden kant is, zich in dit kunstmatig overwicht zeer gemakkelyk schikt, spreekt vanzelf. Maar dikwyls is ’t koddig, iemand die zyn beschaving en taal grootendeels opdeed in de rotterdamsche Zandstraat, den liplap te hooren uitlachen omdat deze een glas water en ’t gouvernement, mannelyk, of zon en maan onzydig maakt."
+  },
+  {
+   "id": "nl-5",
+   "work": "Max Havelaar",
+   "author": "Multatuli",
+   "text": "De kennismaking tusschen Duclari en Havelaar was spoedig op een gemakkelyken voet gebracht. De Adhipatti gaf blyken van ingenomenheid met zyn nieuwen «ouder broeder» en Verbrugge verhaalde later dat ook de resident, dien hy op zyn terugreis naar Serang een eind wegs uitgeleide had gedaan, zich zeer gunstig over de familie Havelaar, die op haar doortocht naar Lebak eenige dagen ten-zynen-huize vertoefde, had uitgelaten. Ook zeide hy dat Havelaar, by de Regeering goed aangeteekend staande, hoogstwaarschynlyk spoedig tot een hooger ambt bevorderd, of althans naar een meer «voordeelige» afdeeling verplaatst worden zou."
+  }
+ ],
+ "pl": [
+  {
+   "id": "pl-1",
+   "work": "Janko muzykant",
+   "author": "Henryk Sienkiewicz",
+   "text": "Echo téż… W polu grała mu bylica, w sadku pod chałupą ćwirkotały wróble, aż się wiśnie trzęsły! Wieczorami słuchiwał wszystkich głosów, jakie są, na wsi i pewno myślał sobie, że cała wieś gra. Jak posłali go do roboty, żeby gnój rozrzucał, to mu nawet wiatr grał w widłach."
+  },
+  {
+   "id": "pl-2",
+   "work": "Janko muzykant",
+   "author": "Henryk Sienkiewicz",
+   "text": "Zobaczył go tak raz karbowy, stojącego z rozrzuconą czupryną i słuchającego wiatru w drewnianych widłach… zobaczył, i odpasawszy rzemyka, dał mu dobrą pamiątkę. Ale na co się to zdało! Nazywali go ludzie „Janko muzykant!“… Wiosną uciekał z domu, kręcić fujarki wedle strugi. Nocami, gdy żaby zaczynały rzechotać, derkacze na łąkach derkotać, bąki po rosie burczyć; gdy koguty piały po zapłociach: to on spać nie mógł, tylko słuchał i Bóg go jeden wié, jakie on i w tém nawet słyszał granie… Do kościoła matka nie mogła go brać, bo jak, bywało, zahuczą organy, lub zaśpiewają słodkim głosem, to dziecku oczy tak mgłą zachodzą, jakby już nie z tego świata patrzyły…"
+  },
+  {
+   "id": "pl-3",
+   "work": "Janko muzykant",
+   "author": "Henryk Sienkiewicz",
+   "text": "We dworze miał skrzypce lokaj i grywał czasem na nich szarą godziną, aby się podobać pannie służącéj. Janko czasem podczołgiwał się między łopuchami, aż pod otwarte drzwi kredensu, żeby im się przypatrzeć. Wisiały właśnie na ścianie naprzeciw drzwi, więc tam chłopak duszę swoję całą wysyłał ku nim przez oczy, bo mu się zdawało, że to niedostępna jakaś dla niego świętość, któréj niegodzien tknąć, że to jakieś jego najdroższe ukochanie. A jednak pożądał ich. Chciałby przynajmniéj raz miéć je w ręku, przynajmniej przypatrzeć się im bliżéj… Biédne małe chłopskie serce drżało na tę myśl ze szczęścia."
+  },
+  {
+   "id": "pl-4",
+   "work": "Latarnik",
+   "author": "Henryk Sienkiewicz",
+   "text": "— Sir! — ozwał się nagle kandydat wzruszonym głosem. Jestem bardzo znużony i skołatany. Dużo, widzicie, przeszedłem. Miejsce to jest jedno z takich, jakie najgoręcéj pragnąłem otrzymać. Jestem stary, potrzebuję spokoju! Potrzebuję sobie powiedzieć: tu już będziesz siedział, to jest twój port. Ach, Sir! to od was tylko zależy. Drugi raz się może taka posada nie zdarzy. Co za szczęście, że byłem w Panamie... Błagam was... Jak mi Bóg miły, jestem jak statek, który jeśli nie wejdzie do portu, to zatonie... Jeśli chcecie uszczęśliwić człowieka starego... Przysięgam że jestem uczciwy, ale... dość mam już tułactwa..."
+  },
+  {
+   "id": "pl-5",
+   "work": "Lalka",
+   "author": "Bolesław Prus",
+   "text": "Dla osób, posilających się w tej co radca jadłodajni, dla jej właściciela, subjektów i chłopców, przyczyny klęsk mających paść na S. Wokulskiego i jego sklep galanteryjny były tak jasne, jak gazowe płomyki oświetlające zakład. Przyczyny te tkwiły w niespokojnym charakterze, w awanturniczem życiu, zresztą w najświeższym postępku człowieka, który mając w rękach pewny kawałek chleba i możność uczęszczania do tej oto tak przyzwoitej restauracyi, dobrowolnie wyrzekł się restauracyi, sklep zostawił na Opatrzności boskiej, a sam, z całą gotówką odziedziczoną po żonie, pojechał na turecką wojnę robić majątek."
+  }
+ ],
+ "zh": [
+  {
+   "id": "zh-1",
+   "work": "阿Q正傳",
+   "author": "魯迅",
+   "text": "很白很亮的一堆洋錢！而且是他的——現在不見了！說是算被兒子拿去了罷，總還是忽忽不樂；說自己是蟲豸罷，也還是忽忽不樂：他這回纔有些感到失敗的苦痛了。"
+  },
+  {
+   "id": "zh-2",
+   "work": "阿Q正傳",
+   "author": "魯迅",
+   "text": "不料這禿兒卻拿着一枝黃漆的棍子——就是阿Q所謂哭喪棒——大踏步走了過來。阿Q在這剎那，便知道大約要打了，趕緊抽緊筋骨，聳了肩膀等候着，果然，拍的一聲，似乎確鑿打在自己頭上了。"
+  },
+  {
+   "id": "zh-3",
+   "work": "阿Q正傳",
+   "author": "魯迅",
+   "text": "阿Q坐了一會，皮膚有些起栗，他覺得冷了，因爲雖在春季，而夜間頗有餘寒，尙不宜於赤膊。他也記得布衫留在趙家，但倘若去取，又深怕秀才的竹槓。然而地保進來了。"
+  },
+  {
+   "id": "zh-4",
+   "work": "狂人日記",
+   "author": "魯迅",
+   "text": "我可不怕，仍舊走我的路。前面一夥小孩子，也在那里議論我；眼色也同趙貴翁一樣，臉色也都鐵靑。我想我同小孩子有什麽讎，他也這樣。忍不住大聲說：『你吿訴我！』他們可就跑了。"
+  },
+  {
+   "id": "zh-5",
+   "work": "狂人日記",
+   "author": "魯迅",
+   "text": "你看那女人『咬你幾口』的話，和一夥靑面獠牙人的笑，和前天佃戶的話，明明是暗號。我看出他話中全是毒，笑中全是刀，他們的牙齒，全是白厲厲的排着，這就是喫人的家伙。"
+  }
+ ],
+ "ja": [
+  {
+   "id": "ja-1",
+   "work": "坊っちゃん",
+   "author": "夏目漱石",
+   "text": "昼飯を食ってから早速清へ手紙をかいてやった。おれは文章がまずい上に字を知らないから手紙を書くのが大嫌いだ。またやる所もない。しかし清は心配しているだろう。難船して死にやしないかなどと思っちゃ困るから、奮発して長いのを書いてやった。その文句はこうである。"
+  },
+  {
+   "id": "ja-2",
+   "work": "坊っちゃん",
+   "author": "夏目漱石",
+   "text": "それ以来山嵐はおれと口を利かない。机の上へ返した一銭五厘はいまだに机の上に乗っている。ほこりだらけになって乗っている。おれは無論手が出せない、山嵐は決して持って帰らない。この一銭五厘が二人の間の墻壁になって、おれは話そうと思っても話せない、山嵐は頑として黙ってる。おれと山嵐には一銭五厘が祟った。しまいには学校へ出て一銭五厘を見るのが苦になった。"
+  },
+  {
+   "id": "ja-3",
+   "work": "坊っちゃん",
+   "author": "夏目漱石",
+   "text": "挨拶が済んだら、あちらでもチュー、こちらでもチュー、という音がする。おれも真似をして汁を飲んでみたがまずいもんだ。口取に蒲鉾はついてるが、どす黒くて竹輪の出来損ないである。刺身も並んでるが、厚くって鮪の切り身を生で食うと同じ事だ。それでも隣り近所の連中はむしゃむしゃ旨そうに食っている。大方江戸前の料理を食った事がないんだろう。"
+  },
+  {
+   "id": "ja-4",
+   "work": "吾輩は猫である",
+   "author": "夏目漱石",
+   "text": "机の前には薄っぺらなメリンスの座布団があって、煙草の火で焼けた穴が三つほどかたまってる。中から見える綿は薄黒い。この座布団の上に後ろ向きにかしこまっているのが主人である。鼠色によごれた兵児帯をこま結びにむすんだ左右がだらりと足の裏へ垂れかかっている。この帯へじゃれ付いて、いきなり頭を張られたのはこないだの事である。滅多に寄り付くべき帯ではない。"
+  },
+  {
+   "id": "ja-5",
+   "work": "吾輩は猫である",
+   "author": "夏目漱石",
+   "text": "「その談判を蔭で聞いていると、本当に面白いのよ。なるほど保険の必要も認めないではない。必要なものだから会社も存在しているのだろう。しかし死なない以上は保険に這入る必要はないじゃないかって強情を張っているんです」"
+  }
+ ],
+ "ko": [
+  {
+   "id": "ko-1",
+   "work": "운수 좋은 날",
+   "author": "현진건",
+   "text": "첫번에 삼십 전, 둘째 번에 오십 전 - 아침 댓바람에 그리 흔치 않은 일이었다. 그야말로 재수가 옴붙어서 근 열흘 동안 돈 구경도 못한 김 첨지는 십 전짜리 백통화 서 푼, 또는 다섯 푼이 찰깍하고 손바닥에 떨어질 제 거의 눈물을 흘릴 만큼 기뻤었다. 더구나 이날 이때에 이 팔십 전이라는 돈이 그에게 얼마나 유용한지 몰랐다. 컬컬한 목에 모주 한 잔도 적실 수 있거니와 그보다도 앓는 아내에게 설렁탕 한 그릇도 사다줄 수 있음이다."
+  },
+  {
+   "id": "ko-2",
+   "work": "운수 좋은 날",
+   "author": "현진건",
+   "text": "그러나 빈 인력거를 털털거리며 이 우중에 돌아갈 일이 꿈밖이었다. 노동으로 하여 흐른 땀이 식어지자 굶주린 창자에서, 물 흐르는 옷에서 어슬어슬 한기가 솟아나기 비롯하매 일 원 오십 전이란 돈이 얼마나 괜찮고 괴로운 것인 줄 절절히 느끼었다. 정거장을 떠나는 그의 발길은 힘 하나 없었다. 온몸이 옹송그려지며 당장 그 자리에 엎어져 못 일어날 것 같았다."
+  },
+  {
+   "id": "ko-3",
+   "work": "동백꽃",
+   "author": "김유정",
+   "text": "잔소리를 두루 늘어놓다가 남이 들을까 봐 손으로 입을 틀어막고는 그 속에서 깔깔댄다. 별로 우스울 것도 없는데 날씨가 풀리더니 이 놈의 계집애가 미쳤나 하고 의심하였다. 게다가 조금 뒤에는 제 집께를 할금 할금 돌아보더니 행주치마의 속으로 꼈던 바른손을 뽑아서 나의 턱밑으로 불쑥 내미는 것이다. 언제 구웠는 지 더운 김이 홱 끼치는 굵은 감자 세 개가 손에 뿌듯이 쥐였다."
+  },
+  {
+   "id": "ko-4",
+   "work": "봄봄",
+   "author": "김유정",
+   "text": "이래서 나는 애최 계약이 잘못된 걸 알았다. 이태면 이태, 삼 년이면 삼 년, 기한을 딱 작정하고 일을 해야 원 할 것이다. 덮어놓고 딸이 자라는 대로 성례를 시켜 주마, 했으니 누가 늘 지키고 섰는 것도 아니고, 그 키가 언제 자라는지 알 수 있는가. 그리고 난 사람의 키가 무럭무럭 자라는 줄만 알았지 붙배기 키에 모로만 벌어지는 몸도 있는 것을 누가 알았으랴. 때가 되면 장인님이 어련하랴 싶어서 군소리 없이 꾸벅꾸벅 일만 해왔다. 그럼 말이다. 장인님이 제가 다 알아채서, “어참, 너 일 많이 했다. 고만 장가 들어라.” 하고 살림도 내주고 해야 나도 좋을 것이 아니냐. 시치미를 딱 떼고 도리어 그런 소리가 나올까 봐서 지레 펄펄 뛰고 이 야단이다. 명색이 좋아 데릴사위지 일하기에 싱겁기도 할뿐더러 이건 참 아무것도 아니다."
+  },
+  {
+   "id": "ko-5",
+   "work": "봄봄",
+   "author": "김유정",
+   "text": "우리 장인님은 약이 오르면 이렇게 손버릇이 아주 못됐다. 또 사위에게 이자식 저자식 하는 이놈의 장인님은 어디 있느냐. 오죽해야 우리 동리에서 누굴 물론하고 그에게 욕을 안 먹는 사람은 명이 짜르다 한다. 조그만 아이들까지도 그를 돌아세놓고 욕필이(본 이름이 봉필이니까) 욕필이, 하고 손가락질을 할 만치 두루 인심을 잃었다. 허나 인심을 정말 잃었다면 욕보다 읍의 배참봉댁 마름으로 더 잃었다. 번히 마름이란 욕 잘하고, 사람 잘 치고, 그리고 생김생기길 호박개같애야 쓰는 거지만 장인님은 외양이 똑 됐다. 장인에게 닭마리나 좀 보내지 않는다든가 애벌논 때 품을 좀 안 준다든가 하면 그해 가을에는 영락없이 땅이 뚝뚝 떨어진다. 그러면 미리부터 돈도 먹고 술도 먹이고 안달재신으로 돌아치던 놈이 그 땅을 슬쩍 돌라 안는다. 이바람에 장인님집 외양간에는 눈깔 커다란 황소 한놈이 절로 엉금엉금 기어들고, 동리 사람들은 그 욕을 다 먹어가면서도 그래도 굽실굽실 하는 게 아닌가……"
+  }
+ ],
+ "ar": [
+  {
+   "id": "ar-1",
+   "work": "النظرات (essay: أفسدك قومك)",
+   "author": "مصطفى لطفي المنفلوطي",
+   "text": "أيها المجرم الفاتك الذي يسلُب الخزائنَ نفائسَها، والأجسامَ أرواحَها، لست أحمل عليك من العتْب فوق ما يحتمله ذنبك، ولا أنظر إليك بالعين التي نظر بها إليك القاضي الذي قسا في حكمه عليك؛ لأني أعتقد أنَّ لك شركاء في جريمتك، فلا بد لي من أن أنصفك وإن كنت لا أستطيع أن أنفعك."
+  },
+  {
+   "id": "ar-2",
+   "work": "النظرات (essay: أفسدك قومك)",
+   "author": "مصطفى لطفي المنفلوطي",
+   "text": "شريكك في الجريمة هذا المجتمع الإنسانيُّ الفاسد الذي أغراك بها، ومهَّد لك السبيل إليها، فقد كان يُسمِّيك شجاعًا إذا قتلت، وذكيًّا فَطِنًا إذا سرقت، وعالمًا إذا احتلت، وعاقلًا إذا خَدعْتَ، وكان يهابك هيبته للفاتحين، ويُجلُّك إجلاله للفاضلين. وكثيرًا ما كنت تحب أن ترى وجهك في مرآته، فتراه وجهًا أبيضَ ناصعًا، فتتمنى لو دام لك هذا الجمال، ولو أنه كان يُؤْثِرُ نُصحَك ويَصدُقك الحديثَ عن نفسك لمثَّل لك جريمتك في نظرك بصورتها الشوهاء، وهنالك ربما وددت بجدْعِ الأنف لو طواك بطن الأرض عنها، وحالت المنية بينك وبينها."
+  },
+  {
+   "id": "ar-3",
+   "work": "النظرات (essay: الإنصاف)",
+   "author": "مصطفى لطفي المنفلوطي",
+   "text": "إنَّ صديقك الذي يبسم لك في حالي رضاك وغضبك، وحلمك وجهلك، وصوابك وسقطك، ليس ممن يُغتبط بمودته، أو يُوثق بصداقته؛ لأنه لا يصلح أنْ يكون مرآتك التي تتراءى فيها، فتكشف لك عن نفسك وتصدُقك عن زَينك وشَينك، وحلوك ومُرِّك، وهو إما جاهلٌ متهورٌ في ميوله وأهوائه، فلا يرى غير ما تريد أن ترى نفسه لا ما يجب أن يراه، وإما منافقٌ مخادعٌ، قد علم أنَّ هواك في الصمت عن عيوبك وتجرير الذيول عليها، فجاراك فيما تريد ليبلغ منك ما يريد."
+  },
+  {
+   "id": "ar-4",
+   "work": "النظرات (essay: عبرة الدهر)",
+   "author": "مصطفى لطفي المنفلوطي",
+   "text": "بَنى فلانٌ في روضةٍ من رياض بساتينه الزاهرة قصرًا فخمًا يتلألأ في تلك البقعة الخضراء تلألؤ الكوكب المنير في البقعة الزرقاء، ويطاول بشرفاته الشمَّاء أفلاك السماء، كأنه نسرٌ محلِّقٌ في الفضاء، أو قُرطٌ مُعَلَّق في أذن الجوزاء، وكأن شرفاته آذانٌ تُفضِي إليها النجوم بالأسرار، وطاقاتِه أبراجٌ تنتقل فيها الشموس والأقمار."
+  },
+  {
+   "id": "ar-5",
+   "work": "النظرات (essay: عبرة الدهر)",
+   "author": "مصطفى لطفي المنفلوطي",
+   "text": "فما سمع السيد هذه الكلمات حتى اضطرب اضطرابًا شديدًا وسقط عن كرسيه وهو يقول: «أشهد أني من الأشقياء.» وما زال في غشيته تلك حتى صحا صحوة الموت، وفتح عينيه فرأى بين يديه هذا المنظر المحزن المؤلم: رأى ولده لاهيًا بمحادثة فتاةٍ من فتيات القصر، ورأى زوجته تضاحك تِرْبًا من أترابها وتغمزها بطرْفها أنْ قد حان حَينه ودنا أجله، ورأى صديقه أو وليَّ عهده يأمر في القصر وينهى، ويتصرَّف تصرُّف السيد المطاع، ورأى نفسه يعالج سكرات الموت ويعد عدَّته للانتقال من القصر إلى القبر، وهنا سمع كأنَّ هاتفًا يهتف به من السماء ويقول: «أيها الرجل، لو وَفيت لزوجك لوَفتْ لك، ولو أدَّبت ولدك لعَنَاه أمرك، ولو أحسنت اختيار صديقك ما خانك، ولو رحمت نفسك ما خسرت حياتك.» فأغمض عينيه وهو يقول: «فلتكن مشيئة الله.»"
+  }
+ ],
+ "hi": [
+  {
+   "id": "hi-1",
+   "work": "ईदगाह",
+   "author": "प्रेमचंद",
+   "text": "गाँव से मेला चला। और बच्चों के साथ हामिद भी जा रहा था। कभी सब-के-सब दौड़कर आगे निकल जाते। फिर किसी पेड़ के नीचे खड़े होकर साथवालो का इन्तजार करते। ये लोग क्यों इतना धीरे-धीरे चल रहे हैं! हामिद के पैरों में तो जैसे पर लग गये हैं। वह कभी थक सकता है! शहर का दामन आ गया। सड़क के दोनों ओर अमीरों के बगीचे हैं। पक्की चार-दीवारी बनी हुई है। पेड़ों में आम और लीचियाँ लगी हुई हैं। कभी-कभी कोई लड़का कंकड़ी उठाकर आम पर निशाना लगाता है। माली अन्दर से गाली देता हुआ निकलता है। लड़के वहाँ से एक फर्लांग पर हैं। खूब हँस रहे हैं। माली को कैसा उल्लू बनाया है।"
+  },
+  {
+   "id": "hi-2",
+   "work": "ईदगाह",
+   "author": "प्रेमचंद",
+   "text": "अब बस्ती घनी होने लगी थी। ईदगाह जानेवालों की टोलियाँ नजर आने लगीं। एक-से-एक भड़कीले वस्त्र पहने हुए। कोई इक्के-ताँगे पर सवार, कोई मोटर पर, सभी इत्र में बसे, सभी के दिलों में उमंग। ग्रामीणों का यह छोटा-सा दल, अपनी विपन्नता से बेखबर, सन्तोष और धैर्य में मगन चला जा रहा था। बच्चों के लिए नगर की सभी चीजें अनोखी थीं। जिस चीज की ओर ताकते, ताकते ही रह जाते। और पीछे से बार-बार हार्न की आवाज होने पर भी न चेतते। हामिद तो मोटर के नीचे जाते-जाते बचा।"
+  },
+  {
+   "id": "hi-3",
+   "work": "ईदगाह",
+   "author": "प्रेमचंद",
+   "text": "हामिद—खिलौना क्यों नहीं है? अभी कन्धे पर रखा, बन्दूक हो गयी। हाथ में ले लिया, फकीरों का चिमटा हो गया। चाहूँ तो इससे मजीरे का काम ले सकता हूँ। एक चिमटा जमा दूंँ तो तुम लोगों के सारे खिलौनों की जान निकल जाय। तुम्हारे खिलौने कितना ही जोर लगाये, मेरे चिमटे का बाल भी बांका नहीं कर सकते। मेरा बहादुर शेर है—चिमटा।"
+  },
+  {
+   "id": "hi-4",
+   "work": "जुलूस",
+   "author": "प्रेमचंद",
+   "text": "मिट्ठन बाई-मैं खूब समझती हूँ। डी० एस० पी० पीछे खड़ा था। तुमने सोचा होगा, ऐसी कारगुजारी दिखाने का अवसर शायद फिर कभी मिले या न मिले। क्या तुम समझते हो, उस दल में कोई भला आदमी न था? उसमें कितने आदमी ऐसे थे, जो तुम्हारे-जैसों को नौकर रख सकते हैं। विद्या में तो शायद अधिकांश तुमसे बढ़े हुए होंगे, मगर तुम उन पर डण्डे चला रहे थे, और उन्हें घोड़े से कुचल रहे थे, वाह री जवाँमर्दो!"
+  },
+  {
+   "id": "hi-5",
+   "work": "जुलूस",
+   "author": "प्रेमचंद",
+   "text": "मिठ्ठो इम वक्त मुझे दिल में कितना कायर और नीच समझ रही होगी! शायद इस वक्त मुझे कोई मार डाले, तो वह जबान भी न खोलेगी। शायद मन में प्रसन्न होगी कि अच्छा हुआ। अभी कोई जाकर साहब से कह दे कि बीरबलसिंह की स्त्री जुलूस में निकली थी, तो कहीं का न रहूँ। मिठ्ठो जानती है, समझती है, फिर भी निकल खड़ी हुई। मुझसे पूछा तक नहीं। कोई फिक्र नहीं है न, जभी ये बातें सूझती हैं। वहाँ सभी बेफ़िक्रे हैं; कालेजों और स्कूलों के लड़के, मजदूर, पेशेवर, इन्हें क्या चिन्ता! मरन तो हम लोगों की है, जिनके बाल-बच्चे हैं और ‌ मान-मर्यादा का ध्यान है। सब-की-सब मेरी तरफ कैसा घूर रही थीं, मानों खा जायेगी।"
+  }
+ ],
+ "tr": [
+  {
+   "id": "tr-1",
+   "work": "Kesik Bıyık",
+   "author": "Ömer Seyfettin",
+   "text": "Fakat ilk zamanlar o kadar utandım ki, size tarif edemem. Hele ilk gün bir arkadaşa rastgelmeyeyim diye arka sokaklardan eve geldim. Kapıyı açan evlâtlık beni bu halde görünce dehşetli bir nâra attı. Kurt görmüş bir kısrak heyecanıyla, haykıra haykıra kaçtı. Ben kapıyı iterek yukarı çıktım. Hınzır, kız, kim bilir anneme neler söylemiş. Odama annem geldi. Ben, dişlerim ağrıyormuş gibi ağzımı tutuyor, bıyıklarımı göstermiyordum."
+  },
+  {
+   "id": "tr-2",
+   "work": "Gizli Mâbed",
+   "author": "Ömer Seyfettin",
+   "text": "Böyle ansızın gitmek, alaturka evde tekliflere, tekellüflere meydan bırakmayacak, tabiatı, pitoreski, bu Şark meftunu Frenge olduğu gibi gösterecekti. Sermet, zavallının sevincine gülmekten katılıyordu. Ona veda ettik, bir arabaya atladık. Beyazıt'a indik. Frenkçiğe bir dükkandan ciğer gibi kıpkırmızı bir fes aldık. Kalıplattık. Tramvaya binmek istemedi."
+  },
+  {
+   "id": "tr-3",
+   "work": "Gizli Mâbed",
+   "author": "Ömer Seyfettin",
+   "text": "Dedim. Frenk evlerimizin üzerindeki \"Maşallah\" levhalarını millî bir sigorta şirketinin işaretleri, saçaklarımızda sallanan nazarlık pabuçlarını damdan dama kaçan hırsızların oralara takılıp kalmış ayakkabıları zanneden meşhur milletdaşı gibi, bir an durdu, düşündü. Derin derin nargilesini çekti. Yutkundu. Elinde açık kalan defterini cebine soktu. Ben hâlâ duruyor, duruyor, gülüyordum."
+  },
+  {
+   "id": "tr-4",
+   "work": "Bomba",
+   "author": "Ömer Seyfettin",
+   "text": "Magda gözyaşları içinde çırpınıyor ve ihtiyara sarılıyordu. İhtiyar hiçbir şey söylemedi. Başını salladı. Yattığı odanın kapısına gitti. İçeri girdi. Bir dakika sonra kırmızı ve ağır bir çıkın ile geldi. Masanın üzerine bıraktı. Haydutlar parayı bu kadar çabuk elde ettikleri için sevindiler. Raçof hemen çıkını açtı. Saymaya başladı."
+  },
+  {
+   "id": "tr-5",
+   "work": "Bomba",
+   "author": "Ömer Seyfettin",
+   "text": "Şimdi köpek sesleri yaklaşıyordu. Kendi köpekleri de havlıyordu. Fakat niçin? Boris'e niçin havlıyorlardı? Acaba yanında bir yabancı mı vardı? Köpek sesleri daha ziyâde yaklaştı. Magda ayağa kalktı. Pencerenin yanına gitti. Kapağı açmaya cesaret edemiyor, meçhul bir korku onu hareketsiz bırakıyordu... Köpekler pek yaklaşmışlardı. Ayak sesleri işitiliyordu. Magda'nın kalbi durdu. Nefesi kesildi. Kendinden geçti."
+  }
+ ],
+ "sv": [
+  {
+   "id": "sv-1",
+   "work": "Nils Holgerssons underbara resa genom Sverige",
+   "author": "Selma Lagerlöf",
+   "text": "Det var kväll, när vildgässen kommo in från havet, och det småkulliga landet låg vackert mellan de blänkande fjärdarna. Här och där på öarna såg pojken kojor och stugor, och ju längre inåt land han kom, desto större och bättre blevo bostäderna. Till sist växte de till stora, vita herrgårdsbyggnader. Utmed stränderna stod vanligen en krans av träd, därinnanför lågo åkerlappar, och uppe på toppen av de små kullarna togo träden vid på nytt. Han kunde inte låta bli att tänka på Blekinge. Detta var återigen ett ställe, där land och hav möttes på ett sådant där vackert och stilla sätt och liksom sökte att visa varandra det bästa och skönaste de hade."
+  },
+  {
+   "id": "sv-2",
+   "work": "Nils Holgerssons underbara resa genom Sverige",
+   "author": "Selma Lagerlöf",
+   "text": "Landet hade redan varit färdigt i norr och öster, när Sankte Per hade börjat arbetet, men södra och västra delen och hela inlandet hade han ensam fått skapa. När nu Vår Herre kom upp dit, där Sankte Per hade arbetat, blev han så förskräckt, att han tvärstannade och sa: ’Hur i all världen har du burit dig åt med det här landet, Sankte Per?’"
+  },
+  {
+   "id": "sv-3",
+   "work": "Nils Holgerssons underbara resa genom Sverige",
+   "author": "Selma Lagerlöf",
+   "text": "Då vart det äntligen slut med Vår Herres tålamod, och han sa: ’Nej, du kan få gå ner till Skåne, som jag har gjort till ett gott och lättskött land, och skapa skåningen, men smålänningen vill jag själv skapa.’ Och så skapade Vår Herre smålänningen och gjorde honom kvick och förnöjsam och glad och flitig och tilltagsen och duktig, för att han skulle kunna skaffa sig sin bärgning i sitt fattiga land.»"
+  },
+  {
+   "id": "sv-4",
+   "work": "Nils Holgerssons underbara resa genom Sverige",
+   "author": "Selma Lagerlöf",
+   "text": "»Vi är nog tämligen nära Västra Vemmenhög nu,» sade Akka, »och jag tänkte, att du kanske ville fara hem på en stund. Det kommer att dröja, innan du får se någon av de dina.» — »Det är nog bäst att låta bli,» sade pojken, men det hördes på rösten, att han blev glad över förslaget. — »Om gåskarlen stannar här hos oss, så kan ju ingen olycka ske,» sade Akka. »Jag tycker, att du borde ta reda på hur de har det hemma hos dig. Du kan måhända hjälpa dem på något sätt, fastän du inte blir människa.» — »Ja, det har ni rätt i, mor Akka. Det borde jag ha tänkt på förut,» sade pojken och blev helt ivrig."
+  },
+  {
+   "id": "sv-5",
+   "work": "Nils Holgerssons underbara resa genom Sverige",
+   "author": "Selma Lagerlöf",
+   "text": "Pojken gick helt hastigt ut ur kostallet, när han hade fått höra detta, och begav sig in i häststallet. Det var litet, men snyggt och fint. Det märktes på allting, att Holger Nilsson hade velat inrätta det så, att nykomlingen skulle trivas. Därinne stod en präktig, grann häst, som riktigt sken av välmåga."
+  }
+ ],
+ "cs": [
+  {
+   "id": "cs-1",
+   "work": "Hastrman (Povídky malostranské)",
+   "author": "Jan Neruda",
+   "text": "Pan Rybář bydlel v Hluboké cestě, hned dole vlevo, s vyhlídkou na Petřín. Ale kdyby byl býval již až u samého domu, jakmile spatřil nějaké cizince, kteří zahýbali vpravo na Hradčany, vždy šel za nimi. Když zastavili u rozložité vyhlídky a obdivovali se kráse naší Prahy, stál vedle nich, pozdvih prst a hvízdnul: „Ďjó, moře! — Proč nebydlíme u moře!“ Pak šel za nimi do Hradu, a když se cizinci ve svatováclavské kapli obdivovali zas stěnám vyloženým českými drahokamy, hvízdnul podruhé: „To si myslím! U nás v Čechách hodí pasák kamenem za stádem, a kámen má často větší cenu než celé stádo!“ Víc jim neřekl nikdy."
+  },
+  {
+   "id": "cs-2",
+   "work": "Hastrman (Povídky malostranské)",
+   "author": "Jan Neruda",
+   "text": "Ale pan Rybář kráčel klidně dál, trochu rychleji než jindy. Pod levým páždím nesl jednu z těch čtyřhranných škatulí černých, o nichž tolik povídáno. Tisknul ji pevně k tělu, takže smeknutý klobouk v ruce dole byl jakoby k noze přiklížen. V pravé ruce měl španělku s placatým knoflíkem ze slonové kosti, znamení to, že pan Rybář jde někam na návštěvu, nikdy jindy nenosil hole. Pozdravován zdvihal hůl a hvízdal mnohem hlasitěji než jindy."
+  },
+  {
+   "id": "cs-3",
+   "work": "Doktor Kazisvět (Povídky malostranské)",
+   "author": "Jan Neruda",
+   "text": "Byl překrásný den červnový. Takový den, kdy se nám zdá, že úsměv nejvyšší spokojenosti rozkládá se po nebi, zemi i po tvářích všech lidi. A v den ten pohyboval se pozdě odpůldne nádherný pohřeb Oujezdem k bráně. Pochovávali pana Schepelera, radu oučtárny zemské, či stavovské, jak se tenkrát říkalo. Bůh nám to odpusť, ale věru se zdálo, že i po tom pohřbu je rozestřen onen úsměv spokojený! Tvář mrtvého ovšem nebylo vidět, neníť u nás zvyk jihu, kde nosí mrtvé k hrobu v rakvi otevřené, aby se naposled ještě, než sklouznou do jámy, ohřáli v slunci. Ale odpočtem-li jistou slušnou opravdovost, nemohla se jakás všeobecná spokojenost upřít. Ležela za překrásného toho dne lidem jakoby ve všech údech — pomozme si!"
+  },
+  {
+   "id": "cs-4",
+   "work": "Doktor Kazisvět (Povídky malostranské)",
+   "author": "Jan Neruda",
+   "text": "Po ulici nastal hluk a povyk zrovna bouřlivý. Pohřební vůz obracel, fiakři obraceli, pan rada Kdojek zvolal: „Pojďme — vždyť se dozvíme všechno!“ ale nikdo nevěděl, co má činit. „Dobře že jdete, pane komisaři!“ volal Ostrohradský na přicházejícího teď policejního úřadníka. „Děje se tu strašná, nedovolená komedie — prznění mrtvol za bílého dne — před půl Prahou —“‚ a následoval komisaře dovnitř Vápenice. Doktor Link zmizel. Za chvilku už byl Ostrohradský zase venku, za ním komisař. „Rozejděte se, prosím,“ pravil tento k shromážděným, „nikdo nesmí tam! Doktor Heribert tvrdí najisto, že přivede pana radu k sobě.“"
+  },
+  {
+   "id": "cs-5",
+   "work": "O měkkém srdci paní Rusky (Povídky malostranské)",
+   "author": "Jan Neruda",
+   "text": "„Jednou jsem byla také na židovském pohřbu,“ pokračovala pološeptem paní Ruska, „ale to není hezké. Všechna zrcadla jsou zavěšena, aby prý neviděli mrtvolu, až se obrátí kam chtějí. Takhle je líp, nebožtíka v truhle je vidět pěkně ze všech stran — já bych řekla, že ta truhla stojí dvacet zlatých v stříbře, to je krása! Ale zasloužil se jí, dobrák jako by se na nás i z toho zrcadla usmíval. Pranic ho smrt nezměnila, jen trochu ho natáhla — jako by byl živ, že?“"
+  }
+ ]
+}
