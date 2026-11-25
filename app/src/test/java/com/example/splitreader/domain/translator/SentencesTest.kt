@@ -2,6 +2,7 @@ package com.example.splitreader.domain.translator
 
 import com.example.splitreader.domain.model.Language
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -19,6 +20,37 @@ class SentencesTest {
     @Test
     fun `Japanese sentences split on the full stop`() {
         assertEquals(listOf("一つ。", "二つ。"), Sentences.split("一つ。二つ。", Language.JAPANESE))
+    }
+
+    // ── Abbreviations (translation eval 2026-11-25: "миссис. Лонг говорит…") ─────────────────────
+    private val english = Abbreviations.parse("# comment\n\nMr\nMrs\nNo #NUMERIC_ONLY#\n")
+
+    @Test
+    fun `a full stop after a known abbreviation does not end a sentence`() {
+        assertEquals(
+            listOf("Mrs. Long came in. ", "Mr. Morris left."),
+            Sentences.split("Mrs. Long came in. Mr. Morris left.", Language.ENGLISH, abbreviations = english),
+        )
+    }
+
+    @Test
+    fun `a number-only abbreviation holds only before a number`() {
+        assertEquals(
+            listOf("Room No. 5 was empty. ", "He answered No. ", "Then he left."),
+            Sentences.split("Room No. 5 was empty. He answered No. Then he left.", Language.ENGLISH, abbreviations = english),
+        )
+    }
+
+    @Test
+    fun `the list format skips comments and blank lines`() {
+        assertEquals(setOf("Mr", "Mrs"), english.always)
+        assertEquals(setOf("No"), english.beforeNumber)
+    }
+
+    @Test
+    fun `a long English paragraph needs splitting, a short one does not`() {
+        assertTrue(Sentences.needsSplitting("a".repeat(Sentences.MAX_PIECE + 1), Language.ENGLISH))
+        assertFalse(Sentences.needsSplitting("One. Two. Three.", Language.ENGLISH))
     }
 
     @Test

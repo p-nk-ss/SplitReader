@@ -6,6 +6,7 @@ import com.example.splitreader.data.bergamot.BergamotEngine
 import com.example.splitreader.data.bergamot.BergamotManifest
 import com.example.splitreader.data.bergamot.BergamotModelStore
 import com.example.splitreader.data.bergamot.SplitPrefixes
+import com.example.splitreader.domain.translator.AbbreviationSource
 import com.example.splitreader.data.bergamot.JniNativeBridge
 import com.example.splitreader.data.bergamot.OkHttpPackFetcher
 import com.example.splitreader.data.repository.TranslationRepositoryImpl
@@ -141,17 +142,23 @@ object TranslatorNetworkModule {
     )
 
     @Provides @Singleton
+    fun provideSplitPrefixes(@ApplicationContext context: Context): SplitPrefixes =
+        SplitPrefixes(File(context.filesDir, "bergamot-ssplit")) { path ->
+            try { context.assets.open(path) } catch (_: java.io.FileNotFoundException) { null }
+        }
+
+    /** The same abbreviation lists for the app's own sentence splitter (Sentences) as for Offline HQ's. */
+    @Provides @Singleton
+    fun provideAbbreviationSource(prefixes: SplitPrefixes): AbbreviationSource = prefixes
+
+    @Provides @Singleton
     fun provideBergamotProvider(
-        @ApplicationContext context: Context,
         store: BergamotModelStore,
         engine: BergamotEngine,
         manifest: BergamotManifest,
-    ): BergamotTranslationProvider {
-        val prefixes = SplitPrefixes(File(context.filesDir, "bergamot-ssplit")) { path ->
-            try { context.assets.open(path) } catch (_: java.io.FileNotFoundException) { null }
-        }
-        return BergamotTranslationProvider(store, engine, manifest, prefixFor = prefixes::fileFor, packDir = store::packDir)
-    }
+        prefixes: SplitPrefixes,
+    ): BergamotTranslationProvider =
+        BergamotTranslationProvider(store, engine, manifest, prefixFor = prefixes::fileFor, packDir = store::packDir)
 }
 
 @Module

@@ -1,6 +1,8 @@
 package com.example.splitreader.data.bergamot
 
 import com.example.splitreader.domain.model.Language
+import com.example.splitreader.domain.translator.AbbreviationSource
+import com.example.splitreader.domain.translator.Abbreviations
 import java.io.File
 import java.io.InputStream
 
@@ -11,7 +13,15 @@ import java.io.InputStream
  * files in assets `bergamot/ssplit/`, read at run time); the engine takes them by file path only, so
  * each is copied out once. Languages Moses has no list for get none — the engine's plain splitter.
  */
-class SplitPrefixes(private val dir: File, private val openAsset: (String) -> InputStream?) {
+class SplitPrefixes(private val dir: File, private val openAsset: (String) -> InputStream?) : AbbreviationSource {
+    private val parsed = mutableMapOf<Language, Abbreviations>()
+
+    /** The same list, parsed for the app's own splitter ([com.example.splitreader.domain.translator.Sentences]). */
+    @Synchronized
+    override fun forLanguage(language: Language): Abbreviations = parsed.getOrPut(language) {
+        fileFor(language)?.readText()?.let(Abbreviations::parse) ?: Abbreviations.NONE
+    }
+
     @Synchronized
     fun fileFor(language: Language): File? {
         val name = "nonbreaking_prefix.${language.code}"

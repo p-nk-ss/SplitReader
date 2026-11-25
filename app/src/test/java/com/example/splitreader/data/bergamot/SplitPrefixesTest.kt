@@ -29,6 +29,12 @@ class SplitPrefixesTest {
     }
 
     @Test
+    fun `the app's splitter gets the same list, parsed`() {
+        assertEquals(setOf("Mr", "Mrs"), prefixes().forLanguage(Language.ENGLISH).always)
+        assertEquals(emptySet<String>(), prefixes().forLanguage(Language.JAPANESE).always)
+    }
+
+    @Test
     fun `a language without a list gets none`() {
         assertNull(prefixes().fileFor(Language.JAPANESE))
     }

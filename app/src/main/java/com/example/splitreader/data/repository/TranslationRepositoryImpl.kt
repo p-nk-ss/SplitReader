@@ -6,6 +6,7 @@ import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.Resolution
+import com.example.splitreader.domain.translator.AbbreviationSource
 import com.example.splitreader.domain.translator.Sentences
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
@@ -19,6 +20,7 @@ class TranslationRepositoryImpl @Inject constructor(
     private val providers: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
     private val dao: TranslationDao,
     private val usageTracker: TranslationUsageTracker,
+    private val abbreviations: AbbreviationSource,
 ) : TranslationRepository {
 
     override fun resolve(provider: TranslationProvider, source: Language, target: Language): Resolution {
@@ -47,7 +49,11 @@ class TranslationRepositoryImpl @Inject constructor(
         val cacheKey = TranslationCacheKey.compute(provider, text, source, target) + if (split) SPLIT_KEY else ""
         dao.getCached(cacheKey)?.takeIf { it.originalText == text }?.let { return it.translatedText }
         val translated = if (split) {
-            Sentences.join(Sentences.split(text, source).map { api.translate(it, source, target) }, target)
+            Sentences.join(
+                Sentences.split(text, source, abbreviations = abbreviations.forLanguage(source))
+                    .map { api.translate(it, source, target) },
+                target,
+            )
         } else {
             api.translate(text, source, target)
         }

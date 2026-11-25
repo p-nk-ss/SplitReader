@@ -48,6 +48,9 @@ class TranslationQualityHarness {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val args = InstrumentationRegistry.getArguments()
     private val context = instrumentation.targetContext
+    private val prefixes = SplitPrefixes(File(context.filesDir, "bergamot-ssplit")) { path ->
+        try { context.assets.open(path) } catch (_: java.io.FileNotFoundException) { null }
+    }
 
     @Test
     fun translateCorpus() = runBlocking {
@@ -88,10 +91,12 @@ class TranslationQualityHarness {
                     val text = o["text"].asString
                     val t0 = System.nanoTime()
                     val result = if (prepareError != null) Result.failure(prepareError) else runCatching {
+                        val abbr = prefixes.forLanguage(src)
                         if (name != "quick" && cut != null && text.length > cut) {
-                            Sentences.join(Sentences.split(text, src, cut).map { provider.translate(it, src, tgt) }, tgt)
+                            Sentences.join(Sentences.split(text, src, cut, abbr).map { provider.translate(it, src, tgt) }, tgt)
                         } else if (name != "quick" && Sentences.needsSplitting(text, src)) {
-                            Sentences.join(Sentences.split(text, src).map { provider.translate(it, src, tgt) }, tgt)
+                            // As TranslationRepositoryImpl does for the on-device engines.
+                            Sentences.join(Sentences.split(text, src, abbreviations = abbr).map { provider.translate(it, src, tgt) }, tgt)
                         } else {
                             provider.translate(text, src, tgt)
                         }
@@ -121,9 +126,6 @@ class TranslationQualityHarness {
                 val manifest = BergamotManifest.parse(context.assets.open("bergamot/manifest.json").bufferedReader().readText())
                 val store = BergamotModelStore(File(context.filesDir, "bergamot-eval"), manifest, OkHttpPackFetcher(client), Dispatchers.IO)
                 val engine = BergamotEngine(JniNativeBridge.loadOrNull { throw it }, Dispatchers.Default)
-                val prefixes = SplitPrefixes(File(context.filesDir, "bergamot-ssplit")) { path ->
-                    try { context.assets.open(path) } catch (_: java.io.FileNotFoundException) { null }
-                }
                 BergamotTranslationProvider(store, engine, manifest, prefixFor = prefixes::fileFor, packDir = store::packDir)
             }
             "mlkit" -> MLKitTranslationProvider()
