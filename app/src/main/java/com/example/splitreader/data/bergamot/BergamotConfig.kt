@@ -6,8 +6,11 @@ import java.io.File
 private fun targetVocab(packDir: File): File =
     File(packDir, BergamotModelStore.TARGET_VOCAB).takeIf { it.exists() } ?: File(packDir, BergamotModelStore.VOCAB)
 
-/** Marian config for one Firefox-Translations pack. Same settings Firefox uses for base-memory/tiny models. */
-fun bergamotConfigYaml(packDir: File): String = """
+/**
+ * Marian config for one Firefox-Translations pack. Same settings Firefox uses for base-memory/tiny models,
+ * plus [prefixFile]: the protected prefixes of the language the model reads ([SplitPrefixes]).
+ */
+fun bergamotConfigYaml(packDir: File, prefixFile: File? = null): String = """
     models: [${File(packDir, BergamotModelStore.MODEL).absolutePath}]
     vocabs: [${File(packDir, BergamotModelStore.VOCAB).absolutePath}, ${targetVocab(packDir).absolutePath}]
     shortlist: [${File(packDir, BergamotModelStore.SHORTLIST).absolutePath}, false]
@@ -24,4 +27,4 @@ fun bergamotConfigYaml(packDir: File): String = """
     quiet-translation: true
     gemm-precision: int8shiftAlphaAll
     alignment: soft
-""".trimIndent()
+""".trimIndent() + (prefixFile?.let { "\nssplit-prefix-file: ${it.absolutePath}" } ?: "")

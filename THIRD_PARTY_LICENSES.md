@@ -28,7 +28,7 @@ component listed below; `tools/bergamot/README.md` documents how to reproduce th
 | marian-dev (marian-nmt) | MIT | Marcin Junczys-Dowmunt, the University of Edinburgh, Adam Mickiewicz University | <https://github.com/browsermt/marian-dev/tree/2781d735d4a10dca876d61be587afdab2726293c> |
 | intgemm | MIT | University of Edinburgh, Nikolay Bogoychev, Mateusz Chudyk, Kenneth Heafield, Microsoft Corporation | <https://github.com/kpu/intgemm/tree/f7401513da71758dacce52fed1c7855549abee59> |
 | ssplit-cpp | Apache-2.0 | University of Edinburgh (2019) | <https://github.com/browsermt/ssplit-cpp/tree/a311f9865ade34db1e8e080e6cc146f55dafb067> |
-| ssplit-cpp `nonbreaking_prefixes` data | LGPL-2.1 | The Moses decoder authors | <https://github.com/moses-smt/mosesdecoder/tree/master/scripts/share/nonbreaking_prefixes> |
+| ssplit-cpp `nonbreaking_prefixes` data (12 lists shipped unmodified as separate files in `app/src/main/assets/bergamot/ssplit/`, read at run time; replaceable) | LGPL-2.1 | The Moses decoder authors | <https://github.com/moses-smt/mosesdecoder/tree/master/scripts/share/nonbreaking_prefixes> |
 | sentencepiece | Apache-2.0 | Google LLC | [browsermt/sentencepiece@ae41b77](https://github.com/browsermt/sentencepiece/tree/ae41b7740d7006596bb9257e83340b2620db9d00), a fork of [google/sentencepiece](https://github.com/google/sentencepiece) |
 | abseil (vendored in sentencepiece) | Apache-2.0 | The Abseil Authors / Google LLC | <https://github.com/abseil/abseil-cpp> |
 | protobuf-lite (vendored in sentencepiece) | BSD-3-Clause | Google Inc. (2008) | <https://github.com/protocolbuffers/protobuf> |

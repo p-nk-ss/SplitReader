@@ -7,6 +7,7 @@ import com.example.splitreader.data.bergamot.BergamotManifest
 import com.example.splitreader.data.bergamot.BergamotModelStore
 import com.example.splitreader.data.bergamot.JniNativeBridge
 import com.example.splitreader.data.bergamot.OkHttpPackFetcher
+import com.example.splitreader.data.bergamot.SplitPrefixes
 import com.example.splitreader.data.translator.BergamotTranslationProvider
 import com.example.splitreader.data.translator.MLKitTranslationProvider
 import com.example.splitreader.data.translator.QuickTranslateProvider
@@ -58,10 +59,14 @@ class TranslationQualityHarness {
         val only = args.getString("dirs")?.split(',')?.map { it.trim() }?.toSet()
         val directions = DIRECTIONS.filter { only == null || "${it.first}-${it.second}" in only }
         val outDir = File(context.getExternalFilesDir(null), "eval").apply { mkdirs() }
+        // Experiments: `-e tag x` writes <engine>-x.jsonl; `-e cut N` sends on-device engines every
+        // paragraph longer than N chars as sentence pieces of at most N chars (Sentences.split).
+        val tag = args.getString("tag")?.let { "-$it" } ?: ""
+        val cut = args.getString("cut")?.toInt()
 
         for (name in engines) {
             val provider = provider(name)
-            val out = File(outDir, "$name.jsonl")
+            val out = File(outDir, "$name$tag.jsonl")
             val done = if (out.exists()) out.readLines().mapNotNull { line ->
                 runCatching { JsonParser.parseString(line).asJsonObject.let { it["dir"].asString + "|" + it["id"].asString } }.getOrNull()
             }.toSet() else emptySet()
@@ -83,7 +88,9 @@ class TranslationQualityHarness {
                     val text = o["text"].asString
                     val t0 = System.nanoTime()
                     val result = if (prepareError != null) Result.failure(prepareError) else runCatching {
-                        if (name != "quick" && Sentences.needsSplitting(text, src)) {
+                        if (name != "quick" && cut != null && text.length > cut) {
+                            Sentences.join(Sentences.split(text, src, cut).map { provider.translate(it, src, tgt) }, tgt)
+                        } else if (name != "quick" && Sentences.needsSplitting(text, src)) {
                             Sentences.join(Sentences.split(text, src).map { provider.translate(it, src, tgt) }, tgt)
                         } else {
                             provider.translate(text, src, tgt)
@@ -114,7 +121,10 @@ class TranslationQualityHarness {
                 val manifest = BergamotManifest.parse(context.assets.open("bergamot/manifest.json").bufferedReader().readText())
                 val store = BergamotModelStore(File(context.filesDir, "bergamot-eval"), manifest, OkHttpPackFetcher(client), Dispatchers.IO)
                 val engine = BergamotEngine(JniNativeBridge.loadOrNull { throw it }, Dispatchers.Default)
-                BergamotTranslationProvider(store, engine, manifest, store::packDir)
+                val prefixes = SplitPrefixes(File(context.filesDir, "bergamot-ssplit")) { path ->
+                    try { context.assets.open(path) } catch (_: java.io.FileNotFoundException) { null }
+                }
+                BergamotTranslationProvider(store, engine, manifest, prefixFor = prefixes::fileFor, packDir = store::packDir)
             }
             "mlkit" -> MLKitTranslationProvider()
             "quick" -> QuickTranslateProvider(

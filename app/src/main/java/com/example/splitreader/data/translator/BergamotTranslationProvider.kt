@@ -21,6 +21,7 @@ class BergamotTranslationProvider(
     private val store: OfflineModelStore,
     private val engine: BergamotEngine,
     private val manifest: BergamotManifest,
+    private val prefixFor: (Language) -> File? = { null },
     private val packDir: (ModelPair) -> File,
 ) : TranslationProviderApi {
     override val id: TranslationProvider = TranslationProvider.BERGAMOT
@@ -61,7 +62,7 @@ class BergamotTranslationProvider(
         for (pair in routeFor(source, target)) {
             store.ensure(pair).collect { }   // no-op when installed; downloads if prepare() was skipped
             current = try {
-                engine.translate(packDir(pair), pair.id, current)
+                engine.translate(packDir(pair), pair.id, current, prefixFor(pair.source))
             } catch (e: OfflineEngineUnavailableException) {
                 if (!engine.available || engine.degraded) sessionBroken = true
                 throw e

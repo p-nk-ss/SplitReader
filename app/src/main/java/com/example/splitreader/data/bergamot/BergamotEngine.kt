@@ -60,7 +60,8 @@ class BergamotEngine(
      */
     @Volatile private var pendingUnload = false
 
-    suspend fun translate(packDir: File, key: String, text: String): String {
+    /** [prefixFile]: protected prefixes of the source language, read when the model loads ([SplitPrefixes]). */
+    suspend fun translate(packDir: File, key: String, text: String, prefixFile: File? = null): String {
         val b = bridge ?: throw OfflineEngineUnavailableException("native library not loaded")
         return withContext(dispatcher) {
             mutex.withLock {
@@ -70,7 +71,7 @@ class BergamotEngine(
                             val eldest = loaded.entries.first()
                             b.unload(eldest.value); loaded.remove(eldest.key)
                         }
-                        var h = b.load(bergamotConfigYaml(packDir))
+                        var h = b.load(bergamotConfigYaml(packDir, prefixFile))
                         if (h == 0L) {
                             // Spec §6: a failed load (typically OOM with the ceiling's worth of
                             // models resident) drops everything, halves the ambition to a single
@@ -78,7 +79,7 @@ class BergamotEngine(
                             loaded.values.forEach(b::unload); loaded.clear()
                             maxLoaded = 1
                             degradedFlag = true
-                            h = b.load(bergamotConfigYaml(packDir))
+                            h = b.load(bergamotConfigYaml(packDir, prefixFile))
                         }
                         if (h == 0L) throw OfflineEngineUnavailableException("load $key: ${b.lastError()}")
                         h

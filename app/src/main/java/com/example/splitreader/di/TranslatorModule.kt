@@ -5,6 +5,7 @@ import com.example.splitreader.BuildConfig
 import com.example.splitreader.data.bergamot.BergamotEngine
 import com.example.splitreader.data.bergamot.BergamotManifest
 import com.example.splitreader.data.bergamot.BergamotModelStore
+import com.example.splitreader.data.bergamot.SplitPrefixes
 import com.example.splitreader.data.bergamot.JniNativeBridge
 import com.example.splitreader.data.bergamot.OkHttpPackFetcher
 import com.example.splitreader.data.repository.TranslationRepositoryImpl
@@ -141,10 +142,16 @@ object TranslatorNetworkModule {
 
     @Provides @Singleton
     fun provideBergamotProvider(
+        @ApplicationContext context: Context,
         store: BergamotModelStore,
         engine: BergamotEngine,
         manifest: BergamotManifest,
-    ): BergamotTranslationProvider = BergamotTranslationProvider(store, engine, manifest, store::packDir)
+    ): BergamotTranslationProvider {
+        val prefixes = SplitPrefixes(File(context.filesDir, "bergamot-ssplit")) { path ->
+            try { context.assets.open(path) } catch (_: java.io.FileNotFoundException) { null }
+        }
+        return BergamotTranslationProvider(store, engine, manifest, prefixFor = prefixes::fileFor, packDir = store::packDir)
+    }
 }
 
 @Module
