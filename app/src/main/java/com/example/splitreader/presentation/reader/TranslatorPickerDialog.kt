@@ -19,6 +19,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.filled.StarHalf
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -226,6 +231,10 @@ private fun ProviderRow(
                 fontSize = 11.sp,
                 color = if (selected) palette.bg.copy(alpha = 0.75f) else palette.ink3,
             )
+            provider.qualityStars?.let { stars ->
+                Spacer(Modifier.height(sp.xxs))
+                QualityStars(provider = provider, stars = stars, onDark = selected)
+            }
             if (provider.stabilityNote != null) {
                 Spacer(Modifier.height(sp.xxs))
                 Text(
@@ -403,6 +412,37 @@ internal fun ApiKeyDialog(
                 color = palette.ink3,
             )
         }
+    }
+}
+
+/** Our overall rating in half stars, with "our rating" beside it so it never reads as user reviews. */
+@Composable
+private fun QualityStars(provider: TranslationProvider, stars: Float, onDark: Boolean) {
+    val palette = LocalReaderPalette.current
+    val tone = if (onDark) palette.bg.copy(alpha = 0.85f) else palette.ink2
+    val spoken = if (stars % 1f == 0f) stars.toInt().toString() else stars.toString()
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clearAndSetSemantics {
+            contentDescription = "${provider.displayName}: our rating $spoken of 5"
+        },
+    ) {
+        repeat(5) { i ->
+            val icon = when {
+                stars >= i + 1 -> Icons.Filled.Star
+                stars >= i + 0.5f -> Icons.AutoMirrored.Filled.StarHalf
+                else -> Icons.Outlined.StarOutline
+            }
+            Icon(icon, contentDescription = null, tint = tone, modifier = Modifier.size(12.dp))
+        }
+        Spacer(Modifier.size(6.dp))
+        Text(
+            text = "OUR RATING",
+            fontFamily = JetBrainsMono,
+            fontSize = 10.sp,
+            letterSpacing = 0.3.sp,
+            color = tone,
+        )
     }
 }
 

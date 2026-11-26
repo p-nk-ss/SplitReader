@@ -15,6 +15,11 @@ enum class TranslationProvider(
     val stabilityNote: String? = null,
     /** Who receives the text an online translator translates (honest privacy line); null = on-device. */
     val sendsTextTo: String? = null,
+    /**
+     * Our overall rating, 1–5 in half stars: the mean over the translation eval of 2026-11-25
+     * (46 language directions of public-domain prose, judged 1–5). Null = never evaluated.
+     */
+    val qualityStars: Float? = null,
 ) {
     MLKIT(
         displayName = "ML Kit (offline)",
@@ -23,6 +28,7 @@ enum class TranslationProvider(
         category = TranslationProviderCategory.FREE,
         description = "On-device translation. Works offline once language packs download.",
         tracksUsage = false,
+        qualityStars = 1.5f, // eval mean 1.6
     ),
     BERGAMOT(
         displayName = "Offline HQ",
@@ -32,6 +38,7 @@ enum class TranslationProvider(
         description = "Higher-quality on-device translation (Mozilla models). ~30 MB per language, " +
             "downloads on first use. Non-English pairs go through English.",
         tracksUsage = false,
+        qualityStars = 2.5f, // eval mean 2.4 (after the sentence-splitting fixes)
     ),
     QUICK_TRANSLATE(
         displayName = "Quick Translate (free, online)",
@@ -42,6 +49,7 @@ enum class TranslationProvider(
         tracksUsage = false,
         stabilityNote = "Unofficial endpoint — may be rate-limited or break without notice.",
         sendsTextTo = "Google",
+        qualityStars = 4f, // eval mean 3.8
     ),
     GOOGLE_CLOUD(
         displayName = "Google Cloud Translation",
