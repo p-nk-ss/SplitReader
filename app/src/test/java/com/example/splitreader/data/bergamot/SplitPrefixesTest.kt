@@ -1,0 +1,58 @@
+package com.example.splitreader.data.bergamot
+
+import com.example.splitreader.domain.model.Language
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.ByteArrayInputStream
+
+/** The engine reads protected prefixes ("Mrs", "Dr", …) from a file path; the lists ship as assets. */
+class SplitPrefixesTest {
+    @get:Rule val tmp = TemporaryFolder()
+
+    private val assets = mapOf("bergamot/ssplit/nonbreaking_prefix.en" to "Mr\nMrs\n")
+    private val opened = mutableListOf<String>()
+    private fun prefixes() = SplitPrefixes(tmp.root) { path ->
+        opened += path
+        assets[path]?.let { ByteArrayInputStream(it.toByteArray()) }
+    }
+
+    @Test
+    fun `a shipped list is copied out once and its file returned`() {
+        val p = prefixes()
+        val file = p.fileFor(Language.ENGLISH)!!
+        assertEquals("Mr\nMrs\n", file.readText())
+        assertEquals(file, p.fileFor(Language.ENGLISH))
+        assertEquals(1, opened.size)
+    }
+
+    @Test
+    fun `the app's splitter gets the same list, parsed`() {
+        assertEquals(setOf("Mr", "Mrs"), prefixes().forLanguage(Language.ENGLISH).always)
+        assertEquals(emptySet<String>(), prefixes().forLanguage(Language.JAPANESE).always)
+    }
+
+    @Test
+    fun `a language without a list gets none`() {
+        assertNull(prefixes().fileFor(Language.JAPANESE))
+    }
+
+    /** Storage full mid-copy: translation goes on without the list instead of failing every long paragraph. */
+    @Test
+    fun `a copy that fails gives no list and leaves no partial file`() {
+        val failing = SplitPrefixes(tmp.root) { object : java.io.InputStream() {
+            override fun read(): Int = throw java.io.IOException("No space left on device")
+        } }
+        assertNull(failing.fileFor(Language.ENGLISH))
+        assertEquals(emptySet<String>(), failing.forLanguage(Language.ENGLISH).always)
+        assertEquals(emptyList<String>(), tmp.root.list()!!.toList())
+    }
+
+    @Test
+    fun `a copy left empty by an interrupted write is replaced`() {
+        tmp.newFile("nonbreaking_prefix.en")   // zero bytes
+        assertEquals("Mr\nMrs\n", prefixes().fileFor(Language.ENGLISH)!!.readText())
+    }
+}

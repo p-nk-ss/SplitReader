@@ -66,6 +66,46 @@ class BergamotTranslationProviderTest {
         assertEquals("[en-ru]hello", provider().translate("hello", Language.ENGLISH, Language.RUSSIAN))
     }
 
+    /**
+     * Without a list of protected prefixes the engine ends a sentence at "Mrs." ("миссис. Лонг
+     * говорит…", eval 2026-11-25). Each model gets the list for the language it reads.
+     */
+    @Test
+    fun `each model splits sentences with the prefixes of the language it reads`() = runTest(dispatcher) {
+        val configs = mutableListOf<String>()
+        val bridge = object : NativeBridge by EchoBridge() {
+            private val echo = EchoBridge()
+            override fun load(configYaml: String): Long { configs += configYaml; return echo.load(configYaml) }
+            override fun translate(handle: Long, text: String) = echo.translate(handle, text)
+        }
+        val p = BergamotTranslationProvider(
+            FakeStore(), BergamotEngine(bridge, dispatcher), fullManifest(),
+            prefixFor = { File("/prefixes/nonbreaking_prefix.${it.code}") },
+        ) { File("/packs/${it.id}") }
+
+        p.translate("привет", Language.RUSSIAN, Language.GERMAN)
+
+        assertEquals(2, configs.size)
+        assertTrue(configs[0], configs[0].contains("ssplit-prefix-file: /prefixes/nonbreaking_prefix.ru"))
+        assertTrue(configs[1], configs[1].contains("ssplit-prefix-file: /prefixes/nonbreaking_prefix.en"))
+    }
+
+    @Test
+    fun `a language without a prefix list loads its model without one`() = runTest(dispatcher) {
+        val configs = mutableListOf<String>()
+        val bridge = object : NativeBridge by EchoBridge() {
+            private val echo = EchoBridge()
+            override fun load(configYaml: String): Long { configs += configYaml; return echo.load(configYaml) }
+            override fun translate(handle: Long, text: String) = echo.translate(handle, text)
+        }
+        val p = BergamotTranslationProvider(
+            FakeStore(), BergamotEngine(bridge, dispatcher), fullManifest(), prefixFor = { null },
+        ) { File("/packs/${it.id}") }
+
+        assertEquals("[ja-en]猫", p.translate("猫", Language.JAPANESE, Language.ENGLISH))
+        assertFalse(configs.single(), configs.single().contains("ssplit-prefix-file"))
+    }
+
     @Test
     fun `non-English pair pivots through English`() = runTest(dispatcher) {
         assertEquals("[en-de][ru-en]привет", provider().translate("привет", Language.RUSSIAN, Language.GERMAN))

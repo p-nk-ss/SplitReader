@@ -10,6 +10,9 @@ import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.Resolution
 import com.example.splitreader.domain.model.TranslationProvider
+import com.example.splitreader.domain.translator.AbbreviationSource
+import com.example.splitreader.domain.translator.Abbreviations
+import com.example.splitreader.domain.translator.Sentences
 import com.example.splitreader.domain.translator.TranslationProviderApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -77,6 +80,7 @@ class TranslationRepositoryImplTest {
             ),
             dao = dao,
             usageTracker = TranslationUsageTracker(context),
+            abbreviations = AbbreviationSource { if (it == Language.ENGLISH) Abbreviations.parse("Mr\nMrs") else Abbreviations.NONE },
         )
     }
 
@@ -179,6 +183,25 @@ class TranslationRepositoryImplTest {
     fun `into Chinese or Japanese the sentences join without spaces`() = runTest {
         val result = repo.translate("一人の下人。羅生門の下。", Language.JAPANESE, Language.CHINESE, TranslationProvider.MLKIT)
         assertEquals("ml:一人の下人。ml:羅生門の下。", result)
+    }
+
+    /**
+     * Translation eval 2026-11-25: Offline HQ dropped the end or the middle of sentences of ~600 chars
+     * (Melville, London); pieces of at most [Sentences.MAX_PIECE] came back whole. A full stop after an
+     * abbreviation is not a place to cut ("миссис. Лонг").
+     */
+    @Test
+    fun `a long paragraph goes to Offline HQ in pieces, never cut after an abbreviation`() = runTest {
+        val paragraph = "“Why, my dear, you must know, Mrs. Long says that Netherfield is taken by a young man " +
+            "of large fortune from the north of England; that he came down on Monday in a chaise and four to see " +
+            "the place, and was so much delighted with it that he agreed with Mr. Morris immediately; that he is " +
+            "to take possession before Michaelmas, and some of his servants are to be in the house by the end of next week.”"
+        repo.translate(paragraph, Language.ENGLISH, Language.RUSSIAN, TranslationProvider.BERGAMOT)
+
+        assertTrue("${bergamot.calls.size} calls", bergamot.calls.size > 1)
+        assertTrue(bergamot.calls.toString(), bergamot.calls.all { it.length <= Sentences.MAX_PIECE })
+        assertTrue(bergamot.calls.toString(), bergamot.calls.none { it.trimEnd().endsWith("Mrs.") || it.trimEnd().endsWith("Mr.") })
+        assertEquals(paragraph, bergamot.calls.joinToString(""))
     }
 
     @Test

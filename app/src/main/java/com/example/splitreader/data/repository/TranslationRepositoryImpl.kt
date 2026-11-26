@@ -6,6 +6,7 @@ import com.example.splitreader.data.local.TranslationUsageTracker
 import com.example.splitreader.domain.model.FallbackReason
 import com.example.splitreader.domain.model.Language
 import com.example.splitreader.domain.model.Resolution
+import com.example.splitreader.domain.translator.AbbreviationSource
 import com.example.splitreader.domain.translator.Sentences
 import com.example.splitreader.domain.model.TranslationProvider
 import com.example.splitreader.domain.repository.TranslationRepository
@@ -19,6 +20,7 @@ class TranslationRepositoryImpl @Inject constructor(
     private val providers: Map<TranslationProvider, @JvmSuppressWildcards TranslationProviderApi>,
     private val dao: TranslationDao,
     private val usageTracker: TranslationUsageTracker,
+    private val abbreviations: AbbreviationSource,
 ) : TranslationRepository {
 
     override fun resolve(provider: TranslationProvider, source: Language, target: Language): Resolution {
@@ -47,7 +49,9 @@ class TranslationRepositoryImpl @Inject constructor(
         val cacheKey = TranslationCacheKey.compute(provider, text, source, target) + if (split) SPLIT_KEY else ""
         dao.getCached(cacheKey)?.takeIf { it.originalText == text }?.let { return it.translatedText }
         val translated = if (split) {
-            Sentences.join(Sentences.split(text, source).map { api.translate(it, source, target) }, target)
+            Sentences.translateInPieces(text, source, target, abbreviations.forLanguage(source)) {
+                api.translate(it, source, target)
+            }
         } else {
             api.translate(text, source, target)
         }
@@ -68,6 +72,7 @@ class TranslationRepositoryImpl @Inject constructor(
 
     private companion object {
         /** Suffix of the cache key of a paragraph translated sentence by sentence ([Sentences]). */
-        const val SPLIT_KEY = "_s1"
+        // _s2 (v32): pieces respect abbreviations and line breaks; _s1 entries are translated anew.
+        const val SPLIT_KEY = "_s2"
     }
 }
