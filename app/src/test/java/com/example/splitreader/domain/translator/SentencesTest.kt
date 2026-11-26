@@ -58,6 +58,32 @@ class SentencesTest {
         assertTrue(pieces.toString(), pieces.dropLast(1).all { it.trimEnd().last() in ";," })
     }
 
+    /** Arabic clauses end in "؛" or "،", not ";" or "," — without them a long Arabic sentence was cut mid-clause. */
+    @Test
+    fun `an overlong Arabic sentence is cut at its own comma`() {
+        val sentence = "كان الرجل يمشي في الطريق الطويل نحو المدينة القديمة، " + "ثم توقف قليلا عند الباب الكبير ونظر حوله"
+        val pieces = Sentences.split(sentence, Language.ARABIC, maxChars = 70)
+        assertEquals(sentence, pieces.joinToString(""))
+        assertEquals('،', pieces.first().trimEnd().last())
+    }
+
+    /**
+     * Verse and epigraphs keep their line breaks and indentation (`<pre>` text). On a device the
+     * sentence iterator breaks after every line feed, and joining the pieces with spaces ran the
+     * lines together; the JVM iterator does not break there, so each line is checked to go alone.
+     */
+    @Test
+    fun `line breaks and indentation survive translation in pieces`() = kotlinx.coroutines.test.runTest {
+        val verse = "Fury said to a mouse, That he met in the house,\n    \"Let us both go to law: I will prosecute you.\"\n\n  The end."
+        val sent = mutableListOf<String>()
+        val out = Sentences.translateInPieces(verse, Language.ENGLISH, Language.RUSSIAN, english) { piece ->
+            sent += piece
+            piece.uppercase()
+        }
+        assertEquals(verse.uppercase(), out)
+        assertTrue(sent.toString(), sent.none { '\n' in it })
+    }
+
     @Test
     fun `a long English paragraph needs splitting, a short one does not`() {
         assertTrue(Sentences.needsSplitting("a".repeat(Sentences.MAX_PIECE + 1), Language.ENGLISH))

@@ -39,6 +39,17 @@ class SplitPrefixesTest {
         assertNull(prefixes().fileFor(Language.JAPANESE))
     }
 
+    /** Storage full mid-copy: translation goes on without the list instead of failing every long paragraph. */
+    @Test
+    fun `a copy that fails gives no list and leaves no partial file`() {
+        val failing = SplitPrefixes(tmp.root) { object : java.io.InputStream() {
+            override fun read(): Int = throw java.io.IOException("No space left on device")
+        } }
+        assertNull(failing.fileFor(Language.ENGLISH))
+        assertEquals(emptySet<String>(), failing.forLanguage(Language.ENGLISH).always)
+        assertEquals(emptyList<String>(), tmp.root.list()!!.toList())
+    }
+
     @Test
     fun `a copy left empty by an interrupted write is replaced`() {
         tmp.newFile("nonbreaking_prefix.en")   // zero bytes

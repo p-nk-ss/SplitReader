@@ -50,6 +50,38 @@ object Sentences {
         return sentences.flatMap { cut(it, maxChars) }.filter { it.isNotBlank() }
     }
 
+    /**
+     * [text] translated a piece at a time, line by line: verse and epigraphs keep their line breaks,
+     * blank lines and leading indentation (review of v32 — on a device the sentence iterator breaks
+     * after every line feed, and [join] ran the lines together with spaces).
+     */
+    suspend fun translateInPieces(
+        text: String,
+        source: Language,
+        target: Language,
+        abbreviations: Abbreviations,
+        translate: suspend (String) -> String,
+    ): String {
+        val out = StringBuilder()
+        var start = 0
+        val breaks: List<MatchResult?> = LINE_BREAK.findAll(text).toList() + listOf(null)
+        for (lineBreak in breaks) {
+            val end = lineBreak?.range?.first ?: text.length
+            val line = text.substring(start, end)
+            if (line.isBlank()) {
+                out.append(line)
+            } else {
+                val pieces = split(line, source, abbreviations = abbreviations).map { translate(it) }
+                out.append(line.takeWhile { it.isWhitespace() }).append(join(pieces, target))
+            }
+            if (lineBreak != null) out.append(lineBreak.value)
+            start = (lineBreak?.range?.last ?: text.length) + 1
+        }
+        return out.toString()
+    }
+
+    private val LINE_BREAK = Regex("\r\n|\n|\r")
+
     /** Translated pieces as one paragraph: spaced, except into a language written without spaces. */
     fun join(pieces: List<String>, target: Language): String =
         pieces.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(if (target in UNSPACED) "" else " ")
@@ -75,5 +107,5 @@ object Sentences {
         return pieces
     }
 
-    private val BREAKS = listOf("；：;:—", "，、,", " 　")
+    private val BREAKS = listOf("；：;:—؛", "，、,،", " 　")
 }

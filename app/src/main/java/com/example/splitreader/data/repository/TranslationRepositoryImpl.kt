@@ -49,11 +49,9 @@ class TranslationRepositoryImpl @Inject constructor(
         val cacheKey = TranslationCacheKey.compute(provider, text, source, target) + if (split) SPLIT_KEY else ""
         dao.getCached(cacheKey)?.takeIf { it.originalText == text }?.let { return it.translatedText }
         val translated = if (split) {
-            Sentences.join(
-                Sentences.split(text, source, abbreviations = abbreviations.forLanguage(source))
-                    .map { api.translate(it, source, target) },
-                target,
-            )
+            Sentences.translateInPieces(text, source, target, abbreviations.forLanguage(source)) {
+                api.translate(it, source, target)
+            }
         } else {
             api.translate(text, source, target)
         }
@@ -74,6 +72,7 @@ class TranslationRepositoryImpl @Inject constructor(
 
     private companion object {
         /** Suffix of the cache key of a paragraph translated sentence by sentence ([Sentences]). */
-        const val SPLIT_KEY = "_s1"
+        // _s2 (v32): pieces respect abbreviations and line breaks; _s1 entries are translated anew.
+        const val SPLIT_KEY = "_s2"
     }
 }
